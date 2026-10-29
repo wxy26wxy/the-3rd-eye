@@ -154,3 +154,33 @@ final class ConfigTests: XCTestCase {
     XCTAssertTrue(line.contains("https://"))
   }
 }
+
+final class TolerantDecodingTests: XCTestCase {
+  func testPrefsWithMissingKeysUseDefaults() throws {
+    let prefs = try JSONDecoder().decode(AccessPrefs.self, from: Data(#"{"highContrast":true}"#.utf8))
+    XCTAssertTrue(prefs.highContrast)
+    XCTAssertTrue(prefs.speakDescriptions)
+    XCTAssertTrue(prefs.voiceFirst)
+    XCTAssertFalse(prefs.largeText)
+    XCTAssertEqual(try JSONDecoder().decode(AccessPrefs.self, from: Data("{}".utf8)), AccessPrefs())
+    XCTAssertEqual(try JSONDecoder().decode(AccessPrefs.self, from: Data(#"{"largeText":"yes"}"#.utf8)).largeText, false, "wrong type keeps the default")
+  }
+
+  func testSplitWithMissingKeysUsesDefault() throws {
+    let split = try JSONDecoder().decode(Split.self, from: Data(#"{"creator_bps":6000}"#.utf8))
+    XCTAssertEqual(split, Split(creatorBps: 6000, orgBps: 3000, productionBps: 2000))
+  }
+
+  func testCreatorWithPartialPrefsAndSplitDecodes() throws {
+    let json = #"{"id":"c1","accessPrefs":{"largeText":true},"split":{}}"#
+    let creator = try JSONDecoder().decode(Creator.self, from: Data(json.utf8))
+    XCTAssertEqual(creator.accessPrefs?.largeText, true)
+    XCTAssertEqual(creator.split, .default)
+  }
+
+  func testPrefsRoundTrip() throws {
+    var prefs = AccessPrefs()
+    prefs.helperMode = true
+    XCTAssertEqual(try JSONDecoder().decode(AccessPrefs.self, from: JSONEncoder().encode(prefs)), prefs)
+  }
+}

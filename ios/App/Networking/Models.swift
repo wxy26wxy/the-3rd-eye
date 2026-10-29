@@ -15,6 +15,21 @@ struct AccessPrefs: Codable, Equatable, Hashable {
   var highContrast: Bool = false
   var largeText: Bool = false
   var helperMode: Bool = false
+
+  init() {}
+
+  /// Missing or mistyped keys keep their defaults (older profiles store fewer keys).
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    func flag(_ key: CodingKeys, _ fallback: Bool) -> Bool { ((try? c.decodeIfPresent(Bool.self, forKey: key)) ?? nil) ?? fallback }
+    let d = AccessPrefs()
+    voiceFirst = flag(.voiceFirst, d.voiceFirst)
+    simpleMode = flag(.simpleMode, d.simpleMode)
+    speakDescriptions = flag(.speakDescriptions, d.speakDescriptions)
+    highContrast = flag(.highContrast, d.highContrast)
+    largeText = flag(.largeText, d.largeText)
+    helperMode = flag(.helperMode, d.helperMode)
+  }
 }
 
 struct Split: Codable, Equatable, Hashable {
@@ -23,6 +38,21 @@ struct Split: Codable, Equatable, Hashable {
   var productionBps: Int
 
   static let `default` = Split(creatorBps: 5000, orgBps: 3000, productionBps: 2000)
+
+  init(creatorBps: Int, orgBps: Int, productionBps: Int) {
+    self.creatorBps = creatorBps
+    self.orgBps = orgBps
+    self.productionBps = productionBps
+  }
+
+  /// Missing keys take the default split's value.
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    func bps(_ key: CodingKeys, _ fallback: Int) -> Int { ((try? c.decodeIfPresent(Int.self, forKey: key)) ?? nil) ?? fallback }
+    creatorBps = bps(.creatorBps, Self.default.creatorBps)
+    orgBps = bps(.orgBps, Self.default.orgBps)
+    productionBps = bps(.productionBps, Self.default.productionBps)
+  }
 
   enum CodingKeys: String, CodingKey {
     case creatorBps = "creator_bps"

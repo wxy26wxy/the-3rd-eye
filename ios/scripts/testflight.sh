@@ -32,5 +32,5 @@ xcodebuild -exportArchive -archivePath "$archive" \
   -exportOptionsPlist ExportOptions.plist -exportPath "build/export-${build}" \
   -allowProvisioningUpdates ${auth[@]+"${auth[@]}"} \
   >> "$log" 2>&1 || { tail -20 "$log"; echo "upload failed; see $log" >&2; exit 1; }
-grep -E "Upload succeeded|EXPORT SUCCEEDED" "$log" | tail -1
+grep -E "Upload succeeded|EXPORT SUCCEEDED" "$log" | tail -1 || true
 echo "Uploaded ${version} (${build}), git $(git rev-parse --short HEAD). Record it in docs/deployments.md."

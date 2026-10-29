@@ -11,6 +11,7 @@ export function toCreator(c: CreatorRow) {
     id: c.id, slug: c.slug, displayName: c.displayName, studioName: c.studioName, avatarUrl: c.avatarUrl,
     bioShort: c.bioShort, storyText: c.storyText, storyVideoUrl: c.storyVideoUrl, storyVideoVtt: c.storyVideoVtt,
     mentionDisability: c.mentionDisability, accessPrefs: c.accessPrefs, split: c.split, isExample: c.isExample,
+    storyDraft: c.storyDraft ?? null,
   };
 }
 

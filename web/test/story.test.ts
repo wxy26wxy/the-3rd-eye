@@ -37,3 +37,12 @@ describe("Glimmer story writer", () => {
     expect((await w.draftStory("t", { mentionDisability: true, trace })).provider).toBe("meta-fallback");
   });
 });
+
+describe("hardTimeout", () => {
+  it("gives up on a call that ignores its abort signal", async () => {
+    const { hardTimeout } = await import("@/lib/ai/meta/story");
+    const never = new Promise<string>(() => undefined);
+    await expect(hardTimeout(never, 20, "stuck call")).rejects.toThrow(/stuck call timed out/);
+    await expect(hardTimeout(Promise.resolve("ok"), 20, "fast")).resolves.toBe("ok");
+  });
+});

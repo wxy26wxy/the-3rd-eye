@@ -5,12 +5,12 @@ import { upload } from "@vercel/blob/client";
 import { fmt, m } from "@/components/messages";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Switch } from "@/components/ui/Field";
+import { Field, Switch } from "@/components/ui/Field";
 import { UploadIcon, VideoIcon } from "@/components/ui/Icons";
 import { Loading, Status } from "@/components/ui/Loading";
-import { Title } from "@/components/ui/Text";
+import { Muted, Title } from "@/components/ui/Text";
 import { blobToWav } from "@/lib/audio/wav";
-import { api, extFor, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid } from "../api";
+import { api, extFor, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid, type Creator, type StoryDraft } from "../api";
 import { CreateScreen } from "../CreateScreen";
 import { describeError, ErrorNotice, type ScreenError } from "../errors";
 import { useCreator } from "../store";
@@ -42,7 +42,9 @@ export function StoryVideo() {
   const [prompts, setPrompts] = useState<string[]>(FALLBACK);
   const [file, setFile] = useState<File | null>(null);
   const [mention, setMention] = useState(false);
-  const [phase, setPhase] = useState<"pick" | "uploading" | "processing">("pick");
+  const [phase, setPhase] = useState<"pick" | "uploading" | "processing" | "draft" | "editing" | "saving">("pick");
+  const [draft, setDraft] = useState<StoryDraft | null>(null);
+  const [storyText, setStoryText] = useState("");
   const [error, setError] = useState<ScreenError | null>(null);
 
   useEffect(() => {
@@ -69,13 +71,74 @@ export function StoryVideo() {
           : undefined),
       ]);
       setPhase("processing");
-      await api("creators/me/story-video", { json: { videoUrl: blob.pathname, audioUrl, mentionDisability: mention } });
+      const updated = await api<Creator>("creators/me/story-video", { json: { videoUrl: blob.pathname, audioUrl, mentionDisability: mention } });
       void refresh();
+      if (updated.storyDraft?.story_text) {
+        // Glimmer stage: offer the story drafted from the creator's own words (Use / Edit / Skip).
+        setDraft(updated.storyDraft);
+        setStoryText(updated.storyDraft.story_text);
+        setPhase("draft");
+        return;
+      }
       router.push("/create/live");
     } catch (err) {
       setError(describeError(err));
       setPhase("pick");
     }
+  }
+
+  async function saveStory(text: string) {
+    setError(null);
+    setPhase("saving");
+    try {
+      await api("creators/me", { method: "PUT", json: { storyText: text.trim(), ...(draft?.bio_short ? { bioShort: draft.bio_short } : {}) } });
+      void refresh();
+      router.push("/create/live");
+    } catch (err) {
+      setError(describeError(err));
+      setPhase("editing");
+    }
+  }
+  function skipStory() {
+    void api("creators/me", { method: "PUT", json: { dismissStoryDraft: true } }).catch(() => undefined);
+    router.push("/create/live");
+  }
+
+  if (draft && (phase === "draft" || phase === "editing" || phase === "saving")) {
+    const editing = phase === "editing";
+    return (
+      <CreateScreen
+        title={m.create.story.draftTitle}
+        lead={m.create.story.draftCopy}
+        mascot="cheering"
+        footer={phase === "saving" ? null : editing ? (
+          <>
+            <Button block onClick={() => void saveStory(storyText)} disabled={!storyText.trim()}>{m.create.story.draftSave}</Button>
+            <Button block variant="ghost" arrow={false} onClick={skipStory}>{m.create.story.draftSkip}</Button>
+          </>
+        ) : (
+          <>
+            <Button block onClick={() => void saveStory(draft.story_text)}>{m.create.story.draftUse}</Button>
+            <Button block variant="secondary" arrow={false} onClick={() => setPhase("editing")}>{m.create.story.draftEdit}</Button>
+            <Button block variant="ghost" arrow={false} onClick={skipStory}>{m.create.story.draftSkip}</Button>
+          </>
+        )}
+      >
+        {phase === "saving" ? <Loading label={m.create.story.draftSaving} /> : null}
+        <Card pad="l" tone="white">
+          {editing ? (
+            <Field multiline rows={8} maxLength={4000} label={m.create.story.draftLabel} value={storyText} onChange={(e) => setStoryText(e.target.value)} />
+          ) : (
+            <>
+              <Title as="h2" size="m">{draft.headline}</Title>
+              <p>{draft.story_text}</p>
+            </>
+          )}
+        </Card>
+        <Muted>{draft.provider === "ollama" ? m.create.story.draftByGlimmer : m.create.story.draftBySpark}</Muted>
+        <ErrorNotice error={error} />
+      </CreateScreen>
+    );
   }
 
   const busy = phase !== "pick";

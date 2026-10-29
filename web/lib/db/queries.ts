@@ -55,7 +55,7 @@ export async function listCreators(): Promise<CreatorRow[]> {
 
 export type CreatorPatch = Partial<Pick<CreatorRow,
   "displayName" | "studioName" | "avatarUrl" | "bioShort" | "storyText" | "storyVideoUrl" | "storyVideoVtt"
-  | "storyVideoTranscript" | "mentionDisability" | "accessPrefs" | "split">>;
+  | "storyVideoTranscript" | "storyDraft" | "mentionDisability" | "accessPrefs" | "split">>;
 
 export async function updateCreator(id: string, patch: CreatorPatch): Promise<CreatorRow | null> {
   if (Object.keys(patch).length === 0) return getCreatorById(id);

@@ -23,6 +23,8 @@ const Body = z.object({
   storyText: z.string().trim().max(4000).nullable().optional(),
   accessPrefs: AccessPrefs.optional(),
   mentionDisability: z.boolean().optional(),
+  /** true discards the pending story draft (Skip); sending storyText also clears it. */
+  dismissStoryDraft: z.boolean().optional(),
 });
 
 export const PUT = route(async (req) => {
@@ -30,9 +32,10 @@ export const PUT = route(async (req) => {
   const body = await parseJson(req, Body);
   const current = await getCreatorById(creatorId);
   if (!current) notFound("Creator");
-  const { accessPrefs, ...rest } = body;
+  const { accessPrefs, dismissStoryDraft, ...rest } = body;
   const updated = await updateCreator(creatorId, {
     ...rest, ...(accessPrefs ? { accessPrefs: { ...current.accessPrefs, ...accessPrefs } } : {}),
+    ...(dismissStoryDraft || rest.storyText !== undefined ? { storyDraft: null } : {}),
   });
   return json(toCreator(updated!));
 });

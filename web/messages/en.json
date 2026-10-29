@@ -383,7 +383,17 @@
       "mentionHint": "Off by default. It's always your choice.",
       "submit": "Use this video",
       "skip": "Skip for now",
-      "selected": "Video ready: {name}"
+      "selected": "Video ready: {name}",
+      "draftTitle": "Here's a story we drafted from your video",
+      "draftCopy": "It uses your own words. Nothing is shown in the shop until you choose.",
+      "draftUse": "Use this story",
+      "draftEdit": "Edit it first",
+      "draftSkip": "Skip",
+      "draftSave": "Save my story",
+      "draftLabel": "Your story",
+      "draftSaving": "Saving your story…",
+      "draftByGlimmer": "Drafted by Muse Glimmer, an open model running on our own computer.",
+      "draftBySpark": "Drafted by Muse Spark (the open model was not reachable)."
     },
     "live": {
       "title": "You're live!",

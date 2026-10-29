@@ -2,6 +2,7 @@ import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
 import { json, parseJson, route } from "@/lib/http";
 import { updateCreator } from "@/lib/db/queries";
+import { draftStoryFor } from "@/lib/pipeline/story";
 import { toCreator } from "@/lib/api/dto";
 import { clientUploadPath, readClientUpload } from "@/lib/storage";
 import { ai } from "@/lib/ai/registry";
@@ -27,11 +28,22 @@ export const POST = route(async (req) => {
     console.warn("[story-video] captions failed:", err instanceof Error ? err.message : err);
   }
   // A new video never keeps the previous video's captions: null when captioning failed.
-  const creator = await updateCreator(creatorId, {
+  let creator = await updateCreator(creatorId, {
     storyVideoUrl: pathname,
     storyVideoVtt: captions?.vtt ?? null,
     storyVideoTranscript: captions?.transcript ?? null,
     ...(body.mentionDisability !== undefined ? { mentionDisability: body.mentionDisability } : {}),
   });
+  // Glimmer stage: draft a story from the creator's own words; shown for Use / Edit / Skip, never auto-published.
+  if (captions) {
+    const mention = creator?.mentionDisability ?? false; // already updated from the body above
+    try {
+      creator = (await draftStoryFor(creatorId, captions.transcript, { mentionDisability: mention })).creator ?? creator;
+    } catch (err) {
+      console.warn("[story-video] story draft failed:", err instanceof Error ? err.message : err);
+    }
+  } else {
+    creator = await updateCreator(creatorId, { storyDraft: null });
+  }
   return json(toCreator(creator!));
 });

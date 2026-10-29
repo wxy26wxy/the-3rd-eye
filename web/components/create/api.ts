@@ -1,10 +1,13 @@
 /** Client-side calls to /api/v1 through the same-origin forwarder (/create/bff). */
 export type ProductType = "sticker" | "tote";
 export type Split = { creator_bps: number; org_bps: number; production_bps: number };
+export type StoryDraft = { headline: string; bio_short: string; story_text: string; provider: "ollama" | "meta-fallback"; mentionDisability: boolean; createdAt: string };
 export type Creator = {
   id: string; slug: string; displayName: string; studioName: string | null; avatarUrl: string | null;
-  bioShort: string | null; storyVideoUrl: string | null; mentionDisability: boolean; split: Split;
+  bioShort: string | null; storyText?: string | null; storyVideoUrl: string | null; mentionDisability: boolean; split: Split;
   accessPrefs?: { speakDescriptions?: boolean } | null;
+  /** Story drafted from the video transcript (Glimmer stage); null until a captioned video exists. */
+  storyDraft?: StoryDraft | null;
 };
 export type ShapeResult = { prompt: string; style_notes: string; clarifying_question: string | null; spoken_confirmation: string };
 export type Artwork = {

@@ -1,8 +1,8 @@
 /**
  * Story and thank-you drafts on the open-weight Muse Glimmer model (`muse-glimmer`) via Ollama.
  * The schema goes in the system prompt; output is validated with zod. Attempts, 30 s each:
- *   1. native `POST <OLLAMA_BASE_URL minus /v1>/api/chat` with think:false, format:"json",
- *      num_predict 400 — fast; the reply ends with a literal `<|eot|>` that is stripped;
+ *   1. native `POST <OLLAMA_BASE_URL minus /v1>/api/chat` with think:false, `format` = the JSON
+ *      Schema (structured outputs), num_predict 700 — fast; the reply ends with a literal `<|eot|>` that is stripped;
  *   2. OpenAI-compatible `/v1/chat/completions` with response_format json_object,
  *      max_tokens 1500 (the model spends 100–300 tokens on `message.reasoning` before content)
  *      and reasoning_effort "low";
@@ -37,9 +37,20 @@ export function parseGlimmerJson(content: string): unknown {
   return JSON.parse(cleaned);
 }
 
+/**
+ * Rejects after `ms` even when the underlying request ignores its abort signal (seen live: a
+ * `/v1` call with a 30 s timeout and signal ran for 15 minutes while Ollama was busy).
+ */
+export function hardTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`${what} timed out after ${ms} ms`)), ms); });
+  return Promise.race([p, expired]).finally(() => clearTimeout(timer));
+}
+const OLLAMA_MS = 30_000;
+
 const defaultNative: NativeChat = async (body) => {
   const res = await fetch(`${nativeOllamaUrl()}/chat`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: callSignal(30_000),
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: callSignal(OLLAMA_MS),
   });
   if (!res.ok) throw new Error(`ollama ${res.status}`);
   return res.json();
@@ -48,7 +59,7 @@ const defaultNative: NativeChat = async (body) => {
 export function storyInstructions(mentionDisability: boolean): string {
   return [
     "You help an artist write the short story shown next to their art in an online shop.",
-    "Use only facts from the transcript. Keep the artist's own words and voice; write in the first person.",
+    "Use only facts from the transcript; do not add places, objects, feelings or events the artist did not mention. Keep the artist's own words and voice; write in the first person.",
     "headline: at most 8 words. bio_short: one sentence, at most 140 characters. story_text: 60–140 words, plain language.",
     mentionDisability
       ? "The artist chose to mention their disability: include it only as they described it, respectfully, never as the main point."
@@ -78,10 +89,11 @@ export class GlimmerStoryWriter implements StoryWriter {
       { role: "system" as const, content: `${system}\nReply with only a JSON object matching this JSON Schema:\n${JSON.stringify(schema)}` },
       { role: "user" as const, content: user },
     ];
-    const native = { model: MODELS.glimmer, messages, think: false, stream: false, format: "json", options: { num_predict: 400 } };
+    // `format` as the JSON Schema (Ollama structured outputs): with plain "json" Glimmer often answered `{}` (live, 2026-10-29).
+    const native = { model: MODELS.glimmer, messages, think: false, stream: false, format: schema, options: { num_predict: 700 } };
     try {
       return await traced(stage, "ollama", MODELS.glimmer, native, async () => {
-        const res = await (this.deps.native ?? defaultNative)(native);
+        const res = await hardTimeout((this.deps.native ?? defaultNative)(native), OLLAMA_MS + 2_000, "ollama native");
         return validator.parse(parseGlimmerJson(res.message?.content ?? ""));
       }, trace);
     } catch (err) {
@@ -89,7 +101,7 @@ export class GlimmerStoryWriter implements StoryWriter {
     }
     const compat = { model: MODELS.glimmer, messages, response_format: { type: "json_object" as const }, max_tokens: 1500, reasoning_effort: "low" as const };
     return traced(stage, "ollama", MODELS.glimmer, compat, async () => {
-      const res = await this.chat().create(compat, { timeout: 30_000, signal: callSignal(30_000) });
+      const res = await hardTimeout(this.chat().create(compat, { timeout: OLLAMA_MS, signal: callSignal(OLLAMA_MS) }), OLLAMA_MS + 2_000, "ollama /v1");
       return validator.parse(parseGlimmerJson(res.choices?.[0]?.message?.content ?? ""));
     }, trace);
   }

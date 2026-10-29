@@ -1,7 +1,9 @@
 /**
  * Vercel Blob implementation of Storage.
  * - Public store: BLOB_READ_WRITE_TOKEN.
- * - Private store: BLOB_PRIVATE_READ_WRITE_TOKEN. Until it is linked, private files go to the
+ * - Private store: selected by BLOB_PRIVATE_STORE_ID with OIDC credentials (the SDK reads
+ *   VERCEL_OIDC_TOKEN locally; on Vercel the credential is automatic). Private stores have no
+ *   read/write token. Only when BLOB_PRIVATE_STORE_ID is absent, private files go to the
  *   public store under `private/<sha256(pathname)>.<ext>` (unguessable because every logical
  *   pathname contains a random uuid). The database always keeps the logical pathname.
  * - Write-once: an existing pathname is never overwritten; a new suffixed pathname is written instead.
@@ -14,16 +16,19 @@ import type { PrivateStream, PutBody, Storage, StoredFile } from "./types";
 const BLOB_HOST_SUFFIX = ".blob.vercel-storage.com";
 let warned = false;
 
-function publicToken(): string | undefined {
-  return process.env.BLOB_READ_WRITE_TOKEN;
+type Creds = { token?: string; storeId?: string };
+
+function publicCreds(): Creds {
+  return { token: process.env.BLOB_READ_WRITE_TOKEN };
 }
-function privateToken(): string | undefined {
-  const t = process.env.BLOB_PRIVATE_READ_WRITE_TOKEN;
-  if (!t && !warned) {
+/** Private-store credentials (OIDC + store id), or null when the private store is not configured. */
+function privateCreds(): Creds | null {
+  const storeId = process.env.BLOB_PRIVATE_STORE_ID;
+  if (!storeId && !warned) {
     warned = true;
-    console.warn("[storage] BLOB_PRIVATE_READ_WRITE_TOKEN missing: private files use hashed pathnames in the public store");
+    console.warn("[storage] BLOB_PRIVATE_STORE_ID missing: private files use hashed pathnames in the public store");
   }
-  return t;
+  return storeId ? { storeId } : null;
 }
 
 function extOf(path: string): string {
@@ -41,9 +46,9 @@ function withSuffix(path: string): string {
   return `${base}-${randomBytes(4).toString("hex")}${ext}`;
 }
 
-async function exists(pathname: string, token: string | undefined): Promise<boolean> {
+async function exists(pathname: string, creds: Creds): Promise<boolean> {
   try {
-    await head(pathname, { token });
+    await head(pathname, creds);
     return true;
   } catch (err) {
     if (err instanceof BlobNotFoundError) return false;
@@ -62,37 +67,37 @@ async function streamToBuffer(stream: ReadableStream<Uint8Array>): Promise<Buffe
 export class BlobStorage implements Storage {
   async putPublic(path: string, data: PutBody, contentType: string): Promise<StoredFile> {
     let pathname = path;
-    for (let i = 0; i < 3 && (await exists(pathname, publicToken())); i++) pathname = withSuffix(path);
-    const res = await put(pathname, toBody(data), { access: "public", contentType, token: publicToken(), allowOverwrite: false });
+    for (let i = 0; i < 3 && (await exists(pathname, publicCreds())); i++) pathname = withSuffix(path);
+    const res = await put(pathname, toBody(data), { access: "public", contentType, ...publicCreds(), allowOverwrite: false });
     return { pathname: res.pathname, url: res.url };
   }
 
   async putPrivate(path: string, data: PutBody, contentType: string): Promise<StoredFile> {
-    const token = privateToken();
-    const physical = (logical: string) => (token ? logical : hashedPathname(logical));
-    const physToken = token ?? publicToken();
+    const priv = privateCreds();
+    const physical = (logical: string) => (priv ? logical : hashedPathname(logical));
+    const creds = priv ?? publicCreds();
     let logical = path;
-    for (let i = 0; i < 3 && (await exists(physical(logical), physToken)); i++) logical = withSuffix(path);
+    for (let i = 0; i < 3 && (await exists(physical(logical), creds)); i++) logical = withSuffix(path);
     const res = await put(physical(logical), toBody(data), {
-      access: token ? "private" : "public", contentType, token: physToken, allowOverwrite: false,
+      access: priv ? "private" : "public", contentType, ...creds, allowOverwrite: false,
     });
     return { pathname: logical, url: res.url };
   }
 
   /** Where a logical pathname physically lives. Client uploads are stored directly under their logical name. */
-  private candidates(path: string): { pathname: string; access: "public" | "private"; token: string | undefined }[] {
-    const token = privateToken();
-    const list: { pathname: string; access: "public" | "private"; token: string | undefined }[] = token
-      ? [{ pathname: path, access: "private", token }]
-      : [{ pathname: hashedPathname(path), access: "public", token: publicToken() }];
-    list.push({ pathname: path, access: "public", token: publicToken() });
+  private candidates(path: string): { pathname: string; access: "public" | "private"; creds: Creds }[] {
+    const priv = privateCreds();
+    const list: { pathname: string; access: "public" | "private"; creds: Creds }[] = priv
+      ? [{ pathname: path, access: "private", creds: priv }]
+      : [{ pathname: hashedPathname(path), access: "public", creds: publicCreds() }];
+    list.push({ pathname: path, access: "public", creds: publicCreds() });
     return list;
   }
 
   async getPrivateStream(path: string): Promise<PrivateStream | null> {
     for (const c of this.candidates(path)) {
       try {
-        const res = await get(c.pathname, { access: c.access, token: c.token });
+        const res = await get(c.pathname, { access: c.access, ...c.creds });
         if (res && res.statusCode === 200) return { stream: res.stream, contentType: res.blob.contentType, size: res.blob.size };
       } catch (err) {
         if (!(err instanceof BlobNotFoundError)) throw err;
@@ -105,13 +110,13 @@ export class BlobStorage implements Storage {
     for (const c of this.candidates(path)) {
       try {
         if (c.access === "private") {
-          if (!(await exists(c.pathname, c.token))) continue;
+          if (!(await exists(c.pathname, c.creds))) continue;
           const validUntil = Date.now() + ttlSeconds * 1000;
-          const signed = await issueSignedToken({ pathname: c.pathname, operations: ["get"], validUntil, token: c.token });
+          const signed = await issueSignedToken({ pathname: c.pathname, operations: ["get"], validUntil, ...c.creds });
           const { presignedUrl } = await presignUrl(signed, { operation: "get", pathname: c.pathname, access: "private", validUntil });
           return presignedUrl;
         }
-        const meta = await head(c.pathname, { token: c.token });
+        const meta = await head(c.pathname, c.creds);
         return meta.url;
       } catch (err) {
         if (!(err instanceof BlobNotFoundError)) throw err;
@@ -123,7 +128,7 @@ export class BlobStorage implements Storage {
   async delete(path: string): Promise<void> {
     for (const c of this.candidates(path)) {
       try {
-        await del(c.pathname, { token: c.token });
+        await del(c.pathname, c.creds);
       } catch (err) {
         if (!(err instanceof BlobNotFoundError)) throw err;
       }
@@ -135,7 +140,7 @@ export class BlobStorage implements Storage {
       const url = new URL(urlOrPathname);
       if (!url.hostname.endsWith(BLOB_HOST_SUFFIX)) throw new Error("Only Vercel Blob URLs can be read");
       if (url.hostname.includes(".private.")) {
-        const res = await get(urlOrPathname, { access: "private", token: privateToken() });
+        const res = await get(urlOrPathname, { access: "private", ...(privateCreds() ?? {}) });
         if (!res || res.statusCode !== 200) throw new Error("Blob not found");
         return streamToBuffer(res.stream);
       }

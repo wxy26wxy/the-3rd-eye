@@ -58,7 +58,7 @@ Order = OrderSummary & { shipNote, token }
 ThankYou { id, orderId, text, imageUrl, videoUrl, createdAt }
 Message { id, orderId, direction, body, createdAt, readAt }
 ```
-Private blob pathnames (`storyVideoUrl`, `printPngUrl`, `printSvgUrl`, `videoUrl`) are served through `GET /media/{pathname}` (auth or token-scoped) which streams or redirects to a presigned URL.
+Private blob pathnames (`storyVideoUrl`, `printPngUrl`, `printSvgUrl`, `videoUrl`) are served through `GET /media/{pathname}` (auth or token-scoped) which streams or redirects to a presigned URL. (T050 note: only `printPngUrl` and `printSvgUrl` are in the private store today; story and thank-you videos are client uploads in the public store, still referenced by pathname and served through `/media`. See docs/architecture.md "Storage".)
 
 ## Clarifications (T010 backend, 2026-10-28)
 Additive only; no existing field or path changed.

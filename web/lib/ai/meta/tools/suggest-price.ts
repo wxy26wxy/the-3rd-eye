@@ -4,12 +4,12 @@ import type { ToolContext, ToolDef } from "./types";
 
 export type Complexity = "simple" | "medium" | "detailed";
 
-/** Pure: sticker 400–700, tote 2200–3000 cents, by complexity; rounded to 50 cents. */
+/** Pure: sticker 400–700, tote 2200–3000 cents, by complexity; rounded to 50 cents. Earnings round down, like order shares. */
 export function suggestPrice(productType: ToolContext["productType"], complexity: Complexity, creatorShareBps: number) {
   const { min, max } = PRICE_RANGES[productType];
   const f = complexity === "simple" ? 0 : complexity === "medium" ? 0.5 : 1;
   const price = Math.round((min + (max - min) * f) / 50) * 50;
-  return { price_cents: price, range: { min, max }, creator_earns_cents: Math.round((price * creatorShareBps) / 10_000) };
+  return { price_cents: price, range: { min, max }, creator_earns_cents: Math.floor((price * creatorShareBps) / 10_000) };
 }
 
 export const suggestPriceTool: ToolDef = {

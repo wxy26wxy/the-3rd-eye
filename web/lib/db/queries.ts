@@ -173,7 +173,7 @@ function shopSelect() {
 }
 
 export async function listPublishedProducts(filter: { type?: ProductType; madeByVoice?: boolean; creatorId?: string; limit?: number } = {}): Promise<ShopProduct[]> {
-  const conds = [eq(products.status, "published"), isNull(products.deletedAt), isNull(creators.deletedAt)];
+  const conds = [eq(products.status, "published"), isNull(products.deletedAt), isNull(creators.deletedAt), isNull(artworks.deletedAt)];
   if (filter.type) conds.push(eq(products.type, filter.type));
   if (filter.creatorId) conds.push(eq(products.creatorId, filter.creatorId));
   if (filter.madeByVoice) conds.push(eq(artworks.source, "text2image"));
@@ -182,7 +182,8 @@ export async function listPublishedProducts(filter: { type?: ProductType; madeBy
 
 export async function getPublicProduct(id: string): Promise<ShopProduct | null> {
   const [row] = await shopSelect()
-    .where(and(eq(products.id, id), eq(products.status, "published"), isNull(products.deletedAt))).limit(1);
+    .where(and(eq(products.id, id), eq(products.status, "published"), isNull(products.deletedAt),
+      isNull(creators.deletedAt), isNull(artworks.deletedAt))).limit(1);
   return row ?? null;
 }
 
@@ -304,7 +305,8 @@ export async function getStoryTag(token: string): Promise<StoryTagView | null> {
     .innerJoin(products, eq(products.id, orders.productId))
     .innerJoin(creators, eq(creators.id, orders.creatorId))
     .leftJoin(listings, eq(listings.productId, orders.productId))
-    .where(and(eq(nfcTokens.token, token), isNull(nfcTokens.deletedAt), isNull(orders.deletedAt))).limit(1);
+    .where(and(eq(nfcTokens.token, token), isNull(nfcTokens.deletedAt), isNull(orders.deletedAt),
+      isNull(products.deletedAt), isNull(creators.deletedAt))).limit(1);
   if (!row) return null;
   const [thankYou, msgs] = await Promise.all([getThankYou(row.order.id), listMessages(row.order.id)]);
   return { ...row, thankYou, messages: msgs };

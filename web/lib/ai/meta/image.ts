@@ -2,8 +2,8 @@
  * Muse Image 1.0 via the Responses API. generate() runs n calls in parallel;
  * refine() continues with previous_response_id; compose() sends several input_image parts.
  * The PNG is the base64 `result` of the `image_generation_call` output item.
- * UNVERIFIED: whether Muse Image wants the `image_generation` tool entry (sent here, as in
- * the OpenAI Responses convention) — scripts/probe_meta.ts tries both shapes.
+ * verified: 2026-10-28 — the `image_generation` tool entry (output_format png) is accepted;
+ * native resolution is 1600×1600 whatever `size` says (docs/architecture.md "Live findings").
  */
 import "server-only";
 import sharp from "sharp";

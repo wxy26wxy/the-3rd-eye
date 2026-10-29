@@ -3,7 +3,9 @@
  * Tools: check_resolution, check_contrast, suggest_price, moderate_content, finalize_listing.
  * Tool results go back as function_call_output with previous_response_id. If the model never
  * calls finalize_listing, one final strict-JSON call forces the listing. Returns the full trace.
- * UNVERIFIED against the live API (tool-call output shape follows the Responses convention).
+ * verified: 2026-10-28 — function tools, function_call_output + previous_response_id and
+ * tool_choice "auto" work live. The publish gate does not trust the model's print_ok or
+ * moderation claims: lib/pipeline/products.ts recomputes both from the tool results (T050).
  */
 import "server-only";
 import type { AgentStep, ListingAgent, ListingDraft, Trace } from "../types";

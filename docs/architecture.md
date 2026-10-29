@@ -9,9 +9,9 @@ One Next.js app (`web/`) on Vercel serves the shop, story-tag pages, admin, and 
 | Shape prompt, describe images, listing agent, prompts | `muse-spark-1.3` | Responses API `POST https://api.meta.ai/v1/responses` |
 | Generate / refine / compose images | `muse-image-1.0` | Responses API (`previous_response_id` for refine) or `/v1/images/*` |
 | Find & cut out drawings | `sam-3.1` | Responses API, `stream: true`, parsed with `@meta-sam/parser` |
-| Story / thank-you drafts (open weights) | `muse-glimmer` (Muse Glimmer 30B, Apache-2.0) | Ollama OpenAI-compatible `${OLLAMA_BASE_URL}/chat/completions`, default `http://localhost:11434/v1`; falls back to `muse-spark-1.3` |
+| Story / thank-you drafts (open weights) | `muse-glimmer` (Muse Glimmer 30B, Apache-2.0) | Ollama on the development Mac, in this order: native `POST <OLLAMA_BASE_URL without /v1>/api/chat` (JSON Schema `format`), then OpenAI-compatible `${OLLAMA_BASE_URL}/chat/completions` (default `http://localhost:11434/v1`), then `muse-spark-1.3` (`provider: "meta-fallback"`, always on Vercel) |
 
-Status of request shapes: **UNVERIFIED until the first live call** (keys pending). Each module records `verified: <date>` in its header comment once a live probe succeeds; `scripts/probe_*.ts` perform the probes and write fixtures.
+Status of request shapes: all live-verified on 2026-10-28 except where the table at the bottom says otherwise. Each module records `verified: <date>` in its header comment once a live probe succeeds; `scripts/probe_*.ts` perform the probes and write fixtures.
 
 ## Facts that shaped the code
 - Meta Model API: `Authorization: Bearer $META_API_KEY`; OpenAI SDK works with `baseURL: https://api.meta.ai/v1`. Keys stay server-side.
@@ -27,7 +27,7 @@ Status of request shapes: **UNVERIFIED until the first live call** (keys pending
 ## Storage
 - Public store `maker-story-public` → `BLOB_READ_WRITE_TOKEN` (linked).
 - Private store `maker-story-private` → linked with prefix `BLOB_PRIVATE`. Private stores have no read/write token: `lib/storage` selects it with `storeId: BLOB_PRIVATE_STORE_ID` and OIDC credentials (the SDK reads `VERCEL_OIDC_TOKEN` locally via `@vercel/oidc`; on Vercel it is automatic), `access: "private"`. Short-lived read URLs come from `issueSignedToken` + `presignUrl`. Only when `BLOB_PRIVATE_STORE_ID` is absent does it fall back to the public store under `private/<sha256(pathname)>.<ext>` (logged once). Verified live 2026-10-28 (put, write-once, read, presigned GET, delete).
-- What goes where: public = cleaned art, thumbs, mockups, client uploads (`POST /uploads` uses the public token; story videos are public by design); private = generated/photo originals, masks, print PNG, die-cut SVG. The database stores logical pathnames for private files; `/media/<pathname>` serves them (rules in docs/api.md "Clarifications").
+- What goes where: public = cleaned art, thumbs, mockups, client uploads (`POST /uploads` uses the public token: story videos, thank-you media and caption soundtracks are public by design under unguessable pathnames; photo uploads are deleted once the private original exists); private = generated/photo originals, masks, print PNG (stickers and totes), die-cut SVG. Where `docs/api.md` calls `storyVideoUrl` and thank-you `videoUrl` "private pathnames", read "pathnames served through `/media`": they live in the public store today. The database stores logical pathnames for private files; `/media/<pathname>` serves them (rules in docs/api.md "Clarifications").
 
 ## Env vars
 `META_API_KEY`, `OLLAMA_BASE_URL`, `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `BLOB_PRIVATE_STORE_ID`, `VERCEL_OIDC_TOKEN` (local only), `CREATOR_SESSION_SECRET`, `ADMIN_PASSWORD`, `PAYMENTS_MODE`, `NEXT_PUBLIC_SITE_URL`, `AI_FIXTURES`, `AI_STORY`, `FFMPEG_PATH` (optional, local audio conversion).

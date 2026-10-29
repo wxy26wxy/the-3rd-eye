@@ -1,6 +1,6 @@
 /**
  * Muse Spark 1.3 vision: describes a result for the artist (spoken aloud on-device)
- * and for alt text. Strict JSON per the `Description` type. UNVERIFIED until live.
+ * and for alt text. Strict JSON per the `Description` type. verified: 2026-10-28 (live probe and seed).
  */
 import "server-only";
 import type { Describer, Description, ImageRef, Trace } from "../types";

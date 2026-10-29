@@ -25,6 +25,7 @@ describe("listing tool handlers (pure)", () => {
     expect(suggestPrice("sticker", "simple", 5000).price_cents).toBe(400);
     expect(suggestPrice("sticker", "detailed", 5000).price_cents).toBe(700);
     expect(suggestPrice("tote", "medium", 5000)).toMatchObject({ price_cents: 2600, creator_earns_cents: 1300 });
+    expect(suggestPrice("sticker", "medium", 3337).creator_earns_cents).toBe(183); // 183.5 rounds down, like order shares
   });
 
   it("normalizeListing clamps price, trims and caps tags", () => {

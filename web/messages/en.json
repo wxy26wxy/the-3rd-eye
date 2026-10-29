@@ -69,7 +69,8 @@
     "stepLabel": "Step {n}",
     "meetTitle": "Meet the artist",
     "meetCta": "See {name}'s work",
-    "meetEmpty": "Our first artists are getting ready. Meet them soon."
+    "meetEmpty": "Our first artists are getting ready. Meet them soon.",
+    "heroBurst": "Tap to meet the artist!"
   },
   "product": {
     "metaFallback": "Product",

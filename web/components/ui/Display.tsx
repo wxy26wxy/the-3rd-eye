@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import styles from "./Display.module.css";
 
 type Props = {
-  as?: "h1" | "h2" | "h3" | "p";
+  as?: "h1" | "h2" | "h3" | "p" | "span";
   size?: "xl" | "l" | "m";
   /** onGround: cream fill + ink stroke (on green). onCream: ink fill (on cream cards). */
   tone?: "onGround" | "onCream";

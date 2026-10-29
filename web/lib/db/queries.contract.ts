@@ -12,6 +12,7 @@
  * The signatures are the contract; keep them stable.
  */
 import "server-only";
+import { connection } from "next/server";
 import type { InferSelectModel } from "drizzle-orm";
 import type { aiCalls, artworks, creators } from "./schema";
 
@@ -94,10 +95,13 @@ export type ArtworkTrace = {
 type WriteOpts = { task: string };
 
 const useFixtures = () => process.env.WEB_FIXTURES === "1";
+/** Shop data must be fresh per request (new listings appear immediately). Keep when binding. */
+const fresh = () => connection();
 
 // ---------------------------------------------------------------- reads
 
 export async function listShopProducts(filter: ShopFilter = "all"): Promise<ShopProduct[]> {
+  await fresh();
   // TODO(T010): bind to queries.listShopProducts
   if (!useFixtures()) return [];
   const { FIXTURE_PRODUCTS } = await import("./queries.fixtures");
@@ -107,6 +111,7 @@ export async function listShopProducts(filter: ShopFilter = "all"): Promise<Shop
 }
 
 export async function getProductDetail(id: string): Promise<ProductDetail | null> {
+  await fresh();
   // TODO(T010): bind to queries.getProductDetail
   if (!useFixtures()) return null;
   const f = await import("./queries.fixtures");
@@ -114,6 +119,7 @@ export async function getProductDetail(id: string): Promise<ProductDetail | null
 }
 
 export async function listPublicCreators(): Promise<CreatorSummary[]> {
+  await fresh();
   // TODO(T010): bind to queries.listPublicCreators
   if (!useFixtures()) return [];
   const { FIXTURE_CREATORS } = await import("./queries.fixtures");
@@ -122,6 +128,7 @@ export async function listPublicCreators(): Promise<CreatorSummary[]> {
 
 /** The creator featured in the shop's MEET THE ARTIST block (most recent with a story video). */
 export async function getFeaturedCreator(): Promise<PublicCreator | null> {
+  await fresh();
   // TODO(T010): bind to queries.getFeaturedCreator
   if (!useFixtures()) return null;
   const { FIXTURE_CREATORS } = await import("./queries.fixtures");
@@ -129,6 +136,7 @@ export async function getFeaturedCreator(): Promise<PublicCreator | null> {
 }
 
 export async function getCreatorProfile(slug: string): Promise<CreatorProfile | null> {
+  await fresh();
   // TODO(T010): bind to queries.getCreatorProfile
   if (!useFixtures()) return null;
   const f = await import("./queries.fixtures");
@@ -137,6 +145,7 @@ export async function getCreatorProfile(slug: string): Promise<CreatorProfile | 
 
 /** WebVTT text for a creator's story video, or null. */
 export async function getCreatorCaptions(creatorId: string): Promise<string | null> {
+  await fresh();
   // TODO(T010): bind to queries.getCreatorCaptions
   if (!useFixtures()) return null;
   const { FIXTURE_CREATORS } = await import("./queries.fixtures");
@@ -144,6 +153,7 @@ export async function getCreatorCaptions(creatorId: string): Promise<string | nu
 }
 
 export async function getStoryTag(token: string): Promise<StoryTagView | null> {
+  await fresh();
   // TODO(T010): bind to queries.getStoryTag
   if (!useFixtures()) return null;
   const f = await import("./queries.fixtures");
@@ -151,12 +161,14 @@ export async function getStoryTag(token: string): Promise<StoryTagView | null> {
 }
 
 export async function getOrderConfirmation(orderId: string): Promise<OrderConfirmation | null> {
+  await fresh();
   // TODO(T010): bind to queries.getOrderConfirmation
   if (!useFixtures()) return null;
   return { orderId, token: "EXAMPLETAG01", productTitle: "Sunny Frog", creatorName: "Mira" };
 }
 
 export async function listAdminOrders(): Promise<AdminOrder[]> {
+  await fresh();
   // TODO(T010): bind to queries.listAdminOrders
   if (!useFixtures()) return [];
   const { FIXTURE_ORDERS } = await import("./queries.fixtures");
@@ -164,6 +176,7 @@ export async function listAdminOrders(): Promise<AdminOrder[]> {
 }
 
 export async function getArtworkTrace(artworkId: string): Promise<ArtworkTrace | null> {
+  await fresh();
   // TODO(T010): bind to queries.getArtworkTrace
   if (!useFixtures()) return null;
   const f = await import("./queries.fixtures");

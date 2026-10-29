@@ -67,6 +67,8 @@ final class APIClient: @unchecked Sendable {
     do {
       (data, response) = try await transport.data(for: request)
     } catch {
+      // A cancelled task (screen left, retry) must stay a CancellationError so callers can ignore it.
+      if APIError.isCancellation(error) { throw CancellationError() }
       throw APIError.transport(error.localizedDescription)
     }
     guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }

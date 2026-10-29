@@ -184,3 +184,30 @@ final class TolerantDecodingTests: XCTestCase {
     XCTAssertEqual(try JSONDecoder().decode(AccessPrefs.self, from: JSONEncoder().encode(prefs)), prefs)
   }
 }
+
+final class CancellationTests: XCTestCase {
+  private struct Throwing: HTTPTransport {
+    let error: Error
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) { throw error }
+  }
+
+  func testCancelledRequestIsCancellationError() async {
+    let api = APIClient(baseURL: URL(string: "http://localhost:3000/api/v1")!, transport: Throwing(error: URLError(.cancelled)), token: "t")
+    do {
+      _ = try await api.me()
+      XCTFail("expected error")
+    } catch {
+      XCTAssertTrue(error is CancellationError, "got \(error)")
+    }
+  }
+
+  func testOfflineIsStillTransportError() async {
+    let api = APIClient(baseURL: URL(string: "http://localhost:3000/api/v1")!, transport: Throwing(error: URLError(.notConnectedToInternet)), token: "t")
+    do {
+      _ = try await api.me()
+      XCTFail("expected error")
+    } catch {
+      guard case .transport? = error as? APIError else { return XCTFail("got \(error)") }
+    }
+  }
+}

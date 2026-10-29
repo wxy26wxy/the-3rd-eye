@@ -9,6 +9,8 @@ struct StoryVideoView: View {
   @State private var recording = false
   @State private var uploading = false
   @State private var error: String?
+  @State private var cameraDenied = false
+  @State private var videoFromLibrary = false
   @State private var draft: StoryDraft?
 
   static let defaultPrompts = [
@@ -55,10 +57,16 @@ struct StoryVideoView: View {
           .accessibilityElement(children: .combine)
           SlowWorkHint()
         }
+        if cameraDenied {
+          CameraDeniedCard(message: "Camera access is off, so I can't record your video. You can turn it on, or choose a video you already have.", libraryLabel: "Choose a video instead") {
+            videoFromLibrary = true
+            recording = true
+          }
+        }
         if let error { ErrorCard(message: error) }
       }
     } actions: {
-      PillButton("Record my video", hint: "Opens the camera for up to 30 seconds") { recording = true }
+      PillButton("Record my video", hint: "Opens the camera for up to 30 seconds") { Task { await startRecording() } }
         .disabled(uploading)
       PillButton("Skip for now", hint: "We'll ask again the next time you list something", kind: .secondary, showsArrow: false) {
         app.push(.youreLive)
@@ -66,7 +74,7 @@ struct StoryVideoView: View {
       .disabled(uploading)
     }
     .fullScreenCover(isPresented: $recording) {
-      MediaPicker(mode: .video(maxSeconds: ThemeEffects.storyVideoSeconds)) { picked in
+      MediaPicker(mode: .video(maxSeconds: ThemeEffects.storyVideoSeconds), preferCamera: !videoFromLibrary) { picked in
         recording = false
         if case .video(let url)? = picked { Task { await upload(url) } }
       }
@@ -82,6 +90,14 @@ struct StoryVideoView: View {
   }
 
   /// Leaves the draft sheet (Use, Edit + Save, Skip, or swipe down) for "Video saved!".
+  private func startRecording() async {
+    let access = await CameraAccess.request()
+    cameraDenied = access == .denied
+    guard !cameraDenied else { return }
+    videoFromLibrary = false
+    recording = true
+  }
+
   private func draftDone() {
     guard draft != nil else { return }
     draft = nil

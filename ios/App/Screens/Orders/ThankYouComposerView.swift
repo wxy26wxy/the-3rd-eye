@@ -21,6 +21,8 @@ struct ThankYouComposerView: View {
   @State private var uploading = false
   @State private var sending = false
   @State private var error: String?
+  @State private var cameraDenied = false
+  @State private var videoFromLibrary = false
 
   var body: some View {
     FlowScreen(title: "Say thank you", subtitle: "The buyer sees this when they tap the story tag.") {
@@ -64,11 +66,17 @@ struct ThankYouComposerView: View {
           }
           .buttonStyle(PillButtonStyle(kind: .secondary, showsArrow: false))
           .accessibilityHint(Text("Adds a picture from your library"))
-          Button { recordingVideo = true } label: {
+          Button { Task { await startRecording() } } label: {
             Label("Add a video", systemImage: "video.fill")
           }
           .buttonStyle(PillButtonStyle(kind: .secondary, showsArrow: false))
           .accessibilityHint(Text("Records up to 15 seconds"))
+        }
+        if cameraDenied {
+          CameraDeniedCard(message: "Camera access is off, so I can't record a video. You can turn it on, or choose a video you already have.", libraryLabel: "Choose a video instead") {
+            videoFromLibrary = true
+            recordingVideo = true
+          }
         }
         if let error { ErrorCard(message: error) }
       }
@@ -87,12 +95,20 @@ struct ThankYouComposerView: View {
       Task { await uploadPhoto(item) }
     }
     .fullScreenCover(isPresented: $recordingVideo) {
-      MediaPicker(mode: .video(maxSeconds: ThemeEffects.thankYouVideoSeconds)) { picked in
+      MediaPicker(mode: .video(maxSeconds: ThemeEffects.thankYouVideoSeconds), preferCamera: !videoFromLibrary) { picked in
         recordingVideo = false
         if case .video(let url)? = picked { Task { await uploadVideo(url) } }
       }
       .ignoresSafeArea()
     }
+  }
+
+  private func startRecording() async {
+    let access = await CameraAccess.request()
+    cameraDenied = access == .denied
+    guard !cameraDenied else { return }
+    videoFromLibrary = false
+    recordingVideo = true
   }
 
   private func creatorId() async throws -> String {

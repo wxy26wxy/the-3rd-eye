@@ -9,6 +9,7 @@ struct CameraView: View {
   @State private var showingCamera = false
   @State private var libraryItem: PhotosPickerItem?
   @State private var error: String?
+  @State private var cameraDenied = false
 
   var body: some View {
     FlowScreen(
@@ -23,11 +24,14 @@ struct CameraView: View {
             .themeFont(.bodyS)
             .foregroundStyle(colors.textMuted)
         }
+        if cameraDenied {
+          CameraDeniedCard(message: "Camera access is off, so I can't take the photo. You can turn it on, or pick a picture from your photos below.")
+        }
         if let error { ErrorCard(message: error) }
       }
     } actions: {
       if source == .camera && MediaPicker.cameraAvailable {
-        PillButton("Open the camera", hint: "Takes a photo of your drawing") { showingCamera = true }
+        PillButton("Open the camera", hint: "Takes a photo of your drawing") { Task { await openCamera() } }
       }
       PhotosPicker(selection: $libraryItem, matching: .images) {
         Text("Choose from my photos")
@@ -58,8 +62,16 @@ struct CameraView: View {
     }
     .onAppear {
       if source == .camera && MediaPicker.cameraAvailable && app.prefs.simpleMode && app.flow.photo == nil {
-        showingCamera = true
+        Task { await openCamera() }
       }
+    }
+  }
+
+  private func openCamera() async {
+    switch await CameraAccess.request() {
+    case .allowed: cameraDenied = false; showingCamera = true
+    case .denied: cameraDenied = true
+    case .unavailable: break
     }
   }
 

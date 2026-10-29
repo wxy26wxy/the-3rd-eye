@@ -85,6 +85,8 @@ struct OrderDetailView: View {
     do {
       detail = try await app.api.order(id: orderId)
       error = nil
+    } catch is CancellationError {
+      return
     } catch {
       self.error = error.localizedDescription
     }

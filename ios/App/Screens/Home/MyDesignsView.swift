@@ -46,6 +46,8 @@ struct MyDesignsView: View {
     do {
       artworks = try await app.api.myArtworks()
       error = nil
+    } catch is CancellationError {
+      return
     } catch {
       self.error = error.localizedDescription
     }

@@ -1,0 +1,5 @@
+{
+  "status": 200,
+  "note": "Live response for a 4.6 s synthetic speech WAV (macOS say), recorded 2026-10-28; sessionId removed.",
+  "body": { "transcript": "Hello. I want a happy green frog wearing a tiny crown. It should be smiling.", "audioDurationMs": 4640, "turns": [] }
+}

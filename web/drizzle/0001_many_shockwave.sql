@@ -1,0 +1,1 @@
+ALTER TABLE "artworks" ADD COLUMN "last_error" text;

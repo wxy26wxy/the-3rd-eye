@@ -1,0 +1,12 @@
+{
+  "status": 400,
+  "body": {
+    "sessionId": "voyager/transcribe/BFDF745C0B4248749781465D3E1580C8",
+    "error": {
+      "code": null,
+      "param": null,
+      "type": "invalid_request_error",
+      "message": "Both a 'request' and an 'audio' part are required"
+    }
+  }
+}

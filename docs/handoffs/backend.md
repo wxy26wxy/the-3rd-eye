@@ -1,16 +1,34 @@
 # Handoff · backend
 
 ## Owns
-_(paths)_
+`web/lib/**` (extends but does not break `lib/ai/types.ts`, `lib/db/schema.ts`), `web/app/api/**`, `web/app/media/**`, `web/drizzle/**`, `web/test/**`, `web/vitest.config.ts`, `scripts/seed.ts`, `scripts/probe_meta.ts`, appends to `docs/architecture.md`, `docs/decisions.md`, `docs/progress.md`.
 
 ## Current task
-_(T### and one line)_
+T010 · backend and AI pipeline behind `docs/api.md` — done on `feat/backend-T01x`; live against Meta models, Neon and Blob.
 
 ## Interface exposed to others
-_(what other roles can rely on)_
+- **Data access** (`@/lib/db/queries`): creators (`getCreatorById/BySlug/ByLoginCode`, `listCreators`, `updateCreator`), artworks (`insertArtwork`, `getArtwork`, `listArtworksByCreator`, …), shop (`listPublishedProducts({ type?, madeByVoice?, creatorId?, limit? })`, `getPublicProduct(id)` → `{ product, listing, creator, artwork }`), `listProductsByCreator`, story tag (`getStoryTag(token)` → token/order/product/listing/creator/thankYou/messages), admin (`listOrdersAdmin()`, `updateOrderStatus(id, status)`, `listAiCallsForArtwork(id)`), `isStoryVideoPath`. All soft-delete aware.
+- **Public actions** (`@/lib/pipeline/public`): `placeOrder(productId, { buyerName, buyerEmail?, shipNote? })` → `{ orderId, token }`, `tap(token)` → `{ tapCount }`, `sendReply(token, body)` → message. Same over HTTP at `/api/v1/public/{orders,tap,reply}`.
+- **Auth** (`@/lib/auth`): `checkAdminAuth(authorizationHeader)` and `adminChallenge()` for `proxy.ts`; `signCreatorToken`, `verifyCreatorToken`, `requireCreator(req)`; cookie name `CREATOR_COOKIE = "ms_creator"` (set by `POST /api/v1/auth/code`).
+- **API** exactly per `docs/api.md`, plus its "Clarifications" section (media access rule, upload kinds, WAV audio, `audioUrl` for captions, `cutPathSvg` in a 0–100 viewBox, `split` on Creator).
+- **AI registry** (`@/lib/ai/registry` → `ai()`): `AI_FIXTURES=1` gives an offline registry (procedural art, no keys); `AI_STORY=ollama|meta` (default ollama; Spark fallback when Ollama is unreachable, e.g. on Vercel). Tracing via `traced()` in `@/lib/ai/trace`.
+- **Commands** (from `web/`): `pnpm test`; `pnpm db:generate`; `pnpm exec dotenv -e .env.local -- drizzle-kit push`; `pnpm seed`; `pnpm probe [transcribe spark image sam ollama]`.
+
+## Seeded example creators (fictional, `isExample: true`)
+Dev-mode login codes for `POST /api/v1/auth/code` (case-insensitive):
+
+| Slug | Name · Studio | Login code | Products |
+|---|---|---|---|
+| `leo` | Leo · Sunrise Art Studio | `LEO-SUNRISE-1` | bus sticker (canvas flow), bus tote |
+| `maya-ortiz` | Maya Ortiz · Riverbend Creative Arts | `MAYA-RIVER-2` | cat sticker, lighthouse sticker (voice flow) |
+| `june-park` | June Park · Open Door Art Collective | `JUNE-DOOR-3` | cactus sticker, birds tote (voice flow) |
+
+No creator has a story video yet (`storyVideoNeeded: true` on approve).
 
 ## Open questions for other roles
-_(none)_
+- **web**: send WAV to `/transcribe` and an `audioUrl` WAV with story/thank-you videos (Vercel has no ffmpeg). Render `cutPathSvg` with `overflow: visible`.
+- **ios**: record Linear PCM WAV; upload story videos with kind `story-video`; send the soundtrack WAV as `audioUrl`.
+- **pm/ops**: set `CREATOR_SESSION_SECRET`, `ADMIN_PASSWORD`, `META_API_KEY`, `DATABASE_URL`, `BLOB_PRIVATE_STORE_ID` in Vercel production. A product build can take 60–120 s (mockup compose ≈ 16 s); the slowest seed item took 303 s locally, so watch `maxDuration` (300 s) on `/artworks` with `n` > 2.
 
 ## Last updated
 2026-10-28

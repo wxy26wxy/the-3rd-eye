@@ -3,8 +3,8 @@ import type { TranscribeProvider, PromptShaper, ImageProvider, Segmenter, Descri
 
 /**
  * The only place that knows about concrete providers. Selection by env:
- *   AI_FIXTURES=1   → replay recorded responses (tests, offline dev)
- *   AI_STORY=baseten|meta (default baseten)
+ *   AI_FIXTURES=1   → synthetic offline providers (no keys, no network; see lib/ai/fixtures.ts)
+ *   AI_STORY=ollama|meta (default ollama)
  * Implementations are loaded lazily so unused providers cost nothing at build time.
  */
 export type Registry = {
@@ -21,6 +21,6 @@ export async function ai(): Promise<Registry> {
     return _registry;
   }
   const meta = await import("./meta");
-  _registry = meta.metaRegistry({ story: (process.env.AI_STORY as "baseten" | "meta") ?? "baseten" });
+  _registry = meta.metaRegistry({ story: process.env.AI_STORY === "meta" ? "meta" : "ollama" });
   return _registry;
 }

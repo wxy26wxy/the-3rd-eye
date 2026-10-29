@@ -70,6 +70,7 @@ export const artworks = pgTable("artworks", {
   parentArtworkId: uuid("parent_artwork_id"),
   artworkVideoUrl: text("artwork_video_url"),      // optional per-piece video (later)
   status: artworkStatus("status").default("draft").notNull(),
+  lastError: text("last_error"),                   // why the last pipeline run did not finish (null when fine)
   ...trace,
 });
 
@@ -150,7 +151,7 @@ export const aiCalls = pgTable("ai_calls", {
   id: uuid("id").primaryKey().defaultRandom(),
   jobId: text("job_id"),
   stage: text("stage").notNull(),                  // transcribe | shape | generate | refine | describe | segment | sticker | mockup | listing | story | captions
-  provider: text("provider").notNull(),            // meta | baseten | fixture
+  provider: text("provider").notNull(),            // meta | ollama | meta-fallback | fixture
   model: text("model").notNull(),
   requestHash: text("request_hash").notNull(),
   requestJson: jsonb("request_json"),              // media bytes redacted

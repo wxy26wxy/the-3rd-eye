@@ -1,0 +1,58 @@
+{
+  "status": 200,
+  "json": {
+    "model": "muse-image-1.0",
+    "id": "resp_6ae2de195c8cd48197f24e94",
+    "object": "response",
+    "status": "completed",
+    "created_at": 1793252889,
+    "error": null,
+    "incomplete_details": null,
+    "output": [
+      {
+        "type": "reasoning",
+        "id": "rs_6ae2de197a609d5379d84f77",
+        "summary": [
+          {
+            "type": "summary_text",
+            "text": "<string len=336 head=\"**Generating small icon image**\\nI'm preparing a small icon o\">"
+          }
+        ],
+        "status": "completed"
+      },
+      {
+        "type": "message",
+        "id": "msg_6ae2de1923528a8465df4d4b",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "output_text",
+            "text": "",
+            "annotations": [],
+            "logprobs": []
+          }
+        ],
+        "status": "completed"
+      },
+      {
+        "type": "image_generation_call",
+        "id": "<string len=359 head=\"ig_eyJwZXJtYW5lbnRfdXJsIjoiR0hCTjFqTlpuazVPZjMwR0FBVlFZNFNvS\">",
+        "status": "completed",
+        "result": "<string len=801848 head=\"iVBORw0KGgoAAAANSUhEUgAABkAAAAZACAIAAACubhnwAAABl2lUWHRYTUw6\">"
+      }
+    ],
+    "instructions": null,
+    "usage": {
+      "input_tokens": 9594,
+      "input_tokens_details": {
+        "cached_tokens": 7936
+      },
+      "output_tokens": 477,
+      "output_tokens_details": {
+        "reasoning_tokens": 168
+      },
+      "total_tokens": 10071
+    },
+    "parallel_tool_calls": false
+  }
+}

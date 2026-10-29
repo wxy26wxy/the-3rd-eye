@@ -36,11 +36,14 @@ export interface Describer {
 
 export type ListingDraft = { title: string; description: string; tags: string[]; price_cents: number; print_ok: boolean; notes: string };
 export type AgentStep = { step: number; tool?: string; args?: unknown; result?: unknown; text?: string };
+export type Moderation = { ok: boolean; reason: string };
 export interface ListingAgent {
+  /** Checks listing text before publishing (also used when the artist edits the text). */
+  moderate?(text: { title: string; description: string; tags: string[] }, opts: { trace: Trace }): Promise<Moderation>;
   run(ctx: { productId: string; productType: "sticker" | "tote"; altText: string; creatorStory?: string; imageUrl: string; width: number; height: number; creatorShareBps: number }, opts: { trace: Trace }): Promise<{ listing: ListingDraft; trace: AgentStep[] }>;
 }
 
-export type StoryDraft = { headline: string; bio_short: string; story_text: string; provider: "baseten" | "meta-fallback" };
+export type StoryDraft = { headline: string; bio_short: string; story_text: string; provider: "ollama" | "meta-fallback" };
 export interface StoryWriter {
   draftStory(transcript: string, opts: { mentionDisability: boolean; trace: Trace }): Promise<StoryDraft>;
   draftThankYou(transcript: string, ctx: { buyerName: string; productTitle: string }, opts: { trace: Trace }): Promise<{ text: string; provider: StoryDraft["provider"] }>;

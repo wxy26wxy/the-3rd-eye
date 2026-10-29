@@ -1,0 +1,182 @@
+import Foundation
+
+/// Abstracts URLSession so tests can stub responses.
+protocol HTTPTransport: Sendable {
+  func data(for request: URLRequest) async throws -> (Data, URLResponse)
+}
+
+extension URLSession: HTTPTransport {}
+
+/// async/await client for `/api/v1` (docs/api.md). Bearer token from Keychain.
+final class APIClient: @unchecked Sendable {
+  static let tokenAccount = "apiToken"
+
+  let baseURL: URL
+  private let transport: HTTPTransport
+  private let tokenLock = NSLock()
+  private var cachedToken: String?
+
+  init(baseURL: URL = AppConfig.apiURL, transport: HTTPTransport = URLSession.shared, token: String? = Keychain.read(account: APIClient.tokenAccount)) {
+    self.baseURL = baseURL
+    self.transport = transport
+    self.cachedToken = token
+  }
+
+  var token: String? {
+    get { tokenLock.lock(); defer { tokenLock.unlock() }; return cachedToken }
+    set {
+      tokenLock.lock(); cachedToken = newValue; tokenLock.unlock()
+      if let newValue { Keychain.save(newValue, account: Self.tokenAccount) } else { Keychain.delete(account: Self.tokenAccount) }
+    }
+  }
+
+  var isSignedIn: Bool { token != nil }
+
+  // MARK: Core
+
+  static let decoder = JSONDecoder()
+  static let encoder = JSONEncoder()
+
+  func request(_ method: String, _ path: String, query: [URLQueryItem] = [], body: Data? = nil, contentType: String? = "application/json", timeout: TimeInterval = 90) -> URLRequest {
+    var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
+    if !query.isEmpty { components.queryItems = query }
+    var req = URLRequest(url: components.url!, timeoutInterval: timeout)
+    req.httpMethod = method
+    req.setValue("application/json", forHTTPHeaderField: "Accept")
+    if let contentType, body != nil { req.setValue(contentType, forHTTPHeaderField: "Content-Type") }
+    if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+    req.httpBody = body
+    return req
+  }
+
+  func send<Response: Decodable>(_ request: URLRequest, as type: Response.Type = Response.self) async throws -> Response {
+    let data: Data
+    let response: URLResponse
+    do {
+      (data, response) = try await transport.data(for: request)
+    } catch {
+      throw APIError.transport(error.localizedDescription)
+    }
+    guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
+    guard (200..<300).contains(http.statusCode) else {
+      if http.statusCode == 401 { throw APIError.unauthorized }
+      if let envelope = try? Self.decoder.decode(APIErrorEnvelope.self, from: data) {
+        throw APIError.server(status: http.statusCode, code: envelope.error.code, message: envelope.error.message)
+      }
+      throw APIError.server(status: http.statusCode, code: "http_\(http.statusCode)", message: HTTPURLResponse.localizedString(forStatusCode: http.statusCode))
+    }
+    do {
+      return try Self.decoder.decode(Response.self, from: data)
+    } catch {
+      throw APIError.decoding(String(describing: error))
+    }
+  }
+
+  func get<Response: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> Response {
+    try await send(request("GET", path, query: query))
+  }
+
+  func post<Body: Encodable, Response: Decodable>(_ path: String, _ body: Body, timeout: TimeInterval = 90) async throws -> Response {
+    try await send(request("POST", path, body: try Self.encoder.encode(body), timeout: timeout))
+  }
+
+  func put<Body: Encodable, Response: Decodable>(_ path: String, _ body: Body) async throws -> Response {
+    try await send(request("PUT", path, body: try Self.encoder.encode(body)))
+  }
+
+  private struct Empty: Encodable {}
+
+  // MARK: Auth
+
+  @discardableResult
+  func signIn(code: String) async throws -> Creator {
+    let res: AuthCodeResponse = try await post("auth/code", AuthCodeRequest(code: code))
+    token = res.token
+    return res.creator
+  }
+
+  func signOut() { token = nil }
+
+  func me() async throws -> Creator { try await get("creators/me") }
+
+  func updateMe(_ update: UpdateCreatorRequest) async throws -> Creator { try await put("creators/me", update) }
+
+  // MARK: Create
+
+  func shapePrompt(transcript: String, answers: [String]?, product: ProductType) async throws -> ShapePromptResponse {
+    try await post("prompts/shape", ShapePromptRequest(transcript: transcript, answers: answers, product: product))
+  }
+
+  func generateArtworks(prompt: String, transcript: String?, product: ProductType, n: Int) async throws -> [ArtworkVariant] {
+    let res: ArtworkVariantsResponse = try await post("artworks", TextToImageRequest(prompt: prompt, transcript: transcript, product: product, n: n), timeout: 180)
+    return res.artworks
+  }
+
+  func artworkFromPhoto(imageUrl: String, product: ProductType, source: String = "photo") async throws -> PhotoArtworkResponse {
+    try await post("artworks", PhotoArtworkRequest(source: source, imageUrl: imageUrl, product: product), timeout: 180)
+  }
+
+  func selectCandidate(artworkId: String, candidateId: String) async throws -> Artwork {
+    try await post("artworks/\(artworkId)/select", SelectCandidateRequest(candidateId: candidateId), timeout: 120)
+  }
+
+  func refine(artworkId: String, instruction: String) async throws -> ArtworkVariant {
+    let res: RefineResponse = try await post("artworks/\(artworkId)/refine", RefineRequest(instruction: instruction), timeout: 180)
+    return res.artwork
+  }
+
+  func myArtworks() async throws -> [Artwork] {
+    let res: ArtworksResponse = try await get("artworks")
+    return res.artworks
+  }
+
+  // MARK: Products and listings
+
+  func createProduct(artworkId: String, type: ProductType) async throws -> Product {
+    try await post("products", CreateProductRequest(artworkId: artworkId, type: type), timeout: 120)
+  }
+
+  func runListingAgent(productId: String) async throws -> ListingRunResponse {
+    try await send(request("POST", "listings/\(productId)/run", body: try Self.encoder.encode(Empty()), timeout: 180))
+  }
+
+  func approveListing(productId: String, via: String, edits: ListingEdits?) async throws -> ApproveListingResponse {
+    try await post("listings/\(productId)/approve", ApproveListingRequest(approvedVia: via, edits: edits))
+  }
+
+  // MARK: Story
+
+  func storyPrompts() async throws -> [String] {
+    let res: StoryPromptsResponse = try await get("creators/me/story-prompts")
+    return res.prompts
+  }
+
+  func saveStoryVideo(pathname: String, mentionDisability: Bool) async throws -> Creator {
+    try await post("creators/me/story-video", StoryVideoRequest(videoUrl: pathname, mentionDisability: mentionDisability), timeout: 180)
+  }
+
+  // MARK: Orders and messages
+
+  func orders(since: String?) async throws -> OrdersResponse {
+    try await get("orders", query: since.map { [URLQueryItem(name: "since", value: $0)] } ?? [])
+  }
+
+  func order(id: String) async throws -> OrderDetailResponse { try await get("orders/\(id)") }
+
+  func draftThankYou(orderId: String, transcript: String) async throws -> ThankYouDraftResponse {
+    try await post("orders/\(orderId)/thank-you", ThankYouRequest(transcript: transcript, draft: true))
+  }
+
+  func sendThankYou(orderId: String, _ body: ThankYouRequest) async throws -> ThankYou {
+    try await post("orders/\(orderId)/thank-you", body)
+  }
+
+  func messages(orderId: String) async throws -> [Message] {
+    let res: MessagesResponse = try await get("orders/\(orderId)/messages")
+    return res.messages
+  }
+
+  func sendMessage(orderId: String, body: String) async throws -> Message {
+    try await post("orders/\(orderId)/messages", SendMessageRequest(body: body))
+  }
+}

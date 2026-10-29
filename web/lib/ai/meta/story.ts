@@ -1,17 +1,19 @@
 /**
- * Story and thank-you drafts on the open-weight Muse Glimmer model through Ollama's
- * OpenAI-compatible endpoint (OLLAMA_BASE_URL, default http://localhost:11434/v1).
- * JSON via `response_format: { type: "json_object" }` with the schema in the system prompt,
- * validated with zod; 30 s timeout, 1 retry. When Ollama is unreachable or the output is
- * invalid (always the case on Vercel), falls back to Muse Spark 1.3 strict JSON and reports
- * `provider: "meta-fallback"`. UNVERIFIED: Ollama path (not reachable during the build).
+ * Story and thank-you drafts on the open-weight Muse Glimmer model (`muse-glimmer`) via Ollama.
+ * The schema goes in the system prompt; output is validated with zod. Attempts, 30 s each:
+ *   1. native `POST <OLLAMA_BASE_URL minus /v1>/api/chat` with think:false, format:"json",
+ *      num_predict 400 — fast; the reply ends with a literal `<|eot|>` that is stripped;
+ *   2. OpenAI-compatible `/v1/chat/completions` with response_format json_object,
+ *      max_tokens 1500 (the model spends 100–300 tokens on `message.reasoning` before content)
+ *      and reasoning_effort "low";
+ *   3. Muse Spark 1.3 strict JSON, reported as `provider: "meta-fallback"` (always on Vercel).
  */
 import "server-only";
 import { z } from "zod";
 import type OpenAI from "openai";
 import type { StoryDraft, StoryWriter, Trace } from "../types";
 import { traced } from "../trace";
-import { MODELS, metaResponses, ollamaClient, type ResponsesLike } from "./client";
+import { MODELS, OLLAMA_DEFAULT_BASE_URL, metaResponses, ollamaClient, type ResponsesLike } from "./client";
 import { obj, parseJsonOutput, str, strictFormat, type JsonSchema } from "./responses";
 
 const STORY = z.object({ headline: z.string().min(1), bio_short: z.string().min(1), story_text: z.string().min(1) });
@@ -21,6 +23,26 @@ const THANKS_SCHEMA = obj({ text: str() });
 
 type Provider = StoryDraft["provider"];
 type ChatLike = Pick<OpenAI["chat"]["completions"], "create">;
+type NativeChat = (body: Record<string, unknown>) => Promise<{ message?: { content?: string } }>;
+
+/** `http://host:11434/v1` → `http://host:11434/api`. */
+export function nativeOllamaUrl(base = process.env.OLLAMA_BASE_URL || OLLAMA_DEFAULT_BASE_URL): string {
+  return `${base.replace(/\/+$/, "").replace(/\/v1$/, "")}/api`;
+}
+
+/** Strips the trailing `<|eot|>` token (and code fences) Glimmer appends, then parses JSON. */
+export function parseGlimmerJson(content: string): unknown {
+  const cleaned = content.replace(/<\|eot\|>/g, "").trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/, "").trim();
+  return JSON.parse(cleaned);
+}
+
+const defaultNative: NativeChat = async (body) => {
+  const res = await fetch(`${nativeOllamaUrl()}/chat`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) throw new Error(`ollama ${res.status}`);
+  return res.json();
+};
 
 export function storyInstructions(mentionDisability: boolean): string {
   return [
@@ -43,7 +65,7 @@ export function thankYouInstructions(ctx: { buyerName: string; productTitle: str
 export class GlimmerStoryWriter implements StoryWriter {
   constructor(
     private mode: "ollama" | "meta" = "ollama",
-    private deps: { chat?: () => ChatLike; responses?: () => ResponsesLike; sleep?: (ms: number) => Promise<void> } = {},
+    private deps: { native?: NativeChat; chat?: () => ChatLike; responses?: () => ResponsesLike } = {},
   ) {}
 
   private chat(): ChatLike {
@@ -51,29 +73,24 @@ export class GlimmerStoryWriter implements StoryWriter {
   }
 
   private async viaOllama<T>(stage: string, system: string, user: string, schema: JsonSchema, validator: z.ZodType<T>, trace: Trace): Promise<T> {
-    const body = {
-      model: MODELS.glimmer,
-      response_format: { type: "json_object" as const },
-      messages: [
-        { role: "system" as const, content: `${system}\nReply with only a JSON object matching this JSON Schema:\n${JSON.stringify(schema)}` },
-        { role: "user" as const, content: user },
-      ],
-    };
-    const sleep = this.deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
-    let lastErr: unknown;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        return await traced(stage, "ollama", MODELS.glimmer, body, async () => {
-          const res = await this.chat().create(body, { timeout: 30_000 });
-          const content = res.choices?.[0]?.message?.content ?? "";
-          return validator.parse(JSON.parse(content));
-        }, trace);
-      } catch (err) {
-        lastErr = err;
-        if (attempt === 0) await sleep(500);
-      }
+    const messages = [
+      { role: "system" as const, content: `${system}\nReply with only a JSON object matching this JSON Schema:\n${JSON.stringify(schema)}` },
+      { role: "user" as const, content: user },
+    ];
+    const native = { model: MODELS.glimmer, messages, think: false, stream: false, format: "json", options: { num_predict: 400 } };
+    try {
+      return await traced(stage, "ollama", MODELS.glimmer, native, async () => {
+        const res = await (this.deps.native ?? defaultNative)(native);
+        return validator.parse(parseGlimmerJson(res.message?.content ?? ""));
+      }, trace);
+    } catch (err) {
+      console.warn("[story] Ollama native endpoint failed, retrying via /v1:", err instanceof Error ? err.message : err);
     }
-    throw lastErr;
+    const compat = { model: MODELS.glimmer, messages, response_format: { type: "json_object" as const }, max_tokens: 1500, reasoning_effort: "low" as const };
+    return traced(stage, "ollama", MODELS.glimmer, compat, async () => {
+      const res = await this.chat().create(compat, { timeout: 30_000 });
+      return validator.parse(parseGlimmerJson(res.choices?.[0]?.message?.content ?? ""));
+    }, trace);
   }
 
   private async viaSpark<T>(stage: string, system: string, user: string, name: string, schema: JsonSchema, validator: z.ZodType<T>, trace: Trace): Promise<T> {

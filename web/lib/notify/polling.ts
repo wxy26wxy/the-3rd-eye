@@ -5,12 +5,12 @@
 import "server-only";
 import { unreadCountForCreator } from "@/lib/db/queries";
 
-export async function notifyNewOrder(_creatorId: string, _orderId: string): Promise<void> {
-  // Polling transport: nothing to send.
+export async function notifyNewOrder(creatorId: string, orderId: string): Promise<void> {
+  void creatorId; void orderId; // polling transport: nothing to send
 }
 
-export async function notifyBuyerMessage(_creatorId: string, _orderId: string): Promise<void> {
-  // Polling transport: nothing to send.
+export async function notifyBuyerMessage(creatorId: string, orderId: string): Promise<void> {
+  void creatorId; void orderId; // polling transport: nothing to send
 }
 
 export function unreadCounts(creatorId: string): Promise<number> {

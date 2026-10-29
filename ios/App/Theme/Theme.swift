@@ -38,10 +38,20 @@ enum ThemeEffects {
   static let pressTravel: CGFloat = Tokens.Shadow.hard.y
   /// Thumbnails in lists and grids.
   static let thumbnail: CGFloat = Tokens.Size.methodIcon
+  /// Minimum cell width in the My designs grid.
+  static let gridMinimum: CGFloat = Tokens.Size.record * 1.7
+  /// Mockup height on the order screen.
+  static let mockupMaxHeight: CGFloat = Tokens.Size.record * 2.5
+  /// Unread-count badge diameter.
+  static let badgeSize: CGFloat = Tokens.Size.stepDot * 3
   /// Large artwork previews (relative to screen width in layouts that need it).
   static let artworkMaxHeight: CGFloat = Tokens.Size.record * 4
+  /// Tint inside a selected candidate box on the photo.
+  static let selectionFillOpacity: Double = 0.35
   /// Story video recording limit in seconds.
   static let storyVideoSeconds: Double = 30
+  /// Thank-you video recording limit in seconds.
+  static let thankYouVideoSeconds: Double = 15
 }
 
 /// Shared animation that honours Reduce Motion.

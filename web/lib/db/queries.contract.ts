@@ -55,6 +55,9 @@ export type ProductDetail = Omit<ShopProduct, "creator"> & {
   creator: PublicCreator;
 };
 export type CreatorProfile = PublicCreator & { products: ShopProduct[] };
+/** The creator's thank-you for this order. `imageUrl` is a public URL or a pathname served via /media?tag=. */
+export type TagThankYou = { text: string | null; imageUrl: string | null; videoUrl: string | null; videoVtt: string | null };
+export type TagMessage = { id: string; direction: "buyer_to_creator" | "creator_to_buyer"; body: string; createdAt: Date };
 export type StoryTagView = {
   token: string;
   tapCount: number;
@@ -62,6 +65,9 @@ export type StoryTagView = {
   product: ShopProduct | null;
   creator: PublicCreator;
   moreFromStudio: ShopProduct[];
+  thankYou: TagThankYou | null;
+  /** Notes between the buyer and the creator on this order, oldest first. */
+  messages: TagMessage[];
 };
 export type OrderInput = { buyerName: string; buyerEmail?: string; shipNote?: string };
 export type OrderConfirmation = { orderId: string; token: string; productTitle: string; creatorName: string };
@@ -211,7 +217,20 @@ export async function getStoryTag(token: string): Promise<StoryTagView | null> {
     product: shop ? toShopProduct(shop) : null,
     creator: toPublicCreator(tag.creator),
     moreFromStudio: more.filter((p) => p.product.id !== tag.product.id).slice(0, 6).map(toShopProduct),
+    thankYou: tag.thankYou && (tag.thankYou.text || tag.thankYou.imageUrl || tag.thankYou.videoUrl)
+      ? { text: tag.thankYou.text, imageUrl: tag.thankYou.imageUrl, videoUrl: tag.thankYou.videoUrl, videoVtt: tag.thankYou.videoVtt }
+      : null,
+    messages: tag.messages.map((x) => ({ id: x.id, direction: x.direction, body: x.body, createdAt: x.createdAt })),
   };
+}
+
+/** WebVTT captions for the thank-you video of the order behind a story tag, or null. */
+export async function getTagThankYouCaptions(token: string): Promise<string | null> {
+  await fresh();
+  const t = normalizeToken(token);
+  if (!t) return null;
+  const tag = await q.getStoryTag(t);
+  return tag?.thankYou?.videoUrl ? tag.thankYou.videoVtt ?? null : null;
 }
 
 export async function getOrderConfirmation(orderId: string): Promise<OrderConfirmation | null> {

@@ -13,6 +13,8 @@ import { Chip, Eyebrow, Title } from "@/components/ui/Text";
 import { FollowButton } from "./FollowButton";
 import { NoteForm } from "./NoteForm";
 import { TapOnce } from "./TapOnce";
+import { ThankYou } from "./ThankYou";
+import { Thread } from "./Thread";
 import styles from "./StoryTag.module.css";
 
 export function StoryTagView({ view }: { view: StoryTagData }) {
@@ -38,18 +40,20 @@ export function StoryTagView({ view }: { view: StoryTagData }) {
       </div>
       <Sheet labelledBy="about-title" className={styles.sheet}>
         <Stack gap="xxl">
-          {bio ? (
-            <Stack gap="s">
-              <Title id="about-title">{m.tag.aboutTitle}</Title>
-              <p>{bio}</p>
-            </Stack>
-          ) : <h2 id="about-title" className="visually-hidden">{m.tag.aboutTitle}</h2>}
+          <ThankYou thankYou={view.thankYou} token={view.token} name={c.displayName} />
+          <Thread messages={view.messages} name={c.displayName} />
           <Card pad="l" tone="white">
             <Stack gap="m">
               <Title>{m.tag.noteTitle}</Title>
               <NoteForm action={sendReply.bind(null, view.token)} name={c.displayName} />
             </Stack>
           </Card>
+          {bio ? (
+            <Stack gap="s">
+              <Title id="about-title">{m.tag.aboutTitle}</Title>
+              <p>{bio}</p>
+            </Stack>
+          ) : <h2 id="about-title" className="visually-hidden">{m.tag.aboutTitle}</h2>}
           {view.moreFromStudio.length > 0 ? (
             <section aria-labelledby="more-title">
               <Stack gap="l">

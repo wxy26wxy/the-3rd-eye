@@ -1,5 +1,5 @@
 /**
- * Dev-mode creator sessions and admin basic auth.
+ * Dev-mode creator sessions (admin basic auth lives in lib/admin-auth.ts).
  * Creator token: `<creatorId>.<base64url HMAC-SHA256(CREATOR_SESSION_SECRET, creatorId)>`.
  * Sent as `Authorization: Bearer <token>` (iOS, API) or the `ms_creator` cookie (mobile web).
  * Not a production auth scheme; see docs/api.md.
@@ -73,26 +73,4 @@ export function requireCreator(req: Request): { creatorId: string } {
   const creatorId = optionalCreator(req);
   if (!creatorId) throw new ApiError(401, "unauthorized", "Sign in with your creator code first.");
   return { creatorId };
-}
-
-/** Basic auth check for `/admin` (proxy.ts) and admin media access. Any username; password = ADMIN_PASSWORD. */
-export function checkAdminAuth(authorizationHeader: string | null | undefined): boolean {
-  const expected = process.env.ADMIN_PASSWORD;
-  if (!expected || !authorizationHeader?.startsWith("Basic ")) return false;
-  let decoded: string;
-  try {
-    decoded = Buffer.from(authorizationHeader.slice(6), "base64").toString("utf8");
-  } catch {
-    return false;
-  }
-  const password = decoded.slice(decoded.indexOf(":") + 1);
-  return decoded.includes(":") && safeEqual(password, expected);
-}
-
-/** 401 response that makes browsers show the basic-auth prompt. */
-export function adminChallenge(): Response {
-  return new Response("Authentication required", {
-    status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="maker story admin", charset="UTF-8"' },
-  });
 }

@@ -1,4 +1,5 @@
-import { checkAdminAuth, optionalCreator } from "@/lib/auth";
+import { optionalCreator } from "@/lib/auth";
+import { ADMIN_REALM, checkAdminAuth } from "@/lib/admin-auth";
 import { errorResponse, route } from "@/lib/http";
 import { getTagMediaPaths, isStoryVideoPath } from "@/lib/db/queries";
 import { isNfcToken, normalizeNfcToken } from "@/lib/ids";
@@ -16,7 +17,7 @@ export const GET = route<{ params: Promise<{ path: string[] }> }>(async (req, { 
   const pathname = path.join("/");
   if (!pathname || pathname.includes("..")) return errorResponse(400, "invalid_path", "Invalid path");
 
-  const isAdmin = checkAdminAuth(req.headers.get("authorization"));
+  const isAdmin = checkAdminAuth(req.headers.get("authorization")) === "ok";
   const creatorId = optionalCreator(req);
   const search = new URL(req.url).searchParams;
   const tag = search.get("tag") ?? search.get("t");
@@ -30,7 +31,12 @@ export const GET = route<{ params: Promise<{ path: string[] }> }>(async (req, { 
   if (!allowed && !isPublicKind(pathname)) {
     allowed = canReadMedia({ pathname, isAdmin, creatorId, tagFiles: null, isStoryVideo: await isStoryVideoPath(pathname) });
   }
-  if (!allowed) return errorResponse(creatorId || isAdmin || tag ? 403 : 401, "forbidden", "Not allowed");
+  if (!allowed) {
+    if (creatorId || isAdmin || tag) return errorResponse(403, "forbidden", "Not allowed");
+    const res = errorResponse(401, "unauthorized", "Sign in to see this file");
+    res.headers.set("WWW-Authenticate", ADMIN_REALM);
+    return res;
+  }
 
   const signed = await storage().signedUrl(pathname, TTL_SECONDS);
   if (signed) return new Response(null, { status: 302, headers: { Location: signed, "Cache-Control": "private, no-store" } });

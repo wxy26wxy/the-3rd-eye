@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  CREATOR_COOKIE, checkAdminAuth, requireCreator, signCreatorToken, verifyCreatorToken,
+  CREATOR_COOKIE, requireCreator, signCreatorToken, verifyCreatorToken,
 } from "@/lib/auth";
+import { checkAdminAuth as adminAuth } from "@/lib/admin-auth";
 import { ApiError } from "@/lib/http";
+
+const checkAdminAuth = (h: string | null) => adminAuth(h) === "ok";
 
 const ID = "6f1c1b0e-1d8a-4c1e-9d55-3c3f2b1a0e11";
 

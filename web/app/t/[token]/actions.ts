@@ -1,5 +1,6 @@
 "use server";
 import { z } from "zod";
+import { refresh } from "next/cache";
 import { createBuyerMessage, recordTap } from "@/lib/db/queries.contract";
 import { m } from "@/components/messages";
 
@@ -21,9 +22,11 @@ export async function sendReply(rawToken: string, _prev: NoteState, formData: Fo
   const t = token.safeParse(rawToken);
   if (!t.success || body.length > 1000) return { error: m.tag.noteError, value: body };
   try {
-    await createBuyerMessage(t.data, body, { task: "T020" });
+    await createBuyerMessage(t.data, body, { task: "T050" });
+    refresh(); // show the new note in the thread
     return { ok: true };
   } catch (err) {
+    if ((err as { code?: string })?.code === "note_rejected") return { error: m.tag.noteRejected, value: body };
     console.error("sendReply failed", err);
     return { error: m.tag.noteError, value: body };
   }

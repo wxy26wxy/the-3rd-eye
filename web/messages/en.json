@@ -136,7 +136,16 @@
     "shareText": "Meet {name}, the artist behind my {title}.",
     "moreFrom": "More from {studio}",
     "notFound": "This story tag is not active yet.",
-    "readAloudText": "Hi, I'm {name}. {bio}"
+    "readAloudText": "Hi, I'm {name}. {bio}",
+    "thankYouTitle": "A thank-you from {name}",
+    "thankYouEmpty": "{name} has not sent a thank-you yet. It will show up here.",
+    "thankYouImageAlt": "A picture {name} shared with you as a thank-you",
+    "thankYouVideoLabel": "Thank-you video from {name}",
+    "threadTitle": "Your notes",
+    "threadEmpty": "No notes yet. Send the first one below.",
+    "fromYou": "You",
+    "fromCreator": "{name}",
+    "noteRejected": "Please keep your note kind and friendly, then try again."
   },
   "how": {
     "metaTitle": "How it works",

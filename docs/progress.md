@@ -82,3 +82,10 @@ cd web && vercel deploy --yes          # new preview with the secrets
 ### T030 fix round 1 · ios · feat/ios-T01x
 - Speech stops on create-flow route change (not on disappear), so arrival speech (confirmation, voice-result description, design ready, video saved, you're live) is no longer cancelled by the previous screen. Voice approval runs the same validation as the button. Sign out resets the orders store. Merged main (T005 `TypeScale` tokens) and removed the token build workaround. An empty answer to a clarifying question skips it. The spoken confirmation is shown as text while drawing. Videos upload as private Blob media with a public fallback. Retake returns to the source used. Choice cards and other custom buttons no longer expose a duplicate nested button to VoiceOver. Fixed a freeze: stopping speech mid-sentence deadlocked the main thread on iOS 27 (stop now runs off the main thread). Voice input is recorded as 16 kHz WAV (the transcription model accepts WAV only).
 - Verify: `xcodebuild test -scheme MakerStory ...` (unit, 27 tests); `python3 ios/scripts/mock_api.py &` then `xcodebuild test -scheme MakerStoryUITests ... API_BASE_URL=http://localhost:3999` (voice flow UI test).
+
+### iOS (merged after the morning summary was written)
+The iOS creator app is on `main` (`ios/`). To put it on your iPhone:
+1. `cd ios && xcodegen generate && open MakerStory.xcodeproj`
+2. In Xcode: select the MakerStory target → Signing & Capabilities → Team: your personal Apple ID (free provisioning). Plug in the phone, pick it as the run destination, press Run. The first time, approve the developer profile on the phone under Settings → General → VPN & Device Management.
+3. The app talks to `http://localhost:3000` by default. For the phone, set the `API_BASE_URL` build setting to the preview or production URL (Build Settings → User-Defined → API_BASE_URL) and run again.
+Simulator: `xcodebuild -scheme MakerStory -destination 'platform=iOS Simulator,name=iPhone 17' build` then run from Xcode. Sign in with a seeded creator code from `docs/handoffs/backend.md`.

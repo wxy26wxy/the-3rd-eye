@@ -11,7 +11,8 @@ const ONLINE = Boolean(process.env.META_API_KEY) && process.env.SEED_OFFLINE !==
 if (!ONLINE) process.env.AI_FIXTURES = "1";
 const TASK = ONLINE ? "T010-seed" : "T010-seed-offline";
 
-type Item = { type: "sticker" | "tote"; idea: string; via: "voice" | "canvas" };
+/** `listing`: fixed copy used when the agent's listing for this item failed moderation (applied through approve, which moderates it again). */
+type Item = { type: "sticker" | "tote"; idea: string; via: "voice" | "canvas"; listing?: { title: string; description: string } };
 type Seed = {
   slug: string; displayName: string; studioName: string; loginCode: string; bioShort: string; storyText: string;
   mentionDisability: boolean; items: Item[];
@@ -25,7 +26,13 @@ const CREATORS: Seed[] = [
     mentionDisability: false,
     items: [
       { type: "sticker", via: "canvas", idea: "a bright red double-decker bus drawn with thick markers" },
-      { type: "tote", via: "canvas", idea: "a yellow city bus with happy passengers waving from the windows, drawn with markers" },
+      {
+        type: "tote", via: "canvas", idea: "a yellow city bus with happy passengers waving from the windows, drawn with markers",
+        listing: {
+          title: "Yellow City Bus Tote by Leo",
+          description: "Leo's marker drawing of a yellow city bus, with happy passengers waving from every window. Bright colors on a sturdy tote for groceries, books and everyday trips.",
+        },
+      },
     ],
   },
   {
@@ -66,6 +73,16 @@ async function main() {
       isExample: true, createdByTask: TASK,
     });
     const existing = (await q.listProductsByCreator(creator.id)).filter((p) => p.status === "published");
+    // Repair: a published listing whose text failed moderation gets the item's fixed copy (moderated again on approve).
+    for (const item of c.items.filter((i) => i.listing)) {
+      for (const p of existing.filter((x) => x.type === item.type)) {
+        const l = await q.getListing(p.id);
+        const ok = (l?.moderation as { ok?: boolean } | null)?.ok === true;
+        if (!l || ok) continue;
+        await approveListing(p, { approvedVia: l.approvedVia ?? "tap", edits: { ...item.listing!, priceCents: p.priceCents } }, "T040");
+        console.log(`  ${c.slug}: ${item.type} listing copy set to "${item.listing!.title}"`);
+      }
+    }
     if (existing.length >= c.items.length) {
       console.log(`  ${c.slug}: already has ${existing.length} products, skipping`);
       continue;

@@ -19,7 +19,9 @@ enum Theme {
 
 /// Values in design/tokens.json `effects` and `motion` that the generator does
 /// not emit into Tokens.swift yet. Kept here, inside the Theme layer, so screens
-/// never see a literal.
+/// never see a literal. Where Tokens.swift has the value it is read from there;
+/// the rest is checked against design/tokens.json by ThemeEffectsTests, so a token
+/// change fails the build's tests instead of drifting.
 enum ThemeEffects {
   /// effects.displayStroke
   static let displayStrokeWidth: CGFloat = 2
@@ -29,9 +31,9 @@ enum ThemeEffects {
   static let scallopPeriod: CGFloat = 48.75
   static let scallopHeight: CGFloat = 26
   /// motion (milliseconds in tokens.json)
-  static let motionFast: Double = 0.12
-  static let motionBase: Double = 0.20
-  static let motionSlow: Double = 0.32
+  static let motionFast: Double = 120 / 1000
+  static let motionBase: Double = 200 / 1000
+  static let motionSlow: Double = 320 / 1000
   /// Size of the generated noise tile for GrainOverlay.
   static let grainTile: Int = 96
   /// Pressed-state travel for buttons with hard shadows (matches shadow depth).

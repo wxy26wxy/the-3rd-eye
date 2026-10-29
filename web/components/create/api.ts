@@ -47,6 +47,7 @@ export const UPLOAD_ACCESS = "public" as const;
 
 export function extFor(file: Blob, fallback: string): string {
   const t = file.type.toLowerCase();
+  if (t.includes("wav")) return "wav";
   if (t.includes("png")) return "png";
   if (t.includes("jpeg") || t.includes("jpg")) return "jpg";
   if (t.includes("heic")) return "heic";
@@ -66,7 +67,8 @@ export function uuid(): string {
 /** Speech → text through POST /transcribe (multipart). */
 export async function transcribe(blob: Blob): Promise<string> {
   const fd = new FormData();
-  fd.append("file", blob, `speech.${extFor(blob, "webm")}`);
+  // The recorder already produced 16 kHz mono WAV; the API accepts WAV only.
+  fd.append("file", blob, "audio.wav");
   const r = await api<{ text: string }>("transcribe", { method: "POST", body: fd });
   return (r.text ?? "").trim();
 }

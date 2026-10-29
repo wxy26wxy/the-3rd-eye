@@ -40,7 +40,7 @@ function SpeakFlow() {
   const [error, setError] = useState<string | null>(null);
 
   async function handleAudio(blob: Blob | null, forAnswer: boolean) {
-    if (!blob) { setPhase(forAnswer ? "question" : "idle"); return; }
+    if (!blob) { setError(m.create.errorGeneric); setPhase(forAnswer ? "question" : "idle"); return; }
     setPhase("transcribing");
     try {
       const text = await transcribe(blob);

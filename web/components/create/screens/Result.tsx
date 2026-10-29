@@ -48,7 +48,7 @@ export function Result() {
     }
   }
   async function afterRecording(blob: Blob | null) {
-    if (!blob) { setPhase("change"); return; }
+    if (!blob) { setError(m.create.errorGeneric); setPhase("change"); return; }
     setPhase("changing");
     try { await refine(await transcribe(blob)); } catch { setError(m.create.errorGeneric); setPhase("change"); }
   }

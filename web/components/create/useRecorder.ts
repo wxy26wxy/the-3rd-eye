@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { blobToWav } from "@/lib/audio/wav";
 
 export type RecorderStatus = "idle" | "recording" | "denied" | "unsupported";
 const TYPES = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
@@ -9,7 +10,11 @@ function pickType(): string | undefined {
   return TYPES.find((t) => MediaRecorder.isTypeSupported(t));
 }
 
-/** Microphone recording with MediaRecorder. Stops automatically at `maxMs` (API limit 60 s). */
+/**
+ * Microphone recording with MediaRecorder, delivered as 16 kHz mono WAV (`audio/wav`).
+ * Stops automatically at `maxMs` (API limit 60 s). Resolves null if nothing was recorded or
+ * the browser could not decode the recording.
+ */
 export function useRecorder({ maxMs = 60_000, onAutoStop }: { maxMs?: number; onAutoStop?: (blob: Blob | null) => void } = {}) {
   const [status, setStatus] = useState<RecorderStatus>("idle");
   const [seconds, setSeconds] = useState(0);
@@ -45,13 +50,18 @@ export function useRecorder({ maxMs = 60_000, onAutoStop }: { maxMs?: number; on
     const r = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
     chunks.current = [];
     r.ondataavailable = (e) => { if (e.data.size > 0) chunks.current.push(e.data); };
-    r.onstop = () => {
-      const blob = chunks.current.length ? new Blob(chunks.current, { type: r.mimeType || mimeType || "audio/webm" }) : null;
+    r.onstop = async () => {
+      const raw = chunks.current.length ? new Blob(chunks.current, { type: r.mimeType || mimeType || "audio/webm" }) : null;
       cleanup();
+      // Transcribe accepts WAV only: convert to 16 kHz mono 16-bit PCM before handing it on.
+      let wav: Blob | null = null;
+      if (raw) {
+        try { wav = await blobToWav(raw, maxMs / 1000); } catch (err) { console.error("WAV conversion failed", err); }
+      }
       setStatus("idle");
-      if (resolver.current) resolver.current(blob);
-      else autoStop.current?.(blob);
+      const done = resolver.current ?? autoStop.current;
       resolver.current = null;
+      done?.(wav);
     };
     rec.current = r;
     r.start();

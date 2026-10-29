@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
-import { BLEED_MM, BORDER_MM, composeSticker, ensureDpi, mmToPx, normalizePath, offsetMask, previewCutPath, removeBackground, traceOutline } from "@/lib/ai/meta/sticker";
+import { BLEED_MM, BORDER_MM, composeSticker, ensureDpi, mmToPx, normalizePath, offsetMask, previewCutPath, removeBackground, traceOutline } from "@/lib/image/sticker";
 import { bboxOf, emptyMask, maskFromAlpha, padMask } from "@/lib/image/mask";
 import type { Mask } from "@/lib/ai/types";
 

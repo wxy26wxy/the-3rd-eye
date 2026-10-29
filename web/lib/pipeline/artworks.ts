@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { ai } from "@/lib/ai/registry";
 import type { GeneratedImage, Mask, Segment, Trace } from "@/lib/ai/types";
-import { ensureDpi, previewCutPath, removeBackground } from "@/lib/ai/meta/sticker";
+import { ensureDpi, previewCutPath, removeBackground } from "@/lib/image/sticker";
 import { pngRef } from "@/lib/image/ref";
 import { area, emptyMask, maskFromPng, maskToPng } from "@/lib/image/mask";
 import { insertArtwork, updateArtwork, type ArtworkRow } from "@/lib/db/queries";
@@ -16,7 +16,6 @@ import { clientUploadPath, creatorPath, readClientUpload, storage } from "@/lib/
 import type { SamCandidate } from "@/lib/db/schema";
 import { trackArtwork } from "@/lib/deadline";
 import { ApiError } from "@/lib/http";
-import { SHAPING_STYLE } from "@/lib/ai/meta/shape-prompt";
 
 const MAX_CANDIDATES = 6;
 
@@ -88,8 +87,8 @@ export async function subjectPhrase(prompt: string): Promise<string> {
 }
 
 /** Adds the product's print style when the prompt was not shaped for it already. */
-export function promptForProduct(prompt: string, product: "sticker" | "tote"): string {
-  return /white background/i.test(prompt) ? prompt : `${prompt.trim().replace(/\.?$/, ".")} ${SHAPING_STYLE[product]}`;
+export function promptForProduct(prompt: string, style: string): string {
+  return /white background/i.test(prompt) ? prompt : `${prompt.trim().replace(/\.?$/, ".")} ${style}`;
 }
 
 export async function createFromText(
@@ -98,7 +97,7 @@ export async function createFromText(
   task = "T010",
 ): Promise<ArtworkRow[]> {
   const registry = await ai();
-  const prompt = promptForProduct(input.prompt, input.product);
+  const prompt = promptForProduct(input.prompt, registry.shaper.styleFor(input.product));
   const images = await registry.image.generate(prompt, { n: input.n, trace: { stage: "generate", task } });
   return Promise.all(images.map((img) => processGenerated(creatorId, img, {
     transcript: input.transcript, shapedPrompt: prompt, shapingTrace: { product: input.product }, task,

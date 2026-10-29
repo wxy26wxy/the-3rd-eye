@@ -6,7 +6,7 @@
 import "server-only";
 import sharp from "sharp";
 import { Potrace } from "potrace";
-import type { Mask } from "../types";
+import type { Mask } from "@/lib/ai/types";
 import {
   bboxOf, componentMask, components, cropMask, dilate, fillHoles, maskFromAlpha, maskSharp, maskToGrey, padMask, type BBox,
 } from "@/lib/image/mask";

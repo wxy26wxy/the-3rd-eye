@@ -1,5 +1,5 @@
 import "server-only";
-import type { TranscribeProvider, PromptShaper, ImageProvider, Segmenter, Describer, ListingAgent, StoryWriter, Captioner, NoteModerator } from "./types";
+import type { TranscribeProvider, PromptShaper, ImageProvider, Segmenter, Describer, ListingAgent, StoryWriter, Captioner, NoteModerator, MockupMaker } from "./types";
 
 /**
  * The only place that knows about concrete providers. Selection by env:
@@ -9,7 +9,7 @@ import type { TranscribeProvider, PromptShaper, ImageProvider, Segmenter, Descri
  */
 export type Registry = {
   transcribe: TranscribeProvider; shaper: PromptShaper; image: ImageProvider; segmenter: Segmenter;
-  describer: Describer; listingAgent: ListingAgent; story: StoryWriter; captioner: Captioner; moderator: NoteModerator;
+  describer: Describer; listingAgent: ListingAgent; story: StoryWriter; captioner: Captioner; moderator: NoteModerator; mockups: MockupMaker;
 };
 
 let _registry: Registry | null = null;

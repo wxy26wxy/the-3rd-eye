@@ -39,6 +39,10 @@ export function shapingInstructions(product: "sticker" | "tote"): string {
 export class MetaPromptShaper implements PromptShaper {
   constructor(private responses: ResponsesLike = metaResponses()) {}
 
+  styleFor(product: "sticker" | "tote"): string {
+    return SHAPING_STYLE[product];
+  }
+
   async shape(transcript: string, opts: { answers?: string[]; product: "sticker" | "tote"; trace: Trace }): Promise<ShapedPrompt> {
     const user = [
       `The artist said: "${transcript}"`,

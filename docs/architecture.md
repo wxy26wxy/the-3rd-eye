@@ -50,7 +50,7 @@ Status of request shapes: **UNVERIFIED until the first live call** (keys pending
 | `lib/ai/meta/image.ts` generate / refine / compose (Muse Image) | verified 2026-10-28 |
 | `lib/ai/meta/describe.ts` (Spark vision) | verified 2026-10-28 |
 | `lib/ai/meta/sam.ts` findAll (SAM 3.1 + parser) | verified 2026-10-28; `segment` with box/points prompts UNVERIFIED (format from `buildObjectPrompt`) |
-| `lib/ai/meta/sticker.ts` | unit-tested; print files produced for the seeded stickers |
+| `lib/image/sticker.ts` (moved from `lib/ai/meta/`, pure image math) | unit-tested; print files produced for the seeded stickers; tote print PNG since T050 |
 | `lib/ai/meta/mockup.ts` | verified 2026-10-28 (sticker and tote mockups in the seed) |
 | `lib/ai/meta/listing-agent.ts` + tools | verified 2026-10-28; loop cap and forced final unit-tested |
 | `lib/ai/meta/story.ts` Ollama native + Spark fallback | verified 2026-10-28 locally; `/v1` compatible route UNVERIFIED live (unit-tested) |

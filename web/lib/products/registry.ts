@@ -3,7 +3,7 @@
  * build print files + mockup from a ready artwork.
  */
 import "server-only";
-import type { ImageProvider, Trace } from "@/lib/ai/types";
+import type { MockupMaker, Trace } from "@/lib/ai/types";
 
 export type ProductKind = "sticker" | "tote";
 
@@ -16,7 +16,7 @@ export type ProductSpec = {
   printSpec: PrintSpec;
   mockupPrompt: string;
   priceRange: { min: number; max: number };
-  build(artwork: { cleanedPng: Buffer }, deps: { image: ImageProvider; trace: Trace }): Promise<BuiltProduct>;
+  build(artwork: { cleanedPng: Buffer }, deps: { mockups: MockupMaker; trace: Trace }): Promise<BuiltProduct>;
   /** Print files only (no model calls); used by build() and to repair products made before a print file existed. */
   buildPrint(cleanedPng: Buffer): Promise<{ printPng: Buffer; printSvg?: string; cutPath?: string }>;
 };
@@ -41,28 +41,26 @@ export const MOCKUP_PROMPTS: Record<ProductKind, string> = {
 };
 
 async function stickerPrint(cleanedPng: Buffer) {
-  const { composeSticker } = await import("@/lib/ai/meta/sticker");
+  const { composeSticker } = await import("@/lib/image/sticker");
   const files = await composeSticker(cleanedPng, { borderMm: PRINT_SPECS.sticker.borderMm, bleedMm: PRINT_SPECS.sticker.bleedMm });
   return { printPng: files.printPng, printSvg: files.dieCutSvg, cutPath: files.cutPath };
 }
 
-async function buildSticker(artwork: { cleanedPng: Buffer }, deps: { image: ImageProvider; trace: Trace }): Promise<BuiltProduct> {
-  const { makeMockup } = await import("@/lib/ai/meta/mockup");
+async function buildSticker(artwork: { cleanedPng: Buffer }, deps: { mockups: MockupMaker; trace: Trace }): Promise<BuiltProduct> {
   const files = await stickerPrint(artwork.cleanedPng);
-  const mockupPng = await makeMockup(deps.image, { kind: "sticker", prompt: MOCKUP_PROMPTS.sticker, artPng: files.printPng, trace: deps.trace });
+  const mockupPng = await deps.mockups.make({ kind: "sticker", prompt: MOCKUP_PROMPTS.sticker, artPng: files.printPng, trace: deps.trace });
   return { ...files, mockupPng };
 }
 
 /** Tote print file: the cleaned art (transparent background kept) at 150 dpi, short side ≥ 1500 px (10 in). */
 async function totePrint(cleanedPng: Buffer) {
-  const { ensureDpi } = await import("@/lib/ai/meta/sticker");
+  const { ensureDpi } = await import("@/lib/image/sticker");
   return { printPng: await ensureDpi(cleanedPng, PRINT_SPECS.tote.minShortSidePx, PRINT_SPECS.tote.dpi) };
 }
 
-async function buildTote(artwork: { cleanedPng: Buffer }, deps: { image: ImageProvider; trace: Trace }): Promise<BuiltProduct> {
-  const { makeMockup } = await import("@/lib/ai/meta/mockup");
+async function buildTote(artwork: { cleanedPng: Buffer }, deps: { mockups: MockupMaker; trace: Trace }): Promise<BuiltProduct> {
   const files = await totePrint(artwork.cleanedPng);
-  const mockupPng = await makeMockup(deps.image, { kind: "tote", prompt: MOCKUP_PROMPTS.tote, artPng: artwork.cleanedPng, trace: deps.trace });
+  const mockupPng = await deps.mockups.make({ kind: "tote", prompt: MOCKUP_PROMPTS.tote, artPng: artwork.cleanedPng, trace: deps.trace });
   return { ...files, mockupPng };
 }
 

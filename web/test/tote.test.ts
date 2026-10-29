@@ -1,12 +1,9 @@
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
 import { PRINT_SPECS, productSpec } from "@/lib/products/registry";
-import { checkResolution } from "@/lib/ai/meta/tools/check-resolution";
+import { checkResolution } from "@/lib/products/checks";
 
-const fakeImage = {
-  generate: async () => [], refine: async () => { throw new Error("unused"); },
-  compose: async () => ({ png: await sharp({ create: { width: 64, height: 64, channels: 3, background: "#eee" } }).png().toBuffer(), responseId: "r", width: 64, height: 64 }),
-};
+const fakeMockups = { make: async () => sharp({ create: { width: 64, height: 64, channels: 3, background: "#eee" } }).png().toBuffer() };
 
 /** A transparent canvas with an opaque disc, like a cleaned cut-out. */
 async function cutout(w: number, h: number): Promise<Buffer> {
@@ -16,7 +13,7 @@ async function cutout(w: number, h: number): Promise<Buffer> {
 
 describe("tote print file", () => {
   it("is the cleaned art at 150 dpi with a short side of at least 1500 px and its transparency kept", async () => {
-    const built = await productSpec("tote").build({ cleanedPng: await cutout(800, 1000) }, { image: fakeImage, trace: { stage: "mockup" } });
+    const built = await productSpec("tote").build({ cleanedPng: await cutout(800, 1000) }, { mockups: fakeMockups, trace: { stage: "mockup" } });
     expect(built.printPng).toBeDefined();
     const meta = await sharp(built.printPng!).metadata();
     expect(Math.min(meta.width!, meta.height!)).toBeGreaterThanOrEqual(PRINT_SPECS.tote.minShortSidePx);
@@ -28,7 +25,7 @@ describe("tote print file", () => {
   });
 
   it("does not upscale more than 2×, so tiny art still fails the tote resolution check", async () => {
-    const built = await productSpec("tote").build({ cleanedPng: await cutout(300, 300) }, { image: fakeImage, trace: { stage: "mockup" } });
+    const built = await productSpec("tote").build({ cleanedPng: await cutout(300, 300) }, { mockups: fakeMockups, trace: { stage: "mockup" } });
     const meta = await sharp(built.printPng!).metadata();
     expect(meta.width).toBe(600);
     expect(checkResolution({ productType: "tote", width: meta.width!, height: meta.height! }).ok).toBe(false);

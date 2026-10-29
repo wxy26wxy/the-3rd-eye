@@ -12,6 +12,8 @@ export interface TranscribeProvider {
 
 export type ShapedPrompt = { prompt: string; style_notes: string; clarifying_question: string | null; spoken_confirmation: string };
 export interface PromptShaper {
+  /** The product's print style appended to prompts that were not shaped for it. */
+  styleFor(product: "sticker" | "tote"): string;
   shape(transcript: string, opts: { answers?: string[]; product: "sticker" | "tote"; trace: Trace }): Promise<ShapedPrompt>;
 }
 
@@ -52,6 +54,11 @@ export type StoryDraft = { headline: string; bio_short: string; story_text: stri
 export interface StoryWriter {
   draftStory(transcript: string, opts: { mentionDisability: boolean; trace: Trace }): Promise<StoryDraft>;
   draftThankYou(transcript: string, ctx: { buyerName: string; productTitle: string }, opts: { trace: Trace }): Promise<{ text: string; provider: StoryDraft["provider"] }>;
+}
+
+/** Product photo for the shop: the artwork composed onto a sticker or tote scene. */
+export interface MockupMaker {
+  make(opts: { kind: "sticker" | "tote"; prompt: string; artPng: Buffer; trace: Trace }): Promise<Buffer>;
 }
 
 export type Captions = { vtt: string; transcript: string };

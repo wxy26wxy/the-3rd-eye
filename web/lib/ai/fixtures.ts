@@ -36,6 +36,9 @@ export function fixtureRegistry(): Registry {
       })),
     },
     shaper: {
+      styleFor: (product) => product === "tote"
+        ? "Tote print, bold shapes, flat colors, pure white background, no text."
+        : "Sticker illustration, single subject, bold outlines, flat colors, pure white background, no text.",
       shape: (transcript, opts) => fx<ShapedPrompt>("shape", { transcript, answers: opts.answers ?? [], product: opts.product }, () => ({
         prompt: `${transcript.trim().replace(/\.$/, "")}. Sticker illustration, single subject, bold outlines, flat colors, pure white background, no text.`,
         style_notes: "Bold outlines, flat colors, white background.",
@@ -115,6 +118,9 @@ export function fixtureRegistry(): Registry {
       checkNote: (text, opts) => traced("moderate", "fixture", "fixture", { text }, async () => (
         /\bblocked-note-test\b/i.test(text) ? { ok: false, reason: "Test marker" } : { ok: true, reason: "Offline mode: not checked by a model." }
       ), opts.trace),
+    },
+    mockups: {
+      make: async (opts) => (await import("./meta/mockup")).localMockup(opts.kind, opts.artPng),
     },
     captioner: {
       caption: (_video, opts) => fx("captions", { filename: opts.filename }, () => {

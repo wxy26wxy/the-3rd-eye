@@ -1,12 +1,11 @@
 /**
- * Offline registry (AI_FIXTURES=1): deterministic results so tests, local dev and a
- * deployment without keys exercise every pipeline. A recorded file
- * `test/fixtures/<stage>/<hash16>.json` (hash = requestHash of the stage input) overrides the
- * built-in default when present. Every call is still traced with provider "fixture".
+ * Offline registry (AI_FIXTURES=1): SYNTHETIC, deterministic results (procedural art, threshold
+ * segmentation, templated text) so tests, local dev and a deployment without keys exercise every
+ * pipeline. It does not replay recorded API responses: the live recordings in
+ * `test/fixtures/<stage>/probe*` (written by scripts/probe_meta.ts) are used by unit tests that
+ * parse real response shapes (e.g. test/sam.test.ts). Calls are traced with provider "fixture".
  */
 import "server-only";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import sharp from "sharp";
 import type { Registry } from "./registry";
 import type { Description, GeneratedImage, ListingDraft, Segment, ShapedPrompt, StoryDraft } from "./types";
@@ -20,20 +19,8 @@ import { normalizeListing } from "./meta/tools/finalize-listing";
 import { cuesToVtt, estimateCues } from "./meta/captions";
 import { pickByHint } from "./meta/sam";
 
-export function fixturePath(stage: string, key: unknown, ext = "json"): string {
-  return join(process.cwd(), "test", "fixtures", stage, `${requestHash(key).slice(0, 16)}.${ext}`);
-}
-
-function recorded<T>(stage: string, key: unknown): T | null {
-  try {
-    return JSON.parse(readFileSync(fixturePath(stage, key), "utf8")) as T;
-  } catch {
-    return null;
-  }
-}
-
 function fx<T>(stage: string, key: unknown, make: () => Promise<T> | T): Promise<T> {
-  return traced(stage, "fixture", "fixture", key, async () => recorded<T>(stage, key) ?? (await make()));
+  return traced(stage, "fixture", "fixture", key, async () => make());
 }
 
 async function art(seed: string): Promise<GeneratedImage> {
@@ -90,6 +77,7 @@ export function fixtureRegistry(): Registry {
       }),
     },
     listingAgent: {
+      moderate: (text, opts) => traced("moderate", "fixture", "fixture", text, async () => ({ ok: true, reason: "Offline mode: not checked by a model." }), opts.trace),
       run: async (ctx, opts) => traced("listing", "fixture", "fixture", { productId: ctx.productId }, async () => {
         const res = checkResolution(ctx);
         const price = suggestPrice(ctx.productType, "medium", ctx.creatorShareBps);

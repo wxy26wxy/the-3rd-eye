@@ -13,7 +13,8 @@ import {
 } from "@meta-sam/parser";
 import type { ImageRef, Mask, Segment, Segmenter, Trace } from "../types";
 import { traced } from "../trace";
-import { MODELS, metaClient } from "./client";
+import { CALL_TIMEOUT_MS, MODELS, metaClient } from "./client";
+import { callSignal } from "@/lib/deadline";
 import { inputImage, userMessage } from "./responses";
 import { loadImageRef, pngRef } from "@/lib/image/ref";
 import { bboxOf, emptyMask, maskFromPng, maskSharp, thresholdSegments, type BBox } from "@/lib/image/mask";
@@ -23,7 +24,7 @@ type StreamEvent = { type: string; [k: string]: unknown };
 export type SamStreamFn = (body: Record<string, unknown>) => Promise<AsyncIterable<StreamEvent>>;
 
 const defaultStream: SamStreamFn = async (body) =>
-  (await metaClient().responses.create({ ...body, stream: true } as never)) as unknown as AsyncIterable<StreamEvent>;
+  (await metaClient().responses.create({ ...body, stream: true } as never, { signal: callSignal(CALL_TIMEOUT_MS) })) as unknown as AsyncIterable<StreamEvent>;
 
 /**
  * Forwards events until `response.completed`, then stops reading. If the lane was never

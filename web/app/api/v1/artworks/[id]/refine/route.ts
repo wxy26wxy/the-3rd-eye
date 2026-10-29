@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { runPipeline } from "@/lib/pipeline/run";
 import { requireCreator } from "@/lib/auth";
 import { ApiError, json, notFound, parseJson, route } from "@/lib/http";
 import { getArtworkForCreator } from "@/lib/db/queries";
@@ -15,5 +16,5 @@ export const POST = route<{ params: Promise<{ id: string }> }>(async (req, { par
   const artwork = await getArtworkForCreator(id, creatorId);
   if (!artwork) notFound("Artwork");
   if (!artwork.genResponseId) throw new ApiError(400, "not_refinable", "Only generated artwork can be changed by voice");
-  return json({ artwork: toArtworkVariant(await refineArtwork(artwork, instruction)) }, 201);
+  return json({ artwork: toArtworkVariant(await runPipeline(() => refineArtwork(artwork, instruction))) }, 201);
 });

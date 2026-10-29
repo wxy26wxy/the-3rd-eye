@@ -10,13 +10,18 @@ import { ApiError } from "./http";
 export const CREATOR_COOKIE = "ms_creator";
 const DEV_SECRET = "dev-only-creator-session-secret";
 
+/**
+ * Fails closed: any Vercel deployment (VERCEL_ENV set, including previews) or production build
+ * without CREATOR_SESSION_SECRET refuses to sign or verify. The dev secret exists only for
+ * local `next dev` and tests.
+ */
 function secret(): string {
   const s = process.env.CREATOR_SESSION_SECRET;
-  if (s) return s;
-  if (process.env.NODE_ENV === "production" && process.env.VERCEL_ENV === "production") {
-    throw new ApiError(500, "auth_not_configured", "CREATOR_SESSION_SECRET is not set");
+  if (s && s.length >= 16) return s;
+  if (process.env.VERCEL_ENV || process.env.NODE_ENV === "production") {
+    throw new ApiError(500, "auth_not_configured", "CREATOR_SESSION_SECRET (16+ characters) is not set on this deployment");
   }
-  return DEV_SECRET;
+  return s || DEV_SECRET;
 }
 
 function sign(creatorId: string): string {

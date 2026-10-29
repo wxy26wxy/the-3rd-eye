@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { runPipeline } from "@/lib/pipeline/run";
 import { requireCreator } from "@/lib/auth";
 import { ApiError, json, notFound, parseJson, route } from "@/lib/http";
 import { getArtworkForCreator } from "@/lib/db/queries";
@@ -15,5 +16,5 @@ export const POST = route<{ params: Promise<{ id: string }> }>(async (req, { par
   const artwork = await getArtworkForCreator(id, creatorId);
   if (!artwork) notFound("Artwork");
   if (!artwork.candidates?.some((c) => c.id === candidateId)) throw new ApiError(400, "invalid_candidate", "Pick one of the shown drawings");
-  return json(toArtwork(await selectCandidate(artwork, candidateId)));
+  return json(toArtwork(await runPipeline(() => selectCandidate(artwork, candidateId))));
 });

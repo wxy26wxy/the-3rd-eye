@@ -5,7 +5,8 @@
 import { ZodError, type ZodType } from "zod";
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string) {
+  /** `details` are merged into the error object, e.g. `{ artworkId }`. */
+  constructor(public status: number, public code: string, message: string, public details?: Record<string, unknown>) {
     super(message);
   }
 }
@@ -14,25 +15,32 @@ export function json(data: unknown, status = 200, headers?: HeadersInit): Respon
   return Response.json(data, { status, headers });
 }
 
-export function errorResponse(status: number, code: string, message: string): Response {
-  return json({ error: { code, message } }, status);
+export function errorResponse(status: number, code: string, message: string, details?: Record<string, unknown>): Response {
+  return json({ error: { code, message, ...details } }, status);
 }
 
 export function notFound(what = "Resource"): never {
   throw new ApiError(404, "not_found", `${what} not found`);
 }
 
-export function toErrorResponse(err: unknown): Response {
-  if (err instanceof ApiError) return errorResponse(err.status, err.code, err.message);
+/** Maps any error to an ApiError (status, code, message). */
+export function toApiError(err: unknown): ApiError {
+  if (err instanceof ApiError) return err;
   if (err instanceof ZodError) {
     const msg = err.issues.map((i) => `${i.path.join(".") || "body"}: ${i.message}`).join("; ");
-    return errorResponse(400, "invalid_request", msg);
+    return new ApiError(400, "invalid_request", msg);
   }
+  if (err instanceof URIError) return new ApiError(400, "invalid_path", "Malformed path or URL encoding");
   const message = err instanceof Error ? err.message : String(err);
-  if (message.includes("DATABASE_URL is not set")) return errorResponse(503, "db_unavailable", "Database is not configured yet");
-  if (/META_API_KEY/.test(message)) return errorResponse(503, "ai_unavailable", message);
+  if (message.includes("DATABASE_URL is not set")) return new ApiError(503, "db_unavailable", "Database is not configured yet");
+  if (/META_API_KEY/.test(message)) return new ApiError(503, "ai_unavailable", message);
   console.error("[api] unhandled error:", message);
-  return errorResponse(500, "internal", "Something went wrong");
+  return new ApiError(500, "internal", "Something went wrong");
+}
+
+export function toErrorResponse(err: unknown): Response {
+  const e = toApiError(err);
+  return errorResponse(e.status, e.code, e.message, e.details);
 }
 
 /**

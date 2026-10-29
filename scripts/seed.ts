@@ -75,13 +75,13 @@ async function main() {
       let artwork;
       if (item.via === "voice") {
         const shaped = await registry.shaper.shape(item.idea, { product: item.type, trace: { stage: "shape", task: TASK } });
-        [artwork] = await createFromText(creator.id, { prompt: shaped.prompt, transcript: item.idea, n: 1 }, TASK);
+        [artwork] = await createFromText(creator.id, { prompt: shaped.prompt, transcript: item.idea, n: 1, product: item.type }, TASK);
       } else {
         // Canvas example: a marker drawing on white paper, uploaded like the canvas flow would.
         const [img] = await registry.image.generate(
           `${item.idea}, simple hand-drawn marker drawing by an adult artist, on plain white paper, no text`, { n: 1, trace: { stage: "generate", task: TASK } });
         const upload = await storage().putPublic(creatorPath(creator.id, "canvas", "png"), img.png, "image/png");
-        const res = await createFromImage(creator.id, { source: "canvas", imageUrl: upload.url }, TASK);
+        const res = await createFromImage(creator.id, { source: "canvas", imageUrl: upload.url, product: item.type }, TASK);
         artwork = res.artwork.status === "ready" ? res.artwork : await (await import("@/lib/pipeline/artworks")).selectCandidate(res.artwork, res.candidates[0].id, TASK);
         await q.updateArtwork(artwork.id, { transcript: item.idea });
       }

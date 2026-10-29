@@ -3,7 +3,7 @@ import { requireCreator } from "@/lib/auth";
 import { ApiError, json, notFound, parseJson, route } from "@/lib/http";
 import { getOrderForCreator, touchOrder, upsertThankYou } from "@/lib/db/queries";
 import { toThankYou } from "@/lib/api/dto";
-import { isCreatorPath, storage } from "@/lib/storage";
+import { clientUploadPath, readClientUpload } from "@/lib/storage";
 import { ai } from "@/lib/ai/registry";
 
 export const maxDuration = 300;
@@ -30,14 +30,15 @@ export const POST = route<{ params: Promise<{ id: string }> }>(async (req, { par
     return json({ draftText: out.text, provider: out.provider });
   }
 
-  const videoPath = body.videoUrl?.replace(/^https?:\/\/[^/]+\//, "");
-  if (videoPath && !isCreatorPath(videoPath, creatorId)) throw new ApiError(403, "forbidden_path", "That video does not belong to you");
+  const videoPath = body.videoUrl ? clientUploadPath(body.videoUrl, creatorId) : undefined;
+  if (body.imageUrl) clientUploadPath(body.imageUrl, creatorId);
+  if (body.audioUrl) clientUploadPath(body.audioUrl, creatorId);
   if (!body.text && !body.imageUrl && !videoPath) throw new ApiError(400, "invalid_request", "Add a note, a picture or a video");
   let videoVtt: string | null = null;
   if (videoPath) {
     try {
       const source = body.audioUrl ?? body.videoUrl!;
-      const bytes = await storage().read(source);
+      const bytes = await readClientUpload(source, creatorId);
       videoVtt = (await registry.captioner.caption(bytes, { filename: source.split("/").pop() ?? "video.mp4", trace: { stage: "captions", task: "T010" } })).vtt;
     } catch (err) {
       console.warn("[thank-you] captions failed:", err instanceof Error ? err.message : err);

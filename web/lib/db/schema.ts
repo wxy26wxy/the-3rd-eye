@@ -70,6 +70,7 @@ export const artworks = pgTable("artworks", {
   parentArtworkId: uuid("parent_artwork_id"),
   artworkVideoUrl: text("artwork_video_url"),      // optional per-piece video (later)
   status: artworkStatus("status").default("draft").notNull(),
+  lastError: text("last_error"),                   // why the last pipeline run did not finish (null when fine)
   ...trace,
 });
 

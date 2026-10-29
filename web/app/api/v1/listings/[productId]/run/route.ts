@@ -1,3 +1,4 @@
+import { runPipeline } from "@/lib/pipeline/run";
 import { requireCreator } from "@/lib/auth";
 import { json, notFound, route } from "@/lib/http";
 import { getArtwork, getProductForCreator } from "@/lib/db/queries";
@@ -12,6 +13,6 @@ export const POST = route<{ params: Promise<{ productId: string }> }>(async (req
   if (!product) notFound("Product");
   const artwork = await getArtwork(product.artworkId);
   if (!artwork) notFound("Artwork");
-  const { listing, trace } = await runListingAgent(product, artwork);
+  const { listing, trace } = await runPipeline(() => runListingAgent(product, artwork));
   return json({ listing, trace });
 });

@@ -12,6 +12,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { del, get, head, issueSignedToken, presignUrl, put, BlobNotFoundError } from "@vercel/blob";
 import type { PrivateStream, PutBody, Storage, StoredFile } from "./types";
+import { ApiError } from "@/lib/http";
 
 const BLOB_HOST_SUFFIX = ".blob.vercel-storage.com";
 let warned = false;
@@ -152,5 +153,19 @@ export class BlobStorage implements Storage {
     const priv = await this.getPrivateStream(pathname);
     if (!priv) throw new Error(`Blob not found: ${pathname}`);
     return streamToBuffer(priv.stream);
+  }
+
+  async readPublic(pathname: string, maxBytes = 200 * 1024 * 1024): Promise<Buffer> {
+    let size: number;
+    try {
+      size = (await head(pathname, publicCreds())).size;
+    } catch (err) {
+      if (err instanceof BlobNotFoundError) throw new ApiError(404, "file_not_found", "That upload was not found");
+      throw err;
+    }
+    if (size > maxBytes) throw new ApiError(413, "too_large", "That file is too large");
+    const res = await get(pathname, { access: "public", ...publicCreds() });
+    if (!res || res.statusCode !== 200) throw new ApiError(404, "file_not_found", "That upload was not found");
+    return streamToBuffer(res.stream);
   }
 }

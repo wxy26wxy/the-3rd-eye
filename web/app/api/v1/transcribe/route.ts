@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
 import { ApiError, json, route } from "@/lib/http";
-import { storage } from "@/lib/storage";
+import { readClientUpload } from "@/lib/storage";
 import { ai } from "@/lib/ai/registry";
 
 export const maxDuration = 120;
@@ -24,7 +24,7 @@ export const POST = route(async (req) => {
     language = typeof form.get("language") === "string" ? String(form.get("language")) : undefined;
   } else {
     const body = Json.parse(await req.json().catch(() => ({})));
-    bytes = await storage().read(body.audioUrl);
+    bytes = await readClientUpload(body.audioUrl, creatorId, MAX_BYTES);
     filename = body.audioUrl.split("/").pop() ?? filename;
     language = body.language;
   }

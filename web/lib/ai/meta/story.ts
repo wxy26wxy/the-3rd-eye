@@ -14,6 +14,7 @@ import type OpenAI from "openai";
 import type { StoryDraft, StoryWriter, Trace } from "../types";
 import { traced } from "../trace";
 import { MODELS, OLLAMA_DEFAULT_BASE_URL, metaResponses, ollamaClient, type ResponsesLike } from "./client";
+import { callSignal } from "@/lib/deadline";
 import { obj, parseJsonOutput, str, strictFormat, type JsonSchema } from "./responses";
 
 const STORY = z.object({ headline: z.string().min(1), bio_short: z.string().min(1), story_text: z.string().min(1) });
@@ -38,7 +39,7 @@ export function parseGlimmerJson(content: string): unknown {
 
 const defaultNative: NativeChat = async (body) => {
   const res = await fetch(`${nativeOllamaUrl()}/chat`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(30_000),
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: callSignal(30_000),
   });
   if (!res.ok) throw new Error(`ollama ${res.status}`);
   return res.json();
@@ -88,7 +89,7 @@ export class GlimmerStoryWriter implements StoryWriter {
     }
     const compat = { model: MODELS.glimmer, messages, response_format: { type: "json_object" as const }, max_tokens: 1500, reasoning_effort: "low" as const };
     return traced(stage, "ollama", MODELS.glimmer, compat, async () => {
-      const res = await this.chat().create(compat, { timeout: 30_000 });
+      const res = await this.chat().create(compat, { timeout: 30_000, signal: callSignal(30_000) });
       return validator.parse(parseGlimmerJson(res.choices?.[0]?.message?.content ?? ""));
     }, trace);
   }

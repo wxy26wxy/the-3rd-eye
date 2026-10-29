@@ -15,7 +15,7 @@ export const SHAPED_PROMPT_SCHEMA = obj({
   spoken_confirmation: str("One or two short sentences read aloud to the artist, e.g. 'I will draw ...'"),
 });
 
-const STYLE: Record<"sticker" | "tote", string> = {
+export const SHAPING_STYLE: Record<"sticker" | "tote", string> = {
   sticker:
     "Sticker illustration: a single subject, centered, bold dark outlines, flat colors, no gradients, " +
     "pure white background (#FFFFFF) with nothing else in the scene, no text, no letters, no border, no shadow.",
@@ -28,7 +28,7 @@ export function shapingInstructions(product: "sticker" | "tote"): string {
   return [
     "You help artists, including blind and low-vision artists, turn an idea they said out loud into an image prompt.",
     "Keep every concrete detail the artist said (subject, colors, mood, objects). Do not add new subjects.",
-    `Always apply this style: ${STYLE[product]}`,
+    `Always apply this style: ${SHAPING_STYLE[product]}`,
     "Ask ONE clarifying question only if the idea is truly ambiguous (you cannot pick a subject at all). " +
       "If it is merely brief, make a friendly choice and set clarifying_question to null.",
     "If answers to an earlier question are given, use them and set clarifying_question to null.",

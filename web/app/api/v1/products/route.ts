@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { runPipeline } from "@/lib/pipeline/run";
 import { requireCreator } from "@/lib/auth";
 import { ApiError, json, notFound, parseJson, route } from "@/lib/http";
 import { getArtworkForCreator } from "@/lib/db/queries";
@@ -14,5 +15,5 @@ export const POST = route(async (req) => {
   const artwork = await getArtworkForCreator(body.artworkId, creatorId);
   if (!artwork) notFound("Artwork");
   if (artwork.status !== "ready") throw new ApiError(409, "artwork_not_ready", "Pick and clean up the artwork first");
-  return json(toProduct(await createProduct(artwork, body.type)), 201);
+  return json(toProduct(await runPipeline(() => createProduct(artwork, body.type))), 201);
 });

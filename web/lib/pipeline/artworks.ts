@@ -12,8 +12,11 @@ import { ensureDpi, previewCutPath, removeBackground } from "@/lib/ai/meta/stick
 import { pngRef } from "@/lib/image/ref";
 import { area, emptyMask, maskFromPng, maskToPng } from "@/lib/image/mask";
 import { insertArtwork, updateArtwork, type ArtworkRow } from "@/lib/db/queries";
-import { creatorPath, storage } from "@/lib/storage";
+import { creatorPath, readClientUpload, storage } from "@/lib/storage";
 import type { SamCandidate } from "@/lib/db/schema";
+import { trackArtwork } from "@/lib/deadline";
+import { ApiError } from "@/lib/http";
+import { SHAPING_STYLE } from "@/lib/ai/meta/shape-prompt";
 
 const MAX_CANDIDATES = 6;
 
@@ -47,7 +50,7 @@ async function finishArtwork(
   return updateArtwork(artwork.id, {
     cleanedUrl: cleanedFile.url, maskUrl: maskFile.pathname, cutPathSvg,
     altText: description.alt_text, spokenDescription: description.spoken,
-    differencesFromPrompt: description.differences_from_prompt || null, status: "ready",
+    differencesFromPrompt: description.differences_from_prompt || null, status: "ready", lastError: null,
   });
 }
 
@@ -58,6 +61,7 @@ export async function processGenerated(
   meta: { transcript?: string | null; shapedPrompt: string; parentArtworkId?: string | null; shapingTrace?: unknown; task: string },
 ): Promise<ArtworkRow> {
   const id = randomUUID();
+  trackArtwork(id);
   const original = await storage().putPrivate(creatorPath(creatorId, "originals", "png"), img.png, "image/png");
   const artwork = await insertArtwork({
     id, creatorId, source: "text2image", transcript: meta.transcript ?? null, shapedPrompt: meta.shapedPrompt,
@@ -83,14 +87,22 @@ export async function subjectPhrase(prompt: string): Promise<string> {
   return cleaned.split(" ").slice(0, 6).join(" ") || "illustration";
 }
 
+/** Adds the product's print style when the prompt was not shaped for it already. */
+export function promptForProduct(prompt: string, product: "sticker" | "tote"): string {
+  return /white background/i.test(prompt) ? prompt : `${prompt.trim().replace(/\.?$/, ".")} ${SHAPING_STYLE[product]}`;
+}
+
 export async function createFromText(
   creatorId: string,
-  input: { prompt: string; transcript?: string; n: number },
+  input: { prompt: string; transcript?: string; n: number; product: "sticker" | "tote" },
   task = "T010",
 ): Promise<ArtworkRow[]> {
   const registry = await ai();
-  const images = await registry.image.generate(input.prompt, { n: input.n, trace: { stage: "generate", task } });
-  return Promise.all(images.map((img) => processGenerated(creatorId, img, { transcript: input.transcript, shapedPrompt: input.prompt, task })));
+  const prompt = promptForProduct(input.prompt, input.product);
+  const images = await registry.image.generate(prompt, { n: input.n, trace: { stage: "generate", task } });
+  return Promise.all(images.map((img) => processGenerated(creatorId, img, {
+    transcript: input.transcript, shapedPrompt: prompt, shapingTrace: { product: input.product }, task,
+  })));
 }
 
 export async function refineArtwork(parent: ArtworkRow, instruction: string, task = "T010"): Promise<ArtworkRow> {
@@ -105,14 +117,17 @@ export async function refineArtwork(parent: ArtworkRow, instruction: string, tas
 /** Photo or canvas upload → original stored privately, SAM finds every drawing as a candidate. */
 export async function createFromImage(
   creatorId: string,
-  input: { source: "photo" | "canvas"; imageUrl: string },
+  input: { source: "photo" | "canvas"; imageUrl: string; product: "sticker" | "tote" },
   task = "T010",
 ): Promise<{ artwork: ArtworkRow; candidates: SamCandidate[] }> {
-  const raw = await storage().read(input.imageUrl);
+  const raw = await readClientUpload(input.imageUrl, creatorId, 25 * 1024 * 1024);
   const png = await ensureDpi(await sharp(raw).rotate().flatten({ background: "#ffffff" }).png().toBuffer());
   const id = randomUUID();
+  trackArtwork(id);
   const original = await storage().putPrivate(creatorPath(creatorId, "originals", "png"), png, "image/png");
-  let artwork = await insertArtwork({ id, creatorId, source: input.source, originalUrl: original.pathname, status: "draft", createdByTask: task });
+  let artwork = await insertArtwork({
+    id, creatorId, source: input.source, originalUrl: original.pathname, shapingTrace: { product: input.product }, status: "draft", createdByTask: task,
+  });
   const segs = (await (await ai()).segmenter.findAll(pngRef(png), "drawing", { trace: traceFor(id, task, "segment") })).slice(0, MAX_CANDIDATES);
   const candidates = await Promise.all(segs.map(async (s): Promise<SamCandidate> => {
     const cut = await removeBackground(png, s.mask);
@@ -124,11 +139,16 @@ export async function createFromImage(
     return { id: randomUUID(), bbox: s.bbox, score: Math.round(s.score * 1000) / 1000, thumbUrl: thumbFile.url, maskUrl: maskFile.pathname };
   }));
   artwork = await updateArtwork(id, { candidates });
+  if (candidates.length === 0) {
+    await updateArtwork(id, { lastError: "no_drawing_found" });
+    throw new ApiError(422, "no_drawing_found", "We could not find a drawing in that picture. Try a photo with the drawing on plain paper, filling most of the frame, in good light.", { artworkId: id });
+  }
   if (candidates.length === 1) artwork = await selectCandidate(artwork, candidates[0].id, task);
   return { artwork, candidates };
 }
 
 export async function selectCandidate(artwork: ArtworkRow, candidateId: string, task = "T010"): Promise<ArtworkRow> {
+  trackArtwork(artwork.id);
   const cand = artwork.candidates?.find((c) => c.id === candidateId);
   if (!cand || !artwork.originalUrl) throw new Error("Unknown candidate");
   const [original, maskPng] = await Promise.all([storage().read(artwork.originalUrl), storage().read(cand.maskUrl)]);
@@ -142,6 +162,7 @@ export async function cleanupArtwork(
   task = "T010",
 ): Promise<ArtworkRow> {
   if (!artwork.originalUrl) throw new Error("Artwork has no original image");
+  trackArtwork(artwork.id);
   const original = await storage().read(artwork.originalUrl);
   const seg = await (await ai()).segmenter.segment(pngRef(original), hint, { trace: traceFor(artwork.id, task, "segment") });
   if (!seg) throw new Error("Could not find the drawing there");

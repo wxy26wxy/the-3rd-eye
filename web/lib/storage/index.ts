@@ -1,9 +1,11 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { BlobStorage } from "./blob";
+import { clientUploadPath } from "./refs";
 import type { Storage } from "./types";
 
 export type { Storage, StoredFile, PrivateStream, PutBody } from "./types";
+export { clientUploadPath, publicStoreHost } from "./refs";
 
 let _storage: Storage | null = null;
 export function storage(): Storage {
@@ -24,4 +26,9 @@ export function creatorPath(creatorId: string, kind: string, ext: string): strin
 /** True when `pathname` belongs to the creator (used by uploads and /media authorization). */
 export function isCreatorPath(pathname: string, creatorId: string): boolean {
   return pathname.startsWith(`creators/${creatorId}/`) && !pathname.includes("..");
+}
+
+/** Reads a client-supplied reference after checking it is the creator's own public upload. */
+export function readClientUpload(ref: string, creatorId: string, maxBytes?: number): Promise<Buffer> {
+  return storage().readPublic(clientUploadPath(ref, creatorId), maxBytes);
 }

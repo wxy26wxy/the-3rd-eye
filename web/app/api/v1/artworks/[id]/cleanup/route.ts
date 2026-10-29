@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { runPipeline } from "@/lib/pipeline/run";
 import { requireCreator } from "@/lib/auth";
 import { ApiError, json, notFound, parseJson, route } from "@/lib/http";
 import { getArtworkForCreator } from "@/lib/db/queries";
@@ -20,5 +21,5 @@ export const POST = route<{ params: Promise<{ id: string }> }>(async (req, { par
   const artwork = await getArtworkForCreator(id, creatorId);
   if (!artwork) notFound("Artwork");
   if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
-  return json(toArtwork(await cleanupArtwork(artwork, hint)));
+  return json(toArtwork(await runPipeline(() => cleanupArtwork(artwork, hint))));
 });

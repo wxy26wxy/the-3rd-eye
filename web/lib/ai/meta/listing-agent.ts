@@ -33,7 +33,8 @@ export class MetaListingAgent implements ListingAgent {
   ) {}
 
   /** Spark second call used by moderate_content. */
-  async moderate(text: { title: string; description: string; tags: string[] }, trace: Trace): Promise<{ ok: boolean; reason: string }> {
+  async moderate(text: { title: string; description: string; tags: string[] }, opts: { trace: Trace }): Promise<{ ok: boolean; reason: string }> {
+    const trace = { ...opts.trace, stage: "moderate" };
     const body = {
       model: MODELS.spark,
       instructions: "You review shop listings. ok=false only for hateful, sexual, violent, harassing or misleading content. reason is one short sentence.",
@@ -52,7 +53,7 @@ export class MetaListingAgent implements ListingAgent {
     const toolCtx: ToolContext = {
       productType: ctx.productType, width: ctx.width, height: ctx.height, creatorShareBps: ctx.creatorShareBps,
       loadImage: () => (imageBytes ??= this.loadImage(ctx.imageUrl)),
-      moderate: (text) => this.moderate(text, trace),
+      moderate: (text) => this.moderate(text, { trace }),
     };
     const specs = toolSpecs(this.tools);
     const steps: AgentStep[] = [];

@@ -17,6 +17,8 @@ export interface Storage {
   /** Short-lived URL a client can fetch directly (supports HTTP range requests for video). */
   signedUrl(path: string, ttlSeconds: number): Promise<string | null>;
   delete(path: string): Promise<void>;
-  /** Reads a file the server needs to process: a Blob URL, a public pathname, or a private pathname. */
+  /** Reads a file the server itself stored or chose (internal references only; may hit the private store). */
   read(urlOrPathname: string): Promise<Buffer>;
+  /** Reads a PUBLIC-store pathname (client uploads). Throws 413 above `maxBytes`, 404 when missing. */
+  readPublic(pathname: string, maxBytes?: number): Promise<Buffer>;
 }

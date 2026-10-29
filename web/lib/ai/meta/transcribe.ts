@@ -8,7 +8,8 @@
 import "server-only";
 import type { TranscribeProvider, TranscribeResult, Trace } from "../types";
 import { traced } from "../trace";
-import { META_BASE_URL, MODELS, metaApiKey } from "./client";
+import { CALL_TIMEOUT_MS, META_BASE_URL, MODELS, metaApiKey } from "./client";
+import { callSignal } from "@/lib/deadline";
 import { toWav } from "@/lib/audio/wav";
 
 export type RawTranscript = { sessionId?: string; transcript?: string; text?: string; audioDurationMs?: number; turns?: unknown[] };
@@ -35,7 +36,7 @@ export async function transcribeRequest(
       method: "POST",
       headers: { Authorization: `Bearer ${metaApiKey()}` },
       body: form,
-      signal: AbortSignal.timeout(120_000),
+      signal: callSignal(CALL_TIMEOUT_MS),
     });
     const body = await res.text();
     if (!res.ok) throw new Error(`transcribe failed ${res.status}: ${body.slice(0, 300)}`);

@@ -19,7 +19,7 @@ export function toArtwork(a: ArtworkRow) {
     id: a.id, creatorId: a.creatorId, source: a.source, transcript: a.transcript, shapedPrompt: a.shapedPrompt,
     originalUrl: a.originalUrl, cleanedUrl: a.cleanedUrl, maskUrl: a.maskUrl, cutPathSvg: a.cutPathSvg,
     altText: a.altText, spokenDescription: a.spokenDescription, differencesFromPrompt: a.differencesFromPrompt,
-    genResponseId: a.genResponseId, parentArtworkId: a.parentArtworkId, status: a.status, createdAt: a.createdAt,
+    genResponseId: a.genResponseId, parentArtworkId: a.parentArtworkId, status: a.status, lastError: a.lastError, createdAt: a.createdAt,
   };
 }
 

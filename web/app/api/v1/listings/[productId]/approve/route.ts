@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { runPipeline } from "@/lib/pipeline/run";
 import { requireCreator } from "@/lib/auth";
 import { json, notFound, parseJson, route } from "@/lib/http";
 import { getProductForCreator } from "@/lib/db/queries";
@@ -21,6 +22,6 @@ export const POST = route<{ params: Promise<{ productId: string }> }>(async (req
   const body = await parseJson(req, Body);
   const product = await getProductForCreator(productId, creatorId);
   if (!product) notFound("Product");
-  const out = await approveListing(product, body);
+  const out = await runPipeline(() => approveListing(product, body));
   return json({ product: toProduct(out.product), listing: toListing(out.listing), storyVideoNeeded: out.storyVideoNeeded });
 });

@@ -5,6 +5,10 @@
  */
 import "server-only";
 import OpenAI from "openai";
+import { callSignal } from "@/lib/deadline";
+
+/** Per model call: 90 s and one SDK retry, always inside the request deadline. */
+export const CALL_TIMEOUT_MS = 90_000;
 
 export const MODELS = {
   transcribe: "muse-voice-transcribe-1.0",
@@ -27,7 +31,7 @@ export function metaApiKey(): string {
 
 let _meta: OpenAI | null = null;
 export function metaClient(): OpenAI {
-  if (!_meta) _meta = new OpenAI({ apiKey: metaApiKey(), baseURL: META_BASE_URL, maxRetries: 2, timeout: 240_000 });
+  if (!_meta) _meta = new OpenAI({ apiKey: metaApiKey(), baseURL: META_BASE_URL, maxRetries: 1, timeout: CALL_TIMEOUT_MS });
   return _meta;
 }
 
@@ -52,6 +56,7 @@ export interface ResponsesLike {
 
 export function metaResponses(): ResponsesLike {
   return {
-    create: (body, options) => metaClient().responses.create(body as never, options) as Promise<unknown>,
+    create: (body, options) =>
+      metaClient().responses.create(body as never, { signal: callSignal(CALL_TIMEOUT_MS), ...options }) as Promise<unknown>,
   };
 }

@@ -99,6 +99,12 @@ export async function updateArtwork(id: string, patch: Partial<typeof artworks.$
   return row;
 }
 
+/** Records why a pipeline run did not finish; the row stays (or remains) a draft until a run succeeds. */
+export async function markArtworksFailed(ids: string[], message: string): Promise<void> {
+  if (!ids.length) return;
+  await db().update(artworks).set({ lastError: message.slice(0, 500) }).where(inArray(artworks.id, ids));
+}
+
 export async function softDeleteArtwork(id: string): Promise<void> {
   await db().update(artworks).set({ deletedAt: new Date() }).where(eq(artworks.id, id));
 }
@@ -284,8 +290,16 @@ export async function getStoryTag(token: string): Promise<StoryTagView | null> {
 export async function getOrderIdForToken(token: string): Promise<{ orderId: string; creatorId: string } | null> {
   const [row] = await db().select({ orderId: orders.id, creatorId: orders.creatorId }).from(nfcTokens)
     .innerJoin(orders, eq(orders.id, nfcTokens.orderId))
-    .where(and(eq(nfcTokens.token, token), isNull(nfcTokens.deletedAt))).limit(1);
+    .where(and(eq(nfcTokens.token, token), isNull(nfcTokens.deletedAt), isNull(orders.deletedAt))).limit(1);
   return row ?? null;
+}
+
+/** Media pathnames a story-tag holder may read: that order's thank-you video and image. */
+export async function getTagMediaPaths(token: string): Promise<string[] | null> {
+  const order = await getOrderIdForToken(token);
+  if (!order) return null;
+  const ty = await getThankYou(order.orderId);
+  return [ty?.videoUrl, ty?.imageUrl].filter((p): p is string => Boolean(p) && !/^https?:/.test(p!));
 }
 
 /** Increments tapCount and records the first tap. Returns the new count, or null for unknown tokens. */

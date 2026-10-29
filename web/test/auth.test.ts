@@ -7,7 +7,7 @@ import { ApiError } from "@/lib/http";
 const ID = "6f1c1b0e-1d8a-4c1e-9d55-3c3f2b1a0e11";
 
 describe("creator tokens", () => {
-  beforeEach(() => { process.env.CREATOR_SESSION_SECRET = "test-secret"; });
+  beforeEach(() => { process.env.CREATOR_SESSION_SECRET = "test-secret-0123456789"; });
   afterEach(() => { delete process.env.CREATOR_SESSION_SECRET; delete process.env.ADMIN_PASSWORD; });
 
   it("round-trips creatorId.sig", () => {
@@ -22,7 +22,7 @@ describe("creator tokens", () => {
     expect(verifyCreatorToken(token.slice(0, -2) + "xx")).toBeNull();
     expect(verifyCreatorToken("garbage")).toBeNull();
     expect(verifyCreatorToken("")).toBeNull();
-    process.env.CREATOR_SESSION_SECRET = "another";
+    process.env.CREATOR_SESSION_SECRET = "another-secret-0123456789";
     expect(verifyCreatorToken(token)).toBeNull();
   });
 
@@ -55,5 +55,28 @@ describe("admin basic auth", () => {
     expect(checkAdminAuth("Bearer abc")).toBe(false);
     delete process.env.ADMIN_PASSWORD;
     expect(checkAdminAuth(basic("admin", "s3cret"))).toBe(false);
+  });
+});
+
+describe("session secret fails closed", () => {
+  const env = process.env as Record<string, string | undefined>;
+  afterEach(() => { delete env.CREATOR_SESSION_SECRET; delete env.VERCEL_ENV; env.NODE_ENV = "test"; });
+
+  it("throws 500 on any Vercel deployment (preview included) without a secret", () => {
+    env.VERCEL_ENV = "preview";
+    expect(() => signCreatorToken(ID)).toThrow(/CREATOR_SESSION_SECRET/);
+    expect(() => verifyCreatorToken(`${ID}.abc`)).toThrow(ApiError);
+  });
+
+  it("throws in a production build without a secret, and rejects short secrets", () => {
+    env.NODE_ENV = "production";
+    expect(() => signCreatorToken(ID)).toThrow(ApiError);
+    env.CREATOR_SESSION_SECRET = "short";
+    expect(() => signCreatorToken(ID)).toThrow(ApiError);
+  });
+
+  it("uses the dev secret only locally (no VERCEL_ENV, not production)", () => {
+    const token = signCreatorToken(ID);
+    expect(verifyCreatorToken(token)).toBe(ID);
   });
 });

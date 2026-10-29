@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { runPipeline } from "@/lib/pipeline/run";
 import { requireCreator } from "@/lib/auth";
 import { json, parseJson, route } from "@/lib/http";
 import { listArtworksByCreator } from "@/lib/db/queries";
@@ -19,10 +20,10 @@ export const POST = route(async (req) => {
   const { creatorId } = requireCreator(req);
   const body = await parseJson(req, Body);
   if (body.source === "text2image") {
-    const rows = await createFromText(creatorId, { prompt: body.prompt, transcript: body.transcript, n: body.n ?? 2 });
+    const rows = await runPipeline(() => createFromText(creatorId, { prompt: body.prompt, transcript: body.transcript, n: body.n ?? 2, product: body.product }));
     return json({ artworks: rows.map(toArtworkVariant) }, 201);
   }
-  const { artwork } = await createFromImage(creatorId, { source: body.source, imageUrl: body.imageUrl });
+  const { artwork } = await runPipeline(() => createFromImage(creatorId, { source: body.source, imageUrl: body.imageUrl, product: body.product }));
   return json({ artwork: toArtwork(artwork), candidates: toCandidates(artwork) }, 201);
 });
 

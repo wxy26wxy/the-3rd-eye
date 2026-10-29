@@ -15,6 +15,8 @@ struct ThankYouComposerView: View {
   @State private var photo: UIImage?
   @State private var imageUrl: String?
   @State private var videoPathname: String?
+  @State private var audioPathname: String?
+  @State private var videoNote: String?
   @State private var recordingVideo = false
   @State private var uploading = false
   @State private var sending = false
@@ -46,6 +48,7 @@ struct ThankYouComposerView: View {
         }
         if videoPathname != nil {
           Label("Video added", systemImage: "checkmark.circle.fill").themeFont(.body).foregroundStyle(colors.text)
+          if let videoNote { Text(videoNote).themeFont(.bodyS).foregroundStyle(colors.textMuted) }
         }
         if uploading {
           HStack(spacing: Theme.Space.m) {
@@ -136,12 +139,10 @@ struct ThankYouComposerView: View {
     uploading = true
     defer { uploading = false }
     do {
-      let data = try Data(contentsOf: url)
-      let ext = url.pathExtension.lowercased() == "mp4" ? "mp4" : "mov"
-      let uploaded = try await BlobUploader(api: app.api).upload(
-        data, creatorId: try await creatorId(), kind: .thankYouVideo,
-        contentType: ext == "mp4" ? "video/mp4" : "video/quicktime", fileExtension: ext)
-      videoPathname = uploaded.pathname
+      let sent = try await VideoUpload(api: app.api).upload(url, creatorId: try await creatorId(), kind: .thankYouVideo, maxSeconds: ThemeEffects.thankYouVideoSeconds)
+      videoPathname = sent.videoPathname
+      audioPathname = sent.audioPathname
+      videoNote = sent.trimmed ? String(localized: "We kept the first 15 seconds of your video.") : nil
     } catch {
       self.error = error.localizedDescription
     }
@@ -153,7 +154,7 @@ struct ThankYouComposerView: View {
     defer { sending = false }
     do {
       _ = try await app.api.sendThankYou(orderId: orderId, ThankYouRequest(
-        text: text.isEmpty ? nil : text, imageUrl: imageUrl, videoUrl: videoPathname, transcript: transcript))
+        text: text.isEmpty ? nil : text, imageUrl: imageUrl, videoUrl: videoPathname, audioUrl: audioPathname, transcript: transcript))
       await app.orders.refresh()
       dismiss()
     } catch {

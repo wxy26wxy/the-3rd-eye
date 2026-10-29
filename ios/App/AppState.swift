@@ -147,6 +147,8 @@ final class CreateFlow {
   var artwork: Artwork?
   var product: Product?
   var approval: ApproveListingResponse?
+  /// The picked story video was longer than 30 s and only its start was kept.
+  var storyVideoTrimmed = false
 
   var currentVariant: ArtworkVariant? {
     variants.indices.contains(selectedVariant) ? variants[selectedVariant] : nil

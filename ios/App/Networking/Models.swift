@@ -266,6 +266,8 @@ struct ApproveListingResponse: Decodable {
 
 struct StoryVideoRequest: Encodable {
   let videoUrl: String
+  /// Blob pathname of a 16 kHz mono WAV of the video's soundtrack (used for captions).
+  var audioUrl: String?
   var mentionDisability: Bool?
 }
 
@@ -286,6 +288,8 @@ struct ThankYouRequest: Encodable {
   var text: String?
   var imageUrl: String?
   var videoUrl: String?
+  /// Blob pathname of a WAV of the video's soundtrack (used for captions).
+  var audioUrl: String?
   var transcript: String?
   var draft: Bool?
 }

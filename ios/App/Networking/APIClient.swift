@@ -34,6 +34,10 @@ final class APIClient: @unchecked Sendable {
 
   // MARK: Core
 
+  /// Long routes answer within 270 s on the server (docs/api.md, clarification 10);
+  /// the client waits longer so it never gives up first and retries work still running.
+  static let longTimeout: TimeInterval = 300
+
   static let decoder = JSONDecoder()
   static let encoder = JSONEncoder()
 
@@ -151,8 +155,8 @@ final class APIClient: @unchecked Sendable {
     return res.prompts
   }
 
-  func saveStoryVideo(pathname: String, mentionDisability: Bool) async throws -> Creator {
-    try await post("creators/me/story-video", StoryVideoRequest(videoUrl: pathname, mentionDisability: mentionDisability), timeout: 180)
+  func saveStoryVideo(pathname: String, audioPathname: String?, mentionDisability: Bool) async throws -> Creator {
+    try await post("creators/me/story-video", StoryVideoRequest(videoUrl: pathname, audioUrl: audioPathname, mentionDisability: mentionDisability), timeout: Self.longTimeout)
   }
 
   // MARK: Orders and messages
@@ -168,7 +172,8 @@ final class APIClient: @unchecked Sendable {
   }
 
   func sendThankYou(orderId: String, _ body: ThankYouRequest) async throws -> ThankYou {
-    try await post("orders/\(orderId)/thank-you", body)
+    // Captions are made while the request is open when a video is attached.
+    try await post("orders/\(orderId)/thank-you", body, timeout: body.videoUrl == nil ? 90 : Self.longTimeout)
   }
 
   func messages(orderId: String) async throws -> [Message] {

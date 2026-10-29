@@ -87,12 +87,9 @@ struct StoryVideoView: View {
     do {
       if app.creator == nil { await app.refreshCreator() }
       guard let creatorId = app.creator?.id else { throw APIError.unauthorized }
-      let data = try Data(contentsOf: url)
-      let ext = url.pathExtension.lowercased() == "mp4" ? "mp4" : "mov"
-      let uploaded = try await BlobUploader(api: app.api).upload(
-        data, creatorId: creatorId, kind: .storyVideo,
-        contentType: ext == "mp4" ? "video/mp4" : "video/quicktime", fileExtension: ext)
-      app.creator = try await app.api.saveStoryVideo(pathname: uploaded.pathname, mentionDisability: mentionDisability)
+      let sent = try await VideoUpload(api: app.api).upload(url, creatorId: creatorId, kind: .storyVideo, maxSeconds: ThemeEffects.storyVideoSeconds)
+      app.flow.storyVideoTrimmed = sent.trimmed
+      app.creator = try await app.api.saveStoryVideo(pathname: sent.videoPathname, audioPathname: sent.audioPathname, mentionDisability: mentionDisability)
       app.push(.videoSaved)
     } catch {
       self.error = error.localizedDescription

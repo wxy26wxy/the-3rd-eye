@@ -19,7 +19,7 @@ This solves three problems: studios can only sell one-off originals locally, art
 | Shape a spoken idea into an image prompt; describe results; listing agent | Muse Spark 1.3 (`muse-spark-1.3`) |
 | Generate and refine artwork; product mockups | Muse Image 1.0 (`muse-image-1.0`) |
 | Find and cut out drawings; sticker die-cut outline | SAM 3.1 (`sam-3.1`) |
-| Draft creator stories from transcripts (open weights) | Muse Spark Open via Baseten (`meta-models/muse-spark-open-1026`) |
+| Draft creator stories from transcripts (open weights, on our own hardware) | Muse Glimmer 30B via Ollama (`muse-glimmer`), with Muse Spark 1.3 as fallback |
 | Development tooling | Muse Code |
 
 There is no Meta text-to-speech model. Descriptions are written by Muse Spark and spoken by the device (iOS `AVSpeechSynthesizer`, web `speechSynthesis`).

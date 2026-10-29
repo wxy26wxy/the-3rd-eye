@@ -1,6 +1,790 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "" : {
+
+    },
+    ", " : {
+
+    },
+    "%lld" : {
+
+    },
+    "%lld new messages" : {
+
+    },
+    "5.00" : {
+
+    },
+    "a buyer" : {
+
+    },
+    "A few words about it" : {
+
+    },
+    "A happy frog wearing a crown" : {
+
+    },
+    "Accessibility" : {
+
+    },
+    "Accessibility and account settings" : {
+
+    },
+    "Account" : {
+
+    },
+    "Add a photo" : {
+
+    },
+    "Add a video" : {
+
+    },
+    "Adds a picture from your library" : {
+
+    },
+    "Answer out loud" : {
+
+    },
+    "Approve and list it" : {
+
+    },
+    "Artwork" : {
+
+    },
+    "Back" : {
+
+    },
+    "Bigger words everywhere" : {
+
+    },
+    "Black and white with bold colors" : {
+
+    },
+    "Bought by %@" : {
+
+    },
+    "Buyer said: %@" : {
+
+    },
+    "Buyers tap to hear your story" : {
+
+    },
+    "Can't reach maker story. Check your connection and try again." : {
+
+    },
+    "Change" : {
+
+    },
+    "Change it" : {
+
+    },
+    "Changing it…" : {
+
+    },
+    "Check the name and price, then list it." : {
+
+    },
+    "Checks your code and opens your studio" : {
+
+    },
+    "Choose from my photos" : {
+
+    },
+    "Choose how to make your art" : {
+
+    },
+    "Create" : {
+
+    },
+    "Cuts out the drawing you picked" : {
+
+    },
+    "Cutting it out…" : {
+
+    },
+    "Describe it, we draw it" : {
+
+    },
+    "Description" : {
+
+    },
+    "Design" : {
+
+    },
+    "Die-cut around your art" : {
+
+    },
+    "Different from what you said: %@" : {
+
+    },
+    "Done" : {
+
+    },
+    "Draw it, or say it out loud" : {
+
+    },
+    "Drawing %lld" : {
+
+    },
+    "Drawing your idea" : {
+
+    },
+    "Draws a new version with your change" : {
+
+    },
+    "Extra tips for someone helping" : {
+
+    },
+    "Fewer steps and choices" : {
+
+    },
+    "Finding your drawings" : {
+
+    },
+    "For example: LEO-2026" : {
+
+    },
+    "Go back" : {
+
+    },
+    "Goes to the previous screen" : {
+
+    },
+    "Happy Frog Sticker" : {
+
+    },
+    "Hear it again" : {
+
+    },
+    "Hear the questions" : {
+
+    },
+    "Hear what the image shows" : {
+
+    },
+    "Helper mode" : {
+
+    },
+    "Helper mode is on. A friend can help you, and the app shows extra tips." : {
+
+    },
+    "Helper mode, off" : {
+
+    },
+    "Helper mode, on" : {
+
+    },
+    "Here's your idea" : {
+
+    },
+    "Hide the keyboard box" : {
+
+    },
+    "High contrast" : {
+
+    },
+    "How do you want to make it?" : {
+
+    },
+    "I didn't catch that. Try again, or type instead." : {
+
+    },
+    "I heard: \"%@\". Say \"yes\" to list it." : {
+
+    },
+    "I wrote a listing called %@, for %@. You earn %@ per sale. Say yes to list it." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "I wrote a listing called %1$@, for %2$@. You earn %3$@ per sale. Say yes to list it."
+          }
+        }
+      }
+    },
+    "Improve with AI" : {
+
+    },
+    "It's saved in My designs." : {
+
+    },
+    "Keeps the design and goes to My designs" : {
+
+    },
+    "Keeps this picture for your product" : {
+
+    },
+    "Large text" : {
+
+    },
+    "Lay your drawing flat in good light. It's fine if there are a few on the page." : {
+
+    },
+    "Listening" : {
+
+    },
+    "LISTENING" : {
+
+    },
+    "Listening… say \"yes\"" : {
+
+    },
+    "Listing details" : {
+
+    },
+    "Listing it…" : {
+
+    },
+    "Loading order" : {
+
+    },
+    "Loading orders" : {
+
+    },
+    "Loading your designs" : {
+
+    },
+    "Looking for every drawing on the page. This takes a few seconds." : {
+
+    },
+    "Make another" : {
+
+    },
+    "Make the change" : {
+
+    },
+    "Make the frog green" : {
+
+    },
+    "maker story" : {
+
+    },
+    "Makes the product and writes the listing" : {
+
+    },
+    "Making your picture now. This can take up to a minute." : {
+
+    },
+    "Making your sticker. This can take up to a minute." : {
+
+    },
+    "Mention my disability" : {
+
+    },
+    "Messages" : {
+
+    },
+    "MESSAGES" : {
+
+    },
+    "Microphone access is off. You can turn it on in Settings, or type instead." : {
+
+    },
+    "My designs" : {
+
+    },
+    "Name" : {
+
+    },
+    "Next" : {
+
+    },
+    "No designs yet. Make one in Create." : {
+
+    },
+    "No messages yet." : {
+
+    },
+    "No orders yet. We'll check every few seconds and show them here." : {
+
+    },
+    "NO PEN NEEDED!" : {
+
+    },
+    "Not now" : {
+
+    },
+    "Note from the buyer: %@" : {
+
+    },
+    "Off means your story never says it. You can change this later." : {
+
+    },
+    "One quick question" : {
+
+    },
+    "Open the camera" : {
+
+    },
+    "Opens the camera for up to 30 seconds" : {
+
+    },
+    "Opens the order" : {
+
+    },
+    "Opens this way of making art" : {
+
+    },
+    "Opens your photo library" : {
+
+    },
+    "Opens your product page" : {
+
+    },
+    "Or say \"yes\" to list it" : {
+
+    },
+    "Order" : {
+
+    },
+    "Orders" : {
+
+    },
+    "Pick a photo of your drawing." : {
+
+    },
+    "Pick art from your photos" : {
+
+    },
+    "Pick one. You can make the other next time." : {
+
+    },
+    "Picture %lld of %lld. Swipe left or right for others." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Picture %1$lld of %2$lld. Swipe left or right for others."
+          }
+        }
+      }
+    },
+    "Please sign in again with your code." : {
+
+    },
+    "Price in dollars" : {
+
+    },
+    "Put it up for sale now?" : {
+
+    },
+    "Puts it in the shop" : {
+
+    },
+    "Putting your art on a tote bag. This can take up to a minute." : {
+
+    },
+    "QUESTION" : {
+
+    },
+    "Read picture descriptions out loud" : {
+
+    },
+    "Reads a description of the picture out loud" : {
+
+    },
+    "Reads the description out loud" : {
+
+    },
+    "Record a short video, about 30 seconds. Buyers see it when they tap the story tag. You only do this once." : {
+
+    },
+    "Record my video" : {
+
+    },
+    "Record or write a thank-you the buyer sees when they tap the tag" : {
+
+    },
+    "Records up to 15 seconds" : {
+
+    },
+    "Records your voice" : {
+
+    },
+    "Records your voice and writes it down" : {
+
+    },
+    "Repeats the last step" : {
+
+    },
+    "Reply" : {
+
+    },
+    "Retake" : {
+
+    },
+    "Saving your video…" : {
+
+    },
+    "Say it instead of typing" : {
+
+    },
+    "Say it out loud" : {
+
+    },
+    "Say it, and I'll write it down for you." : {
+
+    },
+    "Say thank you" : {
+
+    },
+    "SAY THANK YOU" : {
+
+    },
+    "Say what to change" : {
+
+    },
+    "Say yes to approve" : {
+
+    },
+    "Say your thank-you" : {
+
+    },
+    "See what buyers see" : {
+
+    },
+    "Selected" : {
+
+    },
+    "Selects this drawing" : {
+
+    },
+    "Selects this product" : {
+
+    },
+    "Send" : {
+
+    },
+    "Send thank-you" : {
+
+    },
+    "Sending…" : {
+
+    },
+    "Sends it to the buyer" : {
+
+    },
+    "Sends your reply to the buyer" : {
+
+    },
+    "Sent" : {
+
+    },
+    "Sent with a picture or video." : {
+
+    },
+    "Server" : {
+
+    },
+    "Settings" : {
+
+    },
+    "Shows your live product" : {
+
+    },
+    "Sign in" : {
+
+    },
+    "Sign in with your studio code to begin" : {
+
+    },
+    "Sign out" : {
+
+    },
+    "Sign-in code" : {
+
+    },
+    "Signed in as" : {
+
+    },
+    "Signing in…" : {
+
+    },
+    "Simple mode" : {
+
+    },
+    "Skip for now" : {
+
+    },
+    "Snap a drawing on paper" : {
+
+    },
+    "Something went wrong. Please try again." : {
+
+    },
+    "Speak descriptions" : {
+
+    },
+    "Start creating" : {
+
+    },
+    "Start talking" : {
+
+    },
+    "Start with the microphone instead of the keyboard" : {
+
+    },
+    "Starts a new design" : {
+
+    },
+    "Status: %@" : {
+
+    },
+    "Step %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Step %1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "STEP %lld OF %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "STEP %1$lld OF %2$lld"
+          }
+        }
+      }
+    },
+    "Sticker" : {
+
+    },
+    "Stop" : {
+
+    },
+    "Stop recording" : {
+
+    },
+    "Stops and writes down what you said" : {
+
+    },
+    "Stops recording and writes down what you said" : {
+
+    },
+    "Take a photo" : {
+
+    },
+    "Takes a new photo" : {
+
+    },
+    "Takes a photo of your drawing" : {
+
+    },
+    "Tap the big button and talk. Your words will show up here." : {
+
+    },
+    "Tap your drawing" : {
+
+    },
+    "Tell buyers your story" : {
+
+    },
+    "Tell me what to change" : {
+
+    },
+    "Tell me what you want to see. Colors, animals, words, anything." : {
+
+    },
+    "Thank you so much for buying my art!" : {
+
+    },
+    "That picture couldn't be opened. Try another one." : {
+
+    },
+    "The app got an answer it did not understand. Please try again." : {
+
+    },
+    "The buyer sees this when they tap the story tag." : {
+
+    },
+    "The design is missing. Go back and pick it again." : {
+
+    },
+    "The photo is missing. Go back and take it again." : {
+
+    },
+    "Thinking…" : {
+
+    },
+    "This device has no camera, so you can pick a picture instead." : {
+
+    },
+    "Tote bag" : {
+
+    },
+    "Try again" : {
+
+    },
+    "Turn your art into things people buy." : {
+
+    },
+    "Turns on extra tips for someone helping the artist" : {
+
+    },
+    "Turns your words into a picture" : {
+
+    },
+    "Type instead" : {
+
+    },
+    "Type your answer" : {
+
+    },
+    "Type your idea" : {
+
+    },
+    "Upload a picture" : {
+
+    },
+    "Upload failed. Please try again." : {
+
+    },
+    "Uploading…" : {
+
+    },
+    "Use this" : {
+
+    },
+    "Version" : {
+
+    },
+    "Video added" : {
+
+    },
+    "Video saved!" : {
+
+    },
+    "Voice first" : {
+
+    },
+    "We couldn't find a drawing. Try another photo." : {
+
+    },
+    "We found %lld drawings. Tap the one to use." : {
+
+    },
+    "We make stickers and tote bags" : {
+
+    },
+    "We're adding captions. Every product you sell will play it." : {
+
+    },
+    "What are we making?" : {
+
+    },
+    "What do you love to make?" : {
+
+    },
+    "WHAT SHOULD I CHANGE?" : {
+
+    },
+    "When buyers send you a note, it shows up here." : {
+
+    },
+    "Who are you?" : {
+
+    },
+    "Why do you make art?" : {
+
+    },
+    "Working" : {
+
+    },
+    "Write a reply" : {
+
+    },
+    "Write your idea instead of saying it" : {
+
+    },
+    "Writes a name, description and price for you to check" : {
+
+    },
+    "Writing down what you said" : {
+
+    },
+    "Writing down what you said…" : {
+
+    },
+    "Writing it down…" : {
+
+    },
+    "Writing your listing…" : {
+
+    },
+    "Yes, list it!" : {
+
+    },
+    "You can record it later in Settings" : {
+
+    },
+    "You earn %@" : {
+
+    },
+    "You earn %@ per sale" : {
+
+    },
+    "You earn per sale" : {
+
+    },
+    "YOU SAID" : {
+
+    },
+    "You said: %@" : {
+
+    },
+    "You're live!" : {
+
+    },
+    "You're live! Your art is in the shop." : {
+
+    },
+    "Your answer" : {
+
+    },
+    "Your art is in the shop. We'll tell you when someone buys it." : {
+
+    },
+    "Your art on a cotton bag" : {
+
+    },
+    "Your code" : {
+
+    },
+    "Your design is ready!" : {
+
+    },
+    "Your design is ready! Put it up for sale now?" : {
+
+    },
+    "Your idea" : {
+
+    },
+    "YOUR IDEA" : {
+
+    },
+    "Your idea is missing. Go back and say it again." : {
+
+    },
+    "Your message" : {
+
+    },
+    "Your photo" : {
+
+    },
+    "Your product" : {
+
+    },
+    "Your studio gave you a short code. Type it or say it." : {
+
+    },
+    "YOUR THANK-YOU" : {
+
+    }
   },
   "version" : "1.0"
 }

@@ -41,13 +41,13 @@ enum TextRole {
     }
   }
 
-  /// Rubik named instance for the role's weight in tokens.json.
-  private var bodyInstance: String {
+  /// Rubik weight for the role in tokens.json (variable font axis).
+  private var bodyWeight: Font.Weight {
     switch self {
-    case .titleL: return "ExtraBold"
-    case .titleM, .eyebrow, .step: return "Bold"
-    case .body: return "SemiBold"
-    default: return "Medium"
+    case .titleL: return .heavy
+    case .titleM, .eyebrow, .step: return .bold
+    case .body: return .semibold
+    default: return .medium
     }
   }
 
@@ -55,7 +55,7 @@ enum TextRole {
     if isDisplay {
       return .custom(Tokens.FontName.display, size: size, relativeTo: textStyle)
     }
-    return .custom("\(Tokens.FontName.body)-\(bodyInstance)", size: size, relativeTo: textStyle)
+    return .custom(Tokens.FontName.body, size: size, relativeTo: textStyle).weight(bodyWeight)
   }
 
   /// letterSpacing in tokens.json is em-based; converted to points here.

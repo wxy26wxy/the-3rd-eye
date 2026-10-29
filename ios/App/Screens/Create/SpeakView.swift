@@ -151,7 +151,7 @@ struct SpeakView: View {
         return
       }
       question = nil
-      if let confirmation = res.spokenConfirmation { app.speech.speak(confirmation) }
+      // DrawingYourIdeaView speaks the confirmation (leaving this screen stops speech).
       app.push(.drawingYourIdea)
     } catch {
       self.error = error.localizedDescription

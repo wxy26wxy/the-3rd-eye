@@ -68,3 +68,8 @@ Append-only. Newest at the bottom. Format: date · decision · why · alternativ
 - 2026-10-29 · **iOS uploads photos as metadata-free JPEG written with ImageIO** (T051): only the compression quality is set, the orientation is baked into the pixels, so no GPS, EXIF or camera make/model leaves the phone. · Review Important 8. · `UIImage.jpegData` (kept as the idea, replaced by ImageIO so the output is explicit and testable).
 - 2026-10-29 · **iOS Release builds default to `https://maker-story-three.vercel.app`** (T051); Debug stays `http://localhost:3000`; an empty or unusable `API_BASE_URL` also falls back to the deployed site. · A phone build should work without editing build settings. · —
 - 2026-10-29 · **`ThemeEffects` values without a generated token stay in the Theme layer but are checked against `design/tokens.json` by a unit test** (T051). · The token generator lives outside `ios/`; the test catches drift until it emits `effects`/`motion`. · Editing `scripts/gen_tokens.ts` (rejected here: not iOS-owned).
+
+## 2026-10-29 · Client testing on iPhone goes through TestFlight
+- **Decision:** distribute the iOS app to testers with TestFlight (Apple Developer Program), scripted by `ios/scripts/testflight.sh`; the app icon is generated from design tokens (`scripts/gen_app_icon.ts`) rather than hand-made, so a redesign regenerates it.
+- **Why:** free provisioning needs the tester's phone plugged into the dev Mac and expires after 7 days; the mobile-web creator flow stays the zero-install fallback.
+- **Alternatives:** ad-hoc profiles with device UDIDs (manual per device); web only (no camera-permission or App Store path to show).

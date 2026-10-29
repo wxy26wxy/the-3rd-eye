@@ -7,6 +7,7 @@
     "test": "pnpm --filter web test",
     "lint": "pnpm --filter web lint",
     "tokens": "pnpm --filter web exec tsx ../scripts/gen_tokens.ts",
-    "check-clean": "bash scripts/check_clean.sh"
+    "check-clean": "bash scripts/check_clean.sh",
+    "icon": "pnpm --filter web exec tsx ../scripts/gen_app_icon.ts"
   }
 }

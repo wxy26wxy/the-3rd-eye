@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/queries";
 import { creatorPath, storage } from "@/lib/storage";
 import { ApiError } from "@/lib/http";
+import { ensureDpi } from "@/lib/ai/meta/sticker";
 
 export async function createProduct(artwork: ArtworkRow, type: ProductKind, task = "T010"): Promise<ProductRow> {
   if (!artwork.cleanedUrl) throw new Error("Choose and clean up the artwork first");
@@ -17,15 +18,17 @@ export async function createProduct(artwork: ArtworkRow, type: ProductKind, task
   const cleanedPng = await storage().read(artwork.cleanedUrl);
   const built = await spec.build({ cleanedPng }, { image: (await ai()).image, trace: { stage: "mockup", artworkId: artwork.id, task } });
   const cid = artwork.creatorId;
+  // Every product type gets a print PNG at its spec's minimum size (upscaled at most ×2, alpha kept).
+  const printPng = await ensureDpi(built.printPng ?? cleanedPng, spec.printSpec.minShortSidePx, spec.printSpec.dpi);
   const [png, svg, mockup] = await Promise.all([
-    built.printPng ? storage().putPrivate(creatorPath(cid, "print", "png"), built.printPng, "image/png") : null,
+    storage().putPrivate(creatorPath(cid, "print", "png"), printPng, "image/png"),
     built.printSvg ? storage().putPrivate(creatorPath(cid, "print", "svg"), built.printSvg, "image/svg+xml") : null,
     storage().putPublic(creatorPath(cid, "mockups", "png"), built.mockupPng, "image/png"),
   ]);
   const mid = Math.round((spec.priceRange.min + spec.priceRange.max) / 2 / 50) * 50;
   return insertProduct({
     artworkId: artwork.id, creatorId: cid, type, mockupUrl: mockup.url,
-    printPngUrl: png?.pathname ?? null, printSvgUrl: svg?.pathname ?? null, priceCents: mid, status: "draft", createdByTask: task,
+    printPngUrl: png.pathname, printSvgUrl: svg?.pathname ?? null, priceCents: mid, status: "draft", createdByTask: task,
   });
 }
 

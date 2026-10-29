@@ -46,10 +46,14 @@ async function buildSticker(artwork: { cleanedPng: Buffer }, deps: { image: Imag
   return { printPng: files.printPng, printSvg: files.dieCutSvg, cutPath: files.cutPath, mockupPng };
 }
 
+/** Tote print file: the cleaned art (transparent background kept) at 150 dpi, short side ≥ 1500 px (10 in). */
 async function buildTote(artwork: { cleanedPng: Buffer }, deps: { image: ImageProvider; trace: Trace }): Promise<BuiltProduct> {
+  const { ensureDpi } = await import("@/lib/ai/meta/sticker");
   const { makeMockup } = await import("@/lib/ai/meta/mockup");
+  const spec = PRINT_SPECS.tote;
+  const printPng = await ensureDpi(artwork.cleanedPng, spec.minShortSidePx, spec.dpi);
   const mockupPng = await makeMockup(deps.image, { kind: "tote", prompt: MOCKUP_PROMPTS.tote, artPng: artwork.cleanedPng, trace: deps.trace });
-  return { mockupPng };
+  return { printPng, mockupPng };
 }
 
 export const PRODUCTS: Record<ProductKind, ProductSpec> = {

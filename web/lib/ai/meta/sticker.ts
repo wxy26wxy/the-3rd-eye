@@ -46,12 +46,22 @@ export async function traceOutline(mask: Mask): Promise<string> {
   return /\sd="([^"]*)"/.exec(tag)?.[1]?.trim() ?? "";
 }
 
-/** Lanczos ×2 upscale when the short side is below 900 px (3 in at 300 dpi). */
-export async function ensureDpi(png: Buffer, minShortSide = MIN_SHORT_SIDE): Promise<Buffer> {
+/** Largest upscale ensureDpi applies; beyond this the art would print visibly soft, so the resolution check fails instead. */
+export const MAX_UPSCALE = 2;
+
+/**
+ * Lanczos upscale (at most ×2) so the short side reaches `minShortSide` (900 px = 3 in at 300 dpi
+ * by default). Alpha is kept. With `dpi`, the PNG also carries that density.
+ */
+export async function ensureDpi(png: Buffer, minShortSide = MIN_SHORT_SIDE, dpi?: number): Promise<Buffer> {
   const meta = await sharp(png).metadata();
   const w = meta.width ?? 0, h = meta.height ?? 0;
-  if (Math.min(w, h) >= minShortSide || !w || !h) return png;
-  return sharp(png).resize(w * 2, h * 2, { kernel: "lanczos3" }).png().toBuffer();
+  if (!w || !h) return png;
+  const short = Math.min(w, h);
+  if (short >= minShortSide) return dpi ? sharp(png).withMetadata({ density: dpi }).png().toBuffer() : png;
+  const scale = Math.min(MAX_UPSCALE, minShortSide / short);
+  const out = sharp(png).resize(Math.round(w * scale), Math.round(h * scale), { kernel: "lanczos3" });
+  return (dpi ? out.withMetadata({ density: dpi }) : out).png().toBuffer();
 }
 
 /** Applies the mask as alpha and trims to the mask's bounding box. */

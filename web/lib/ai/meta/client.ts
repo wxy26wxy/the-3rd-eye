@@ -1,5 +1,5 @@
 /**
- * Meta Model API and Baseten clients (OpenAI SDK with custom baseURL).
+ * Meta Model API and Ollama (Muse Glimmer) clients (OpenAI SDK with custom baseURL).
  * Model ids exactly as in docs/architecture.md. Keys stay server-side; clients are
  * created lazily so builds and tests never need them.
  */
@@ -11,11 +11,11 @@ export const MODELS = {
   spark: "muse-spark-1.3",
   image: "muse-image-1.0",
   sam: "sam-3.1",
-  sparkOpen: "meta-models/muse-spark-open-1026",
+  glimmer: "muse-glimmer",
 } as const;
 
 export const META_BASE_URL = "https://api.meta.ai/v1";
-export const BASETEN_BASE_URL = "https://inference.baseten.co/v1";
+export const OLLAMA_DEFAULT_BASE_URL = "http://localhost:11434/v1";
 
 export class MissingKeyError extends Error {}
 
@@ -31,12 +31,18 @@ export function metaClient(): OpenAI {
   return _meta;
 }
 
-let _baseten: OpenAI | null = null;
-export function basetenClient(): OpenAI {
-  const key = process.env.BASETEN_API_KEY;
-  if (!key) throw new MissingKeyError("BASETEN_API_KEY is not set");
-  if (!_baseten) _baseten = new OpenAI({ apiKey: key, baseURL: BASETEN_BASE_URL, maxRetries: 0, timeout: 20_000 });
-  return _baseten;
+let _ollama: OpenAI | null = null;
+/** Local Muse Glimmer through Ollama's OpenAI-compatible endpoint. No key; the SDK needs a dummy one. */
+export function ollamaClient(): OpenAI {
+  if (!_ollama) {
+    _ollama = new OpenAI({
+      apiKey: "ollama",
+      baseURL: process.env.OLLAMA_BASE_URL || OLLAMA_DEFAULT_BASE_URL,
+      maxRetries: 0,
+      timeout: 30_000,
+    });
+  }
+  return _ollama;
 }
 
 /** The slice of the Responses API the providers use; tests pass a fake. */

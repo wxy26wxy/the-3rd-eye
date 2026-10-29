@@ -150,7 +150,7 @@ export const aiCalls = pgTable("ai_calls", {
   id: uuid("id").primaryKey().defaultRandom(),
   jobId: text("job_id"),
   stage: text("stage").notNull(),                  // transcribe | shape | generate | refine | describe | segment | sticker | mockup | listing | story | captions
-  provider: text("provider").notNull(),            // meta | baseten | fixture
+  provider: text("provider").notNull(),            // meta | ollama | meta-fallback | fixture
   model: text("model").notNull(),
   requestHash: text("request_hash").notNull(),
   requestJson: jsonb("request_json"),              // media bytes redacted

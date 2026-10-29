@@ -30,7 +30,7 @@ export function toErrorResponse(err: unknown): Response {
   }
   const message = err instanceof Error ? err.message : String(err);
   if (message.includes("DATABASE_URL is not set")) return errorResponse(503, "db_unavailable", "Database is not configured yet");
-  if (/META_API_KEY|BASETEN_API_KEY/.test(message)) return errorResponse(503, "ai_unavailable", message);
+  if (/META_API_KEY/.test(message)) return errorResponse(503, "ai_unavailable", message);
   console.error("[api] unhandled error:", message);
   return errorResponse(500, "internal", "Something went wrong");
 }

@@ -3,6 +3,8 @@
  * no network. Used by the sticker pipeline, the SAM fallback and offline fixtures.
  */
 import sharp from "sharp";
+
+type Sharp = ReturnType<typeof sharp>;
 import type { Mask } from "@/lib/ai/types";
 
 export type BBox = [number, number, number, number]; // x0, y0, x1 (exclusive), y1 (exclusive)
@@ -11,7 +13,7 @@ export function emptyMask(width: number, height: number): Mask {
   return { width, height, data: new Uint8Array(width * height) };
 }
 
-async function greyRaw(img: sharp.Sharp): Promise<{ data: Buffer; width: number; height: number }> {
+async function greyRaw(img: Sharp): Promise<{ data: Buffer; width: number; height: number }> {
   const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
   if (info.channels === 1) return { data, width: info.width, height: info.height };
   const out = Buffer.alloc(info.width * info.height);
@@ -31,7 +33,7 @@ export function maskToGrey(mask: Mask): Buffer {
   return out;
 }
 
-export function maskSharp(mask: Mask): sharp.Sharp {
+export function maskSharp(mask: Mask): Sharp {
   return sharp(maskToGrey(mask), { raw: { width: mask.width, height: mask.height, channels: 1 } });
 }
 

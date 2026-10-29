@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // potrace checks `instanceof Jimp`; bundling duplicates Jimp and the check throws. Load it from node_modules.
+  serverExternalPackages: ["potrace"],
   cacheComponents: true,
   partialPrefetching: true,
 };

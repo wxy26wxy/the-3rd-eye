@@ -39,10 +39,36 @@ def artwork(i):
     }
 
 
+STORY_DRAFT = {
+    "headline": "Frogs with crowns", "bio_short": "I draw happy frogs.",
+    "story_text": "I have drawn frogs since I was little. Each one gets a crown because everyone deserves to feel special.",
+    "provider": "mock",
+}
+
+
+def story_video(body):
+    # Captions come from the WAV soundtrack; the app should always send one with the video.
+    print(f"mock_api: story-video videoUrl={body.get('videoUrl')} audioUrl={body.get('audioUrl')}", file=sys.stderr, flush=True)
+    return {**CREATOR, "storyVideoUrl": body.get("videoUrl"), "storyVideoVtt": "WEBVTT\n" if body.get("audioUrl") else None,
+            "storyDraft": STORY_DRAFT}
+
+
+def thank_you(body):
+    if body.get("draft"):
+        return {"draftText": "Thank you so much for buying my art!", "provider": "mock"}
+    print(f"mock_api: thank-you videoUrl={body.get('videoUrl')} audioUrl={body.get('audioUrl')}", file=sys.stderr, flush=True)
+    return {"id": "t1", "orderId": "o1", "text": body.get("text"), "imageUrl": body.get("imageUrl"),
+            "videoUrl": body.get("videoUrl"), "createdAt": "2026-10-29T10:00:00Z"}
+
+
 ROUTES = {
     ("POST", "/api/v1/auth/code"): lambda b: {"token": "c-test.mock", "creator": CREATOR},
     ("GET", "/api/v1/creators/me"): lambda b: CREATOR,
-    ("PUT", "/api/v1/creators/me"): lambda b: CREATOR,
+    ("PUT", "/api/v1/creators/me"): lambda b: {**CREATOR, **{k: v for k, v in b.items() if k in CREATOR}},
+    ("POST", "/api/v1/creators/me/story-video"): story_video,
+    ("GET", "/api/v1/creators/me/story-prompts"): lambda b: {
+        "prompts": ["Who are you?", "What do you love to make?", "Why do you make art?"]},
+    ("POST", "/api/v1/orders/o1/thank-you"): thank_you,
     ("POST", "/api/v1/prompts/shape"): lambda b: {
         "prompt": "A cheerful green frog wearing a gold crown", "style_notes": "",
         "clarifying_question": None,

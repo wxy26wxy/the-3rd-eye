@@ -45,6 +45,60 @@ struct Creator: Codable, Identifiable, Equatable {
   var accessPrefs: AccessPrefs?
   var split: Split?
   var isExample: Bool?
+  /// Story drafted from the story video's transcript (open-weight model), if any.
+  var storyDraft: StoryDraft?
+}
+
+/// `Creator.storyDraft`. Mirrors `POST /story/draft` (`headline`, `bio_short`,
+/// `story_text`); camelCase keys and a bare string are accepted too.
+struct StoryDraft: Codable, Equatable {
+  var headline: String?
+  var bioShort: String?
+  var storyText: String?
+  var provider: String?
+
+  /// What "Use" saves as `storyText`.
+  var text: String { [storyText, bioShort].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.first { !$0.isEmpty } ?? "" }
+
+  init(headline: String? = nil, bioShort: String? = nil, storyText: String? = nil, provider: String? = nil) {
+    self.headline = headline
+    self.bioShort = bioShort
+    self.storyText = storyText
+    self.provider = provider
+  }
+
+  private struct Key: CodingKey {
+    var stringValue: String
+    init(_ s: String) { stringValue = s }
+    init?(stringValue: String) { self.stringValue = stringValue }
+    var intValue: Int? { nil }
+    init?(intValue: Int) { nil }
+  }
+
+  init(from decoder: Decoder) throws {
+    if let single = try? decoder.singleValueContainer(), let text = try? single.decode(String.self) {
+      self.init(storyText: text)
+      return
+    }
+    let c = try decoder.container(keyedBy: Key.self)
+    func string(_ names: String...) -> String? {
+      for name in names { if let v = try? c.decodeIfPresent(String.self, forKey: Key(name)) { return v } }
+      return nil
+    }
+    self.init(
+      headline: string("headline"),
+      bioShort: string("bioShort", "bio_short"),
+      storyText: string("storyText", "story_text"),
+      provider: string("provider"))
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var c = encoder.container(keyedBy: Key.self)
+    try c.encodeIfPresent(headline, forKey: Key("headline"))
+    try c.encodeIfPresent(bioShort, forKey: Key("bioShort"))
+    try c.encodeIfPresent(storyText, forKey: Key("storyText"))
+    try c.encodeIfPresent(provider, forKey: Key("provider"))
+  }
 }
 
 /// `Artwork`; `ArtworkVariant` is the same shape plus `previewUrl`.

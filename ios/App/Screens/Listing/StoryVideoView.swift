@@ -9,6 +9,7 @@ struct StoryVideoView: View {
   @State private var recording = false
   @State private var uploading = false
   @State private var error: String?
+  @State private var draft: StoryDraft?
 
   static let defaultPrompts = [
     String(localized: "Who are you?"),
@@ -70,10 +71,20 @@ struct StoryVideoView: View {
       }
       .ignoresSafeArea()
     }
+    .sheet(isPresented: Binding(get: { draft != nil }, set: { if !$0 { draftDone() } })) {
+      if let draft { StoryDraftSheet(draft: draft) { draftDone() } }
+    }
     .task {
       if let fetched = try? await app.api.storyPrompts(), fetched.count == 3 { prompts = fetched }
       speakPrompts(force: false)
     }
+  }
+
+  /// Leaves the draft sheet (Use, Edit + Save, Skip, or swipe down) for "Video saved!".
+  private func draftDone() {
+    guard draft != nil else { return }
+    draft = nil
+    app.push(.videoSaved)
   }
 
   private func speakPrompts(force: Bool) {
@@ -89,8 +100,15 @@ struct StoryVideoView: View {
       guard let creatorId = app.creator?.id else { throw APIError.unauthorized }
       let sent = try await VideoUpload(api: app.api).upload(url, creatorId: creatorId, kind: .storyVideo, maxSeconds: ThemeEffects.storyVideoSeconds)
       app.flow.storyVideoTrimmed = sent.trimmed
-      app.creator = try await app.api.saveStoryVideo(pathname: sent.videoPathname, audioPathname: sent.audioPathname, mentionDisability: mentionDisability)
-      app.push(.videoSaved)
+      var creator = try await app.api.saveStoryVideo(pathname: sent.videoPathname, audioPathname: sent.audioPathname, mentionDisability: mentionDisability)
+      // The draft is on GET /creators/me; the story-video answer may not carry it.
+      if creator.storyDraft == nil, let fresh = try? await app.api.me() { creator = fresh }
+      app.creator = creator
+      if let found = creator.storyDraft, !found.text.isEmpty {
+        draft = found
+      } else {
+        app.push(.videoSaved)
+      }
     } catch {
       self.error = error.localizedDescription
     }

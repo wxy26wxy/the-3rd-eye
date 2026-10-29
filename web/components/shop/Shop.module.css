@@ -15,7 +15,7 @@
 .heroDisplay { display: block; }
 .heroCopy { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); font-weight: var(--type-body-l-weight); }
 .heroCtas { display: flex; flex-wrap: wrap; gap: var(--space-m); }
-.heroArt { position: relative; justify-self: center; width: min(100%, 22rem); }
+.heroArt { position: relative; justify-self: center; width: min(80%, 16rem); }
 .heroBlob {
   display: grid;
   place-items: center;
@@ -27,7 +27,7 @@
   transform: rotate(3deg);
 }
 .heroTag { width: 62%; }
-.heroBurst { position: absolute; top: calc(var(--space-l) * -1); right: calc(var(--space-l) * -1); }
+.heroArt .heroBurst { position: absolute; top: calc(var(--space-l) * -1); right: calc(var(--space-l) * -1); }
 @media (min-width: 64rem) {
   .hero { grid-template-columns: 1.3fr 1fr; padding-block: var(--space-section) calc(var(--space-section) * 2); }
   .heroArt { width: 100%; max-width: 26rem; }

@@ -1,4 +1,4 @@
-.tag { width: calc(var(--size-record) * 1.6); height: auto; overflow: visible; }
+:where(.tag) { width: calc(var(--size-record) * 1.6); height: auto; overflow: visible; }
 .body { fill: var(--accent); stroke: var(--border); stroke-width: 3; stroke-linejoin: round; }
 .hole { fill: var(--bg); stroke: var(--border); stroke-width: 3; }
 .ink { fill: var(--border); }

@@ -13,9 +13,9 @@ function burstPoints(spikes = 14, outer = 50, inner = 41) {
 const POINTS = burstPoints();
 
 /** Lime starburst badge with short uppercase text, tilted. */
-export function Starburst({ children, className }: { children: ReactNode; className?: string }) {
+export function Starburst({ children, size = "m", className }: { children: ReactNode; size?: "s" | "m"; className?: string }) {
   return (
-    <span className={[styles.burst, className].filter(Boolean).join(" ")}>
+    <span className={[styles.burst, size === "s" ? styles.small : "", className].filter(Boolean).join(" ")}>
       <svg viewBox="-4 -4 108 108" aria-hidden="true" focusable="false" className={styles.shape}>
         <polygon points={POINTS} />
       </svg>

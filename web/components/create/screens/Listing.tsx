@@ -118,7 +118,7 @@ function ListingForm() {
               <ol role="list" className={styles.trace}>
                 {draft.trace.map((s, i) => (
                   <li key={i}>
-                    <span className={styles.traceTool}>{s.step}. {s.tool ?? "note"}</span>{" "}
+                    <span className={styles.traceTool}>{s.step}. {s.tool ?? m.create.listing.traceNote}</span>{" "}
                     {s.text ?? (s.result !== undefined ? JSON.stringify(s.result) : s.args !== undefined ? JSON.stringify(s.args) : "")}
                   </li>
                 ))}

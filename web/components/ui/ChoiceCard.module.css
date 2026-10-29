@@ -36,7 +36,7 @@
 .title { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: 1.15; }
 .desc { font-size: var(--type-body-s-size); line-height: var(--type-body-s-lh); color: var(--text-muted); }
 .card:has(.input:checked) .desc { color: var(--text); }
-.badge { position: absolute; top: calc(var(--space-section) * -0.9); right: calc(var(--space-s) * -1); }
+.badge { position: absolute; top: calc(var(--size-cta) * -0.7); right: calc(var(--space-s) * -1); z-index: 1; }
 .check {
   flex: none;
   width: var(--space-xxl);

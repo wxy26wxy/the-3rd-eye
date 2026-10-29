@@ -337,7 +337,8 @@
       "submit": "Put it in the shop",
       "submitting": "Listing it…",
       "nameRequired": "Please give it a name.",
-      "priceInvalid": "Please enter a price like 5 or 5.50."
+      "priceInvalid": "Please enter a price like 5 or 5.50.",
+      "traceNote": "note"
     },
     "story": {
       "title": "Make your story video!",

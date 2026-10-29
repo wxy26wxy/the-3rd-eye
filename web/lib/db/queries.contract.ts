@@ -94,7 +94,7 @@ export type ArtworkTrace = {
 };
 type WriteOpts = { task: string };
 
-const useFixtures = () => process.env.WEB_FIXTURES === "1";
+const fixturesOn = () => process.env.WEB_FIXTURES === "1";
 /** Shop data must be fresh per request (new listings appear immediately). Keep when binding. */
 const fresh = () => connection();
 
@@ -103,7 +103,7 @@ const fresh = () => connection();
 export async function listShopProducts(filter: ShopFilter = "all"): Promise<ShopProduct[]> {
   await fresh();
   // TODO(T010): bind to queries.listShopProducts
-  if (!useFixtures()) return [];
+  if (!fixturesOn()) return [];
   const { FIXTURE_PRODUCTS } = await import("./queries.fixtures");
   return FIXTURE_PRODUCTS.filter((p) =>
     filter === "all" ? true : filter === "voice" ? p.madeByVoice : p.type === filter,
@@ -113,7 +113,7 @@ export async function listShopProducts(filter: ShopFilter = "all"): Promise<Shop
 export async function getProductDetail(id: string): Promise<ProductDetail | null> {
   await fresh();
   // TODO(T010): bind to queries.getProductDetail
-  if (!useFixtures()) return null;
+  if (!fixturesOn()) return null;
   const f = await import("./queries.fixtures");
   return f.fixtureProductDetail(id);
 }
@@ -121,7 +121,7 @@ export async function getProductDetail(id: string): Promise<ProductDetail | null
 export async function listPublicCreators(): Promise<CreatorSummary[]> {
   await fresh();
   // TODO(T010): bind to queries.listPublicCreators
-  if (!useFixtures()) return [];
+  if (!fixturesOn()) return [];
   const { FIXTURE_CREATORS } = await import("./queries.fixtures");
   return FIXTURE_CREATORS;
 }
@@ -130,7 +130,7 @@ export async function listPublicCreators(): Promise<CreatorSummary[]> {
 export async function getFeaturedCreator(): Promise<PublicCreator | null> {
   await fresh();
   // TODO(T010): bind to queries.getFeaturedCreator
-  if (!useFixtures()) return null;
+  if (!fixturesOn()) return null;
   const { FIXTURE_CREATORS } = await import("./queries.fixtures");
   return FIXTURE_CREATORS[0] ?? null;
 }
@@ -138,7 +138,7 @@ export async function getFeaturedCreator(): Promise<PublicCreator | null> {
 export async function getCreatorProfile(slug: string): Promise<CreatorProfile | null> {
   await fresh();
   // TODO(T010): bind to queries.getCreatorProfile
-  if (!useFixtures()) return null;
+  if (!fixturesOn()) return null;
   const f = await import("./queries.fixtures");
   return f.fixtureCreatorProfile(slug);
 }
@@ -147,7 +147,7 @@ export async function getCreatorProfile(slug: string): Promise<CreatorProfile | 
 export async function getCreatorCaptions(creatorId: string): Promise<string | null> {
   await fresh();
   // TODO(T010): bind to queries.getCreatorCaptions
-  if (!useFixtures()) return null;
+  if (!fixturesOn()) return null;
   const { FIXTURE_CREATORS } = await import("./queries.fixtures");
   return FIXTURE_CREATORS.find((c) => c.id === creatorId)?.storyVideoVtt ?? null;
 }
@@ -155,7 +155,7 @@ export async function getCreatorCaptions(creatorId: string): Promise<string | nu
 export async function getStoryTag(token: string): Promise<StoryTagView | null> {
   await fresh();
   // TODO(T010): bind to queries.getStoryTag
-  if (!useFixtures()) return null;
+  if (!fixturesOn()) return null;
   const f = await import("./queries.fixtures");
   return f.fixtureStoryTag(token);
 }
@@ -163,14 +163,14 @@ export async function getStoryTag(token: string): Promise<StoryTagView | null> {
 export async function getOrderConfirmation(orderId: string): Promise<OrderConfirmation | null> {
   await fresh();
   // TODO(T010): bind to queries.getOrderConfirmation
-  if (!useFixtures()) return null;
+  if (!fixturesOn()) return null;
   return { orderId, token: "EXAMPLETAG01", productTitle: "Sunny Frog", creatorName: "Mira" };
 }
 
 export async function listAdminOrders(): Promise<AdminOrder[]> {
   await fresh();
   // TODO(T010): bind to queries.listAdminOrders
-  if (!useFixtures()) return [];
+  if (!fixturesOn()) return [];
   const { FIXTURE_ORDERS } = await import("./queries.fixtures");
   return FIXTURE_ORDERS;
 }
@@ -178,7 +178,7 @@ export async function listAdminOrders(): Promise<AdminOrder[]> {
 export async function getArtworkTrace(artworkId: string): Promise<ArtworkTrace | null> {
   await fresh();
   // TODO(T010): bind to queries.getArtworkTrace
-  if (!useFixtures()) return null;
+  if (!fixturesOn()) return null;
   const f = await import("./queries.fixtures");
   return f.fixtureTrace(artworkId);
 }
@@ -188,7 +188,7 @@ export async function getArtworkTrace(artworkId: string): Promise<ArtworkTrace |
 export async function createOrder(productId: string, input: OrderInput, opts: WriteOpts): Promise<{ orderId: string; token: string }> {
   // TODO(T010): bind to queries.createOrder (staged payment; creates nfc token; notifies creator)
   void productId; void input; void opts;
-  if (useFixtures()) return { orderId: "00000000-0000-4000-8000-000000000001", token: "EXAMPLETAG01" };
+  if (fixturesOn()) return { orderId: "00000000-0000-4000-8000-000000000001", token: "EXAMPLETAG01" };
   throw new Error("Orders are not available yet (queries.createOrder pending T010).");
 }
 
@@ -200,11 +200,11 @@ export async function recordTap(token: string, opts: WriteOpts): Promise<void> {
 export async function createBuyerMessage(token: string, body: string, opts: WriteOpts): Promise<void> {
   // TODO(T010): bind to queries.createBuyerMessage (direction buyer_to_creator)
   void token; void body; void opts;
-  if (!useFixtures()) throw new Error("Messages are not available yet (queries.createBuyerMessage pending T010).");
+  if (!fixturesOn()) throw new Error("Messages are not available yet (queries.createBuyerMessage pending T010).");
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus, opts: WriteOpts): Promise<void> {
   // TODO(T010): bind to queries.updateOrderStatus (sets statusUpdatedAt)
   void orderId; void status; void opts;
-  if (!useFixtures()) throw new Error("Order updates are not available yet (queries.updateOrderStatus pending T010).");
+  if (!fixturesOn()) throw new Error("Order updates are not available yet (queries.updateOrderStatus pending T010).");
 }

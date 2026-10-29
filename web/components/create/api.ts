@@ -1,0 +1,72 @@
+/** Client-side calls to /api/v1 through the same-origin forwarder (/create/bff). */
+export type ProductType = "sticker" | "tote";
+export type Split = { creator_bps: number; org_bps: number; production_bps: number };
+export type Creator = {
+  id: string; slug: string; displayName: string; studioName: string | null; avatarUrl: string | null;
+  bioShort: string | null; storyVideoUrl: string | null; mentionDisability: boolean; split: Split;
+  accessPrefs?: { speakDescriptions?: boolean } | null;
+};
+export type ShapeResult = { prompt: string; style_notes: string; clarifying_question: string | null; spoken_confirmation: string };
+export type Artwork = {
+  id: string; creatorId: string; source: "text2image" | "canvas" | "photo"; transcript: string | null; shapedPrompt: string | null;
+  originalUrl: string | null; cleanedUrl: string | null; altText: string | null; spokenDescription: string | null;
+  differencesFromPrompt: string | null; parentArtworkId: string | null; status: string;
+};
+export type ArtworkVariant = Artwork & { previewUrl: string | null };
+export type Candidate = { id: string; bbox: [number, number, number, number]; score: number; thumbUrl: string };
+export type Product = { id: string; artworkId: string; creatorId: string; type: ProductType; mockupUrl: string | null; printPngUrl: string | null; printSvgUrl: string | null; priceCents: number; status: string };
+export type ListingDraft = { title: string; description: string; tags: string[]; price_cents: number; print_ok: boolean; notes: string };
+export type AgentStep = { step: number; tool?: string; args?: unknown; result?: unknown; text?: string };
+
+export class ApiError extends Error {
+  constructor(public status: number, public code: string, message: string) { super(message); }
+}
+
+const BASE = "/create/bff";
+
+export async function api<T>(path: string, init: { method?: string; json?: unknown; body?: BodyInit; signal?: AbortSignal } = {}): Promise<T> {
+  const headers: Record<string, string> = { accept: "application/json" };
+  let body = init.body;
+  if (init.json !== undefined) { headers["content-type"] = "application/json"; body = JSON.stringify(init.json); }
+  const res = await fetch(`${BASE}/${path}`, { method: init.method ?? (body ? "POST" : "GET"), headers, body, signal: init.signal, credentials: "same-origin" });
+  if (res.status === 401 && typeof window !== "undefined") {
+    window.location.replace(new URL(`/create/code?next=${encodeURIComponent(window.location.pathname)}`, window.location.origin).href);
+    throw new ApiError(401, "unauthorized", "Sign in again.");
+  }
+  if (!res.ok) {
+    let code = "error", message = res.statusText;
+    try { const e = (await res.json()) as { error?: { code?: string; message?: string } }; code = e.error?.code ?? code; message = e.error?.message ?? message; } catch { /* not json */ }
+    throw new ApiError(res.status, code, message);
+  }
+  return (await res.json()) as T;
+}
+
+export const HANDLE_UPLOAD_URL = `${BASE}/uploads`;
+/** Must match the store the backend's handleUpload issues tokens for (public until the private store is linked). */
+export const UPLOAD_ACCESS = "public" as const;
+
+export function extFor(file: Blob, fallback: string): string {
+  const t = file.type.toLowerCase();
+  if (t.includes("png")) return "png";
+  if (t.includes("jpeg") || t.includes("jpg")) return "jpg";
+  if (t.includes("heic")) return "heic";
+  if (t.includes("webp")) return "webp";
+  if (t.includes("quicktime")) return "mov";
+  if (t.includes("mp4")) return t.startsWith("audio") ? "m4a" : "mp4";
+  if (t.includes("webm")) return "webm";
+  if (t.includes("ogg")) return "ogg";
+  return fallback;
+}
+
+export function uuid(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Speech → text through POST /transcribe (multipart). */
+export async function transcribe(blob: Blob): Promise<string> {
+  const fd = new FormData();
+  fd.append("file", blob, `speech.${extFor(blob, "webm")}`);
+  const r = await api<{ text: string }>("transcribe", { method: "POST", body: fd });
+  return (r.text ?? "").trim();
+}

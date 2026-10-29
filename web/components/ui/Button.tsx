@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
+import { omit } from "./omit";
 import styles from "./Button.module.css";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
@@ -22,12 +23,11 @@ export function Button(props: AsLink | AsButton) {
       {arrow ? <ArrowBubble /> : null}
     </>
   );
-  const { variant: _variant, arrow: _arrow, block: _block, icon: _icon, children: _children, className: _className, ...rest } = props;
-  if (rest.href !== undefined) {
-    const { href, ...linkProps } = rest as Omit<AsLink, keyof Common>;
+  if (props.href !== undefined) {
+    const { href, ...linkProps } = omit(props as AsLink, ["variant", "arrow", "block", "icon", "children", "className"]);
     return <Link href={href} className={cls(variant, block, className)} {...linkProps}>{inner}</Link>;
   }
-  const { type = "button", ...buttonProps } = rest as Omit<AsButton, keyof Common>;
+  const { type = "button", ...buttonProps } = omit(props as AsButton, ["variant", "arrow", "block", "icon", "children", "className", "href"]);
   return <button type={type} className={cls(variant, block, className)} {...buttonProps}>{inner}</button>;
 }
 
@@ -37,6 +37,16 @@ export function ArrowBubble() {
       <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
         <path d="M5 12h13M13 6l6 6-6 6" />
       </svg>
+    </span>
+  );
+}
+
+/** Non-interactive element that looks like a Button (e.g. the visible face of a file input's label). */
+export function ButtonFace({ variant = "primary", block, icon, children }: { variant?: Variant; block?: boolean; icon?: ReactNode; children: ReactNode }) {
+  return (
+    <span className={cls(variant, block)} aria-hidden="true">
+      {icon ? <span className={styles.icon}>{icon}</span> : null}
+      <span className={styles.label}>{children}</span>
     </span>
   );
 }

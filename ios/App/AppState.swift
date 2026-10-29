@@ -31,7 +31,12 @@ final class AppState {
   var creator: Creator?
   private(set) var isSignedIn: Bool
   var selectedTab: HomeTab = .create
-  var createPath: [CreateRoute] = []
+  /// Any route change stops speech before the next screen's onAppear can start
+  /// its own (onDisappear of the old screen runs after that, so it can't be used).
+  var createPath: [CreateRoute] = [] {
+    // NavigationStack writes the same path back after a transition; only a real change stops speech.
+    didSet { if createPath != oldValue { speech.stop() } }
+  }
   var flow = CreateFlow()
 
   var prefs: AccessPrefs {
@@ -63,7 +68,7 @@ final class AppState {
   }
 
   func signOut() {
-    orders.stop()
+    orders.reset()
     api.signOut()
     creator = nil
     isSignedIn = false
@@ -130,6 +135,7 @@ final class AppState {
 final class CreateFlow {
   var productType: ProductType?
   var photo: UIImage?
+  var photoSource: PhotoSource = .camera
   var photoArtwork: Artwork?
   var candidates: [Candidate] = []
   var transcript = ""

@@ -53,11 +53,17 @@ struct SpeakView: View {
     } actions: {
       PillButton(busy ? "Thinking…" : "Done", hint: "Turns your words into a picture") {
         Task {
-          if question != nil, !answerText.isEmpty {
+          if question == nil {
+            await done()
+          } else if !answerText.trimmingCharacters(in: .whitespaces).isEmpty {
             app.flow.answers.append(answerText)
             answerText = ""
+            await done()
+          } else {
+            // No answer: skip the question and draw with the prompt we already have.
+            question = nil
+            app.push(.drawingYourIdea)
           }
-          await done()
         }
       }
       .disabled(busy || app.flow.transcript.trimmingCharacters(in: .whitespaces).isEmpty || capture?.phase != .idle)
@@ -151,7 +157,7 @@ struct SpeakView: View {
         return
       }
       question = nil
-      // DrawingYourIdeaView speaks the confirmation (leaving this screen stops speech).
+      // DrawingYourIdeaView speaks and shows the confirmation.
       app.push(.drawingYourIdea)
     } catch {
       self.error = error.localizedDescription

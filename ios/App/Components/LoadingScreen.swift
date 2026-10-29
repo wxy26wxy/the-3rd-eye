@@ -5,6 +5,8 @@ struct LoadingScreen: View {
   let title: LocalizedStringKey
   let detail: LocalizedStringResource
   var pose: TagMascot.Pose = .listening
+  /// Text of what the app is saying out loud, shown for creators who can't hear it.
+  var spoken: String?
   var error: String?
   var retry: (() -> Void)?
   @Environment(\.themeColors) private var colors
@@ -24,6 +26,15 @@ struct LoadingScreen: View {
           }
         }
       } else {
+        if let spoken, !spoken.isEmpty {
+          Card {
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+              Text("I HEARD").themeFont(.eyebrow).foregroundStyle(colors.textMuted)
+              Text(spoken).themeFont(.bodyL).foregroundStyle(colors.text)
+            }
+          }
+          .accessibilityElement(children: .combine)
+        }
         Text(detail)
           .themeFont(.bodyL)
           .foregroundStyle(colors.textOnDark)
@@ -42,6 +53,5 @@ struct LoadingScreen: View {
     .onAppear {
       UIAccessibility.post(notification: .announcement, argument: String(localized: detail))
     }
-    .stopsSpeechOnDisappear()
   }
 }

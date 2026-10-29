@@ -77,6 +77,7 @@ struct ThankYouComposerView: View {
     }
     .onAppear { if capture == nil { capture = VoiceCapture(api: app.api) } }
     .onDisappear { capture?.cancel() }
+    .stopsSpeechOnDisappear()
     .onChange(of: photoItem) { _, item in
       guard let item else { return }
       Task { await uploadPhoto(item) }

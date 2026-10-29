@@ -55,7 +55,6 @@ struct FlowScreen<Content: View, Actions: View>: View {
     }
     .screenBackground()
     .toolbar(.hidden, for: .navigationBar)
-    .stopsSpeechOnDisappear()
   }
 }
 

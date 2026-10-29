@@ -11,6 +11,7 @@ struct DrawingYourIdeaView: View {
       title: "Drawing your idea",
       detail: "Making your picture now. This can take up to a minute.",
       pose: .listening,
+      spoken: app.flow.shaped?.spokenConfirmation,
       error: error,
       retry: { error = nil; attempt += 1 }
     )

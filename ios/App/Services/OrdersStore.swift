@@ -24,6 +24,16 @@ final class OrdersStore {
 
   func stop() { poller.stop() }
 
+  /// Stops polling and forgets everything (sign out / account switch).
+  func reset() {
+    poller.stop()
+    orders = []
+    unread = 0
+    lastError = nil
+    loaded = false
+    since = nil
+  }
+
   /// Full reload (pull to refresh).
   func refresh() async {
     since = nil

@@ -82,6 +82,8 @@ export type AdminOrder = {
   creator: { displayName: string; slug: string };
   token: string | null;
   tapCount: number;
+  /** Notes between buyer and creator on this order, oldest first. */
+  messages: { id: string; direction: "buyer_to_creator" | "creator_to_buyer"; body: string; createdAt: Date }[];
 };
 /** One image in the trace chain (a generated variant or a SAM candidate). */
 export type TraceImage = { id: string; url: string | null; altText: string | null; chosen: boolean };
@@ -222,6 +224,7 @@ export async function getOrderConfirmation(orderId: string): Promise<OrderConfir
 export async function listAdminOrders(): Promise<AdminOrder[]> {
   await fresh();
   const rows = await q.listOrdersAdmin();
+  const msgs = await q.listMessagesForOrders(rows.map((r) => r.id));
   return rows.map((r) => ({
     id: r.id, status: r.status, buyerName: r.buyerName, buyerEmail: r.buyerEmail, shipNote: r.shipNote,
     amountCents: r.amountCents, creatorShareCents: r.creatorShareCents, createdAt: r.createdAt,
@@ -232,6 +235,8 @@ export async function listAdminOrders(): Promise<AdminOrder[]> {
     creator: { displayName: r.creatorName, slug: r.creatorSlug },
     token: r.token,
     tapCount: r.tapCount,
+    messages: msgs.filter((x) => x.orderId === r.id)
+      .map((x) => ({ id: x.id, direction: x.direction, body: x.body, createdAt: x.createdAt })),
   }));
 }
 

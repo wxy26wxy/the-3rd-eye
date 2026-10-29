@@ -349,6 +349,13 @@ export async function listMessages(orderId: string): Promise<MessageRow[]> {
     .where(and(eq(messages.orderId, orderId), isNull(messages.deletedAt))).orderBy(messages.createdAt);
 }
 
+/** Messages for many orders at once (admin table), oldest first. */
+export async function listMessagesForOrders(orderIds: string[]): Promise<MessageRow[]> {
+  if (orderIds.length === 0) return [];
+  return db().select().from(messages)
+    .where(and(inArray(messages.orderId, orderIds), isNull(messages.deletedAt))).orderBy(messages.createdAt);
+}
+
 export async function insertMessage(values: typeof messages.$inferInsert): Promise<MessageRow> {
   const [row] = await db().insert(messages).values(values).returning();
   return row;

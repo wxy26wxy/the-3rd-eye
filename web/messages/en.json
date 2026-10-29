@@ -217,7 +217,10 @@
     "traceNoChoice": "No choice recorded.",
     "traceDifferences": "Differences from the prompt",
     "traceOpenMask": "Open mask",
-    "traceStep": "Step {n}"
+    "traceStep": "Step {n}",
+    "notesLabel": "Notes on this order",
+    "noteFromBuyer": "Buyer",
+    "noteFromCreator": "Artist"
   },
   "create": {
     "metaTitle": "Create",

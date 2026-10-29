@@ -49,6 +49,15 @@ export async function OrdersTable() {
                   <span className={styles.strong}>{o.buyerName}</span>
                   {o.buyerEmail ? <span className={styles.sub}>{o.buyerEmail}</span> : null}
                   {o.shipNote ? <span className={styles.sub}>“{o.shipNote}”</span> : null}
+                  {o.messages.length ? (
+                    <ul role="list" aria-label={m.admin.notesLabel} className={styles.files}>
+                      {o.messages.map((msg) => (
+                        <li key={msg.id} className={styles.sub}>
+                          {msg.direction === "buyer_to_creator" ? m.admin.noteFromBuyer : m.admin.noteFromCreator}: “{msg.body}”
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </td>
                 <td>
                   <Link href={`/p/${o.product.id}`} className={styles.strong}>{o.product.title}</Link>

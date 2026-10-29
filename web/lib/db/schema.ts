@@ -59,6 +59,7 @@ export const creators = pgTable("creators", {
   split: jsonb("split").$type<Split>().default({ creator_bps: 5000, org_bps: 3000, production_bps: 2000 }).notNull(),
   loginCode: text("login_code").unique(),          // dev-mode sign in
   isExample: boolean("is_example").default(false).notNull(),
+  hidden: boolean("hidden").default(false).notNull(),   // testing: kept out of shop grids, /artists and /c/[slug] (T070)
   ...trace,
 });
 

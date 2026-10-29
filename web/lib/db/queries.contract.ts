@@ -71,6 +71,13 @@ export type StoryTagView = {
 };
 export type OrderInput = { buyerName: string; buyerEmail?: string; shipNote?: string };
 export type OrderConfirmation = { orderId: string; token: string; productTitle: string; creatorName: string };
+export type AdminCreator = {
+  id: string; slug: string; displayName: string; studioName: string | null;
+  isExample: boolean; hidden: boolean; publishedProducts: number; createdAt: Date;
+};
+/** A freshly issued code, shown once on /admin and never stored anywhere else. */
+export type IssuedCode = { creatorId: string; displayName: string; code: string };
+export type NewCreatorInput = { displayName: string; studioName?: string; mentionDisability?: boolean; hidden?: boolean };
 export type AdminOrder = {
   id: string;
   status: OrderStatus;
@@ -188,7 +195,7 @@ export async function getFeaturedCreator(): Promise<PublicCreator | null> {
 export async function getCreatorProfile(slug: string): Promise<CreatorProfile | null> {
   await fresh();
   const c = await q.getCreatorBySlug(slug);
-  if (!c) return null;
+  if (!c || c.hidden) return null; // hidden (testing) creators have no public profile
   const products = await q.listPublishedProducts({ creatorId: c.id });
   return { ...toPublicCreator(c), products: products.map(toShopProduct) };
 }
@@ -259,6 +266,12 @@ export async function listAdminOrders(): Promise<AdminOrder[]> {
   }));
 }
 
+/** Admin: every creator, hidden ones too. Login codes are never part of this list. */
+export async function listAdminCreators(): Promise<AdminCreator[]> {
+  await fresh();
+  return q.listCreatorsAdmin();
+}
+
 export async function getArtworkTrace(artworkId: string): Promise<ArtworkTrace | null> {
   await fresh();
   if (!isUuid(artworkId)) return null;
@@ -313,6 +326,28 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus, op
   if (!isUuid(orderId)) throw new Error("Unknown order");
   const row = await q.updateOrderStatus(orderId, status);
   if (!row) throw new Error("Unknown order");
+}
+
+/** Admin: the studio creates a creator and gets their login code (shown once). */
+export async function createCreator(input: NewCreatorInput, opts: WriteOpts): Promise<IssuedCode> {
+  const row = await q.createCreator({ ...input, createdByTask: opts.task });
+  return { creatorId: row.id, displayName: row.displayName, code: row.loginCode! };
+}
+
+/** Admin: a new login code for the creator; the old code and its sign-in link stop working. */
+export async function rotateCreatorCode(creatorId: string, opts: WriteOpts): Promise<IssuedCode> {
+  void opts; // rotating updates an existing row
+  if (!isUuid(creatorId)) throw new Error("Unknown creator");
+  const creator = await q.getCreatorById(creatorId);
+  const code = creator ? await q.rotateLoginCode(creatorId) : null;
+  if (!creator || !code) throw new Error("Unknown creator");
+  return { creatorId, displayName: creator.displayName, code };
+}
+
+/** Admin: hide a creator from the public shop (testing) or show them again. */
+export async function setCreatorHidden(creatorId: string, hidden: boolean, opts: WriteOpts): Promise<void> {
+  void opts; // updates an existing row
+  if (!isUuid(creatorId) || !(await q.setCreatorHidden(creatorId, hidden))) throw new Error("Unknown creator");
 }
 
 // ---------------------------------------------------------------- helpers

@@ -65,6 +65,7 @@ struct CameraView: View {
 
   private func use(_ image: UIImage) {
     app.flow.photo = ImageTools.normalized(image)
+    app.flow.photoSource = source
     app.flow.photoArtwork = nil
     app.flow.candidates = []
     app.replaceTop(with: .findingDrawings)

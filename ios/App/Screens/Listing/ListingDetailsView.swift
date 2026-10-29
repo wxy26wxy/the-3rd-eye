@@ -156,6 +156,12 @@ struct ListingDetailsView: View {
 
   private func approve(via: String) async {
     guard let product = app.flow.product else { return }
+    guard !title.trimmingCharacters(in: .whitespaces).isEmpty, priceCents > 0 else {
+      let message = String(localized: "Add a name and a price first, or tap Improve with AI.")
+      error = message
+      app.speech.speak(message, force: true)
+      return
+    }
     approving = true
     error = nil
     defer { approving = false }

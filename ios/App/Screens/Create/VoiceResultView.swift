@@ -97,7 +97,6 @@ struct VoiceResultView: View {
       .overlay(Capsule().stroke(colors.border, lineWidth: Theme.Border.thin))
     }
     .buttonStyle(.plain)
-    .accessibilityElement(children: .ignore)
     .accessibilityLabel(Text(app.speech.isSpeaking ? "Stop" : "Hear what the image shows"))
     .accessibilityHint(Text("Reads a description of the picture out loud"))
   }

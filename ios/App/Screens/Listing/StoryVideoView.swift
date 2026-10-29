@@ -58,7 +58,7 @@ struct StoryVideoView: View {
     } actions: {
       PillButton("Record my video", hint: "Opens the camera for up to 30 seconds") { recording = true }
         .disabled(uploading)
-      PillButton("Skip for now", hint: "You can record it later in Settings", kind: .secondary, showsArrow: false) {
+      PillButton("Skip for now", hint: "We'll ask again the next time you list something", kind: .secondary, showsArrow: false) {
         app.push(.youreLive)
       }
       .disabled(uploading)

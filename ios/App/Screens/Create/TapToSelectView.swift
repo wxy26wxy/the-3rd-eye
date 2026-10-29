@@ -29,7 +29,7 @@ struct TapToSelectView: View {
       }
       .disabled(chosen == nil || busy)
       PillButton("Retake", hint: "Takes a new photo", kind: .secondary, showsArrow: false) {
-        app.replaceTop(with: .camera(.camera))
+        app.replaceTop(with: .camera(app.flow.photoSource))
       }
     }
     .onAppear { if chosen == nil, app.flow.candidates.count == 1 { chosen = app.flow.candidates.first } }
@@ -90,10 +90,9 @@ struct TapToSelectView: View {
             .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.thin))
           }
           .buttonStyle(.plain)
-          .accessibilityElement(children: .ignore)
           .accessibilityLabel(Text("Drawing \(index + 1)"))
           .accessibilityHint(Text("Selects this drawing"))
-          .accessibilityAddTraits(chosen == candidate ? [.isButton, .isSelected] : .isButton)
+          .accessibilityAddTraits(chosen == candidate ? .isSelected : [])
         }
       }
       .padding(.vertical, Theme.Space.xs)

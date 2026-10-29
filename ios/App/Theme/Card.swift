@@ -46,9 +46,8 @@ struct ChoiceCard<Content: View>: View {
       }
     }
     .buttonStyle(.plain)
-    .accessibilityElement(children: .ignore)
     .accessibilityLabel(label)
     .accessibilityHint(hint)
-    .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+    .accessibilityAddTraits(selected ? .isSelected : [])
   }
 }

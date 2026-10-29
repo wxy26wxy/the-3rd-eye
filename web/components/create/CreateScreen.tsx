@@ -3,6 +3,7 @@ import { m, fmt } from "@/components/messages";
 import { Tag, type TagPose } from "@/components/Tag";
 import { Button } from "@/components/ui/Button";
 import { Display } from "@/components/ui/Display";
+import { Loading } from "@/components/ui/Loading";
 import { IconButton } from "@/components/ui/IconButton";
 import { BackIcon } from "@/components/ui/Icons";
 import { Sheet } from "@/components/ui/Sheet";
@@ -47,4 +48,9 @@ export function MissingState() {
 
 export function StartOverButton() {
   return <Button href="/create/product" block>{m.common.startOver}</Button>;
+}
+
+/** Shown until the sessionStorage draft is available, so screens mount with the real draft. */
+export function HydratingScreen({ title }: { title: string }) {
+  return <CreateScreen title={title}><Loading label={m.common.loading} /></CreateScreen>;
 }

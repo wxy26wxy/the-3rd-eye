@@ -1,5 +1,4 @@
-import { notFound } from "next/navigation";
-import { getStoryTag } from "@/lib/db/queries.contract";
+import type { StoryTagView as StoryTagData } from "@/lib/db/queries.contract";
 import { fmt, m } from "@/components/messages";
 import { sendReply, tap } from "@/app/t/[token]/actions";
 import { ProductCard } from "@/components/site/ProductCard";
@@ -16,10 +15,7 @@ import { NoteForm } from "./NoteForm";
 import { TapOnce } from "./TapOnce";
 import styles from "./StoryTag.module.css";
 
-export async function StoryTagView({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
-  const view = await getStoryTag(token);
-  if (!view) notFound();
+export function StoryTagView({ view }: { view: StoryTagData }) {
   const c = view.creator;
   const bio = c.storyText ?? c.bioShort ?? "";
   const studio = c.studioName ?? m.common.brand;

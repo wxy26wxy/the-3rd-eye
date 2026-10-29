@@ -83,7 +83,12 @@ export function fixtureTrace(artworkId: string): ArtworkTrace {
     latencyMs: 800 + i * 100, costEstimateCents: 1, artworkId, listingId: null, error: null, createdAt: new Date(at.getTime() + i * 4000), createdByTask: "T010",
   });
   return {
-    artwork: { id: artworkId, source: "text2image", transcript: "a sleepy cat on the moon", shapedPrompt: "A sleepy grey cat curled on a yellow crescent moon, thick outlines, flat colours, white background.", cleanedUrl: "/examples/cat.svg", altText: "A sleepy grey cat curled up on a yellow crescent moon.", spokenDescription: "A grey cat is curled up asleep on a big yellow moon.", differencesFromPrompt: "None.", parentArtworkId: null, createdAt: at },
+    variants: [
+      { id: artworkId, url: "/examples/cat.svg", altText: "A sleepy grey cat curled up on a yellow crescent moon.", chosen: true },
+      { id: "v-2", url: "/examples/sun.svg", altText: "A yellow sun.", chosen: false },
+    ],
+    candidates: [],
+    artwork: { id: artworkId, source: "text2image", transcript: "a sleepy cat on the moon", shapedPrompt: "A sleepy grey cat curled on a yellow crescent moon, thick outlines, flat colours, white background.", originalUrl: null, maskUrl: null, cutPathSvg: "M12 50 C12 15 88 15 88 50 C88 85 12 85 12 50 Z", cleanedUrl: "/examples/cat.svg", altText: "A sleepy grey cat curled up on a yellow crescent moon.", spokenDescription: "A grey cat is curled up asleep on a big yellow moon.", differencesFromPrompt: "None.", parentArtworkId: null, createdAt: at },
     calls: [
       call("transcribe", "muse-voice-transcribe-1.0", { file: "[audio redacted]" }, { text: "a sleepy cat on the moon" }, 0),
       call("shape", "muse-spark-1.3", { transcript: "a sleepy cat on the moon" }, { prompt: "A sleepy grey cat curled on a yellow crescent moon..." }, 1),

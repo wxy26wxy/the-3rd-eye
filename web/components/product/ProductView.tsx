@@ -1,5 +1,4 @@
-import { notFound } from "next/navigation";
-import { getProductDetail } from "@/lib/db/queries.contract";
+import type { ProductDetail } from "@/lib/db/queries.contract";
 import { fmt, m, money, sharePercent } from "@/components/messages";
 import { placeOrder } from "@/app/(site)/p/[id]/actions";
 import { DieCut } from "@/components/site/DieCut";
@@ -13,10 +12,7 @@ import { Chip } from "@/components/ui/Text";
 import { BuyForm } from "./BuyForm";
 import styles from "./Product.module.css";
 
-export async function ProductView({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const p = await getProductDetail(id);
-  if (!p) notFound();
+export function ProductView({ product: p }: { product: ProductDetail }) {
   const typeLabel = p.type === "sticker" ? m.common.sticker : m.common.tote;
   const alt = p.altText ?? fmt(m.product.mockupAlt, { title: p.title, type: typeLabel });
   const action = placeOrder.bind(null, p.id);

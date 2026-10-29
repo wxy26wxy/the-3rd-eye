@@ -1,5 +1,4 @@
-import { notFound } from "next/navigation";
-import { getCreatorProfile } from "@/lib/db/queries.contract";
+import type { CreatorProfile as CreatorProfileData } from "@/lib/db/queries.contract";
 import { fmt, m } from "@/components/messages";
 import { Avatar } from "@/components/site/Avatar";
 import { ProductCard } from "@/components/site/ProductCard";
@@ -12,10 +11,7 @@ import { Chip, Title } from "@/components/ui/Text";
 import { EmptyNote } from "./EmptyNote";
 import styles from "./Pages.module.css";
 
-export async function CreatorProfile({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const c = await getCreatorProfile(slug);
-  if (!c) notFound();
+export function CreatorProfile({ creator: c }: { creator: CreatorProfileData }) {
   const story = c.storyText ?? c.bioShort ?? "";
   return (
     <Stack gap="section">

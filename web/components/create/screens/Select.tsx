@@ -6,18 +6,24 @@ import { Button } from "@/components/ui/Button";
 import { CameraIcon } from "@/components/ui/Icons";
 import { Loading, Status } from "@/components/ui/Loading";
 import { api, type Artwork } from "../api";
-import { CreateScreen, MissingState } from "../CreateScreen";
+import { CreateScreen, HydratingScreen, MissingState } from "../CreateScreen";
 import { makeProduct, useCreate } from "../store";
 import { VariantPicker } from "./VariantPicker";
 
 /** SAM found several drawings: the creator taps the one they want. */
 export function Select() {
-  const router = useRouter();
   const { ready, draft } = useCreate();
+  if (!ready) return <HydratingScreen title={m.create.select.title} />;
+  if (!draft.photoArtworkId || !draft.candidates?.length || !draft.product) return <MissingState />;
+  return <SelectFlow />;
+}
+
+function SelectFlow() {
+  const router = useRouter();
+  const { draft } = useCreate();
   const [choice, setChoice] = useState<string | undefined>(draft.candidates?.[0]?.id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  if (ready && (!draft.photoArtworkId || !draft.candidates?.length || !draft.product)) return <MissingState />;
   const retake = draft.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
 
   async function useThis() {

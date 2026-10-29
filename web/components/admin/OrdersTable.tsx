@@ -6,6 +6,7 @@ import { QrCode } from "@/components/qr/QrCode";
 import { CopyButton } from "@/components/site/CopyButton";
 import { siteOrigin, storyTagPath } from "@/components/site/origin";
 import { Chip } from "@/components/ui/Text";
+import { StatusButtons } from "./StatusButtons";
 import styles from "./Admin.module.css";
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -42,14 +43,7 @@ export async function OrdersTable() {
                 </th>
                 <td>
                   <Chip tone={o.status === "delivered" ? "lime" : "cream"}>{STATUS_LABEL[o.status]}</Chip>
-                  <form action={setOrderStatus} className={styles.statusForm}>
-                    <input type="hidden" name="orderId" value={o.id} />
-                    {ORDER_STATUSES.filter((s) => s !== o.status).map((s) => (
-                      <button key={s} type="submit" name="status" value={s} className={styles.statusBtn}>
-                        {fmt(m.admin.moveTo, { status: STATUS_LABEL[s] })}
-                      </button>
-                    ))}
-                  </form>
+                  <StatusButtons action={setOrderStatus} orderId={o.id} current={o.status} statuses={ORDER_STATUSES} labels={STATUS_LABEL} />
                 </td>
                 <td>
                   <span className={styles.strong}>{o.buyerName}</span>

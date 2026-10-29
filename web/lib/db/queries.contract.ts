@@ -85,11 +85,18 @@ export type AdminOrder = {
   token: string | null;
   tapCount: number;
 };
+/** One image in the trace chain (a generated variant or a SAM candidate). */
+export type TraceImage = { id: string; url: string | null; altText: string | null; chosen: boolean };
 export type ArtworkTrace = {
   artwork: Pick<
     ArtworkRow,
-    "id" | "source" | "transcript" | "shapedPrompt" | "cleanedUrl" | "altText" | "spokenDescription" | "differencesFromPrompt" | "parentArtworkId" | "createdAt"
+    | "id" | "source" | "transcript" | "shapedPrompt" | "originalUrl" | "cleanedUrl" | "maskUrl" | "cutPathSvg"
+    | "altText" | "spokenDescription" | "differencesFromPrompt" | "parentArtworkId" | "createdAt"
   >;
+  /** text2image: every variant from the same generation plus refine ancestors; `chosen` marks this artwork. */
+  variants: TraceImage[];
+  /** photo/canvas: SAM candidates (artworks.candidates); `chosen` marks the selected one when known. */
+  candidates: TraceImage[];
   calls: AiCallRow[];
 };
 type WriteOpts = { task: string };

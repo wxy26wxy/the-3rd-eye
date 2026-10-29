@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { CREATE_PUBLIC_PATHS, CREATOR_COOKIE } from "@/components/create/constants";
+import { ADMIN_REALM, checkAdminAuth } from "@/lib/admin-auth";
 
 /**
  * - /admin/*: HTTP basic auth against ADMIN_PASSWORD (any username). Disabled when unset.
@@ -12,25 +13,11 @@ export function proxy(req: NextRequest) {
   return NextResponse.next();
 }
 
-function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
 function adminGate(req: NextRequest) {
-  const password = process.env.ADMIN_PASSWORD;
-  if (!password) return new NextResponse("Admin is disabled until ADMIN_PASSWORD is set.", { status: 503 });
-  const header = req.headers.get("authorization") ?? "";
-  if (header.startsWith("Basic ")) {
-    try {
-      const decoded = atob(header.slice(6));
-      const given = decoded.slice(decoded.indexOf(":") + 1);
-      if (safeEqual(given, password)) return NextResponse.next();
-    } catch { /* malformed header */ }
-  }
-  return new NextResponse("Authentication required.", { status: 401, headers: { "WWW-Authenticate": 'Basic realm="maker story admin", charset="UTF-8"' } });
+  const result = checkAdminAuth(req.headers.get("authorization"));
+  if (result === "ok") return NextResponse.next();
+  if (result === "disabled") return new NextResponse("Admin is disabled until ADMIN_PASSWORD is set.", { status: 503 });
+  return new NextResponse("Authentication required.", { status: 401, headers: { "WWW-Authenticate": ADMIN_REALM } });
 }
 
 function creatorGate(req: NextRequest) {

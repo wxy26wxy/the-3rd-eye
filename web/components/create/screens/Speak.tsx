@@ -10,7 +10,7 @@ import { KeyboardIcon, MicIcon, SpeakerIcon, StopIcon } from "@/components/ui/Ic
 import { Loading, Status } from "@/components/ui/Loading";
 import { Eyebrow } from "@/components/ui/Text";
 import { api, transcribe, type ShapeResult } from "../api";
-import { CreateScreen, MissingState } from "../CreateScreen";
+import { CreateScreen, HydratingScreen, MissingState } from "../CreateScreen";
 import { useCreate } from "../store";
 import { useRecorder } from "../useRecorder";
 import styles from "../Create.module.css";
@@ -22,8 +22,15 @@ type Phase = "idle" | "recording" | "transcribing" | "review" | "shaping" | "que
  * If the shaper asks a clarifying question, it is spoken aloud and answered by voice or text.
  */
 export function Speak() {
+  const { ready, draft } = useCreate();
+  if (!ready) return <HydratingScreen title={m.create.speak.title} />;
+  if (!draft.product) return <MissingState />;
+  return <SpeakFlow />;
+}
+
+function SpeakFlow() {
   const router = useRouter();
-  const { ready, draft, update } = useCreate();
+  const { draft, update } = useCreate();
   const [phase, setPhase] = useState<Phase>("idle");
   const [typing, setTyping] = useState(false);
   const [transcript, setTranscript] = useState(draft.transcript ?? "");
@@ -82,7 +89,6 @@ export function Speak() {
     }
   }
 
-  if (ready && !draft.product) return <MissingState />;
   const micProblem = recorder.status === "denied" ? m.create.speak.micDenied : recorder.status === "unsupported" ? m.create.speak.micUnsupported : null;
   const busy = phase === "transcribing" || phase === "shaping";
 

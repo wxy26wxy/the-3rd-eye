@@ -202,7 +202,22 @@
     "traceLatency": "{ms} ms",
     "traceRequest": "Request",
     "traceResponse": "Response",
-    "backToOrders": "Back to orders"
+    "backToOrders": "Back to orders",
+    "unauthorized": "You need to sign in to the admin again.",
+    "statusError": "Could not update this order. Please try again.",
+    "traceVariants": "Variants",
+    "traceSelection": "Selection",
+    "traceMask": "Mask",
+    "traceSticker": "Sticker",
+    "traceOriginal": "Original photo",
+    "traceChosen": "Chosen",
+    "traceNone": "Nothing recorded for this step.",
+    "traceOtherCalls": "Other model calls",
+    "traceChosenVariant": "Picture {n} was chosen.",
+    "traceNoChoice": "No choice recorded.",
+    "traceDifferences": "Differences from the prompt",
+    "traceOpenMask": "Open mask",
+    "traceStep": "Step {n}"
   },
   "create": {
     "metaTitle": "Create",
@@ -374,5 +389,10 @@
     "title": "Oops, nothing here.",
     "copy": "That page doesn't exist.",
     "home": "Go to the shop"
+  },
+  "errors": {
+    "title": "Oops, that didn't work.",
+    "copy": "Something went wrong on our side. Your work is saved on this phone. Try again in a moment.",
+    "home": "Back to the start"
   }
 }

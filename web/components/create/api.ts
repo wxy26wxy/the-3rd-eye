@@ -30,7 +30,7 @@ export async function api<T>(path: string, init: { method?: string; json?: unkno
   if (init.json !== undefined) { headers["content-type"] = "application/json"; body = JSON.stringify(init.json); }
   const res = await fetch(`${BASE}/${path}`, { method: init.method ?? (body ? "POST" : "GET"), headers, body, signal: init.signal, credentials: "same-origin" });
   if (res.status === 401 && typeof window !== "undefined") {
-    window.location.replace(new URL(`/create/code?next=${encodeURIComponent(window.location.pathname)}`, window.location.origin).href);
+    window.location.replace(new URL(`/create/code?next=${encodeURIComponent(window.location.pathname + window.location.search)}`, window.location.origin).href);
     throw new ApiError(401, "unauthorized", "Sign in again.");
   }
   if (!res.ok) {

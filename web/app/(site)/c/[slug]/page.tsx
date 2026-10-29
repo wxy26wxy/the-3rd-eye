@@ -1,23 +1,29 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
-import { getCreatorProfile } from "@/lib/db/queries.contract";
+import { notFound } from "next/navigation";
 import { m } from "@/components/messages";
+import { loadCreatorProfile } from "@/components/data";
 import { CreatorProfile } from "@/components/pages/CreatorProfile";
 import { Container, Section } from "@/components/ui/Layout";
-import { Loading } from "@/components/ui/Loading";
 
 export async function generateMetadata({ params }: PageProps<"/c/[slug]">): Promise<Metadata> {
-  const c = await getCreatorProfile((await params).slug);
+  const c = await loadCreatorProfile((await params).slug);
   return { title: c?.displayName ?? m.artists.metaTitle, description: c?.bioShort ?? undefined };
 }
 
-export default function CreatorPage({ params }: PageProps<"/c/[slug]">) {
+/**
+ * Blocking on purpose: the page body waits for the existence check (no loading flash, and
+ * notFound() renders the not-found page with noindex). Under Cache Components the layout shell
+ * is still flushed first, so the HTTP status stays 200; a true 404 needs a lookup in proxy.ts.
+ */
+export const instant = false;
+
+export default async function CreatorPage({ params }: PageProps<"/c/[slug]">) {
+  const creator = await loadCreatorProfile((await params).slug);
+  if (!creator) notFound();
   return (
     <Container>
       <Section>
-        <Suspense fallback={<Loading label={m.common.loading} />}>
-          <CreatorProfile params={params} />
-        </Suspense>
+        <CreatorProfile creator={creator} />
       </Section>
     </Container>
   );

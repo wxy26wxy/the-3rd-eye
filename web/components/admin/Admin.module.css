@@ -44,3 +44,9 @@
 .details summary::-webkit-details-marker { display: none; }
 .details summary::before { content: "+"; display: grid; place-items: center; width: var(--space-xxl); height: var(--space-xxl); border-radius: var(--radius-pill); border: var(--border-thin) solid var(--border); font-size: var(--type-caption-size); }
 .details[open] summary::before { content: "−"; }
+.stepNum { display: grid; place-items: center; width: var(--size-avatar); height: var(--size-avatar); border-radius: var(--radius-pill); background: var(--accent); border: var(--border-thin) solid var(--border); font-family: var(--font-display); }
+.imageRow { display: grid; grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr)); gap: var(--space-m); list-style: none; max-width: 40rem; }
+.imageRow li { display: grid; gap: var(--space-xs); justify-items: start; padding: var(--space-xs); border-radius: var(--radius-m); border: var(--border-thin) solid transparent; }
+.imageRow li.chosen { border-color: var(--border); background: var(--accent); }
+.traceThumb { width: 100%; max-width: 14rem; }
+.callBlock { display: grid; gap: var(--space-xs); padding-top: var(--space-s); border-top: 1px solid var(--color-sage); }

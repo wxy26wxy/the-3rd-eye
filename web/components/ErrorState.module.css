@@ -1,0 +1,2 @@
+.wrap { width: 100%; max-width: var(--layout-narrow); margin-inline: auto; padding: var(--space-section) var(--space-xl); }
+.tag { width: var(--size-record); }

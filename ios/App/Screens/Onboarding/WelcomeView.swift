@@ -33,9 +33,7 @@ struct WelcomeView: View {
             .multilineTextAlignment(.center)
         }
 
-        NavigationLink {
-          CodeEntryView()
-        } label: {
+        NavigationLink(value: OnboardingRoute.code) {
           Text("Start creating")
         }
         .buttonStyle(PillButtonStyle())

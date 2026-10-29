@@ -10,6 +10,9 @@ enum Fixtures {
    "split":{"creator_bps":5000,"org_bps":3000,"production_bps":2000},"isExample":true}
   """
 
+  /// Placeholder sign-in code; real codes are issued per creator and never live in the repo.
+  static let loginCode = "TEST-CODE"
+
   static let authCode = #"{"token":"c1.abc123","creator":\#(creator)}"#
 
   static let shapeWithQuestion = """
@@ -82,4 +85,5 @@ enum Fixtures {
   static let storyPrompts = #"{"prompts":["Who are you?","What do you love to make?","Why do you make art?"]}"#
   static let transcribe = #"{"text":"a frog with a crown","language":"en","segments":[]}"#
   static let error = #"{"error":{"code":"invalid_code","message":"That code didn't work."}}"#
+  static let expired = #"{"error":{"code":"unauthorized","message":"Sign-in expired."}}"#
 }

@@ -48,6 +48,11 @@ final class OrdersStore {
       unread = res.unread ?? orders.reduce(0) { $0 + ($1.unreadMessages ?? 0) + ($1.hasThankYou == false ? 1 : 0) }
       lastError = nil
       loaded = true
+    } catch APIError.unauthorized {
+      // Session ended: stop asking (AppState signs out and resets this store).
+      poller.stop()
+    } catch is CancellationError {
+      return
     } catch {
       lastError = error.localizedDescription
       loaded = true

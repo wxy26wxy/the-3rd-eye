@@ -15,6 +15,14 @@ final class APIClient: @unchecked Sendable {
   private let transport: HTTPTransport
   private let tokenLock = NSLock()
   private var cachedToken: String?
+  private var unauthorizedHandler: (@Sendable () -> Void)?
+
+  /// Called (on any thread) after a signed-in request is answered 401: the token
+  /// expired or was revoked. The token is already cleared when it runs.
+  var onUnauthorized: (@Sendable () -> Void)? {
+    get { tokenLock.lock(); defer { tokenLock.unlock() }; return unauthorizedHandler }
+    set { tokenLock.lock(); unauthorizedHandler = newValue; tokenLock.unlock() }
+  }
 
   init(baseURL: URL = AppConfig.apiURL, transport: HTTPTransport = URLSession.shared, token: String? = Keychain.read(account: APIClient.tokenAccount)) {
     self.baseURL = baseURL
@@ -63,7 +71,17 @@ final class APIClient: @unchecked Sendable {
     }
     guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
     guard (200..<300).contains(http.statusCode) else {
-      if http.statusCode == 401 { throw APIError.unauthorized }
+      if http.statusCode == 401 {
+        if let sent = request.value(forHTTPHeaderField: "Authorization") {
+          expire(sentAuthorization: sent)
+          throw APIError.unauthorized
+        }
+        // Not signed in (e.g. a wrong code on /auth/code): show the server's reason.
+        if let envelope = try? Self.decoder.decode(APIErrorEnvelope.self, from: data) {
+          throw APIError.server(status: 401, code: envelope.error.code, message: envelope.error.message)
+        }
+        throw APIError.unauthorized
+      }
       if let envelope = try? Self.decoder.decode(APIErrorEnvelope.self, from: data) {
         throw APIError.server(status: http.statusCode, code: envelope.error.code, message: envelope.error.message)
       }
@@ -74,6 +92,17 @@ final class APIClient: @unchecked Sendable {
     } catch {
       throw APIError.decoding(String(describing: error))
     }
+  }
+
+  /// Clears the session once, unless a newer sign-in already replaced the token that failed.
+  private func expire(sentAuthorization: String) {
+    tokenLock.lock()
+    let current = cachedToken.map { "Bearer \($0)" }
+    let handler = unauthorizedHandler
+    tokenLock.unlock()
+    guard current == sentAuthorization else { return }
+    token = nil
+    handler?()
   }
 
   func get<Response: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> Response {

@@ -11,7 +11,17 @@ struct CodeEntryView: View {
   var body: some View {
     FlowScreen(title: "Your code", subtitle: "Your studio gave you a short code. Type it or say it.") {
       VStack(alignment: .leading, spacing: Theme.Space.l) {
-        VoiceTextField(label: "Sign-in code", text: $code, prompt: "For example: LEO-2026", keyboard: .asciiCapable)
+        if app.sessionExpired {
+          Card {
+            Text("You were signed out to keep your studio safe. Type your code to keep going.")
+              .themeFont(.body)
+              .foregroundStyle(colors.text)
+          }
+          .onAppear {
+            UIAccessibility.post(notification: .announcement, argument: String(localized: "You were signed out to keep your studio safe. Type your code to keep going."))
+          }
+        }
+        VoiceTextField(label: "Sign-in code", text: $code, prompt: "Type your code here", keyboard: .asciiCapable)
           .textInputAutocapitalization(.characters)
           .autocorrectionDisabled()
         if let error { ErrorCard(message: error) }

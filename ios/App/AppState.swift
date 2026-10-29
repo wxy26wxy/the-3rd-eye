@@ -30,6 +30,8 @@ final class AppState {
   let orders: OrdersStore
   var creator: Creator?
   private(set) var isSignedIn: Bool
+  /// The server ended the session (token expired); the code screen says so.
+  private(set) var sessionExpired = false
   var selectedTab: HomeTab = .create
   /// Any route change stops speech before the next screen's onAppear can start
   /// its own (onDisappear of the old screen runs after that, so it can't be used).
@@ -52,6 +54,9 @@ final class AppState {
     self.orders = OrdersStore(api: api)
     self.prefs = Self.loadPrefs()
     speech.speakDescriptions = prefs.speakDescriptions
+    api.onUnauthorized = { [weak self] in
+      Task { @MainActor in self?.sessionDidExpire() }
+    }
   }
 
   var split: Split { creator?.split ?? .default }
@@ -64,7 +69,15 @@ final class AppState {
     self.creator = creator
     if let serverPrefs = creator.accessPrefs { prefs = serverPrefs }
     isSignedIn = true
+    sessionExpired = false
     selectedTab = .create
+  }
+
+  /// Any route answered 401 with our token: sign out and go back to the code screen.
+  func sessionDidExpire() {
+    guard isSignedIn else { return }
+    sessionExpired = true
+    signOut()
   }
 
   func signOut() {
@@ -81,7 +94,7 @@ final class AppState {
     do {
       creator = try await api.me()
     } catch APIError.unauthorized {
-      signOut()
+      sessionDidExpire()
     } catch {
       // Keep the cached session; screens surface their own errors.
     }

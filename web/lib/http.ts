@@ -3,6 +3,7 @@
  * `{ "error": { "code", "message" } }`.
  */
 import { ZodError, type ZodType } from "zod";
+import { safeErrorText } from "./log-safe";
 
 export class ApiError extends Error {
   /** `details` are merged into the error object, e.g. `{ artworkId }`. */
@@ -34,7 +35,7 @@ export function toApiError(err: unknown): ApiError {
   const message = err instanceof Error ? err.message : String(err);
   if (message.includes("DATABASE_URL is not set")) return new ApiError(503, "db_unavailable", "Database is not configured yet");
   if (/META_API_KEY/.test(message)) return new ApiError(503, "ai_unavailable", message);
-  console.error("[api] unhandled error:", message);
+  console.error("[api] unhandled error:", safeErrorText(err)); // query params cut: they can hold a login code
   return new ApiError(500, "internal", "Something went wrong");
 }
 

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { CREATOR_COOKIE } from "@/components/create/constants";
 import { signCreatorToken } from "@/lib/auth";
 import { getCreatorByLoginCode } from "@/lib/db/queries";
+import { safeErrorText } from "@/lib/log-safe";
 
 const MAX_AGE = 60 * 60 * 24 * 30;
 
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     });
     return res;
   } catch (err) {
-    console.error("creator sign-in failed", err);
+    console.error("creator sign-in failed", safeErrorText(err)); // never the code itself
     return fail();
   }
 }

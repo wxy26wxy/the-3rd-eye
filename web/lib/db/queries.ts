@@ -144,6 +144,11 @@ export async function upsertListing(values: typeof listings.$inferInsert): Promi
   return row;
 }
 
+/** Keeps new agent copy for a published product without touching the live listing (null clears it). */
+export async function setListingDraftCopy(productId: string, draftCopy: ListingRow["draftCopy"]): Promise<void> {
+  await db().update(listings).set({ draftCopy }).where(eq(listings.productId, productId));
+}
+
 /** A published product with what the shop needs to render it. */
 export type ShopProduct = {
   product: ProductRow;

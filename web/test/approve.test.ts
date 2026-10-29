@@ -9,7 +9,7 @@ vi.mock("@/lib/db/queries", () => ({
   upsertListing: async (v: Listing) => { state.listing = { ...state.listing, ...v }; return state.listing; },
   updateProduct: async (_id: string, patch: Listing) => { state.published = patch.status === "published"; return { id: "p1", ...patch }; },
   getCreatorById: async () => ({ storyVideoUrl: null }),
-  getArtwork: async () => null, insertProduct: async () => null,
+  getArtwork: async () => null, insertProduct: async () => null, setListingDraftCopy: async () => undefined,
 }));
 vi.mock("@/lib/ai/registry", () => ({
   ai: async () => ({ listingAgent: { moderate: async (text: unknown) => { state.moderateCalls.push(text); return state.moderateResult; } } }),

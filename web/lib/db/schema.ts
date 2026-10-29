@@ -4,7 +4,7 @@
  * records the T### task whose code path wrote the row (traceability).
  */
 import {
-  pgTable, pgEnum, uuid, text, integer, boolean, timestamp, jsonb, primaryKey,
+  pgTable, pgEnum, uuid, text, integer, boolean, timestamp, jsonb,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -28,6 +28,16 @@ export type AccessPrefs = {
   highContrast: boolean; largeText: boolean; helperMode: boolean;
 };
 export type Split = { creator_bps: number; org_bps: number; production_bps: number };
+/** A story drafted from the creator's video transcript; shown to the creator, published only when they accept it. */
+export type StoryDraftRecord = {
+  headline: string; bio_short: string; story_text: string; provider: "ollama" | "meta-fallback";
+  mentionDisability: boolean; createdAt: string;
+};
+/** New listing copy from an agent re-run on a published product; goes live only through approve. */
+export type ListingDraftCopy = {
+  title: string; description: string; tags: string[]; priceSuggestionCents: number;
+  printCheck: unknown; moderation: unknown; agentTrace: unknown; createdAt: string;
+};
 export type SamCandidate = { id: string; bbox: [number, number, number, number]; score: number; thumbUrl: string; maskUrl: string };
 
 export const creators = pgTable("creators", {
@@ -41,6 +51,7 @@ export const creators = pgTable("creators", {
   storyVideoUrl: text("story_video_url"),          // private blob pathname
   storyVideoVtt: text("story_video_vtt"),          // WebVTT captions (Voice Transcribe)
   storyVideoTranscript: text("story_video_transcript"),
+  storyDraft: jsonb("story_draft").$type<StoryDraftRecord>(),   // Glimmer draft from the video transcript
   mentionDisability: boolean("mention_disability").default(false).notNull(),
   accessPrefs: jsonb("access_prefs").$type<AccessPrefs>().default({
     voiceFirst: true, simpleMode: true, speakDescriptions: true, highContrast: false, largeText: false, helperMode: false,
@@ -96,6 +107,7 @@ export const listings = pgTable("listings", {
   printCheck: jsonb("print_check"),
   moderation: jsonb("moderation"),
   agentTrace: jsonb("agent_trace"),
+  draftCopy: jsonb("draft_copy").$type<ListingDraftCopy>(),     // pending re-run copy for a published product
   approvedAt: timestamp("approved_at", { withTimezone: true }),
   approvedVia: approvedVia("approved_via"),
   madeByVoice: boolean("made_by_voice").default(false).notNull(),
@@ -112,6 +124,7 @@ export const orders = pgTable("orders", {
   amountCents: integer("amount_cents").notNull(),
   creatorShareCents: integer("creator_share_cents").notNull(),
   orgShareCents: integer("org_share_cents").notNull(),
+  productionShareCents: integer("production_share_cents"),      // amount - creator - org (backfilled in migration 0002)
   status: orderStatus("status").default("placed").notNull(),
   paymentMode: paymentMode("payment_mode").default("staged").notNull(),
   paymentRef: text("payment_ref"),

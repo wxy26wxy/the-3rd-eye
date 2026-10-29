@@ -1,0 +1,1147 @@
+{
+  "id": "db36792d-8f1f-4b13-91da-a7cfeb100552",
+  "prevId": "21f13265-ae8a-44e9-9ffe-4ec17650fd30",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.ai_calls": {
+      "name": "ai_calls",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stage": {
+          "name": "stage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_hash": {
+          "name": "request_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_json": {
+          "name": "request_json",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "response_id": {
+          "name": "response_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "response_json": {
+          "name": "response_json",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "latency_ms": {
+          "name": "latency_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cost_estimate_cents": {
+          "name": "cost_estimate_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "artwork_id": {
+          "name": "artwork_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "listing_id": {
+          "name": "listing_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_by_task": {
+          "name": "created_by_task",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.artworks": {
+      "name": "artworks",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "creator_id": {
+          "name": "creator_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "artwork_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "transcript": {
+          "name": "transcript",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shaped_prompt": {
+          "name": "shaped_prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shaping_trace": {
+          "name": "shaping_trace",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "original_url": {
+          "name": "original_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cleaned_url": {
+          "name": "cleaned_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mask_url": {
+          "name": "mask_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cut_path_svg": {
+          "name": "cut_path_svg",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "candidates": {
+          "name": "candidates",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "alt_text": {
+          "name": "alt_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "spoken_description": {
+          "name": "spoken_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "differences_from_prompt": {
+          "name": "differences_from_prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gen_response_id": {
+          "name": "gen_response_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parent_artwork_id": {
+          "name": "parent_artwork_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "artwork_video_url": {
+          "name": "artwork_video_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "artwork_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_task": {
+          "name": "created_by_task",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "artworks_creator_id_creators_id_fk": {
+          "name": "artworks_creator_id_creators_id_fk",
+          "tableFrom": "artworks",
+          "tableTo": "creators",
+          "columnsFrom": [
+            "creator_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.creators": {
+      "name": "creators",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "studio_name": {
+          "name": "studio_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "avatar_url": {
+          "name": "avatar_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bio_short": {
+          "name": "bio_short",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "story_text": {
+          "name": "story_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "story_video_url": {
+          "name": "story_video_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "story_video_vtt": {
+          "name": "story_video_vtt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "story_video_transcript": {
+          "name": "story_video_transcript",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "story_draft": {
+          "name": "story_draft",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mention_disability": {
+          "name": "mention_disability",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "access_prefs": {
+          "name": "access_prefs",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{\"voiceFirst\":true,\"simpleMode\":true,\"speakDescriptions\":true,\"highContrast\":false,\"largeText\":false,\"helperMode\":false}'::jsonb"
+        },
+        "split": {
+          "name": "split",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{\"creator_bps\":5000,\"org_bps\":3000,\"production_bps\":2000}'::jsonb"
+        },
+        "login_code": {
+          "name": "login_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_example": {
+          "name": "is_example",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_task": {
+          "name": "created_by_task",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "creators_slug_unique": {
+          "name": "creators_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        },
+        "creators_login_code_unique": {
+          "name": "creators_login_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "login_code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.listings": {
+      "name": "listings",
+      "schema": "",
+      "columns": {
+        "product_id": {
+          "name": "product_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tags": {
+          "name": "tags",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "price_suggestion_cents": {
+          "name": "price_suggestion_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "print_check": {
+          "name": "print_check",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "moderation": {
+          "name": "moderation",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "agent_trace": {
+          "name": "agent_trace",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "draft_copy": {
+          "name": "draft_copy",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approved_at": {
+          "name": "approved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approved_via": {
+          "name": "approved_via",
+          "type": "approved_via",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "made_by_voice": {
+          "name": "made_by_voice",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_task": {
+          "name": "created_by_task",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "listings_product_id_products_id_fk": {
+          "name": "listings_product_id_products_id_fk",
+          "tableFrom": "listings",
+          "tableTo": "products",
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.messages": {
+      "name": "messages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "direction": {
+          "name": "direction",
+          "type": "message_direction",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_task": {
+          "name": "created_by_task",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "messages_order_id_orders_id_fk": {
+          "name": "messages_order_id_orders_id_fk",
+          "tableFrom": "messages",
+          "tableTo": "orders",
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.nfc_tokens": {
+      "name": "nfc_tokens",
+      "schema": "",
+      "columns": {
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_tapped_at": {
+          "name": "first_tapped_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tap_count": {
+          "name": "tap_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_task": {
+          "name": "created_by_task",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "nfc_tokens_order_id_orders_id_fk": {
+          "name": "nfc_tokens_order_id_orders_id_fk",
+          "tableFrom": "nfc_tokens",
+          "tableTo": "orders",
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "nfc_tokens_order_id_unique": {
+          "name": "nfc_tokens_order_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "order_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.orders": {
+      "name": "orders",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "product_id": {
+          "name": "product_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "creator_id": {
+          "name": "creator_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buyer_name": {
+          "name": "buyer_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buyer_email": {
+          "name": "buyer_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ship_note": {
+          "name": "ship_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "creator_share_cents": {
+          "name": "creator_share_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "org_share_cents": {
+          "name": "org_share_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "production_share_cents": {
+          "name": "production_share_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "order_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'placed'"
+        },
+        "payment_mode": {
+          "name": "payment_mode",
+          "type": "payment_mode",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'staged'"
+        },
+        "payment_ref": {
+          "name": "payment_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status_updated_at": {
+          "name": "status_updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_task": {
+          "name": "created_by_task",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "orders_product_id_products_id_fk": {
+          "name": "orders_product_id_products_id_fk",
+          "tableFrom": "orders",
+          "tableTo": "products",
+          "columnsFrom": [
+            "product_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "orders_creator_id_creators_id_fk": {
+          "name": "orders_creator_id_creators_id_fk",
+          "tableFrom": "orders",
+          "tableTo": "creators",
+          "columnsFrom": [
+            "creator_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.products": {
+      "name": "products",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "artwork_id": {
+          "name": "artwork_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "creator_id": {
+          "name": "creator_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "product_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mockup_url": {
+          "name": "mockup_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "print_png_url": {
+          "name": "print_png_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "print_svg_url": {
+          "name": "print_svg_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_cents": {
+          "name": "price_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 500
+        },
+        "status": {
+          "name": "status",
+          "type": "product_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_task": {
+          "name": "created_by_task",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "products_artwork_id_artworks_id_fk": {
+          "name": "products_artwork_id_artworks_id_fk",
+          "tableFrom": "products",
+          "tableTo": "artworks",
+          "columnsFrom": [
+            "artwork_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "products_creator_id_creators_id_fk": {
+          "name": "products_creator_id_creators_id_fk",
+          "tableFrom": "products",
+          "tableTo": "creators",
+          "columnsFrom": [
+            "creator_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.thank_yous": {
+      "name": "thank_yous",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "image_url": {
+          "name": "image_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "video_url": {
+          "name": "video_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "video_vtt": {
+          "name": "video_vtt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_task": {
+          "name": "created_by_task",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "thank_yous_order_id_orders_id_fk": {
+          "name": "thank_yous_order_id_orders_id_fk",
+          "tableFrom": "thank_yous",
+          "tableTo": "orders",
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "thank_yous_order_id_unique": {
+          "name": "thank_yous_order_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "order_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.approved_via": {
+      "name": "approved_via",
+      "schema": "public",
+      "values": [
+        "voice",
+        "tap"
+      ]
+    },
+    "public.artwork_source": {
+      "name": "artwork_source",
+      "schema": "public",
+      "values": [
+        "text2image",
+        "canvas",
+        "photo"
+      ]
+    },
+    "public.artwork_status": {
+      "name": "artwork_status",
+      "schema": "public",
+      "values": [
+        "draft",
+        "ready"
+      ]
+    },
+    "public.message_direction": {
+      "name": "message_direction",
+      "schema": "public",
+      "values": [
+        "creator_to_buyer",
+        "buyer_to_creator"
+      ]
+    },
+    "public.order_status": {
+      "name": "order_status",
+      "schema": "public",
+      "values": [
+        "placed",
+        "printing",
+        "shipped",
+        "delivered"
+      ]
+    },
+    "public.payment_mode": {
+      "name": "payment_mode",
+      "schema": "public",
+      "values": [
+        "staged",
+        "stripe"
+      ]
+    },
+    "public.product_status": {
+      "name": "product_status",
+      "schema": "public",
+      "values": [
+        "draft",
+        "published",
+        "archived"
+      ]
+    },
+    "public.product_type": {
+      "name": "product_type",
+      "schema": "public",
+      "values": [
+        "sticker",
+        "tote"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

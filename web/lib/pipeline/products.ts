@@ -2,10 +2,11 @@
 import "server-only";
 import sharp from "sharp";
 import { ai } from "@/lib/ai/registry";
-import type { AgentStep, ListingDraft } from "@/lib/ai/types";
+import type { AgentStep, ListingDraft, Moderation, Trace } from "@/lib/ai/types";
+import { checkResolution, measureContrast, printCheckFrom, type ContrastCheck, type ResolutionCheck } from "@/lib/products/checks";
 import { productSpec, type ProductKind } from "@/lib/products/registry";
 import {
-  getCreatorById, getListing, insertProduct, updateProduct, upsertListing,
+  getCreatorById, getListing, insertProduct, setListingDraftCopy, updateProduct, upsertListing,
   type ArtworkRow, type ListingRow, type ProductRow,
 } from "@/lib/db/queries";
 import { creatorPath, storage } from "@/lib/storage";
@@ -32,24 +33,70 @@ export async function createProduct(artwork: ArtworkRow, type: ProductKind, task
   });
 }
 
-export async function runListingAgent(product: ProductRow, artwork: ArtworkRow, task = "T010"): Promise<{ listing: ListingDraft; trace: AgentStep[]; row: ListingRow }> {
+type Step = { tool?: string; args?: unknown; result?: unknown };
+const isCheck = (r: unknown): r is { ok: boolean } => Boolean(r) && typeof (r as { ok?: unknown }).ok === "boolean";
+/** The last result of `tool` in the agent trace when it is a well-formed check, else null. */
+function toolResult<T extends { ok: boolean }>(trace: Step[], tool: string): T | null {
+  const r = [...trace].reverse().find((s) => s.tool === tool)?.result;
+  return isCheck(r) ? (r as T) : null;
+}
+
+/**
+ * Runs the listing agent, then decides the publish gate on the server: `print_ok` comes from the
+ * resolution and contrast tool results (computed here when the model skipped them, measured on
+ * the product's print file) and moderation runs on the FINAL title and description. On a
+ * published product the new copy is stored as a pending draft; the live listing changes only
+ * through approve.
+ */
+export async function runListingAgent(product: ProductRow, artwork: ArtworkRow, task = "T050"): Promise<{ listing: ListingDraft; trace: AgentStep[]; row: ListingRow }> {
   const creator = await getCreatorById(product.creatorId);
   const imageUrl = artwork.cleanedUrl ?? product.mockupUrl;
   if (!imageUrl) throw new Error("Product has no image yet");
-  const meta = await sharp(await storage().read(imageUrl)).metadata();
-  const { listing, trace } = await (await ai()).listingAgent.run({
+  const imagePng = await storage().read(imageUrl);
+  const printPng = product.printPngUrl ? await storage().read(product.printPngUrl) : imagePng;
+  const meta = await sharp(printPng).metadata();
+  const width = meta.width ?? 0, height = meta.height ?? 0;
+  const registry = await ai();
+  const traceCtx = { stage: "listing", artworkId: artwork.id, listingId: product.id, task };
+  const { listing: proposed, trace } = await registry.listingAgent.run({
     productId: product.id, productType: product.type, altText: artwork.altText ?? "Original artwork",
-    creatorStory: creator?.storyText ?? undefined, imageUrl, width: meta.width ?? 0, height: meta.height ?? 0,
+    creatorStory: creator?.storyText ?? undefined, imageUrl, width, height,
     creatorShareBps: creator?.split.creator_bps ?? 5000,
-  }, { trace: { stage: "listing", artworkId: artwork.id, listingId: product.id, task } });
-  const findResult = (tool: string) => trace.find((s) => s.tool === tool)?.result ?? null;
+  }, { trace: traceCtx });
+
+  const resolution = toolResult<ResolutionCheck>(trace, "check_resolution") ?? checkResolution({ productType: product.type, width, height });
+  const contrast = toolResult<ContrastCheck>(trace, "check_contrast") ?? await measureContrast(imagePng);
+  const printCheck = printCheckFrom(resolution, contrast);
+  const moderation = await moderateFinal(trace, proposed, registry.listingAgent, { ...traceCtx, stage: "moderate" });
+  const listing: ListingDraft = { ...proposed, print_ok: printCheck.print_ok, notes: [printCheck.notes, proposed.notes].filter(Boolean).join(" ").trim() };
+  const fields = {
+    title: listing.title, description: listing.description, tags: listing.tags, priceSuggestionCents: listing.price_cents,
+    printCheck: { ...printCheck, notes: listing.notes }, moderation, agentTrace: trace,
+  };
+
+  const existing = product.status === "published" ? await getListing(product.id) : null;
+  if (existing) {
+    await setListingDraftCopy(product.id, { ...fields, createdAt: new Date().toISOString() });
+    return { listing, trace, row: (await getListing(product.id))! };
+  }
   const row = await upsertListing({
-    productId: product.id, title: listing.title, description: listing.description, tags: listing.tags,
-    priceSuggestionCents: listing.price_cents,
-    printCheck: { print_ok: listing.print_ok, resolution: findResult("check_resolution"), contrast: findResult("check_contrast"), notes: listing.notes },
-    moderation: findResult("moderate_content"), agentTrace: trace, madeByVoice: artwork.source === "text2image", createdByTask: task,
+    productId: product.id, ...fields, draftCopy: null, approvedAt: null, approvedVia: null,
+    madeByVoice: artwork.source === "text2image", createdByTask: task,
   });
   return { listing, trace, row };
+}
+
+/** Reuses the agent's moderate_content result only when it checked exactly the final text; otherwise moderates again. */
+async function moderateFinal(
+  trace: Step[], final: ListingDraft, agent: Awaited<ReturnType<typeof ai>>["listingAgent"], modTrace: Trace,
+): Promise<Moderation | null> {
+  const last = [...trace].reverse().find((s) => s.tool === "moderate_content");
+  const args = (last?.args ?? {}) as { title?: string; description?: string };
+  if (last && isCheck(last.result) && args.title?.trim() === final.title && (args.description ?? "").trim() === final.description) {
+    return last.result as Moderation;
+  }
+  if (!agent.moderate) return null;
+  return agent.moderate({ title: final.title, description: final.description, tags: final.tags }, { trace: modTrace });
 }
 
 /**
@@ -62,11 +109,17 @@ export async function approveListing(
   input: { approvedVia: "voice" | "tap"; edits?: { title?: string; description?: string; priceCents?: number } },
   task = "T010",
 ): Promise<{ product: ProductRow; listing: ListingRow; storyVideoNeeded: boolean }> {
-  const existing = await getListing(product.id);
-  if (!existing) throw new ApiError(409, "listing_missing", "Run the listing agent first");
+  const stored = await getListing(product.id);
+  if (!stored) throw new ApiError(409, "listing_missing", "Run the listing agent first");
+  // A pending re-run (published product) is what gets approved; otherwise the stored listing.
+  const pending = stored.draftCopy;
+  const existing = pending
+    ? { ...stored, title: pending.title, description: pending.description, tags: pending.tags, priceSuggestionCents: pending.priceSuggestionCents,
+      printCheck: pending.printCheck, moderation: pending.moderation, agentTrace: pending.agentTrace }
+    : stored;
   const printCheck = existing.printCheck as { print_ok?: boolean; notes?: string } | null;
-  if (printCheck?.print_ok === false) {
-    throw new ApiError(409, "print_check_failed", printCheck.notes || "This artwork will not print well at this size. Try a larger or clearer picture.");
+  if (printCheck?.print_ok !== true) {
+    throw new ApiError(409, "print_check_failed", printCheck?.notes || "This artwork will not print well at this size. Try a larger or clearer picture.");
   }
   const title = input.edits?.title?.trim() || existing.title;
   const description = input.edits?.description?.trim() ?? existing.description ?? "";
@@ -78,13 +131,14 @@ export async function approveListing(
     moderation = await agent.moderate({ title, description, tags: existing.tags }, { trace: { stage: "moderate", listingId: product.id, task } });
   }
   if (moderation?.ok !== true) {
-    await upsertListing({ ...existing, productId: product.id, moderation });
+    if (pending) await setListingDraftCopy(product.id, { ...pending, moderation });
+    else await upsertListing({ ...stored, productId: product.id, moderation });
     throw new ApiError(409, "moderation_failed", moderation?.reason || "This listing text cannot be published. Please change it.");
   }
   const price = input.edits?.priceCents ?? existing.priceSuggestionCents ?? product.priceCents;
   const listing = await upsertListing({
-    ...existing, productId: product.id, title, description, moderation,
-    approvedAt: new Date(), approvedVia: input.approvedVia, createdByTask: existing.createdByTask ?? task,
+    ...existing, productId: product.id, title, description, moderation, draftCopy: null,
+    approvedAt: new Date(), approvedVia: input.approvedVia, createdByTask: stored.createdByTask ?? task,
   });
   const updated = await updateProduct(product.id, { status: "published", priceCents: Math.max(100, Math.round(price)) });
   const creator = await getCreatorById(product.creatorId);

@@ -15,6 +15,13 @@
       "when": 1793255332696,
       "tag": "0001_many_shockwave",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793260147069,
+      "tag": "0002_t050_fix_wave",
+      "breakpoints": true
     }
   ]
 }

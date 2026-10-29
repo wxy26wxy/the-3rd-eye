@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  CREATOR_COOKIE, requireCreator, signCreatorToken, verifyCreatorToken,
+  CREATOR_COOKIE, TOKEN_TTL_SECONDS, requireCreator, signCreatorToken, verifyCreatorToken,
 } from "@/lib/auth";
 import { checkAdminAuth as adminAuth } from "@/lib/admin-auth";
 import { ApiError } from "@/lib/http";
@@ -13,10 +13,25 @@ describe("creator tokens", () => {
   beforeEach(() => { process.env.CREATOR_SESSION_SECRET = "test-secret-0123456789"; });
   afterEach(() => { delete process.env.CREATOR_SESSION_SECRET; delete process.env.ADMIN_PASSWORD; });
 
-  it("round-trips creatorId.sig", () => {
+  it("round-trips creatorId.exp.sig", () => {
     const token = signCreatorToken(ID);
     expect(token.startsWith(`${ID}.`)).toBe(true);
+    expect(token.split(".")).toHaveLength(3);
     expect(verifyCreatorToken(token)).toBe(ID);
+  });
+
+  it("expires after 30 days, and the expiry cannot be extended without the secret", () => {
+    const issued = Date.UTC(2026, 9, 1);
+    const token = signCreatorToken(ID, issued);
+    expect(verifyCreatorToken(token, issued + 29 * 86_400_000)).toBe(ID);
+    expect(verifyCreatorToken(token, issued + TOKEN_TTL_SECONDS * 1000 + 1)).toBeNull();
+    const [id, exp, sig] = token.split(".");
+    expect(verifyCreatorToken(`${id}.${Number(exp) + 86_400 * 365}.${sig}`, issued)).toBeNull();
+  });
+
+  it("rejects old tokens without an expiry", () => {
+    const [id, , sig] = signCreatorToken(ID).split(".");
+    expect(verifyCreatorToken(`${id}.${sig}`)).toBeNull();
   });
 
   it("rejects tampered ids, signatures and other secrets", () => {

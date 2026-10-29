@@ -10,6 +10,7 @@ import { newNfcToken } from "@/lib/ids";
 import { ApiError } from "@/lib/http";
 import { notifyNewOrder } from "@/lib/notify/polling";
 import type { PaymentProvider, PlaceOrderInput, PlaceOrderResult } from "./types";
+import { ai } from "@/lib/ai/registry";
 
 export function computeShares(amountCents: number, split: Split) {
   const creatorShareCents = Math.floor((amountCents * split.creator_bps) / 10_000);
@@ -22,13 +23,18 @@ export async function placeOrder(productId: string, input: PlaceOrderInput, task
   if (!shop) throw new ApiError(404, "not_found", "This product is not for sale");
   const creator = await getCreatorById(shop.product.creatorId);
   if (!creator) throw new ApiError(404, "not_found", "Creator not found");
+  const shipNote = input.shipNote?.trim() || null;
+  if (shipNote) {
+    const res = await (await ai()).moderator.checkNote(shipNote, { trace: { stage: "moderate", task, jobId: creator.id } });
+    if (!res.ok) throw new ApiError(422, "note_rejected", "Please keep your note kind and friendly, then try again.");
+  }
   const amount = shop.product.priceCents;
-  const { creatorShareCents, orgShareCents } = computeShares(amount, creator.split);
+  const { creatorShareCents, orgShareCents, productionShareCents } = computeShares(amount, creator.split);
   const orderId = randomUUID();
   const { token } = await insertOrderWithToken({
     id: orderId, productId, creatorId: creator.id, buyerName: input.buyerName.trim(),
-    buyerEmail: input.buyerEmail?.trim() || null, shipNote: input.shipNote?.trim() || null,
-    amountCents: amount, creatorShareCents, orgShareCents, paymentMode: "staged", createdByTask: task,
+    buyerEmail: input.buyerEmail?.trim() || null, shipNote,
+    amountCents: amount, creatorShareCents, orgShareCents, productionShareCents, paymentMode: "staged", createdByTask: task,
   }, newNfcToken(), task);
   await notifyNewOrder(creator.id, orderId);
   return { orderId, token };

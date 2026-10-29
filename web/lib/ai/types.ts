@@ -43,6 +43,11 @@ export interface ListingAgent {
   run(ctx: { productId: string; productType: "sticker" | "tote"; altText: string; creatorStory?: string; imageUrl: string; width: number; height: number; creatorShareBps: number }, opts: { trace: Trace }): Promise<{ listing: ListingDraft; trace: AgentStep[] }>;
 }
 
+/** Checks short buyer-written notes (story-tag replies, ship notes) before they reach a creator. */
+export interface NoteModerator {
+  checkNote(text: string, opts: { trace: Trace }): Promise<Moderation>;
+}
+
 export type StoryDraft = { headline: string; bio_short: string; story_text: string; provider: "ollama" | "meta-fallback" };
 export interface StoryWriter {
   draftStory(transcript: string, opts: { mentionDisability: boolean; trace: Trace }): Promise<StoryDraft>;

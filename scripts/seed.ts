@@ -4,6 +4,11 @@
  * With META_API_KEY: real pipelines (Spark shapes, Muse Image generates, SAM cuts, the listing
  * agent writes the listing), createdByTask "T010-seed". Without it: the offline fixture
  * registry (procedural placeholder art, no model calls), createdByTask "T010-seed-offline".
+ * Login codes are random (10 characters, no look-alikes), kept across runs in the git-ignored
+ * file web/.creator-codes.local (`slug=CODE` per line); they are never written to the repository.
+ * Repair (T050): a published product without a print file, or whose print check did not pass,
+ * gets its print file built and the listing agent re-run; if it still cannot be approved it is
+ * archived and regenerated below.
  * Run from the repo root:
  *   pnpm --filter web exec dotenv -e .env.local -- tsx --conditions=react-server ../scripts/seed.ts
  */
@@ -14,13 +19,13 @@ const TASK = ONLINE ? "T010-seed" : "T010-seed-offline";
 /** `listing`: fixed copy used when the agent's listing for this item failed moderation (applied through approve, which moderates it again). */
 type Item = { type: "sticker" | "tote"; idea: string; via: "voice" | "canvas"; listing?: { title: string; description: string } };
 type Seed = {
-  slug: string; displayName: string; studioName: string; loginCode: string; bioShort: string; storyText: string;
+  slug: string; displayName: string; studioName: string; bioShort: string; storyText: string;
   mentionDisability: boolean; items: Item[];
 };
 
 const CREATORS: Seed[] = [
   {
-    slug: "leo", displayName: "Leo", studioName: "Sunrise Art Studio", loginCode: "LEO-SUNRISE-1",
+    slug: "leo", displayName: "Leo", studioName: "Sunrise Art Studio",
     bioShort: "I draw buses every day. I love their colors and the people inside.",
     storyText: "I'm Leo. I draw buses every day at Sunrise Art Studio. I know every route in my city, and I love the bright paint and the people looking out of the windows. When I draw a bus, I think about where everyone is going. (Example artist: Leo and this story are fictional.)",
     mentionDisability: false,
@@ -36,7 +41,7 @@ const CREATORS: Seed[] = [
     ],
   },
   {
-    slug: "maya-ortiz", displayName: "Maya Ortiz", studioName: "Riverbend Creative Arts", loginCode: "MAYA-RIVER-2",
+    slug: "maya-ortiz", displayName: "Maya Ortiz", studioName: "Riverbend Creative Arts",
     bioShort: "I'm blind, and I make art by describing it out loud.",
     storyText: "I'm Maya. I have never needed my eyes to imagine things. I describe my ideas out loud, the app draws them, and it reads the picture back to me until it matches what I see in my head. My cat Biscuit shows up in a lot of my work. (Example artist: Maya and this story are fictional.)",
     mentionDisability: true,
@@ -46,7 +51,7 @@ const CREATORS: Seed[] = [
     ],
   },
   {
-    slug: "june-park", displayName: "June Park", studioName: "Open Door Art Collective", loginCode: "JUNE-DOOR-3",
+    slug: "june-park", displayName: "June Park", studioName: "Open Door Art Collective",
     bioShort: "Plants, birds and bright colors. Everything I make is meant to make you smile.",
     storyText: "I'm June. I paint at Open Door Art Collective three days a week. I like plants that are a little bit grumpy and birds that are a little bit loud. I want my art to make someone's day better. (Example artist: June and this story are fictional.)",
     mentionDisability: false,
@@ -57,22 +62,65 @@ const CREATORS: Seed[] = [
   },
 ];
 
+const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O, 1/I/L
+
+async function loadCodes(file: string): Promise<Map<string, string>> {
+  const { readFile } = await import("node:fs/promises");
+  const codes = new Map<string, string>();
+  try {
+    for (const line of (await readFile(file, "utf8")).split("\n")) {
+      const m = /^([a-z0-9-]+)=([A-Z0-9]{10})$/.exec(line.trim());
+      if (m) codes.set(m[1], m[2]);
+    }
+  } catch { /* first run: no file yet */ }
+  return codes;
+}
+
 async function main() {
+  const path = await import("node:path");
+  const { randomInt } = await import("node:crypto");
+  const { writeFile } = await import("node:fs/promises");
+  const codesFile = path.resolve(process.cwd().endsWith("/web") ? "." : "web", ".creator-codes.local");
+  const codes = await loadCodes(codesFile);
+  const randomCode = () => Array.from({ length: 10 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join("");
+  for (const c of CREATORS) if (!codes.has(c.slug)) codes.set(c.slug, randomCode());
+  await writeFile(codesFile, `# Creator login codes for this database (written by scripts/seed.ts; never commit)\n${[...codes].map(([k, v]) => `${k}=${v}`).join("\n")}\n`, { mode: 0o600 });
+  console.log(`seed: login codes written to ${codesFile}`);
+
   const q = await import("@/lib/db/queries");
   const { ai } = await import("@/lib/ai/registry");
   const { createFromText, createFromImage } = await import("@/lib/pipeline/artworks");
-  const { createProduct, runListingAgent, approveListing } = await import("@/lib/pipeline/products");
+  const { createProduct, ensurePrintFile, runListingAgent, approveListing } = await import("@/lib/pipeline/products");
   const { storage, creatorPath } = await import("@/lib/storage");
   const registry = await ai();
   console.log(`seed: ${ONLINE ? "online (real models)" : "offline (fixtures)"}, task ${TASK}`);
 
   for (const c of CREATORS) {
     const creator = await q.upsertCreatorBySlug({
-      slug: c.slug, displayName: c.displayName, studioName: c.studioName, loginCode: c.loginCode,
+      slug: c.slug, displayName: c.displayName, studioName: c.studioName, loginCode: codes.get(c.slug)!,
       bioShort: c.bioShort, storyText: c.storyText, mentionDisability: c.mentionDisability,
       isExample: true, createdByTask: TASK,
     });
-    const existing = (await q.listProductsByCreator(creator.id)).filter((p) => p.status === "published");
+    let existing = (await q.listProductsByCreator(creator.id)).filter((p) => p.status === "published");
+    // Repair (T050): every published product needs a print file and a passing print check from the server's tools.
+    for (const p of existing) {
+      const l = await q.getListing(p.id);
+      const printOk = (l?.printCheck as { print_ok?: boolean } | null)?.print_ok === true;
+      if (p.printPngUrl && printOk && !l?.draftCopy) continue;
+      const artwork = await q.getArtwork(p.artworkId);
+      if (!artwork || !l) continue;
+      const fixed = p.printPngUrl ? p : await ensurePrintFile(p, artwork, "T050");
+      await runListingAgent(fixed, artwork, "T050"); // published: lands in draftCopy until approved
+      try {
+        // Keep the live copy that was approved before; only the print check is new.
+        await approveListing(fixed, { approvedVia: l.approvedVia ?? "tap", edits: { title: l.title, description: l.description ?? undefined, priceCents: p.priceCents } }, "T050");
+        console.log(`  ${c.slug}: ${p.type} ${p.id} repaired (print file + server print check)`);
+      } catch (err) {
+        await q.updateProduct(p.id, { status: "archived" });
+        console.log(`  ${c.slug}: ${p.type} ${p.id} archived, regenerating (${err instanceof Error ? err.message : err})`);
+      }
+    }
+    existing = (await q.listProductsByCreator(creator.id)).filter((p) => p.status === "published");
     // Repair: a published listing whose text failed moderation gets the item's fixed copy (moderated again on approve).
     for (const item of c.items.filter((i) => i.listing)) {
       for (const p of existing.filter((x) => x.type === item.type)) {

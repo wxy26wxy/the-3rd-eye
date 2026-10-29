@@ -30,9 +30,10 @@ export async function placeOrder(productId: string, _prev: BuyState, formData: F
       buyerName: parsed.data.buyerName,
       buyerEmail: parsed.data.buyerEmail || undefined,
       shipNote: parsed.data.shipNote || undefined,
-    }, { task: "T020" });
+    }, { task: "T050" });
     orderId = res.orderId;
   } catch (err) {
+    if ((err as { code?: string })?.code === "note_rejected") return { values: raw, error: m.product.noteRejected };
     console.error("placeOrder failed", err);
     return { values: raw, error: m.product.buyError };
   }

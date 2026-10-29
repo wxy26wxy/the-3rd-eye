@@ -16,7 +16,7 @@ Append-only. Each entry: task id · role · branch · what was done · commits �
 - Routes: every path in `docs/api.md` plus `/api/v1/public/{orders,tap,reply}` and `/media/[...path]`; clarifications appended to `docs/api.md`.
 - Seed: `scripts/seed.ts` ran live — 3 fictional example creators, 6 published products (4 stickers, 2 totes) with real art, print files, mockups and agent-written listings. Login codes in `docs/handoffs/backend.md`.
 - Commits: `9518f81` … (see `git log 14b15cb..feat/backend-T01x`).
-- Verify (from `web/`): `pnpm test` (31 tests); `pnpm build` with no `.env.local`; `pnpm probe`; sign in with `POST /api/v1/auth/code {"code":"LEO-SUNRISE-1"}` then `GET /api/v1/artworks`.
+- Verify (from `web/`): `pnpm test` (31 tests); `pnpm build` with no `.env.local`; `pnpm probe`; sign in with `POST /api/v1/auth/code {"code":"<Leo's code>"}` (see web/.creator-codes.local) then `GET /api/v1/artworks`.
 - Unfinished / UNVERIFIED: client upload end to end, SAM box/point prompts, captioning a real video (needs a WAV `audioUrl` on Vercel), Ollama `/v1` route live, Stripe (staged only).
 ### T020 · web · feat/web-T01x · Public site, admin, mobile-web creator flow
 - UI primitives on generated tokens (`web/components/ui/*`), mascot `Tag` (3 poses), inline QR encoder (`web/components/qr`, verified against a decoder for versions 1–9), all copy in `web/messages/en.json`.
@@ -57,8 +57,8 @@ cd web && vercel deploy --yes          # new preview with the secrets
 
 **Three things to test first on a phone** (after the sync and redeploy; use the newest deployment URL):
 1. **Buy and the story tag.** Open `/`, tap "Red Double-Decker Bus Sticker by Leo", type a name, tap "Buy for $4.00". On the thank-you page tap "Open the story tag". Check the page reads well, tap "Read aloud", write a note, tap "Send note". Then open `/admin` (user `admin`, password from `.env.local`): your order is at the top with your note, and the QR code opens the same story tag when scanned with the camera.
-2. **Make a sticker by voice.** Open `/create`, "Start creating", enter code `JUNE-DOOR-3`, choose Sticker, "Say it out loud", tap "Start talking", say an idea ("a green frog wearing a tiny red hat"), stop, "Done". Wait for 4 pictures (about 30 s), tap "Hear what the image shows" on one, "Use this", "Yes, list it!", wait for the listing, "Put it in the shop". This is the first test of the phone microphone → WAV path on a real device.
-3. **Record the story video.** Continue from test 2 (or sign in again with `JUNE-DOOR-3`): on "Make your story video!" tap "Record a video", record 10–20 s with the front camera, "Use this video". Then buy June's new sticker and open its story tag: the video should play. Captions will be missing on Vercel (see below).
+2. **Make a sticker by voice.** Open `/create`, "Start creating", enter June's code (see web/.creator-codes.local), choose Sticker, "Say it out loud", tap "Start talking", say an idea ("a green frog wearing a tiny red hat"), stop, "Done". Wait for 4 pictures (about 30 s), tap "Hear what the image shows" on one, "Use this", "Yes, list it!", wait for the listing, "Put it in the shop". This is the first test of the phone microphone → WAV path on a real device.
+3. **Record the story video.** Continue from test 2 (or sign in again with June's code): on "Make your story video!" tap "Record a video", record 10–20 s with the front camera, "Use this video". Then buy June's new sticker and open its story tag: the video should play. Captions will be missing on Vercel (see below).
 
 **Known not working or rough:**
 - Secrets on Vercel until `scripts/vercel_env_sync.sh` runs (it was blocked tonight on purpose), then a redeploy is needed.

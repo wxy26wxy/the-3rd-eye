@@ -33,6 +33,21 @@ export async function createProduct(artwork: ArtworkRow, type: ProductKind, task
   });
 }
 
+/** Builds and stores the print file(s) for a product that has none (products made before T050). */
+export async function ensurePrintFile(product: ProductRow, artwork: ArtworkRow, task = "T050"): Promise<ProductRow> {
+  if (product.printPngUrl) return product;
+  if (!artwork.cleanedUrl) throw new Error("Artwork has no cleaned image");
+  void task; // an update of an existing row; createdByTask stays with the product's creator
+  const spec = productSpec(product.type);
+  const files = await spec.buildPrint(await storage().read(artwork.cleanedUrl));
+  const printPng = await ensureDpi(files.printPng, spec.printSpec.minShortSidePx, spec.printSpec.dpi);
+  const [png, svg] = await Promise.all([
+    storage().putPrivate(creatorPath(product.creatorId, "print", "png"), printPng, "image/png"),
+    files.printSvg && !product.printSvgUrl ? storage().putPrivate(creatorPath(product.creatorId, "print", "svg"), files.printSvg, "image/svg+xml") : null,
+  ]);
+  return updateProduct(product.id, { printPngUrl: png.pathname, ...(svg ? { printSvgUrl: svg.pathname } : {}) });
+}
+
 type Step = { tool?: string; args?: unknown; result?: unknown };
 const isCheck = (r: unknown): r is { ok: boolean } => Boolean(r) && typeof (r as { ok?: unknown }).ok === "boolean";
 /** The last result of `tool` in the agent trace when it is a well-formed check, else null. */

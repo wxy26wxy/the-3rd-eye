@@ -8,6 +8,7 @@ import { MetaSegmenter } from "./sam";
 import { MetaPromptShaper } from "./shape-prompt";
 import { GlimmerStoryWriter } from "./story";
 import { MetaTranscriber } from "./transcribe";
+import { MetaNoteModerator } from "./moderate";
 import { metaResponses } from "./client";
 
 /** Live Meta providers. Clients are created on first call, so constructing this needs no keys. */
@@ -22,5 +23,6 @@ export function metaRegistry(opts: { story: "ollama" | "meta" }): Registry {
     listingAgent: new MetaListingAgent(responses),
     story: new GlimmerStoryWriter(opts.story),
     captioner: new MetaCaptioner(),
+    moderator: new MetaNoteModerator(responses),
   };
 }

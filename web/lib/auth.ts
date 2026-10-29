@@ -1,6 +1,7 @@
 /**
  * Dev-mode creator sessions (admin basic auth lives in lib/admin-auth.ts).
- * Creator token: `<creatorId>.<base64url HMAC-SHA256(CREATOR_SESSION_SECRET, creatorId)>`.
+ * Creator token: `<creatorId>.<expiresAt unix seconds>.<base64url HMAC-SHA256(CREATOR_SESSION_SECRET, "<creatorId>.<expiresAt>")>`,
+ * valid 30 days (TOKEN_TTL_SECONDS) and checked on every request; `POST /auth/code` issues a fresh one.
  * Sent as `Authorization: Bearer <token>` (iOS, API) or the `ms_creator` cookie (mobile web).
  * Not a production auth scheme; see docs/api.md.
  */
@@ -24,8 +25,10 @@ function secret(): string {
   return s || DEV_SECRET;
 }
 
-function sign(creatorId: string): string {
-  return createHmac("sha256", secret()).update(creatorId).digest("base64url");
+export const TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+function sign(payload: string): string {
+  return createHmac("sha256", secret()).update(payload).digest("base64url");
 }
 
 function safeEqual(a: string, b: string): boolean {
@@ -34,18 +37,22 @@ function safeEqual(a: string, b: string): boolean {
   return ab.length === bb.length && timingSafeEqual(ab, bb);
 }
 
-export function signCreatorToken(creatorId: string): string {
-  return `${creatorId}.${sign(creatorId)}`;
+export function signCreatorToken(creatorId: string, now = Date.now()): string {
+  const exp = Math.floor(now / 1000) + TOKEN_TTL_SECONDS;
+  const payload = `${creatorId}.${exp}`;
+  return `${payload}.${sign(payload)}`;
 }
 
-/** Returns the creator id when the token is authentic, otherwise null. */
-export function verifyCreatorToken(token: string | null | undefined): string | null {
+/** Returns the creator id when the token is authentic and not expired, otherwise null. */
+export function verifyCreatorToken(token: string | null | undefined, now = Date.now()): string | null {
   if (!token) return null;
-  const dot = token.lastIndexOf(".");
-  if (dot <= 0) return null;
-  const creatorId = token.slice(0, dot);
-  const sig = token.slice(dot + 1);
-  return safeEqual(sig, sign(creatorId)) ? creatorId : null;
+  secret(); // fails closed on a deployment without a secret, even for malformed tokens
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [creatorId, expRaw, sig] = parts;
+  if (!creatorId || !/^\d{1,12}$/.test(expRaw)) return null;
+  if (!safeEqual(sig, sign(`${creatorId}.${expRaw}`))) return null;
+  return Number(expRaw) * 1000 > now ? creatorId : null;
 }
 
 function cookieValue(cookieHeader: string | null, name: string): string | null {

@@ -110,6 +110,12 @@ export function fixtureRegistry(): Registry {
         provider: "meta-fallback" as const,
       })),
     },
+    moderator: {
+      // Offline: blocks only an explicit test marker so the rejection path can be exercised.
+      checkNote: (text, opts) => traced("moderate", "fixture", "fixture", { text }, async () => (
+        /\bblocked-note-test\b/i.test(text) ? { ok: false, reason: "Test marker" } : { ok: true, reason: "Offline mode: not checked by a model." }
+      ), opts.trace),
+    },
     captioner: {
       caption: (_video, opts) => fx("captions", { filename: opts.filename }, () => {
         const transcript = "Hi, I'm the artist. I made this for you, and I hope you love it.";

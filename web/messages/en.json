@@ -91,7 +91,8 @@
     "buyPending": "Placing your order…",
     "buyStaged": "Demo checkout: no payment is taken yet.",
     "buyError": "We could not place your order. Please try again.",
-    "nameRequired": "Please tell us your name."
+    "nameRequired": "Please tell us your name.",
+    "noteRejected": "Please keep your note kind and friendly, then try again."
   },
   "success": {
     "metaTitle": "Order placed",

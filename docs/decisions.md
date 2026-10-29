@@ -12,3 +12,5 @@ Append-only. Newest at the bottom. Format: date · decision · why · alternativ
 - 2026-10-28 · **Revenue split default 50% creator / 30% organization / 20% production**, configurable per creator by admin. · Simple and creator-first. · 70/30 (kept as an option).
 - 2026-10-28 · **Example creators are fictional and labelled as such** until real artists consent to be featured.
 - 2026-10-28 · **Neon Postgres + Drizzle, Vercel Blob (public + private stores)** provisioned through the Vercel Marketplace.
+- 2026-10-28 · **Private Blob store not yet linked** (CLI cannot attach a second store with a custom prefix); `lib/storage` uses the public store with hashed, unguessable pathnames until `BLOB_PRIVATE_READ_WRITE_TOKEN` exists. · Unblocks the overnight build; the `Storage` interface isolates the change. · Wait for the dashboard step (rejected: blocks everything).
+- 2026-10-28 · **Shared contracts written first** (`lib/db/schema.ts`, `lib/ai/types.ts`, `docs/api.md`) so web and iOS build in parallel with the backend.

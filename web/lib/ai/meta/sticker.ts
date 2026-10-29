@@ -108,12 +108,27 @@ export async function composeSticker(artPng: Buffer, opts: { borderMm?: number; 
   return { printPng, dieCutSvg, cutPath, widthPx: width, heightPx: height, widthMm, heightMm };
 }
 
-/** The cut-line path for an artwork preview (border offset only, no bleed), in the artwork's own pixels. */
+/**
+ * The cut-line path for an artwork preview (border offset only, no bleed), normalized to a
+ * `0 0 100 100` viewBox: the cleaned image is fitted (contain, centered) into that square. The
+ * border can extend a few units past 0–100, so render the SVG with overflow visible.
+ */
 export async function previewCutPath(cleanedPng: Buffer): Promise<string> {
   const mask = await maskFromAlpha(cleanedPng);
   const borderPx = Math.max(4, Math.round(Math.min(mask.width, mask.height) * 0.03));
   const pad = borderPx + 2;
   const cut = await singleContour(await offsetMask(padMask(mask, pad), borderPx), borderPx);
-  const d = await traceOutline(cut);
-  return d.replace(/-?\d+(\.\d+)?/g, (n) => String(Math.round((Number(n) - pad) * 100) / 100));
+  return normalizePath(await traceOutline(cut), mask.width, mask.height, pad);
+}
+
+/** Pixel path (in a canvas padded by `pad`) → 0–100 square, image fitted with contain. */
+export function normalizePath(d: string, width: number, height: number, pad = 0): string {
+  const side = Math.max(width, height);
+  const s = 100 / side;
+  const ox = (side - width) / 2 - pad, oy = (side - height) / 2 - pad;
+  let i = 0;
+  return d.replace(/-?\d+(\.\d+)?/g, (n) => {
+    const v = Number(n) + (i++ % 2 === 0 ? ox : oy);
+    return String(Math.round(v * s * 100) / 100);
+  });
 }

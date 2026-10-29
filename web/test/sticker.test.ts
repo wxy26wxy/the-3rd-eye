@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
-import { BLEED_MM, BORDER_MM, composeSticker, ensureDpi, mmToPx, offsetMask, removeBackground, traceOutline } from "@/lib/ai/meta/sticker";
+import { BLEED_MM, BORDER_MM, composeSticker, ensureDpi, mmToPx, normalizePath, offsetMask, previewCutPath, removeBackground, traceOutline } from "@/lib/ai/meta/sticker";
 import { bboxOf, emptyMask, maskFromAlpha, padMask } from "@/lib/image/mask";
 import type { Mask } from "@/lib/ai/types";
 
@@ -79,5 +79,14 @@ describe("sticker pipeline", () => {
     const alpha = await maskFromAlpha(out.png);
     expect(alpha.data[0]).toBe(0);
     expect(alpha.data[50 * 101 + 50]).toBe(1);
+  });
+
+  it("normalizes preview cut paths into a 0 0 100 100 viewBox (contain, centered)", async () => {
+    expect(normalizePath("M10 0 L210 100", 200, 100, 10)).toBe("M0 20 L100 70");
+    const d = await previewCutPath(await twoBlobArt());
+    const nums = (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+    expect(nums.length).toBeGreaterThan(4);
+    expect(Math.min(...nums)).toBeGreaterThan(-10);
+    expect(Math.max(...nums)).toBeLessThan(110);
   });
 });

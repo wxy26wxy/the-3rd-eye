@@ -10,7 +10,7 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
-    "seed": "dotenv -e .env.local -- tsx ../scripts/seed.ts",
+    "seed": "dotenv -e .env.local -- tsx --conditions=react-server ../scripts/seed.ts",
     "probe": "dotenv -e .env.local -- tsx ../scripts/probe_meta.ts"
   },
   "dependencies": {

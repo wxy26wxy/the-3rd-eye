@@ -42,6 +42,13 @@ export async function getCreatorByLoginCode(code: string): Promise<CreatorRow | 
   return row ?? null;
 }
 
+/** True when `pathname` is some creator's current story video (public by design). */
+export async function isStoryVideoPath(pathname: string): Promise<boolean> {
+  const [row] = await db().select({ id: creators.id }).from(creators)
+    .where(and(eq(creators.storyVideoUrl, pathname), isNull(creators.deletedAt))).limit(1);
+  return Boolean(row);
+}
+
 export async function listCreators(): Promise<CreatorRow[]> {
   return db().select().from(creators).where(isNull(creators.deletedAt)).orderBy(creators.isExample, desc(creators.createdAt));
 }

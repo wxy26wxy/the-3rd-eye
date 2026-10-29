@@ -1,35 +1,42 @@
 import { checkAdminAuth, optionalCreator } from "@/lib/auth";
 import { errorResponse, route } from "@/lib/http";
-import { getOrderIdForToken } from "@/lib/db/queries";
+import { getOrderIdForToken, isStoryVideoPath } from "@/lib/db/queries";
 import { isNfcToken, normalizeNfcToken } from "@/lib/ids";
 import { storage } from "@/lib/storage";
 
 const TTL_SECONDS = 600;
-
-async function allowedCreatorId(req: Request): Promise<string | "admin" | null> {
-  if (checkAdminAuth(req.headers.get("authorization"))) return "admin";
-  const creatorId = optionalCreator(req);
-  if (creatorId) return creatorId;
-  const t = new URL(req.url).searchParams.get("t");
-  if (t) {
-    const token = normalizeNfcToken(t);
-    if (isNfcToken(token)) return (await getOrderIdForToken(token))?.creatorId ?? null;
-  }
-  return null;
-}
+/** Path kinds that are public by design (`creators/<id>/<kind>/...`). */
+const PUBLIC_KINDS = new Set(["mockups", "cleaned", "thumbs", "avatar", "story-video"]);
 
 /**
- * Private files: creator auth (own files), `?t=<nfc token>` (files of that order's creator),
- * or admin basic auth. Redirects to a short-lived URL (keeps HTTP range requests working
- * for video); streams when no URL can be signed.
+ * Access rule (docs/api.md "Clarifications"):
+ * - public: a creator's current story video, and public kinds (mockups, cleaned, thumbs, avatar, story-video);
+ * - `?tag=<nfc token>` (or `?t=`): any file of that order's creator (thank-you media on story-tag pages);
+ * - creator auth: the creator's own files; admin basic auth: everything (print PNG / die-cut SVG).
  */
+async function allowed(req: Request, pathname: string): Promise<boolean> {
+  const parts = pathname.split("/");
+  if (parts[0] === "creators" && PUBLIC_KINDS.has(parts[2] ?? "")) return true;
+  if (checkAdminAuth(req.headers.get("authorization"))) return true;
+  const ownerPrefix = (id: string) => pathname.startsWith(`creators/${id}/`);
+  const creatorId = optionalCreator(req);
+  if (creatorId && ownerPrefix(creatorId)) return true;
+  const params = new URL(req.url).searchParams;
+  const tag = params.get("tag") ?? params.get("t");
+  if (tag) {
+    const token = normalizeNfcToken(tag);
+    const order = isNfcToken(token) ? await getOrderIdForToken(token) : null;
+    if (order && ownerPrefix(order.creatorId)) return true;
+  }
+  return isStoryVideoPath(pathname);
+}
+
+/** Redirects to a short-lived URL (keeps HTTP range requests working for video); streams when none can be signed. */
 export const GET = route<{ params: Promise<{ path: string[] }> }>(async (req, { params }) => {
   const { path } = await params;
   const pathname = path.map(decodeURIComponent).join("/");
   if (pathname.includes("..")) return errorResponse(400, "invalid_path", "Invalid path");
-  const who = await allowedCreatorId(req);
-  if (!who) return errorResponse(401, "unauthorized", "Not allowed");
-  if (who !== "admin" && !pathname.startsWith(`creators/${who}/`)) return errorResponse(403, "forbidden", "Not allowed");
+  if (!(await allowed(req, pathname))) return errorResponse(401, "unauthorized", "Not allowed");
   const signed = await storage().signedUrl(pathname, TTL_SECONDS);
   if (signed) return new Response(null, { status: 302, headers: { Location: signed, "Cache-Control": "private, no-store" } });
   const file = await storage().getPrivateStream(pathname);

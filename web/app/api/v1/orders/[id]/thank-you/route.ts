@@ -11,6 +11,7 @@ const Body = z.object({
   text: z.string().trim().max(2000).optional(),
   imageUrl: z.string().max(1000).optional(),
   videoUrl: z.string().max(1000).optional(),
+  audioUrl: z.string().max(1000).optional(), // WAV of the video's soundtrack, used for captions
   transcript: z.string().trim().max(4000).optional(),
   draft: z.boolean().optional(),
 });
@@ -35,8 +36,9 @@ export const POST = route<{ params: Promise<{ id: string }> }>(async (req, { par
   let videoVtt: string | null = null;
   if (videoPath) {
     try {
-      const bytes = await storage().read(body.videoUrl!);
-      videoVtt = (await registry.captioner.caption(bytes, { filename: videoPath.split("/").pop() ?? "video.mp4", trace: { stage: "captions", task: "T010" } })).vtt;
+      const source = body.audioUrl ?? body.videoUrl!;
+      const bytes = await storage().read(source);
+      videoVtt = (await registry.captioner.caption(bytes, { filename: source.split("/").pop() ?? "video.mp4", trace: { stage: "captions", task: "T010" } })).vtt;
     } catch (err) {
       console.warn("[thank-you] captions failed:", err instanceof Error ? err.message : err);
     }

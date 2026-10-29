@@ -8,7 +8,8 @@ import { ai } from "@/lib/ai/registry";
 
 export const maxDuration = 300;
 
-const Body = z.object({ videoUrl: z.string().min(1), mentionDisability: z.boolean().optional() });
+/** `audioUrl` (optional): a WAV of the video's soundtrack; Voice Transcribe accepts WAV only and Vercel has no ffmpeg. */
+const Body = z.object({ videoUrl: z.string().min(1), audioUrl: z.string().min(1).optional(), mentionDisability: z.boolean().optional() });
 
 /** Stores the creator's story video pathname and generates WebVTT captions (Voice Transcribe). */
 export const POST = route(async (req) => {
@@ -18,8 +19,9 @@ export const POST = route(async (req) => {
   if (!isCreatorPath(pathname, creatorId)) throw new ApiError(403, "forbidden_path", "That video does not belong to you");
   let captions: { vtt: string; transcript: string } | null = null;
   try {
-    const bytes = await storage().read(body.videoUrl);
-    captions = await (await ai()).captioner.caption(bytes, { filename: pathname.split("/").pop() ?? "video.mp4", trace: { stage: "captions", task: "T010" } });
+    const source = body.audioUrl ?? body.videoUrl;
+    const bytes = await storage().read(source);
+    captions = await (await ai()).captioner.caption(bytes, { filename: source.split("/").pop() ?? "video.mp4", trace: { stage: "captions", task: "T010" } });
   } catch (err) {
     console.warn("[story-video] captions failed:", err instanceof Error ? err.message : err);
   }

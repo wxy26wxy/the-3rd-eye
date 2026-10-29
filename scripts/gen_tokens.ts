@@ -1,0 +1,79 @@
+/**
+ * Generates platform token files from design/tokens.json.
+ *   web/app/tokens.css          CSS custom properties (default + high-contrast)
+ *   ios/App/Theme/Tokens.swift  Swift constants + Color/Font helpers
+ * Run: pnpm tokens
+ */
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+
+const root = resolve(import.meta.dirname ?? __dirname, "..");
+const tokens = JSON.parse(readFileSync(resolve(root, "design/tokens.json"), "utf8"));
+
+function deref(v: unknown): unknown {
+  if (typeof v !== "string") return v;
+  const m = v.match(/^\{(.+)\}$/);
+  if (!m) return v;
+  return deref(m[1].split(".").reduce((o: any, k) => o?.[k], tokens));
+}
+const kebab = (s: string) => s.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+
+// ---------- CSS ----------
+let css = `/* GENERATED from design/tokens.json — do not edit by hand. Run: pnpm tokens */\n:root {\n`;
+for (const [k, v] of Object.entries(tokens.color)) css += `  --color-${kebab(k)}: ${v};\n`;
+for (const [k, v] of Object.entries(tokens.semantic)) css += `  --${kebab(k)}: ${deref(v)};\n`;
+css += `  --font-display: '${tokens.font.display.family}', ${tokens.font.display.fallback};\n`;
+css += `  --font-body: '${tokens.font.body.family}', ${tokens.font.body.fallback};\n`;
+css += `  --display-tilt: ${tokens.font.display.tilt};\n`;
+for (const [k, v] of Object.entries<any>(tokens.type)) {
+  css += `  --type-${kebab(k)}-size: ${v.size}px;\n`;
+  if (v.lineHeight) css += `  --type-${kebab(k)}-lh: ${v.lineHeight};\n`;
+  if (v.weight) css += `  --type-${kebab(k)}-weight: ${v.weight};\n`;
+  if (v.letterSpacing) css += `  --type-${kebab(k)}-ls: ${v.letterSpacing};\n`;
+}
+for (const [k, v] of Object.entries(tokens.space)) css += `  --space-${k}: ${v}px;\n`;
+for (const [k, v] of Object.entries(tokens.radius)) css += `  --radius-${kebab(k)}: ${v}px;\n`;
+for (const [k, v] of Object.entries(tokens.border)) css += `  --border-${k}: ${v}px;\n`;
+for (const [k, v] of Object.entries<any>(tokens.shadow)) css += `  --shadow-${kebab(k)}: ${v.x}px ${v.y}px ${v.blur}px ${deref(v.color)};\n`;
+for (const [k, v] of Object.entries(tokens.size)) css += `  --size-${kebab(k)}: ${v}px;\n`;
+css += `  --grain-opacity: ${tokens.effects.grain.opacity};\n`;
+css += `  --display-stroke: ${tokens.effects.displayStroke.width}px;\n  --display-shadow-y: ${tokens.effects.displayStroke.shadowY}px;\n`;
+for (const [k, v] of Object.entries(tokens.motion)) css += `  --motion-${k}: ${typeof v === "number" ? v + "ms" : v};\n`;
+css += `}\n\n@media (prefers-contrast: more) {\n  :root {\n`;
+for (const [k, v] of Object.entries(tokens.highContrast)) css += `    --${kebab(k)}: ${v};\n`;
+css += `    --grain-opacity: 0;\n  }\n}\n:root[data-contrast="high"] {\n`;
+for (const [k, v] of Object.entries(tokens.highContrast)) css += `  --${kebab(k)}: ${v};\n`;
+css += `  --grain-opacity: 0;\n}\n\n@media (prefers-reduced-motion: reduce) {\n  :root { --motion-fast: 0ms; --motion-base: 0ms; --motion-slow: 0ms; }\n}\n`;
+const cssOut = resolve(root, "web/app/tokens.css");
+mkdirSync(dirname(cssOut), { recursive: true });
+writeFileSync(cssOut, css);
+
+// ---------- Swift ----------
+const hexToSwift = (hex: string) => {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16) / 255, g = parseInt(h.slice(2, 4), 16) / 255, b = parseInt(h.slice(4, 6), 16) / 255;
+  return `Color(red: ${r.toFixed(4)}, green: ${g.toFixed(4)}, blue: ${b.toFixed(4)})`;
+};
+let swift = `// GENERATED from design/tokens.json — do not edit by hand. Run: pnpm tokens\nimport SwiftUI\n\nenum Tokens {\n  enum Palette {\n`;
+for (const [k, v] of Object.entries<string>(tokens.color)) swift += `    static let ${k} = ${hexToSwift(v)}\n`;
+swift += `  }\n  enum Semantic {\n`;
+for (const [k, v] of Object.entries(tokens.semantic)) swift += `    static let ${k} = ${hexToSwift(deref(v) as string)}\n`;
+swift += `  }\n  enum HighContrast {\n`;
+for (const [k, v] of Object.entries<string>(tokens.highContrast)) swift += `    static let ${k} = ${hexToSwift(v)}\n`;
+swift += `  }\n  enum FontName {\n    static let display = "${tokens.font.display.family.replace(/ /g, "")}-Regular"\n    static let body = "${tokens.font.body.family}"\n  }\n  enum Type {\n`;
+for (const [k, v] of Object.entries<any>(tokens.type)) swift += `    static let ${k}: CGFloat = ${v.size}\n`;
+swift += `  }\n  enum Space {\n`;
+for (const [k, v] of Object.entries(tokens.space)) swift += `    static let ${k}: CGFloat = ${v}\n`;
+swift += `  }\n  enum Radius {\n`;
+for (const [k, v] of Object.entries(tokens.radius)) swift += `    static let ${k}: CGFloat = ${v}\n`;
+swift += `  }\n  enum Border {\n`;
+for (const [k, v] of Object.entries(tokens.border)) swift += `    static let ${k}: CGFloat = ${v}\n`;
+swift += `  }\n  enum Size {\n`;
+for (const [k, v] of Object.entries(tokens.size)) swift += `    static let ${k}: CGFloat = ${v}\n`;
+swift += `  }\n  enum Shadow {\n`;
+for (const [k, v] of Object.entries<any>(tokens.shadow)) swift += `    static let ${k} = (x: CGFloat(${v.x}), y: CGFloat(${v.y}), color: ${hexToSwift(deref(v.color) as string)})\n`;
+swift += `  }\n  static let displayTilt: Double = ${parseFloat(tokens.font.display.tilt)}\n  static let grainOpacity: Double = ${tokens.effects.grain.opacity}\n}\n`;
+const swiftOut = resolve(root, "ios/App/Theme/Tokens.swift");
+mkdirSync(dirname(swiftOut), { recursive: true });
+writeFileSync(swiftOut, swift);
+console.log("tokens: wrote", cssOut, "and", swiftOut);

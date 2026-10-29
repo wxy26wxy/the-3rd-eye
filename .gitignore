@@ -1,0 +1,23 @@
+node_modules/
+.next/
+.vercel/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+coverage/
+dist/
+# iOS
+ios/*.xcodeproj
+ios/*.xcworkspace
+ios/build/
+ios/builds/
+ios/DerivedData/
+xcuserdata/
+*.xcuserstate
+# fixtures with media are committed on purpose; scratch is not
+scratch/
+
+# local tooling scratch
+.superpowers/

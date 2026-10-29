@@ -2,6 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { CREATOR_COOKIE } from "@/components/create/constants";
 import { apiUrl, forwardHeaders } from "@/components/create/forward";
 
+/** The forwarded model routes run up to 270 s (their own deadline); the forwarder must outlive them. */
+export const maxDuration = 300;
+
 /**
  * Same-origin forwarder for the mobile-web creator flow: /create/bff/<path> → /api/v1/<path>
  * with `Authorization: Bearer <token>` taken from the httpOnly creator cookie, so the token

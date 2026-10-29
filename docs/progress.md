@@ -117,4 +117,4 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 ### T060 · ios · feat/ios-T060 · TestFlight distribution
 - Added the app icon (generated from tokens by `pnpm icon`, 1024 px, no alpha), `DEVELOPMENT_TEAM`, version 0.3.0, `ITSAppUsesNonExemptEncryption=false`, `CFBundleIconName`, `ios/ExportOptions.plist`, `ios/scripts/testflight.sh` and `bump_build.sh`. See `docs/handoffs/ios.md` → TestFlight.
 - Verify: simulator build and `xcodebuild test` (58 tests) still pass; `bash ios/scripts/testflight.sh` archives and uploads once Xcode is signed in with the Program team.
-- Blocked on: Xcode account for the team (sign in under Xcode → Settings → Accounts) and the App Store Connect app record.
+- Done: Xcode signed in with the Program team `WHMG95UWKZ` (the free personal team `B849U4U9UJ` cannot upload); build 0.3.0 (1) uploaded 2026-10-29 16:01 and processing. Next: add the tester in App Store Connect.

@@ -1,20 +1,18 @@
 /**
- * Web data contract (T020).
+ * Web data contract.
  *
  * Pages, server actions and route handlers in the web workstream import data ONLY from
- * this module. It declares the shapes and functions the web needs from `lib/db/queries.ts`
- * (owned by the backend, T010). Until those functions land, the bodies below are thin
- * stubs: they return empty results, or example fixtures when `WEB_FIXTURES=1` is set
- * for local visual checks.
- *
- * Binding later: replace each stub body with a re-export, e.g.
- *   export { listShopProducts } from "./queries";
- * The signatures are the contract; keep them stable.
+ * this module. It keeps the shapes the pages were built against and maps them from
+ * `lib/db/queries.ts` (reads) and `lib/pipeline/*` (writes: orders, taps, replies), so the
+ * pages never see database rows directly. Bound to the real backend in T040.
  */
 import "server-only";
 import { connection } from "next/server";
 import type { InferSelectModel } from "drizzle-orm";
 import type { aiCalls, artworks, creators } from "./schema";
+import * as q from "./queries";
+import { placeOrder, sendReply, tap } from "@/lib/pipeline/public";
+import { isNfcToken, normalizeNfcToken } from "@/lib/ids";
 
 type CreatorRow = InferSelectModel<typeof creators>;
 type ArtworkRow = InferSelectModel<typeof artworks>;
@@ -101,117 +99,207 @@ export type ArtworkTrace = {
 };
 type WriteOpts = { task: string };
 
-const fixturesOn = () => process.env.WEB_FIXTURES === "1";
-/** Shop data must be fresh per request (new listings appear immediately). Keep when binding. */
+/** Shop data must be fresh per request (new listings appear immediately). */
 const fresh = () => connection();
+
+// ---------------------------------------------------------------- mapping
+
+function toPublicCreator(c: q.CreatorRow): PublicCreator {
+  return {
+    id: c.id, slug: c.slug, displayName: c.displayName, studioName: c.studioName, avatarUrl: c.avatarUrl,
+    bioShort: c.bioShort, storyText: c.storyText, storyVideoUrl: c.storyVideoUrl, storyVideoVtt: c.storyVideoVtt,
+    mentionDisability: c.mentionDisability, split: c.split, isExample: c.isExample,
+  };
+}
+
+function toCreatorSummary(c: q.CreatorRow): CreatorSummary {
+  return {
+    id: c.id, slug: c.slug, displayName: c.displayName, studioName: c.studioName, avatarUrl: c.avatarUrl,
+    split: c.split, isExample: c.isExample, bioShort: c.bioShort,
+  };
+}
+
+function toShopFields(r: q.ShopProduct): Omit<ShopProduct, "creator"> {
+  return {
+    id: r.product.id,
+    type: r.product.type,
+    title: r.listing?.title ?? "",
+    description: r.listing?.description ?? null,
+    priceCents: r.product.priceCents,
+    mockupUrl: r.product.mockupUrl,
+    artworkUrl: r.artwork.cleanedUrl,
+    cutPathSvg: r.artwork.cutPathSvg,
+    altText: r.artwork.altText,
+    madeByVoice: r.listing?.madeByVoice ?? r.artwork.source === "text2image",
+    tags: r.listing?.tags ?? [],
+  };
+}
+
+const toShopProduct = (r: q.ShopProduct): ShopProduct => ({ ...toShopFields(r), creator: toCreatorSummary(r.creator) });
+
+const traceImage = (a: q.ArtworkRow, chosenId: string): TraceImage => ({
+  id: a.id, url: a.cleanedUrl, altText: a.altText, chosen: a.id === chosenId,
+});
 
 // ---------------------------------------------------------------- reads
 
 export async function listShopProducts(filter: ShopFilter = "all"): Promise<ShopProduct[]> {
   await fresh();
-  // TODO(T010): bind to queries.listShopProducts
-  if (!fixturesOn()) return [];
-  const { FIXTURE_PRODUCTS } = await import("./queries.fixtures");
-  return FIXTURE_PRODUCTS.filter((p) =>
-    filter === "all" ? true : filter === "voice" ? p.madeByVoice : p.type === filter,
+  const rows = await q.listPublishedProducts(
+    filter === "voice" ? { madeByVoice: true } : filter === "all" ? {} : { type: filter },
   );
+  return rows.map(toShopProduct);
 }
 
 export async function getProductDetail(id: string): Promise<ProductDetail | null> {
   await fresh();
-  // TODO(T010): bind to queries.getProductDetail
-  if (!fixturesOn()) return null;
-  const f = await import("./queries.fixtures");
-  return f.fixtureProductDetail(id);
+  if (!isUuid(id)) return null;
+  const r = await q.getPublicProduct(id);
+  if (!r) return null;
+  return { ...toShopFields(r), artworkId: r.artwork.id, spokenDescription: r.artwork.spokenDescription, creator: toPublicCreator(r.creator) };
 }
 
 export async function listPublicCreators(): Promise<CreatorSummary[]> {
   await fresh();
-  // TODO(T010): bind to queries.listPublicCreators
-  if (!fixturesOn()) return [];
-  const { FIXTURE_CREATORS } = await import("./queries.fixtures");
-  return FIXTURE_CREATORS;
+  return (await q.listCreators()).map(toCreatorSummary);
 }
 
-/** The creator featured in the shop's MEET THE ARTIST block (most recent with a story video). */
+/**
+ * The creator featured in the shop's MEET THE ARTIST block: the most recent creator with a
+ * story video; until anyone has one, the most recent creator with a published product.
+ */
 export async function getFeaturedCreator(): Promise<PublicCreator | null> {
   await fresh();
-  // TODO(T010): bind to queries.getFeaturedCreator
-  if (!fixturesOn()) return null;
-  const { FIXTURE_CREATORS } = await import("./queries.fixtures");
-  return FIXTURE_CREATORS[0] ?? null;
+  const all = await q.listCreators();
+  const withVideo = all.filter((c) => c.storyVideoUrl).sort((a, b) => +b.createdAt - +a.createdAt)[0];
+  if (withVideo) return toPublicCreator(withVideo);
+  const [latest] = await q.listPublishedProducts({ limit: 1 });
+  return latest ? toPublicCreator(latest.creator) : null;
 }
 
 export async function getCreatorProfile(slug: string): Promise<CreatorProfile | null> {
   await fresh();
-  // TODO(T010): bind to queries.getCreatorProfile
-  if (!fixturesOn()) return null;
-  const f = await import("./queries.fixtures");
-  return f.fixtureCreatorProfile(slug);
+  const c = await q.getCreatorBySlug(slug);
+  if (!c) return null;
+  const products = await q.listPublishedProducts({ creatorId: c.id });
+  return { ...toPublicCreator(c), products: products.map(toShopProduct) };
 }
 
 /** WebVTT text for a creator's story video, or null. */
 export async function getCreatorCaptions(creatorId: string): Promise<string | null> {
   await fresh();
-  // TODO(T010): bind to queries.getCreatorCaptions
-  if (!fixturesOn()) return null;
-  const { FIXTURE_CREATORS } = await import("./queries.fixtures");
-  return FIXTURE_CREATORS.find((c) => c.id === creatorId)?.storyVideoVtt ?? null;
+  if (!isUuid(creatorId)) return null;
+  return (await q.getCreatorById(creatorId))?.storyVideoVtt ?? null;
 }
 
 export async function getStoryTag(token: string): Promise<StoryTagView | null> {
   await fresh();
-  // TODO(T010): bind to queries.getStoryTag
-  if (!fixturesOn()) return null;
-  const f = await import("./queries.fixtures");
-  return f.fixtureStoryTag(token);
+  const t = normalizeToken(token);
+  if (!t) return null;
+  const tag = await q.getStoryTag(t);
+  if (!tag) return null;
+  const [shop, more] = await Promise.all([
+    q.getPublicProduct(tag.product.id),
+    q.listPublishedProducts({ creatorId: tag.creator.id, limit: 7 }),
+  ]);
+  return {
+    token: tag.token.token,
+    tapCount: tag.token.tapCount,
+    productTitle: tag.listing?.title ?? "",
+    product: shop ? toShopProduct(shop) : null,
+    creator: toPublicCreator(tag.creator),
+    moreFromStudio: more.filter((p) => p.product.id !== tag.product.id).slice(0, 6).map(toShopProduct),
+  };
 }
 
 export async function getOrderConfirmation(orderId: string): Promise<OrderConfirmation | null> {
   await fresh();
-  // TODO(T010): bind to queries.getOrderConfirmation
-  if (!fixturesOn()) return null;
-  return { orderId, token: "EXAMPLETAG01", productTitle: "Sunny Frog", creatorName: "Mira" };
+  if (!isUuid(orderId)) return null;
+  const r = await q.getOrderConfirmation(orderId);
+  return r ? { orderId: r.orderId, token: r.token, productTitle: r.productTitle ?? "", creatorName: r.creatorName } : null;
 }
 
 export async function listAdminOrders(): Promise<AdminOrder[]> {
   await fresh();
-  // TODO(T010): bind to queries.listAdminOrders
-  if (!fixturesOn()) return [];
-  const { FIXTURE_ORDERS } = await import("./queries.fixtures");
-  return FIXTURE_ORDERS;
+  const rows = await q.listOrdersAdmin();
+  return rows.map((r) => ({
+    id: r.id, status: r.status, buyerName: r.buyerName, buyerEmail: r.buyerEmail, shipNote: r.shipNote,
+    amountCents: r.amountCents, creatorShareCents: r.creatorShareCents, createdAt: r.createdAt,
+    product: {
+      id: r.productId, title: r.productTitle ?? "", type: r.productType, mockupUrl: r.mockupUrl,
+      printPngUrl: r.printPngUrl, printSvgUrl: r.printSvgUrl, artworkId: r.artworkId,
+    },
+    creator: { displayName: r.creatorName, slug: r.creatorSlug },
+    token: r.token,
+    tapCount: r.tapCount,
+  }));
 }
 
 export async function getArtworkTrace(artworkId: string): Promise<ArtworkTrace | null> {
   await fresh();
-  // TODO(T010): bind to queries.getArtworkTrace
-  if (!fixturesOn()) return null;
-  const f = await import("./queries.fixtures");
-  return f.fixtureTrace(artworkId);
+  if (!isUuid(artworkId)) return null;
+  const t = await q.getArtworkTrace(artworkId);
+  if (!t) return null;
+  const a = t.artwork;
+  const variantRows = a.source === "text2image"
+    ? [...t.siblings, ...t.ancestors.slice(1), ...(t.ancestors.length ? [a] : [])]
+    : [];
+  const seen = new Set<string>();
+  const variants = variantRows.filter((v) => !seen.has(v.id) && seen.add(v.id)).map((v) => traceImage(v, a.id));
+  // Which SAM candidate was chosen is not stored; with one candidate it was picked automatically.
+  const cands = a.candidates ?? [];
+  const candidates = cands.map((c) => ({
+    id: c.id, url: c.thumbUrl, altText: null, chosen: cands.length === 1 && Boolean(a.cleanedUrl),
+  }));
+  return {
+    artwork: {
+      id: a.id, source: a.source, transcript: a.transcript, shapedPrompt: a.shapedPrompt, originalUrl: a.originalUrl,
+      cleanedUrl: a.cleanedUrl, maskUrl: a.maskUrl, cutPathSvg: a.cutPathSvg, altText: a.altText,
+      spokenDescription: a.spokenDescription, differencesFromPrompt: a.differencesFromPrompt,
+      parentArtworkId: a.parentArtworkId, createdAt: a.createdAt,
+    },
+    variants,
+    candidates,
+    calls: t.calls,
+  };
 }
 
 // ---------------------------------------------------------------- writes
 
+/** Staged checkout: creates the order and its story tag; shares come from the creator's split. */
 export async function createOrder(productId: string, input: OrderInput, opts: WriteOpts): Promise<{ orderId: string; token: string }> {
-  // TODO(T010): bind to queries.createOrder (staged payment; creates nfc token; notifies creator)
-  void productId; void input; void opts;
-  if (fixturesOn()) return { orderId: "00000000-0000-4000-8000-000000000001", token: "EXAMPLETAG01" };
-  throw new Error("Orders are not available yet (queries.createOrder pending T010).");
+  if (!isUuid(productId)) throw new Error("Unknown product");
+  return placeOrder(productId, input, opts.task);
 }
 
+/** tapCount++ and firstTappedAt on the story tag. */
 export async function recordTap(token: string, opts: WriteOpts): Promise<void> {
-  // TODO(T010): bind to queries.recordTap (tapCount++, firstTappedAt)
-  void token; void opts;
+  void opts; // tap counts are an update, not a new row
+  await tap(token);
 }
 
+/** Buyer → creator note from the story-tag page (direction buyer_to_creator; notifies the creator). */
 export async function createBuyerMessage(token: string, body: string, opts: WriteOpts): Promise<void> {
-  // TODO(T010): bind to queries.createBuyerMessage (direction buyer_to_creator)
-  void token; void body; void opts;
-  if (!fixturesOn()) throw new Error("Messages are not available yet (queries.createBuyerMessage pending T010).");
+  await sendReply(token, body, opts.task);
 }
 
+/** Admin: moves an order to `status` (sets statusUpdatedAt). */
 export async function updateOrderStatus(orderId: string, status: OrderStatus, opts: WriteOpts): Promise<void> {
-  // TODO(T010): bind to queries.updateOrderStatus (sets statusUpdatedAt)
-  void orderId; void status; void opts;
-  if (!fixturesOn()) throw new Error("Order updates are not available yet (queries.updateOrderStatus pending T010).");
+  void opts; // status changes update an existing row
+  if (!isUuid(orderId)) throw new Error("Unknown order");
+  const row = await q.updateOrderStatus(orderId, status);
+  if (!row) throw new Error("Unknown order");
+}
+
+// ---------------------------------------------------------------- helpers
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Postgres rejects malformed uuids with an error; a bad id in a URL is simply "not found". */
+function isUuid(v: string): boolean {
+  return UUID.test(v);
+}
+
+function normalizeToken(raw: string): string | null {
+  const t = normalizeNfcToken(raw);
+  return isNfcToken(t) ? t : null;
 }

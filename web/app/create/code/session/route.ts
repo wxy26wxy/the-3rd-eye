@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { CREATOR_COOKIE } from "@/components/create/constants";
-import { apiUrl, forwardHeaders } from "@/components/create/forward";
+import { signCreatorToken } from "@/lib/auth";
+import { getCreatorByLoginCode } from "@/lib/db/queries";
 
 const MAX_AGE = 60 * 60 * 24 * 30;
 
@@ -10,8 +11,9 @@ function safeNext(raw: unknown): string {
 }
 
 /**
- * POST (form): `code` → exchanges it at /api/v1/auth/code and stores the bearer token in an
- * httpOnly cookie, then redirects to `next`. With `intent=signout` it clears the cookie.
+ * POST (form): `code` → checks it in-process (same rule as POST /api/v1/auth/code) and stores
+ * the bearer token in an httpOnly cookie, then redirects to `next`. With `intent=signout` it
+ * clears the cookie.
  */
 export async function POST(req: NextRequest) {
   const form = await req.formData();
@@ -25,14 +27,11 @@ export async function POST(req: NextRequest) {
   const fail = () => NextResponse.redirect(new URL(`/create/code?error=1&next=${encodeURIComponent(next)}`, req.nextUrl.origin), 303);
   if (!code || code.length > 64) return fail();
   try {
-    const headers = forwardHeaders(req);
-    headers.set("content-type", "application/json");
-    const r = await fetch(apiUrl(req, "auth/code"), { method: "POST", headers, body: JSON.stringify({ code }), cache: "no-store" });
-    if (!r.ok) return fail();
-    const data = (await r.json()) as { token?: string };
-    if (!data.token) return fail();
+    const creator = await getCreatorByLoginCode(code);
+    if (!creator) return fail();
+    const token = signCreatorToken(creator.id);
     const res = NextResponse.redirect(new URL(next, req.nextUrl.origin), 303);
-    res.cookies.set(CREATOR_COOKIE, data.token, {
+    res.cookies.set(CREATOR_COOKIE, token, {
       httpOnly: true, sameSite: "lax", path: "/", maxAge: MAX_AGE, secure: req.nextUrl.protocol === "https:",
     });
     return res;

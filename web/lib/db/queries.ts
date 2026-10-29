@@ -239,11 +239,17 @@ export async function getOrderForCreator(orderId: string, creatorId: string): Pr
   return row ? flattenSummary(row) : null;
 }
 
-/** Admin: every order, newest first, with creator name. */
-export async function listOrdersAdmin(limit = 200): Promise<(OrderSummaryRow & { creatorName: string; printPngUrl: string | null; printSvgUrl: string | null; artworkId: string })[]> {
+export type AdminOrderRow = OrderSummaryRow & {
+  creatorName: string; creatorSlug: string; productType: ProductType; tapCount: number;
+  printPngUrl: string | null; printSvgUrl: string | null; artworkId: string;
+};
+
+/** Admin: every order, newest first, with creator, product type, print files and story-tag taps. */
+export async function listOrdersAdmin(limit = 200): Promise<AdminOrderRow[]> {
   const rows = await db().select({
     order: orders, productTitle: listings.title, mockupUrl: products.mockupUrl, token: nfcTokens.token,
-    creatorName: creators.displayName, printPngUrl: products.printPngUrl, printSvgUrl: products.printSvgUrl, artworkId: products.artworkId,
+    tapCount: nfcTokens.tapCount, creatorName: creators.displayName, creatorSlug: creators.slug, productType: products.type,
+    printPngUrl: products.printPngUrl, printSvgUrl: products.printSvgUrl, artworkId: products.artworkId,
     hasThankYou: sql<boolean>`exists (select 1 from ${thankYous} where ${thankYous.orderId} = ${orders.id} and ${thankYous.deletedAt} is null)`,
     unreadMessages: sql<number>`0`,
   }).from(orders)
@@ -253,8 +259,20 @@ export async function listOrdersAdmin(limit = 200): Promise<(OrderSummaryRow & {
     .leftJoin(nfcTokens, eq(nfcTokens.orderId, orders.id))
     .where(isNull(orders.deletedAt)).orderBy(desc(orders.createdAt)).limit(limit);
   return rows.map((r) => ({
-    ...flattenSummary(r), creatorName: r.creatorName, printPngUrl: r.printPngUrl, printSvgUrl: r.printSvgUrl, artworkId: r.artworkId,
+    ...flattenSummary(r), creatorName: r.creatorName, creatorSlug: r.creatorSlug, productType: r.productType,
+    tapCount: r.tapCount ?? 0, printPngUrl: r.printPngUrl, printSvgUrl: r.printSvgUrl, artworkId: r.artworkId,
   }));
+}
+
+/** What the buyer sees right after Buy: the story-tag token, product title and creator name. */
+export async function getOrderConfirmation(orderId: string): Promise<{ orderId: string; token: string; productTitle: string | null; creatorName: string } | null> {
+  const [row] = await db().select({ orderId: orders.id, token: nfcTokens.token, productTitle: listings.title, creatorName: creators.displayName })
+    .from(orders)
+    .innerJoin(nfcTokens, eq(nfcTokens.orderId, orders.id))
+    .innerJoin(creators, eq(creators.id, orders.creatorId))
+    .leftJoin(listings, eq(listings.productId, orders.productId))
+    .where(and(eq(orders.id, orderId), isNull(orders.deletedAt), isNull(nfcTokens.deletedAt))).limit(1);
+  return row ?? null;
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<OrderRow | null> {
@@ -363,4 +381,71 @@ export async function listAiCallsForArtwork(artworkId: string): Promise<AiCallRo
 export async function listAiCallsForArtworks(artworkIds: string[]): Promise<AiCallRow[]> {
   if (artworkIds.length === 0) return [];
   return db().select().from(aiCalls).where(inArray(aiCalls.artworkId, artworkIds)).orderBy(aiCalls.createdAt);
+}
+
+// ---------- admin trace ----------
+
+export type ArtworkTraceRows = {
+  artwork: ArtworkRow;
+  /** Refine chain, oldest first (parent of the parent … parent). */
+  ancestors: ArtworkRow[];
+  /** text2image rows from the same generation as the root of the chain (same creator, prompt and run), oldest first; includes the root. */
+  siblings: ArtworkRow[];
+  calls: AiCallRow[];
+};
+
+/** Sibling variants from one `POST /artworks` run are inserted within this window of each other. */
+const GENERATION_WINDOW_MS = 10 * 60_000;
+/** Shape and transcribe calls for a generation happen within this window before it. */
+const LEAD_WINDOW_MS = 30 * 60_000;
+
+/**
+ * Everything the admin trace page shows for one artwork. Model calls are linked by `artworkId`;
+ * the generate call by its response id (`genResponseId`); the shape and transcribe calls (traced
+ * with `jobId = creatorId`, no artwork yet) are the creator's latest ones before the generation.
+ */
+export async function getArtworkTrace(artworkId: string): Promise<ArtworkTraceRows | null> {
+  const artwork = await getArtwork(artworkId);
+  if (!artwork) return null;
+  const ancestors: ArtworkRow[] = [];
+  let parentId = artwork.parentArtworkId;
+  while (parentId && ancestors.length < 20) {
+    const parent = await getArtwork(parentId);
+    if (!parent) break;
+    ancestors.unshift(parent);
+    parentId = parent.parentArtworkId;
+  }
+  const root = ancestors[0] ?? artwork;
+  let siblings: ArtworkRow[] = [root];
+  if (root.source === "text2image" && root.shapedPrompt) {
+    const t = root.createdAt.getTime();
+    siblings = await db().select().from(artworks).where(and(
+      eq(artworks.creatorId, root.creatorId), eq(artworks.source, "text2image"), eq(artworks.shapedPrompt, root.shapedPrompt),
+      isNull(artworks.parentArtworkId), isNull(artworks.deletedAt),
+      sql`${artworks.createdAt} between ${new Date(t - GENERATION_WINDOW_MS)} and ${new Date(t + GENERATION_WINDOW_MS)}`,
+    )).orderBy(artworks.createdAt);
+  }
+  const chain = [...ancestors, artwork];
+  const ids = chain.map((a) => a.id);
+  const responseIds = [...new Set([...chain, ...siblings].map((a) => a.genResponseId).filter((x): x is string => Boolean(x)))];
+  const byArtwork = await listAiCallsForArtworks(ids);
+  const byResponse = responseIds.length
+    ? await db().select().from(aiCalls).where(and(inArray(aiCalls.responseId, responseIds), isNull(aiCalls.artworkId)))
+    : [];
+  const lead: AiCallRow[] = [];
+  if (root.source === "text2image") {
+    const start = Math.min(...siblings.map((a) => a.createdAt.getTime()), root.createdAt.getTime());
+    const generateAt = byResponse.reduce((min, c) => Math.min(min, c.createdAt.getTime()), start);
+    const before = await db().select().from(aiCalls).where(and(
+      eq(aiCalls.jobId, root.creatorId), inArray(aiCalls.stage, ["shape", "transcribe"]),
+      sql`${aiCalls.createdAt} between ${new Date(generateAt - LEAD_WINDOW_MS)} and ${new Date(generateAt)}`,
+    )).orderBy(desc(aiCalls.createdAt));
+    const shape = before.find((c) => c.stage === "shape");
+    const transcribe = before.find((c) => c.stage === "transcribe" && (!shape || c.createdAt <= shape.createdAt));
+    for (const c of [transcribe, shape]) if (c) lead.push(c);
+  }
+  const seen = new Set<string>();
+  const calls = [...lead, ...byResponse, ...byArtwork].filter((c) => !seen.has(c.id) && seen.add(c.id))
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  return { artwork, ancestors, siblings, calls };
 }

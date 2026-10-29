@@ -37,7 +37,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" 
 
 const dir = resolve(root, "ios/App/Assets.xcassets/AppIcon.appiconset");
 mkdirSync(dir, { recursive: true });
-sharp(Buffer.from(svg)).removeAlpha().png().toFile(resolve(dir, "AppIcon-1024.png")).then(() => console.log("wrote", dir));
+sharp(Buffer.from(svg)).removeAlpha().png().toFile(resolve(dir, "AppIcon-1024.png")).then(() => console.log("wrote", dir)).catch((e) => { console.error(e); process.exit(1); });
 writeFileSync(
   resolve(dir, "Contents.json"),
   JSON.stringify(

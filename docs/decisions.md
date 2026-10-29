@@ -73,3 +73,8 @@ Append-only. Newest at the bottom. Format: date · decision · why · alternativ
 - **Decision:** distribute the iOS app to testers with TestFlight (Apple Developer Program), scripted by `ios/scripts/testflight.sh`; the app icon is generated from design tokens (`scripts/gen_app_icon.ts`) rather than hand-made, so a redesign regenerates it.
 - **Why:** free provisioning needs the tester's phone plugged into the dev Mac and expires after 7 days; the mobile-web creator flow stays the zero-install fallback.
 - **Alternatives:** ad-hoc profiles with device UDIDs (manual per device); web only (no camera-permission or App Store path to show).
+
+## 2026-10-29 · Debug builds point at the production site
+- **Decision:** `API_BASE_URL` for the Debug configuration is the deployed site, same as Release; switch it to `http://localhost:3000` by hand when testing against a local server.
+- **Why:** phone builds from Xcode are Debug, and the person testing on a phone should not need a dev server running. Supersedes the T051 note that Debug stays on localhost.
+- **Cost:** simulator runs write to the shared database; use a non-demo creator code for those.

@@ -7,5 +7,5 @@
 | 2026-10-29 | preview | https://maker-story-5yr6mz0yf-xinyao-wangs-projects.vercel.app | e561333 (T050 fix wave) | T050 | https://maker-story-4pvv2k5o3-xinyao-wangs-projects.vercel.app | Behind Vercel login. Build green; `/t/1KYK3YV8CVXS` renders the thank-you and thread (checked with `vercel curl`). Creator routes answer `500 auth_not_configured` until `scripts/vercel_env_sync.sh` runs and a redeploy follows. Database migration 0002 is already applied (shared DB). |
 
 ## 2026-10-29 · TestFlight build 0.3.0 (1)
-- Uploaded from branch `feat/ios-T060` (git 1f14cc8 plus the team-id change committed right after) with `bash ios/scripts/testflight.sh --no-bump`-equivalent steps; team `WHMG95UWKZ`.
+- Uploaded from branch `feat/ios-T060` at git 9553cb4 (the archive was signed with the working tree of 1f14cc8 plus the team-id change) by running the archive and export commands from `ios/scripts/testflight.sh` by hand; team `WHMG95UWKZ`. Later uploads use the script.
 - Points at production https://maker-story-three.vercel.app. Invite: one tester (client), internal group. Rollback: expire the build in App Store Connect → TestFlight; testers keep the previous build.

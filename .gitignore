@@ -23,3 +23,6 @@ scratch/
 .superpowers/
 skills-lock.json
 .agents/
+
+# written by next dev
+web/AGENTS.md

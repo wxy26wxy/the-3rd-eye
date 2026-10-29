@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/Field";
 import { UploadIcon, VideoIcon } from "@/components/ui/Icons";
 import { Loading, Status } from "@/components/ui/Loading";
 import { Title } from "@/components/ui/Text";
+import { blobToWav } from "@/lib/audio/wav";
 import { api, extFor, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid } from "../api";
 import { CreateScreen } from "../CreateScreen";
 import { useCreator } from "../store";
@@ -16,6 +17,22 @@ import { FilePicker } from "./Photo";
 import styles from "../Create.module.css";
 
 const FALLBACK = [m.create.story.prompt1, m.create.story.prompt2, m.create.story.prompt3];
+/** Longest soundtrack sent for captions (16 kHz mono WAV is 32 kB/s, so 3 min ≈ 5.8 MB). */
+const MAX_CAPTION_SECONDS = 180;
+
+/**
+ * Captions need a WAV of the video's soundtrack (Voice Transcribe accepts WAV only and the
+ * server has no ffmpeg on Vercel): decode the video's audio in the browser → mono 16 kHz WAV.
+ * Returns null when the browser cannot decode this video's audio; the video is still saved.
+ */
+async function soundtrackWav(file: File): Promise<Blob | null> {
+  try {
+    return await blobToWav(file, MAX_CAPTION_SECONDS);
+  } catch (err) {
+    console.warn("Could not read the video's sound for captions", err);
+    return null;
+  }
+}
 
 /** First listing only: record (or choose) a short story video; captions are made by the backend. */
 export function StoryVideo() {
@@ -41,11 +58,17 @@ export function StoryVideo() {
     setPhase("uploading");
     try {
       const me = creator ?? (await refresh());
-      const blob = await upload(`creators/${me?.id ?? "me"}/story-video/${uuid()}.${extFor(file, "mp4")}`, file, {
-        access: UPLOAD_ACCESS, handleUploadUrl: HANDLE_UPLOAD_URL, contentType: file.type || undefined, multipart: file.size > 20 * 1024 * 1024,
-      });
+      const base = `creators/${me?.id ?? "me"}`;
+      const [blob, audioUrl] = await Promise.all([
+        upload(`${base}/story-video/${uuid()}.${extFor(file, "mp4")}`, file, {
+          access: UPLOAD_ACCESS, handleUploadUrl: HANDLE_UPLOAD_URL, contentType: file.type || undefined, multipart: file.size > 20 * 1024 * 1024,
+        }),
+        soundtrackWav(file).then(async (wav) => wav
+          ? (await upload(`${base}/audio/${uuid()}.wav`, wav, { access: UPLOAD_ACCESS, handleUploadUrl: HANDLE_UPLOAD_URL, contentType: "audio/wav" })).pathname
+          : undefined),
+      ]);
       setPhase("processing");
-      await api("creators/me/story-video", { json: { videoUrl: blob.pathname, mentionDisability: mention } });
+      await api("creators/me/story-video", { json: { videoUrl: blob.pathname, audioUrl, mentionDisability: mention } });
       void refresh();
       router.push("/create/live");
     } catch {

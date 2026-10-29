@@ -21,13 +21,16 @@ export const POST = route(async (req) => {
   try {
     const source = body.audioUrl ?? body.videoUrl;
     const bytes = await readClientUpload(source, creatorId);
-    captions = await (await ai()).captioner.caption(bytes, { filename: source.split("/").pop() ?? "video.mp4", trace: { stage: "captions", task: "T010" } });
+    captions = await (await ai()).captioner.caption(bytes, { filename: source.split("/").pop() ?? "video.mp4", trace: { stage: "captions", task: "T050", jobId: creatorId } });
+    if (!captions.transcript.trim()) captions = null; // silence: no captions rather than an empty track
   } catch (err) {
     console.warn("[story-video] captions failed:", err instanceof Error ? err.message : err);
   }
+  // A new video never keeps the previous video's captions: null when captioning failed.
   const creator = await updateCreator(creatorId, {
     storyVideoUrl: pathname,
-    ...(captions ? { storyVideoVtt: captions.vtt, storyVideoTranscript: captions.transcript } : {}),
+    storyVideoVtt: captions?.vtt ?? null,
+    storyVideoTranscript: captions?.transcript ?? null,
     ...(body.mentionDisability !== undefined ? { mentionDisability: body.mentionDisability } : {}),
   });
   return json(toCreator(creator!));

@@ -32,7 +32,9 @@ final class AppState {
   private(set) var isSignedIn: Bool
   /// The server ended the session (token expired); the code screen says so.
   private(set) var sessionExpired = false
-  var selectedTab: HomeTab = .create
+  var selectedTab: HomeTab = .create {
+    didSet { if selectedTab != oldValue { speech.stop() } }
+  }
   /// Any route change stops speech before the next screen's onAppear can start
   /// its own (onDisappear of the old screen runs after that, so it can't be used).
   var createPath: [CreateRoute] = [] {
@@ -105,6 +107,22 @@ final class AppState {
     guard isSignedIn else { return }
     if let updated = try? await api.updateMe(UpdateCreatorRequest(accessPrefs: prefs)) {
       creator = updated
+    }
+  }
+
+  // MARK: App lifecycle
+
+  /// Background: stop talking and polling. Foreground: resume polling, drop a stale speaking state.
+  func scenePhaseChanged(_ phase: ScenePhase) {
+    switch phase {
+    case .background:
+      speech.stop()
+      orders.stop()
+    case .active:
+      speech.resync()
+      if isSignedIn { orders.start() }
+    default:
+      break
     }
   }
 

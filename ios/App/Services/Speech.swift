@@ -26,6 +26,22 @@ final class Speech: NSObject, AVSpeechSynthesizerDelegate {
   override init() {
     super.init()
     synthesizer.delegate = self
+    // A phone call, Siri or another app taking the audio ends speech without a
+    // didFinish/didCancel callback; without this the Stop button stayed up.
+    NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
+      let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+      guard raw == AVAudioSession.InterruptionType.began.rawValue else { return }
+      MainActor.assumeIsolated { self?.stop() }
+    }
+  }
+
+  /// Clears `isSpeaking` when the synthesizer is no longer talking (after an
+  /// interruption or a return from the background).
+  func resync() {
+    guard isSpeaking, !synthesizer.isSpeaking else { return }
+    Self.log.debug("resync: speech had ended")
+    isSpeaking = false
+    onFinish = nil
   }
 
   /// Speaks `text`. Calls `then` when finished (or immediately when skipped).

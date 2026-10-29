@@ -1,3 +1,4 @@
+import AVFoundation
 import XCTest
 @testable import MakerStory
 
@@ -77,5 +78,43 @@ final class SessionTests: XCTestCase {
     XCTAssertTrue(app.isSignedIn)
     XCTAssertFalse(app.sessionExpired)
     app.signOut()
+  }
+}
+
+@MainActor
+final class LifecycleTests: XCTestCase {
+  private func app() -> AppState {
+    AppState(api: APIClient(baseURL: URL(string: "http://localhost:3000/api/v1")!, transport: StubTransport(body: Fixtures.orders), token: nil))
+  }
+
+  func testTabSwitchStopsSpeech() {
+    let app = app()
+    app.speech.speak("a frog with a crown", force: true)
+    XCTAssertTrue(app.speech.isSpeaking)
+    app.selectedTab = .orders
+    XCTAssertFalse(app.speech.isSpeaking)
+  }
+
+  func testSameTabDoesNotStopSpeech() {
+    let app = app()
+    app.speech.speak("a frog with a crown", force: true)
+    app.selectedTab = .create
+    XCTAssertTrue(app.speech.isSpeaking)
+    app.speech.stop()
+  }
+
+  func testBackgroundStopsSpeech() {
+    let app = app()
+    app.speech.speak("a frog with a crown", force: true)
+    app.scenePhaseChanged(.background)
+    XCTAssertFalse(app.speech.isSpeaking)
+  }
+
+  func testInterruptionClearsSpeaking() {
+    let app = app()
+    app.speech.speak("a frog with a crown", force: true)
+    NotificationCenter.default.post(name: AVAudioSession.interruptionNotification, object: nil,
+                                    userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.began.rawValue])
+    XCTAssertFalse(app.speech.isSpeaking)
   }
 }

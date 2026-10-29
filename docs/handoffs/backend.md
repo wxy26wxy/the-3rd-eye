@@ -9,7 +9,7 @@ T010 · backend and AI pipeline behind `docs/api.md` — done on `feat/backend-T
 ## Interface exposed to others
 - **Data access** (`@/lib/db/queries`): creators (`getCreatorById/BySlug/ByLoginCode`, `listCreators`, `updateCreator`), artworks (`insertArtwork`, `getArtwork`, `listArtworksByCreator`, …), shop (`listPublishedProducts({ type?, madeByVoice?, creatorId?, limit? })`, `getPublicProduct(id)` → `{ product, listing, creator, artwork }`), `listProductsByCreator`, story tag (`getStoryTag(token)` → token/order/product/listing/creator/thankYou/messages), admin (`listOrdersAdmin()`, `updateOrderStatus(id, status)`, `listAiCallsForArtwork(id)`), `isStoryVideoPath`. All soft-delete aware.
 - **Public actions** (`@/lib/pipeline/public`): `placeOrder(productId, { buyerName, buyerEmail?, shipNote? })` → `{ orderId, token }`, `tap(token)` → `{ tapCount }`, `sendReply(token, body)` → message. Same over HTTP at `/api/v1/public/{orders,tap,reply}`.
-- **Auth** (`@/lib/auth`): `checkAdminAuth(authorizationHeader)` and `adminChallenge()` for `proxy.ts`; `signCreatorToken`, `verifyCreatorToken`, `requireCreator(req)`; cookie name `CREATOR_COOKIE = "ms_creator"` (set by `POST /api/v1/auth/code`).
+- **Auth** (`@/lib/auth`): `signCreatorToken` (30-day `<id>.<exp>.<sig>`), `verifyCreatorToken`, `requireCreator(req)`; admin basic auth only in `@/lib/admin-auth` (`checkAdminAuth` → `"ok"|"unauthorized"|"disabled"`, `ADMIN_REALM`; used by proxy, admin actions and `/media`); cookie name `CREATOR_COOKIE = "ms_creator"` (set by `POST /api/v1/auth/code`).
 - **API** exactly per `docs/api.md`, plus its "Clarifications" section (media access rule, upload kinds, WAV audio, `audioUrl` for captions, `cutPathSvg` in a 0–100 viewBox, `split` on Creator).
 - **AI registry** (`@/lib/ai/registry` → `ai()`): `AI_FIXTURES=1` gives an offline registry (procedural art, no keys); `AI_STORY=ollama|meta` (default ollama; Spark fallback when Ollama is unreachable, e.g. on Vercel). Tracing via `traced()` in `@/lib/ai/trace`.
 - **Commands** (from `web/`): `pnpm test`; `pnpm db:generate`; `pnpm exec dotenv -e .env.local -- drizzle-kit push`; `pnpm seed`; `pnpm probe [transcribe spark image sam ollama]`.
@@ -32,3 +32,10 @@ No creator has a story video yet (`storyVideoNeeded: true` on approve).
 
 ## Last updated
 2026-10-28
+
+## T050 fix wave (2026-10-29)
+- New: `creators.story_draft`, `listings.draft_copy`, `orders.production_share_cents` (migration 0002, applied by hand: the DB was created with `drizzle-kit push`, so do not run `drizzle-kit migrate` against it). `lib/pipeline/story.ts#draftStoryFor`, `lib/pipeline/products.ts#ensurePrintFile`, `lib/products/checks.ts` (pure print checks), `lib/image/sticker.ts` (moved from `lib/ai/meta`), `lib/uploads.ts` (upload caps), `Registry.moderator` (buyer notes) and `Registry.mockups`, `PromptShaper.styleFor`.
+- Behaviour: publish gate computed server-side; re-run on a published product goes to `draft_copy`; totes have a print PNG; captions cleared when captioning fails; story draft after captions; buyer/ship notes moderated (422 `note_rejected`, fail closed); creator tokens expire after 30 days; login codes random, in `web/.creator-codes.local` only.
+- Smoke data: June's old tote archived; June's new tote `0cdb58d5-…` published via the API smoke; Leo's tote repaired by the seed. Smoke order "T050 Smoke Buyer", tag `1KYK3YV8CVXS`, has a thank-you (text, image, captioned video) and a two-way thread.
+- Open: Vercel firewall rate limits (docs/risks.md); iOS must send `audioUrl` (in progress on its branch) and sign in with the new codes; old iOS tokens are rejected (sign in again).
+

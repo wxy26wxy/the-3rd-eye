@@ -10,7 +10,7 @@ T020 · public site, admin, and mobile-web creator flow (done on `feat/web-T01x`
 - **Data contract** `web/lib/db/queries.contract.ts`: the backend's `queries.ts` should export these functions with these signatures: `listShopProducts(filter)`, `getProductDetail(id)`, `listPublicCreators()`, `getFeaturedCreator()`, `getCreatorProfile(slug)`, `getCreatorCaptions(creatorId)`, `getStoryTag(token)`, `getOrderConfirmation(orderId)`, `listAdminOrders()`, `getArtworkTrace(artworkId)` (returns `{ artwork, variants, candidates, calls }`; `variants` are sibling text2image variants plus refine ancestors with `chosen`, `candidates` are SAM candidates), `createOrder(productId, input, {task})`, `recordTap(token, {task})`, `createBuyerMessage(token, body, {task})`, `updateOrderStatus(orderId, status, {task})`. To bind, replace each stub body with a re-export and keep the `connection()` call on reads.
 - **Creator cookie** `ms_creator` (httpOnly) holds the bearer token from `POST /api/v1/auth/code`; set by `POST /create/code/session`.
 - **Forwarder** `/create/bff/<path>` → `/api/v1/<path>` with `Authorization: Bearer`. Blob `handleUploadUrl` is `/create/bff/uploads`.
-- **Upload pathnames** from the web: `creators/<creatorId>/originals/<uuid>.<ext>` and `creators/<creatorId>/story-video/<uuid>.<ext>`; `access: "public"` until the private store is linked.
+- **Upload pathnames** from the web: `creators/<creatorId>/photo/<uuid>.jpg` (re-encoded in the browser, EXIF dropped), `creators/<creatorId>/story-video/<uuid>.<ext>` and its soundtrack `creators/<creatorId>/audio/<uuid>.wav`; `access: "public"` until the private store is linked.
 - **Captions** for `<track>`: `GET /captions/<creatorId>` returns `creators.storyVideoVtt`.
 - `NEXT_PUBLIC_SITE_URL` is used for story-tag URLs and QR codes (falls back to the request host).
 
@@ -30,3 +30,11 @@ T020 · public site, admin, and mobile-web creator flow (done on `feat/web-T01x`
 
 ## Last updated
 2026-10-29
+
+## T050 fix wave (2026-10-29)
+- `/t/[token]`: story video → thank-you (`components/storytag/ThankYou.tsx`; media via `/media/<path>?tag=`, captions via `/captions/tag/<token>`) → thread (`Thread.tsx`) → note form (refreshes the thread; moderation rejections shown) → about → more. Empty states for each.
+- Creator screens: `components/create/errors.tsx` (`describeError`, `ErrorNotice`) shows the API's reason; 409 keeps the form, 422 offers Retake, 504 offers Try again.
+- Story video: soundtrack WAV extracted in the browser (`blobToWav`, 180 s cap) and sent as `audioUrl`; then the Glimmer draft with Use / Edit / Skip (`PUT /creators/me { storyText, bioShort }` or `{ dismissStoryDraft: true }`).
+- BFF `maxDuration = 300`; `(site)/error.tsx` added.
+- Open: run the story-video flow on a real iPhone (Safari `decodeAudioData` on a .mov), and the whole creator flow on Vercel after the env sync.
+

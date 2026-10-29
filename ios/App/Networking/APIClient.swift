@@ -141,20 +141,20 @@ final class APIClient: @unchecked Sendable {
   }
 
   func generateArtworks(prompt: String, transcript: String?, product: ProductType, n: Int) async throws -> [ArtworkVariant] {
-    let res: ArtworkVariantsResponse = try await post("artworks", TextToImageRequest(prompt: prompt, transcript: transcript, product: product, n: n), timeout: 180)
+    let res: ArtworkVariantsResponse = try await post("artworks", TextToImageRequest(prompt: prompt, transcript: transcript, product: product, n: n), timeout: Self.longTimeout)
     return res.artworks
   }
 
   func artworkFromPhoto(imageUrl: String, product: ProductType, source: String = "photo") async throws -> PhotoArtworkResponse {
-    try await post("artworks", PhotoArtworkRequest(source: source, imageUrl: imageUrl, product: product), timeout: 180)
+    try await post("artworks", PhotoArtworkRequest(source: source, imageUrl: imageUrl, product: product), timeout: Self.longTimeout)
   }
 
   func selectCandidate(artworkId: String, candidateId: String) async throws -> Artwork {
-    try await post("artworks/\(artworkId)/select", SelectCandidateRequest(candidateId: candidateId), timeout: 120)
+    try await post("artworks/\(artworkId)/select", SelectCandidateRequest(candidateId: candidateId), timeout: Self.longTimeout)
   }
 
   func refine(artworkId: String, instruction: String) async throws -> ArtworkVariant {
-    let res: RefineResponse = try await post("artworks/\(artworkId)/refine", RefineRequest(instruction: instruction), timeout: 180)
+    let res: RefineResponse = try await post("artworks/\(artworkId)/refine", RefineRequest(instruction: instruction), timeout: Self.longTimeout)
     return res.artwork
   }
 
@@ -166,15 +166,15 @@ final class APIClient: @unchecked Sendable {
   // MARK: Products and listings
 
   func createProduct(artworkId: String, type: ProductType) async throws -> Product {
-    try await post("products", CreateProductRequest(artworkId: artworkId, type: type), timeout: 120)
+    try await post("products", CreateProductRequest(artworkId: artworkId, type: type), timeout: Self.longTimeout)
   }
 
   func runListingAgent(productId: String) async throws -> ListingRunResponse {
-    try await send(request("POST", "listings/\(productId)/run", body: try Self.encoder.encode(Empty()), timeout: 180))
+    try await send(request("POST", "listings/\(productId)/run", body: try Self.encoder.encode(Empty()), timeout: Self.longTimeout))
   }
 
   func approveListing(productId: String, via: String, edits: ListingEdits?) async throws -> ApproveListingResponse {
-    try await post("listings/\(productId)/approve", ApproveListingRequest(approvedVia: via, edits: edits))
+    try await post("listings/\(productId)/approve", ApproveListingRequest(approvedVia: via, edits: edits), timeout: Self.longTimeout)
   }
 
   // MARK: Story

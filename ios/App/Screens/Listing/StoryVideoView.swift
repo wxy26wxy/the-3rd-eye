@@ -53,6 +53,7 @@ struct StoryVideoView: View {
             Text("Saving your video…").themeFont(.body).foregroundStyle(colors.text)
           }
           .accessibilityElement(children: .combine)
+          SlowWorkHint()
         }
         if let error { ErrorCard(message: error) }
       }

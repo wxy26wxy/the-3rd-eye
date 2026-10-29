@@ -77,6 +77,7 @@ struct ThankYouComposerView: View {
         Task { await send() }
       }
       .disabled(sending || uploading || (text.isEmpty && imageUrl == nil && videoPathname == nil))
+      SlowWorkHint(active: sending || uploading)
     }
     .onAppear { if capture == nil { capture = VoiceCapture(api: app.api) } }
     .onDisappear { capture?.cancel() }

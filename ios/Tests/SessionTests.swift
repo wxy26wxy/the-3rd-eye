@@ -118,3 +118,21 @@ final class LifecycleTests: XCTestCase {
     XCTAssertFalse(app.speech.isSpeaking)
   }
 }
+
+final class TimeoutTests: XCTestCase {
+  /// The server gives long routes 270 s; the client must wait longer so it never retries live work.
+  func testLongRoutesWaitAtLeast300Seconds() async throws {
+    let stub = StubTransport(body: "{}")
+    let api = APIClient(baseURL: URL(string: "http://localhost:3000/api/v1")!, transport: stub, token: "t")
+    _ = try? await api.generateArtworks(prompt: "p", transcript: nil, product: .sticker, n: 1)
+    _ = try? await api.artworkFromPhoto(imageUrl: "u", product: .sticker)
+    _ = try? await api.selectCandidate(artworkId: "a", candidateId: "k")
+    _ = try? await api.refine(artworkId: "a", instruction: "i")
+    _ = try? await api.createProduct(artworkId: "a", type: .tote)
+    _ = try? await api.runListingAgent(productId: "p")
+    _ = try? await api.approveListing(productId: "p", via: "tap", edits: nil)
+    _ = try? await api.saveStoryVideo(pathname: "v", audioPathname: nil, mentionDisability: false)
+    XCTAssertEqual(stub.requests.count, 8)
+    for req in stub.requests { XCTAssertGreaterThanOrEqual(req.timeoutInterval, 300, req.url?.path ?? "") }
+  }
+}

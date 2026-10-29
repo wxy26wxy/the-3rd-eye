@@ -129,6 +129,7 @@ struct VoiceResultView: View {
           Task { await refine() }
         }
         .disabled(busy || instruction.trimmingCharacters(in: .whitespaces).isEmpty)
+        SlowWorkHint(active: busy)
       }
     }
   }

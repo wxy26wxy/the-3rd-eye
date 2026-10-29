@@ -1,0 +1,24 @@
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-m);
+  height: 100%;
+  padding: var(--space-m);
+  background: var(--surface);
+  border: var(--border-card) solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-hard-l);
+  transition: transform var(--motion-base) var(--motion-easing);
+}
+.card:hover { transform: translateY(calc(var(--border-thin) * -1)) rotate(-0.5deg); }
+.card:has(.link:focus-visible) { outline: var(--border-card) solid var(--focus-ring); outline-offset: var(--border-card); }
+.body { display: grid; gap: var(--space-s); padding: 0 var(--space-xs) var(--space-xs); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.title { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: 1.15; }
+.link { text-decoration: none; }
+.link:focus-visible { outline: none; }
+/* Whole card is the click target; the link text stays the accessible name. */
+.link::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius-card); }
+.meta { display: flex; justify-content: space-between; gap: var(--space-s); color: var(--text-muted); font-size: var(--type-body-s-size); font-weight: var(--type-body-weight); }
+.price { color: var(--text); font-weight: var(--type-title-l-weight); }

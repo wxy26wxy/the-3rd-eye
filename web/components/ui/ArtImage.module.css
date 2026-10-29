@@ -1,0 +1,17 @@
+.frame { position: relative; width: 100%; overflow: hidden; border-radius: var(--radius-m); background: var(--surface-alt); }
+.square { aspect-ratio: 1; }
+.portrait { aspect-ratio: 4 / 5; }
+.wide { aspect-ratio: 16 / 9; }
+.auto { aspect-ratio: auto; }
+.frame img { width: 100%; height: 100%; }
+.contain { object-fit: contain; }
+.cover { object-fit: cover; }
+.empty {
+  display: grid;
+  place-items: center;
+  padding: var(--space-l);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--type-caption-size);
+  background: repeating-linear-gradient(45deg, var(--surface-alt), var(--surface-alt) var(--space-s), var(--surface) var(--space-s), var(--surface) calc(var(--space-s) * 2));
+}

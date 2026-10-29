@@ -10,7 +10,7 @@ import type { TranscribeProvider, TranscribeResult, Trace } from "../types";
 import { traced } from "../trace";
 import { CALL_TIMEOUT_MS, META_BASE_URL, MODELS, metaApiKey } from "./client";
 import { callSignal } from "@/lib/deadline";
-import { toWav } from "@/lib/audio/wav";
+import { toWav } from "@/lib/audio/wav-server";
 
 export type RawTranscript = { sessionId?: string; transcript?: string; text?: string; audioDurationMs?: number; turns?: unknown[] };
 export type TranscriptWithDuration = TranscribeResult & { durationMs?: number };

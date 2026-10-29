@@ -1,0 +1,18 @@
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--size-icon-button);
+  height: var(--size-icon-button);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  border: var(--border-thin) solid var(--border);
+  box-shadow: var(--shadow-icon);
+  font-size: var(--type-title-l-size);
+  text-decoration: none;
+  transition: transform var(--motion-fast) var(--motion-easing);
+}
+.icon:active { transform: translateY(var(--border-thin)); box-shadow: none; }
+.icon > span { display: inline-flex; }

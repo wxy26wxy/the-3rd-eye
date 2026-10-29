@@ -1,0 +1,4 @@
+.figure { display: grid; gap: var(--space-s); }
+.svg { width: 100%; aspect-ratio: 1; background: var(--surface-alt); border-radius: var(--radius-m); border: var(--border-thin) solid var(--border); }
+.cut { fill: none; stroke: var(--danger); stroke-width: 0.8; stroke-dasharray: 2 1.5; vector-effect: non-scaling-stroke; }
+.caption { font-size: var(--type-caption-size); line-height: var(--type-caption-lh); }

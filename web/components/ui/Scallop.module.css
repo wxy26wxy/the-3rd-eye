@@ -1,0 +1,7 @@
+.scallop {
+  display: block;
+  width: 100%;
+  height: var(--space-xxl);
+  margin-bottom: calc(var(--border-thin) * -1);
+}
+.scallop path { fill: var(--surface); stroke: var(--border); stroke-width: 3; vector-effect: non-scaling-stroke; }

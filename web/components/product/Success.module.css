@@ -1,0 +1,6 @@
+.wrap { display: grid; gap: var(--space-xxl); justify-items: center; text-align: center; padding-block: var(--space-section); }
+.card { display: grid; gap: var(--space-m); justify-items: center; width: 100%; max-width: var(--layout-narrow); }
+.notified { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); }
+.urlLabel { font-size: var(--type-eyebrow-size); font-weight: var(--type-eyebrow-weight); letter-spacing: var(--type-eyebrow-ls); text-transform: uppercase; }
+.url { overflow-wrap: anywhere; font-weight: var(--type-title-m-weight); background: var(--surface-alt); padding: var(--space-m); border-radius: var(--radius-m); border: var(--border-thin) solid var(--border); width: 100%; max-width: none; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-m); justify-content: center; }

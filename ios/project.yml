@@ -1,0 +1,79 @@
+name: MakerStory
+options:
+  bundleIdPrefix: com.makerstory
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    SWIFT_EMIT_LOC_STRINGS: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+targets:
+  MakerStory:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes:
+          # Compiled from a build-time copy; see scripts/prepare_tokens.sh.
+          - "Theme/Tokens.swift"
+      # Written by scripts/prepare_tokens.sh before compilation (git-ignored).
+      - path: build/generated/TokensCompiled.swift
+        optional: true
+        group: App/Theme
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.makerstory.app
+        PRODUCT_NAME: MakerStory
+        INFOPLIST_FILE: App/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GIT_SHA: dev
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+      configs:
+        Debug:
+          API_BASE_URL: "http://localhost:3000"
+        Release:
+          API_BASE_URL: "http://localhost:3000"
+    preBuildScripts:
+      - name: Prepare design tokens
+        script: bash "${SRCROOT}/scripts/prepare_tokens.sh"
+        inputFiles:
+          - $(SRCROOT)/App/Theme/Tokens.swift
+          - $(SRCROOT)/scripts/prepare_tokens.sh
+        outputFiles:
+          - $(SRCROOT)/build/generated/TokensCompiled.swift
+        basedOnDependencyAnalysis: true
+    postBuildScripts:
+      - name: Stamp git sha
+        script: bash "${SRCROOT}/scripts/stamp_git_sha.sh"
+        basedOnDependencyAnalysis: false
+  MakerStoryTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: MakerStory
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.makerstory.app.tests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/MakerStory.app/MakerStory"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+schemes:
+  MakerStory:
+    build:
+      targets:
+        MakerStory: all
+        MakerStoryTests: [test]
+    test:
+      targets:
+        - MakerStoryTests
+      gatherCoverageData: false

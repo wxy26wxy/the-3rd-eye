@@ -2,6 +2,7 @@
  * Shared JSON helpers for route handlers. Errors follow docs/api.md:
  * `{ "error": { "code", "message" } }`.
  */
+import { unstable_rethrow } from "next/navigation";
 import { ZodError, type ZodType } from "zod";
 
 export class ApiError extends Error {
@@ -43,6 +44,7 @@ export function route<C = unknown>(fn: Handler<C>): Handler<C> {
     try {
       return await fn(req, ctx);
     } catch (err) {
+      unstable_rethrow(err); // let Next's internal errors (prerender bail-out etc.) through
       return toErrorResponse(err);
     }
   };

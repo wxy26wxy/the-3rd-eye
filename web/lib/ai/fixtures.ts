@@ -20,10 +20,8 @@ import { normalizeListing } from "./meta/tools/finalize-listing";
 import { cuesToVtt, estimateCues } from "./meta/captions";
 import { pickByHint } from "./meta/sam";
 
-const dir = () => process.env.AI_FIXTURES_DIR ?? join(process.cwd(), "test/fixtures");
-
 export function fixturePath(stage: string, key: unknown, ext = "json"): string {
-  return join(dir(), stage, `${requestHash(key).slice(0, 16)}.${ext}`);
+  return join(process.cwd(), "test", "fixtures", stage, `${requestHash(key).slice(0, 16)}.${ext}`);
 }
 
 function recorded<T>(stage: string, key: unknown): T | null {

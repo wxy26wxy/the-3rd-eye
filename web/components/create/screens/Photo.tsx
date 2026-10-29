@@ -15,6 +15,30 @@ import styles from "../Create.module.css";
 
 type Phase = "pick" | "uploading" | "finding" | "making";
 
+const MAX_SIDE = 4096;
+/**
+ * Re-encodes the picked picture through a canvas as JPEG: drops EXIF (GPS, device) and applies
+ * the orientation. Falls back to the original file when the browser cannot decode it (e.g. HEIC
+ * outside Safari); the server deletes the public upload after its private copy either way.
+ */
+async function stripMetadata(file: File): Promise<Blob> {
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+    return blob ?? file;
+  } catch {
+    return file;
+  }
+}
+
 /** Take or upload a photo of a drawing → Blob → POST /artworks (SAM finds the drawings). */
 export function Photo({ mode }: { mode: "camera" | "upload" }) {
   const router = useRouter();
@@ -38,8 +62,9 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
     try {
       const me = creator ?? (await refresh());
       const creatorId = me?.id ?? "me";
-      const blob = await upload(`creators/${creatorId}/originals/${uuid()}.${extFor(file, "jpg")}`, file, {
-        access: UPLOAD_ACCESS, handleUploadUrl: HANDLE_UPLOAD_URL, contentType: file.type || undefined,
+      const clean = await stripMetadata(file);
+      const blob = await upload(`creators/${creatorId}/photo/${uuid()}.${extFor(clean, "jpg")}`, clean, {
+        access: UPLOAD_ACCESS, handleUploadUrl: HANDLE_UPLOAD_URL, contentType: clean.type || undefined,
       });
       setPhase("finding");
       const res = await api<{ artwork: Artwork; candidates: Candidate[] }>("artworks", { json: { source: "photo", imageUrl: blob.url, product: draft.product } });

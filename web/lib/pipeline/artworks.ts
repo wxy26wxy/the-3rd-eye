@@ -12,7 +12,7 @@ import { ensureDpi, previewCutPath, removeBackground } from "@/lib/ai/meta/stick
 import { pngRef } from "@/lib/image/ref";
 import { area, emptyMask, maskFromPng, maskToPng } from "@/lib/image/mask";
 import { insertArtwork, updateArtwork, type ArtworkRow } from "@/lib/db/queries";
-import { creatorPath, readClientUpload, storage } from "@/lib/storage";
+import { clientUploadPath, creatorPath, readClientUpload, storage } from "@/lib/storage";
 import type { SamCandidate } from "@/lib/db/schema";
 import { trackArtwork } from "@/lib/deadline";
 import { ApiError } from "@/lib/http";
@@ -120,11 +120,14 @@ export async function createFromImage(
   input: { source: "photo" | "canvas"; imageUrl: string; product: "sticker" | "tote" },
   task = "T010",
 ): Promise<{ artwork: ArtworkRow; candidates: SamCandidate[] }> {
-  const raw = await readClientUpload(input.imageUrl, creatorId, 25 * 1024 * 1024);
+  const uploadPath = clientUploadPath(input.imageUrl, creatorId);
+  const raw = await readClientUpload(uploadPath, creatorId, 25 * 1024 * 1024);
   const png = await ensureDpi(await sharp(raw).rotate().flatten({ background: "#ffffff" }).png().toBuffer());
   const id = randomUUID();
   trackArtwork(id);
   const original = await storage().putPrivate(creatorPath(creatorId, "originals", "png"), png, "image/png");
+  // The private copy (EXIF dropped by the re-encode) is the original from now on; remove the public upload.
+  await storage().delete(uploadPath).catch((err) => console.warn("[artworks] could not delete the public upload:", err instanceof Error ? err.message : err));
   let artwork = await insertArtwork({
     id, creatorId, source: input.source, originalUrl: original.pathname, shapingTrace: { product: input.product }, status: "draft", createdByTask: task,
   });

@@ -8,7 +8,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: WHMG95UWKZ
     CODE_SIGN_STYLE: Automatic
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     SWIFT_EMIT_LOC_STRINGS: YES
@@ -25,13 +25,15 @@ targets:
         PRODUCT_NAME: MakerStory
         INFOPLIST_FILE: App/Info.plist
         TARGETED_DEVICE_FAMILY: "1"
-        MARKETING_VERSION: "0.1.0"
+        MARKETING_VERSION: "0.3.0"
         CURRENT_PROJECT_VERSION: "1"
         GIT_SHA: dev
-        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       configs:
         Debug:
-          API_BASE_URL: "http://localhost:3000"
+          # Debug points at the deployed site so a phone build from Xcode works without a local server
+          # (decision 2026-10-29). Use http://localhost:3000 to test against `pnpm dev` in the simulator.
+          API_BASE_URL: "https://maker-story-three.vercel.app"
         Release:
           # Deployed site (docs/handoffs/ios.md). Override: xcodebuild ... API_BASE_URL=https://...
           API_BASE_URL: "https://maker-story-three.vercel.app"

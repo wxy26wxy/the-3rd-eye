@@ -57,3 +57,12 @@ Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s 
 
 ## Last updated
 2026-10-29 (T051)
+
+## TestFlight (T060)
+- Icon: `pnpm icon` renders `ios/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` from `design/tokens.json` (no alpha, as App Store Connect requires). To use a designer-made icon, replace that PNG.
+- Settings in `ios/project.yml`: `DEVELOPMENT_TEAM` (the Apple Developer Program team), `MARKETING_VERSION` (0.3.0), `CURRENT_PROJECT_VERSION` (build number; `ios/scripts/bump_build.sh` increments it, every upload needs a new one). `Info.plist` sets `ITSAppUsesNonExemptEncryption` to false (HTTPS only) so builds skip the export-compliance question.
+- Release builds talk to the production site (`API_BASE_URL` in `project.yml`); TestFlight installs are Release.
+- Upload: `bash ios/scripts/testflight.sh` (bumps the build number, `xcodegen generate`, archives with `-allowProvisioningUpdates`, exports with `ios/ExportOptions.plist` using `method app-store-connect`, `destination upload`). Xcode must be signed in with the team's Apple ID (Xcode → Settings → Accounts), or export `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_PATH` for an App Store Connect API key kept outside the repo.
+- First time only: create the app record in App Store Connect (My Apps → + → New App → iOS, bundle id `com.makerstory.app`, SKU `maker-story`).
+- Testers: App Store Connect → TestFlight. Internal testers are team members (add the person under Users and Access first); they get the build minutes after processing. External testers use a group with a public link; the first build goes through Beta App Review (about a day). Give each tester one creator code privately; never put codes in the test notes.
+- Log every upload in `docs/deployments.md` (version, build, git sha, who was invited).

@@ -1,0 +1,13 @@
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: var(--radius-pill);
+  border: var(--border-thin) solid var(--border);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-display);
+  object-fit: cover;
+}
+.m { width: var(--size-avatar); height: var(--size-avatar); font-size: var(--type-title-m-size); }
+.l { width: calc(var(--size-avatar) * 1.8); height: calc(var(--size-avatar) * 1.8); font-size: var(--type-display-m-size); }

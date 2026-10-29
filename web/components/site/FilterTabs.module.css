@@ -1,0 +1,15 @@
+.list { display: flex; flex-wrap: wrap; gap: var(--space-s); list-style: none; }
+.tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--size-min-target);
+  padding: 0 var(--space-xl);
+  border-radius: var(--radius-pill);
+  border: var(--border-thin) solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: var(--type-title-m-weight);
+  text-decoration: none;
+  box-shadow: var(--shadow-icon);
+}
+.tab[aria-current="page"] { background: var(--primary); color: var(--primary-text); }

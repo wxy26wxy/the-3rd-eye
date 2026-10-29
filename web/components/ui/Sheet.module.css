@@ -1,0 +1,8 @@
+.wrap { display: block; }
+.sheet {
+  background: var(--surface);
+  color: var(--text);
+  padding: var(--space-xl) var(--layout-gutter) var(--space-section);
+  border-left: 0;
+  border-right: 0;
+}

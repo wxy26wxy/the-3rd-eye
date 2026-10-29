@@ -1,0 +1,49 @@
+.group { border: 0; display: grid; gap: var(--space-l); min-width: 0; }
+.grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-l);
+  min-height: calc(var(--size-cta) * 1.5);
+  padding: var(--space-l) var(--space-xl);
+  background: var(--surface);
+  color: var(--text);
+  border: var(--border-card) solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-hard-l);
+  cursor: pointer;
+  transition: transform var(--motion-fast) var(--motion-easing), background var(--motion-base) var(--motion-easing);
+}
+.grid .card { flex-direction: column; text-align: center; padding: var(--space-xl) var(--space-m); }
+.card:has(.input:checked) { background: var(--selected); }
+.card:has(.input:focus-visible) { outline: var(--border-card) solid var(--focus-ring); outline-offset: var(--border-card); }
+.card:active { transform: translateY(var(--border-thin)); }
+.input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.media {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--size-method-icon);
+  height: var(--size-method-icon);
+  border-radius: var(--radius-pill);
+  background: var(--surface-alt);
+  border: var(--border-thin) solid var(--border);
+  font-size: var(--type-display-m-size);
+}
+.grid .media { width: calc(var(--size-method-icon) * 1.8); height: calc(var(--size-method-icon) * 1.8); border-radius: var(--radius-m); }
+.body { display: grid; gap: var(--space-xs); flex: 1; }
+.title { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: 1.15; }
+.desc { font-size: var(--type-body-s-size); line-height: var(--type-body-s-lh); color: var(--text-muted); }
+.card:has(.input:checked) .desc { color: var(--text); }
+.badge { position: absolute; top: calc(var(--space-section) * -0.9); right: calc(var(--space-s) * -1); }
+.check {
+  flex: none;
+  width: var(--space-xxl);
+  height: var(--space-xxl);
+  border-radius: var(--radius-pill);
+  border: var(--border-card) solid var(--border);
+  background: var(--surface-alt);
+}
+.grid .check { position: absolute; top: var(--space-m); right: var(--space-m); }
+.card:has(.input:checked) .check { background: var(--border); box-shadow: inset 0 0 0 var(--border-card) var(--surface-alt); }

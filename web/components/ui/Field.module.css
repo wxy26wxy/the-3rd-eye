@@ -1,0 +1,50 @@
+.field { display: grid; gap: var(--space-xs); }
+.label { font-size: var(--type-body-size); font-weight: var(--type-title-m-weight); }
+.hint { font-size: var(--type-caption-size); line-height: var(--type-caption-lh); color: var(--text-muted); }
+.error { font-size: var(--type-caption-size); font-weight: var(--type-title-m-weight); color: var(--danger); }
+.control {
+  width: 100%;
+  min-height: var(--size-cta-secondary);
+  padding: var(--space-m) var(--space-l);
+  background: var(--surface-alt);
+  color: var(--text);
+  border: var(--border-card) solid var(--border);
+  border-radius: var(--radius-m);
+  font-size: var(--type-body-l-size);
+  font-weight: var(--type-body-l-weight);
+  line-height: 1.35;
+}
+textarea.control { resize: vertical; }
+.control::placeholder { color: var(--text-muted); opacity: 1; }
+.control:focus-visible { outline-offset: var(--border-thin); }
+.control[aria-invalid="true"] { border-color: var(--danger); }
+
+.switchRow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-l); }
+.switchLabel { display: grid; gap: var(--space-xs); cursor: pointer; }
+.switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: calc(var(--size-min-target) * 1.6);
+  height: var(--size-min-target);
+  border-radius: var(--radius-pill);
+  background: var(--color-sage);
+  border: var(--border-card) solid var(--border);
+  cursor: pointer;
+  transition: background var(--motion-base) var(--motion-easing);
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: var(--border-card);
+  width: calc(var(--size-min-target) - var(--space-l));
+  aspect-ratio: 1;
+  border-radius: var(--radius-pill);
+  background: var(--surface-alt);
+  border: var(--border-thin) solid var(--border);
+  transform: translateY(-50%);
+  transition: left var(--motion-base) var(--motion-easing);
+}
+.switch:checked { background: var(--accent); }
+.switch:checked::after { left: calc(100% - var(--size-min-target) + var(--space-m)); background: var(--border); }

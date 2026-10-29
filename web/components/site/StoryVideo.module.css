@@ -1,0 +1,21 @@
+.video {
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  max-height: 80vh;
+  object-fit: cover;
+  background: var(--primary);
+  border: var(--border-card) solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-hard-l);
+}
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-m);
+  padding: var(--space-xxl);
+  text-align: center;
+  background: var(--surface-alt);
+  border: var(--border-thin) dashed var(--border);
+  border-radius: var(--radius-card);
+}
+.tag { width: var(--size-record); }

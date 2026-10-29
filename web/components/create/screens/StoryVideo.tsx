@@ -12,6 +12,7 @@ import { Title } from "@/components/ui/Text";
 import { blobToWav } from "@/lib/audio/wav";
 import { api, extFor, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid } from "../api";
 import { CreateScreen } from "../CreateScreen";
+import { describeError, ErrorNotice, type ScreenError } from "../errors";
 import { useCreator } from "../store";
 import { FilePicker } from "./Photo";
 import styles from "../Create.module.css";
@@ -42,7 +43,7 @@ export function StoryVideo() {
   const [file, setFile] = useState<File | null>(null);
   const [mention, setMention] = useState(false);
   const [phase, setPhase] = useState<"pick" | "uploading" | "processing">("pick");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ScreenError | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -71,8 +72,8 @@ export function StoryVideo() {
       await api("creators/me/story-video", { json: { videoUrl: blob.pathname, audioUrl, mentionDisability: mention } });
       void refresh();
       router.push("/create/live");
-    } catch {
-      setError(m.create.errorGeneric);
+    } catch (err) {
+      setError(describeError(err));
       setPhase("pick");
     }
   }
@@ -104,7 +105,7 @@ export function StoryVideo() {
       <Card pad="m" tone="white">
         <Switch label={m.create.story.mention} hint={m.create.story.mentionHint} checked={mention} onChange={(e) => setMention(e.target.checked)} disabled={busy} />
       </Card>
-      {error ? <Status tone="error">{error}</Status> : null}
+      <ErrorNotice error={error} onRetry={() => void submit()} />
     </CreateScreen>
   );
 }

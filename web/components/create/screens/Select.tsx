@@ -4,11 +4,12 @@ import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
 import { Button } from "@/components/ui/Button";
 import { CameraIcon } from "@/components/ui/Icons";
-import { Loading, Status } from "@/components/ui/Loading";
+import { Loading } from "@/components/ui/Loading";
 import { api, type Artwork } from "../api";
 import { CreateScreen, HydratingScreen, MissingState } from "../CreateScreen";
 import { makeProduct, useCreate } from "../store";
 import { VariantPicker } from "./VariantPicker";
+import { describeError, ErrorNotice, type ScreenError } from "../errors";
 
 /** SAM found several drawings: the creator taps the one they want. */
 export function Select() {
@@ -23,10 +24,10 @@ function SelectFlow() {
   const { draft } = useCreate();
   const [choice, setChoice] = useState<string | undefined>(draft.candidates?.[0]?.id);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ScreenError | null>(null);
   const retake = draft.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
 
-  async function useThis() {
+  async function chooseThis() {
     if (!choice || !draft.photoArtworkId || !draft.product) return;
     setBusy(true);
     setError(null);
@@ -34,8 +35,8 @@ function SelectFlow() {
       const art = await api<Artwork>(`artworks/${draft.photoArtworkId}/select`, { json: { candidateId: choice } });
       await makeProduct(art.id, draft.product);
       router.push("/create/ready");
-    } catch {
-      setError(m.create.errorGeneric);
+    } catch (err) {
+      setError(describeError(err));
       setBusy(false);
     }
   }
@@ -48,13 +49,13 @@ function SelectFlow() {
       lead={m.create.select.copy}
       footer={busy ? null : (
         <>
-          <Button block onClick={useThis} disabled={!choice}>{m.create.select.use}</Button>
+          <Button block onClick={chooseThis} disabled={!choice}>{m.create.select.use}</Button>
           <Button block variant="secondary" arrow={false} icon={<CameraIcon />} href={retake}>{m.create.select.retake}</Button>
         </>
       )}
     >
       {busy ? <Loading label={fmt(m.create.result.making, { product: draft.product === "tote" ? m.common.tote.toLowerCase() : m.common.sticker.toLowerCase() })} /> : null}
-      {error ? <Status tone="error">{error}</Status> : null}
+      <ErrorNotice error={error} onRetry={() => void chooseThis()} retakeHref={retake} />
       <VariantPicker
         name="candidate"
         legend={m.create.select.groupLabel}

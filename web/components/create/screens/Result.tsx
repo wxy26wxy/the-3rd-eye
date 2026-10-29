@@ -7,13 +7,14 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Field } from "@/components/ui/Field";
 import { KeyboardIcon, MicIcon, StopIcon } from "@/components/ui/Icons";
-import { Loading, Status } from "@/components/ui/Loading";
+import { Loading } from "@/components/ui/Loading";
 import { Eyebrow } from "@/components/ui/Text";
 import { api, transcribe, type ArtworkVariant } from "../api";
 import { CreateScreen, MissingState } from "../CreateScreen";
 import { makeProduct, useCreate } from "../store";
 import { useRecorder } from "../useRecorder";
 import { VariantPicker } from "./VariantPicker";
+import { describeError, ErrorNotice, type ScreenError } from "../errors";
 import styles from "../Create.module.css";
 
 type Phase = "pick" | "change" | "recording" | "changing" | "making";
@@ -24,7 +25,8 @@ export function Result() {
   const [phase, setPhase] = useState<Phase>("pick");
   const [typing, setTyping] = useState(false);
   const [instruction, setInstruction] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ScreenError | null>(null);
+  const [retry, setRetry] = useState<(() => void) | null>(null);
   const recorder = useRecorder({ onAutoStop: (b) => void afterRecording(b) });
 
   const variants = draft.variants ?? [];
@@ -42,32 +44,34 @@ export function Result() {
       setInstruction("");
       setPhase("pick");
       if (artwork.spokenDescription) speak(artwork.spokenDescription);
-    } catch {
-      setError(m.create.errorGeneric);
+    } catch (err) {
+      setError(describeError(err));
+      setRetry(() => () => void refine(text));
       setPhase("change");
     }
   }
   async function afterRecording(blob: Blob | null) {
-    if (!blob) { setError(m.create.errorGeneric); setPhase("change"); return; }
+    if (!blob) { setError(describeError(null)); setRetry(null); setPhase("change"); return; }
     setPhase("changing");
-    try { await refine(await transcribe(blob)); } catch { setError(m.create.errorGeneric); setPhase("change"); }
+    try { await refine(await transcribe(blob)); } catch (err) { setError(describeError(err)); setRetry(null); setPhase("change"); }
   }
-  async function useThis() {
+  async function chooseThis() {
     if (!selected || !draft.product) return;
     setPhase("making");
     setError(null);
     try {
       await makeProduct(selected, draft.product);
       router.push("/create/ready");
-    } catch {
-      setError(m.create.errorGeneric);
+    } catch (err) {
+      setError(describeError(err));
+      setRetry(() => () => void chooseThis());
       setPhase("pick");
     }
   }
 
   const footer = phase === "pick" ? (
     <>
-      <Button block onClick={useThis} disabled={!selected}>{m.create.result.use}</Button>
+      <Button block onClick={chooseThis} disabled={!selected}>{m.create.result.use}</Button>
       <Button block variant="secondary" arrow={false} icon={<MicIcon />} onClick={() => setPhase("change")}>{m.create.result.change}</Button>
     </>
   ) : null;
@@ -104,7 +108,7 @@ export function Result() {
           <Button variant="ghost" arrow={false} onClick={() => { setPhase("pick"); setTyping(false); }}>{m.common.back}</Button>
         </Card>
       ) : null}
-      {error ? <Status tone="error">{error}</Status> : null}
+      <ErrorNotice error={error} onRetry={retry ?? undefined} />
       <VariantPicker
         name="variant"
         legend={m.create.result.groupLabel}

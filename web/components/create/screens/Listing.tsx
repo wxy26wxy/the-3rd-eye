@@ -10,6 +10,7 @@ import { Loading, Status } from "@/components/ui/Loading";
 import { Title } from "@/components/ui/Text";
 import { api, type AgentStep, type ListingDraft, type Product } from "../api";
 import { CreateScreen, MissingState } from "../CreateScreen";
+import { describeError, ErrorNotice, type ScreenError } from "../errors";
 import { once, updateDraft, useCreate, useCreator } from "../store";
 import styles from "../Create.module.css";
 
@@ -39,7 +40,7 @@ function ListingForm() {
   const [running, setRunning] = useState(!draft.listing);
   const [showTrace, setShowTrace] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ScreenError | null>(null);
   const [errors, setErrors] = useState<{ title?: string; price?: string }>({});
 
   function apply(l: ListingDraft) {
@@ -52,7 +53,7 @@ function ListingForm() {
     if (!p) return Promise.resolve();
     return once(key, () => api<{ listing: ListingDraft; trace: AgentStep[] }>(`listings/${p.id}/run`, { method: "POST", json: {} }))
       .then((res) => { update({ listing: res.listing, trace: res.trace }); apply(res.listing); })
-      .catch(() => setError(m.create.errorGeneric))
+      .catch((err) => setError(describeError(err)))
       .finally(() => setRunning(false));
   }
   function improve() {
@@ -87,8 +88,9 @@ function ListingForm() {
       });
       updateDraft({ productRecord: res.product, listingTitle: title.trim(), storyVideoNeeded: res.storyVideoNeeded });
       router.push(res.storyVideoNeeded ? "/create/story-video" : "/create/live");
-    } catch {
-      setError(m.create.errorGeneric);
+    } catch (err) {
+      // 409 print_check_failed / moderation_failed: stay on the form and show the reason.
+      setError(describeError(err));
       setSubmitting(false);
     }
   }
@@ -126,7 +128,7 @@ function ListingForm() {
             </Card>
           </>
         ) : null}
-        {error ? <Status tone="error">{error}</Status> : null}
+        <ErrorNotice error={error} onRetry={improve} />
         <Button type="submit" block disabled={submitting || running}>{submitting ? m.create.listing.submitting : m.create.listing.submit}</Button>
       </form>
     </CreateScreen>

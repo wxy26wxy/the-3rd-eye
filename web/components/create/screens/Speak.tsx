@@ -14,6 +14,7 @@ import { CreateScreen, HydratingScreen, MissingState } from "../CreateScreen";
 import { useCreate } from "../store";
 import { useRecorder } from "../useRecorder";
 import styles from "../Create.module.css";
+import { describeError } from "../errors";
 
 type Phase = "idle" | "recording" | "transcribing" | "review" | "shaping" | "question";
 
@@ -47,8 +48,8 @@ function SpeakFlow() {
       if (forAnswer) { await shape(transcript, [...answers, text]); return; }
       setTranscript(text);
       setPhase("review");
-    } catch {
-      setError(m.create.errorGeneric);
+    } catch (err) {
+      setError(describeError(err).message);
       setPhase(forAnswer ? "question" : "idle");
     }
   }
@@ -83,8 +84,8 @@ function SpeakFlow() {
       update({ transcript: text, answers: nextAnswers, shaped: res, variants: undefined, artworkId: undefined });
       speak(res.spoken_confirmation);
       router.push("/create/drawing");
-    } catch {
-      setError(m.create.errorGeneric);
+    } catch (err) {
+      setError(describeError(err).message);
       setPhase(question ? "question" : "review");
     }
   }

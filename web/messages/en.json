@@ -390,6 +390,14 @@
       "another": "Make another",
       "buyerView": "See what buyers see",
       "spoken": "You're live! {title} is now in the shop."
+    },
+    "errors": {
+      "printCheck": "This won't print well yet: {reason}",
+      "moderation": "We can't put this text in the shop: {reason} Please change the name or description.",
+      "noDrawing": "We could not find a drawing in that picture. Try a photo with the drawing on plain paper, in good light.",
+      "timeout": "That took too long. Your work is saved, so you can try again.",
+      "retry": "Try again",
+      "retake": "Retake the photo"
     }
   },
   "mascot": {

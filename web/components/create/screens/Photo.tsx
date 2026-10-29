@@ -6,9 +6,10 @@ import { m } from "@/components/messages";
 import { ArtImage } from "@/components/ui/ArtImage";
 import { ButtonFace } from "@/components/ui/Button";
 import { CameraIcon, UploadIcon } from "@/components/ui/Icons";
-import { Loading, Status } from "@/components/ui/Loading";
+import { Loading } from "@/components/ui/Loading";
 import { api, extFor, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid, type Artwork, type Candidate } from "../api";
 import { CreateScreen, MissingState } from "../CreateScreen";
+import { describeError, ErrorNotice, type ScreenError } from "../errors";
 import { makeProduct, useCreate, useCreator } from "../store";
 import styles from "../Create.module.css";
 
@@ -21,7 +22,8 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
   const { creator, refresh } = useCreator();
   const [phase, setPhase] = useState<Phase>("pick");
   const [preview, setPreview] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ScreenError | null>(null);
+  const [lastFile, setLastFile] = useState<File | null>(null);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
   if (ready && !draft.product) return <MissingState />;
@@ -30,6 +32,7 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
   async function onFile(file: File | undefined) {
     if (!file || !draft.product) return;
     setError(null);
+    setLastFile(file);
     setPreview(URL.createObjectURL(file));
     setPhase("uploading");
     try {
@@ -49,8 +52,8 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
       update({ transcript: undefined });
       await makeProduct(res.artwork.id, draft.product);
       router.push("/create/ready");
-    } catch {
-      setError(m.create.photo.error);
+    } catch (err) {
+      setError(describeError(err, m.create.photo.error));
       setPhase("pick");
     }
   }
@@ -61,7 +64,7 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
       {phase === "uploading" ? <Loading label={m.create.photo.uploading} /> : null}
       {phase === "finding" ? <Loading label={m.create.photo.finding} /> : null}
       {phase === "making" ? <Loading label={m.create.result.making.replace("{product}", draft.product === "tote" ? m.common.tote.toLowerCase() : m.common.sticker.toLowerCase())} /> : null}
-      {error ? <Status tone="error">{error}</Status> : null}
+      <ErrorNotice error={error} onRetry={lastFile ? () => void onFile(lastFile) : undefined} />
       {phase === "pick" ? (
         <FilePicker
           label={preview ? m.create.photo.retake : camera ? m.create.photo.pickCamera : m.create.photo.pickUpload}

@@ -21,3 +21,5 @@ scratch/
 
 # local tooling scratch
 .superpowers/
+skills-lock.json
+.agents/

@@ -19,13 +19,6 @@ targets:
     platform: iOS
     sources:
       - path: App
-        excludes:
-          # Compiled from a build-time copy; see scripts/prepare_tokens.sh.
-          - "Theme/Tokens.swift"
-      # Written by scripts/prepare_tokens.sh before compilation (git-ignored).
-      - path: build/generated/TokensCompiled.swift
-        optional: true
-        group: App/Theme
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.makerstory.app
@@ -41,15 +34,6 @@ targets:
           API_BASE_URL: "http://localhost:3000"
         Release:
           API_BASE_URL: "http://localhost:3000"
-    preBuildScripts:
-      - name: Prepare design tokens
-        script: bash "${SRCROOT}/scripts/prepare_tokens.sh"
-        inputFiles:
-          - $(SRCROOT)/App/Theme/Tokens.swift
-          - $(SRCROOT)/scripts/prepare_tokens.sh
-        outputFiles:
-          - $(SRCROOT)/build/generated/TokensCompiled.swift
-        basedOnDependencyAnalysis: true
     postBuildScripts:
       - name: Stamp git sha
         script: bash "${SRCROOT}/scripts/stamp_git_sha.sh"

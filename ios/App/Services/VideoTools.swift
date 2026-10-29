@@ -58,7 +58,14 @@ enum VideoTools {
   }
 
   /// Reads the first audio track (at most `maxSeconds`, never past the video's end)
-  /// as 16 kHz mono 16-bit little-endian PCM and writes it as a WAV file.
+  /// and writes it as a 16 kHz mono 16-bit little-endian PCM WAV file.
+  ///
+  /// `AVAudioConverter` does the downmix and resampling. A PCM soundtrack is read
+  /// as stored (no decoding); a compressed one (AAC from the camera) is decoded by
+  /// the reader to float PCM at its own rate. The reader's decode path builds an
+  /// offline AudioQueue that talks to the audio server; in the simulator that
+  /// server is unreliable and the call can stall (seen: 15 s to many minutes), so
+  /// unit tests use a PCM source and the AAC path is checked on a device.
   static func extractSoundtrackWAV(from url: URL, maxSeconds: Double) async throws -> URL {
     let asset = AVURLAsset(url: url)
     guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw VideoError.noAudioTrack }
@@ -66,33 +73,55 @@ enum VideoTools {
     let cap = CMTime(seconds: maxSeconds, preferredTimescale: 600)
     let reader = try AVAssetReader(asset: asset)
     reader.timeRange = CMTimeRange(start: .zero, duration: CMTimeMinimum(length, cap))
-    let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+    let stored = try await track.load(.formatDescriptions).first.flatMap { CMAudioFormatDescriptionGetStreamBasicDescription($0)?.pointee }
+    let isPCM = stored?.mFormatID == kAudioFormatLinearPCM
+    let output = AVAssetReaderTrackOutput(track: track, outputSettings: isPCM ? nil : [
       AVFormatIDKey: kAudioFormatLinearPCM,
-      AVSampleRateKey: wavSampleRate,
-      AVNumberOfChannelsKey: wavChannels,
-      AVLinearPCMBitDepthKey: wavBitsPerSample,
-      AVLinearPCMIsFloatKey: false,
+      AVLinearPCMBitDepthKey: 32,
+      AVLinearPCMIsFloatKey: true,
       AVLinearPCMIsBigEndianKey: false,
       AVLinearPCMIsNonInterleaved: false,
     ])
-    output.alwaysCopiesSampleData = false
     guard reader.canAdd(output) else { throw VideoError.readFailed("cannot add output") }
     reader.add(output)
     guard reader.startReading() else { throw VideoError.readFailed(reader.error?.localizedDescription ?? "start") }
 
-    let maxBytes = Int(maxSeconds * Double(wavSampleRate * wavChannels * wavBitsPerSample / 8))
+    guard let target = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: Double(wavSampleRate), channels: AVAudioChannelCount(wavChannels), interleaved: true) else {
+      throw VideoError.readFailed("target format")
+    }
+    let maxBytes = Int(maxSeconds) * wavSampleRate * wavChannels * wavBitsPerSample / 8
     var pcm = Data()
     pcm.reserveCapacity(maxBytes)
+    var converter: AVAudioConverter?
+
+    func append(_ buffer: AVAudioPCMBuffer) {
+      guard buffer.frameLength > 0, let ch = buffer.int16ChannelData else { return }
+      pcm.append(Data(bytes: ch[0], count: Int(buffer.frameLength) * wavChannels * 2))
+    }
+
     while let sample = output.copyNextSampleBuffer() {
-      guard let block = CMSampleBufferGetDataBuffer(sample) else { continue }
-      let count = CMBlockBufferGetDataLength(block)
-      var chunk = Data(count: count)
-      let status = chunk.withUnsafeMutableBytes { raw in
-        CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: count, destination: raw.baseAddress!)
+      guard let input = pcmBuffer(from: sample) else { continue }
+      if converter == nil { converter = AVAudioConverter(from: input.format, to: target) }
+      guard let converter else { throw VideoError.readFailed("converter") }
+      let capacity = AVAudioFrameCount(Double(input.frameLength) * target.sampleRate / input.format.sampleRate) + 1024
+      guard let out = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { continue }
+      var fed = false
+      var convError: NSError?
+      _ = converter.convert(to: out, error: &convError) { _, status in
+        if fed { status.pointee = .noDataNow; return nil }
+        fed = true
+        status.pointee = .haveData
+        return input
       }
-      if status == kCMBlockBufferNoErr { pcm.append(chunk) }
+      if let convError { throw VideoError.readFailed(convError.localizedDescription) }
+      append(out)
     }
     if reader.status == .failed { throw VideoError.readFailed(reader.error?.localizedDescription ?? "read") }
+    // Flush what the resampler still holds.
+    if let converter, let out = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: 4096) {
+      _ = converter.convert(to: out, error: nil) { _, status in status.pointee = .endOfStream; return nil }
+      append(out)
+    }
     // Whole frames only, and never more than the cap.
     let frameBytes = wavChannels * wavBitsPerSample / 8
     let usable = min(pcm.count, maxBytes) / frameBytes * frameBytes
@@ -104,6 +133,18 @@ enum VideoTools {
     try file.write(to: out)
     log.debug("soundtrack wav: \(file.count, privacy: .public) bytes")
     return out
+  }
+
+  /// Copies a PCM sample buffer (as stored, or decoded by the reader) into an AVAudioPCMBuffer.
+  private static func pcmBuffer(from sample: CMSampleBuffer) -> AVAudioPCMBuffer? {
+    guard let description = CMSampleBufferGetFormatDescription(sample),
+          let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(description),
+          let format = AVAudioFormat(streamDescription: asbd) else { return nil }
+    let frames = AVAudioFrameCount(CMSampleBufferGetNumSamples(sample))
+    guard frames > 0, let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames) else { return nil }
+    buffer.frameLength = frames
+    let status = CMSampleBufferCopyPCMDataIntoAudioBufferList(sample, at: 0, frameCount: Int32(frames), into: buffer.mutableAudioBufferList)
+    return status == noErr ? buffer : nil
   }
 
   /// 44-byte canonical RIFF/WAVE header for integer PCM.

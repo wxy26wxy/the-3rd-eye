@@ -3,21 +3,20 @@ import XCTest
 @testable import MakerStory
 
 final class VideoToolsTests: XCTestCase {
-  /// Writes `seconds` of a 440 Hz tone as 44.1 kHz stereo float PCM (a phone video's
-  /// soundtrack rate and layout). PCM rather than AAC: the simulator's AAC encoder can
-  /// stall for minutes waiting on the audio server.
+  /// Writes `seconds` of a 440 Hz tone as 44.1 kHz stereo 16-bit PCM (a phone video's
+  /// soundtrack rate and layout). Written by hand: encoding through AudioToolbox in the
+  /// simulator can stall for minutes waiting on the audio server.
   private func makeTone(seconds: Double) throws -> URL {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("tone-\(UUID().uuidString).caf")
-    let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2)!
-    let file = try AVAudioFile(forWriting: url, settings: format.settings)
-    let frames = AVAudioFrameCount(seconds * 44_100)
-    let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
-    buffer.frameLength = frames
-    for ch in 0..<2 {
-      let samples = buffer.floatChannelData![ch]
-      for i in 0..<Int(frames) { samples[i] = Float(sin(2 * Double.pi * 440 * Double(i) / 44_100) * 0.5) }
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("tone-\(UUID().uuidString).wav")
+    let frames = Int(seconds * 44_100)
+    var pcm = Data(capacity: frames * 4)
+    for i in 0..<frames {
+      let v = Int16(sin(2 * Double.pi * 440 * Double(i) / 44_100) * 16_000)
+      withUnsafeBytes(of: v.littleEndian) { pcm.append(contentsOf: $0); pcm.append(contentsOf: $0) }
     }
-    try file.write(from: buffer)
+    var file = VideoTools.wavHeader(pcmByteCount: pcm.count, sampleRate: 44_100, channels: 2, bitsPerSample: 16)
+    file.append(pcm)
+    try file.write(to: url)
     return url
   }
 

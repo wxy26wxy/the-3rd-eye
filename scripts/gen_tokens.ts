@@ -60,7 +60,7 @@ swift += `  }\n  enum Semantic {\n`;
 for (const [k, v] of Object.entries(tokens.semantic)) swift += `    static let ${k} = ${hexToSwift(deref(v) as string)}\n`;
 swift += `  }\n  enum HighContrast {\n`;
 for (const [k, v] of Object.entries<string>(tokens.highContrast)) swift += `    static let ${k} = ${hexToSwift(v)}\n`;
-swift += `  }\n  enum FontName {\n    static let display = "${tokens.font.display.family.replace(/ /g, "")}-Regular"\n    static let body = "${tokens.font.body.family}"\n  }\n  enum Type {\n`;
+swift += `  }\n  enum FontName {\n    static let display = "${tokens.font.display.family.replace(/ /g, "")}-Regular"\n    static let body = "${tokens.font.body.family}"\n  }\n  enum TypeScale {\n`;
 for (const [k, v] of Object.entries<any>(tokens.type)) swift += `    static let ${k}: CGFloat = ${v.size}\n`;
 swift += `  }\n  enum Space {\n`;
 for (const [k, v] of Object.entries(tokens.space)) swift += `    static let ${k}: CGFloat = ${v}\n`;

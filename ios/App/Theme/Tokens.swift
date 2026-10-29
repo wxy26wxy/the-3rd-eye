@@ -47,7 +47,7 @@ enum Tokens {
     static let display = "BagelFatOne-Regular"
     static let body = "Rubik"
   }
-  enum Type {
+  enum TypeScale {
     static let displayXL: CGFloat = 48
     static let displayL: CGFloat = 42
     static let displayM: CGFloat = 30

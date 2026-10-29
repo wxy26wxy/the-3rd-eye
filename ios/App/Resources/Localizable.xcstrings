@@ -34,6 +34,9 @@
     "Account" : {
 
     },
+    "Add a name and a price first, or tap Improve with AI." : {
+
+    },
     "Add a photo" : {
 
     },
@@ -188,6 +191,9 @@
 
     },
     "I didn't catch that. Try again, or type instead." : {
+
+    },
+    "I HEARD" : {
 
     },
     "I heard: \"%@\". Say \"yes\" to list it." : {
@@ -671,6 +677,9 @@
     "We make stickers and tote bags" : {
 
     },
+    "We'll ask again the next time you list something" : {
+
+    },
     "We're adding captions. Every product you sell will play it." : {
 
     },
@@ -717,9 +726,6 @@
 
     },
     "Yes, list it!" : {
-
-    },
-    "You can record it later in Settings" : {
 
     },
     "You earn %@" : {

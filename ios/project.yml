@@ -51,6 +51,18 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.makerstory.app.tests
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/MakerStory.app/MakerStory"
         BUNDLE_LOADER: "$(TEST_HOST)"
+  MakerStoryUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: MakerStory
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.makerstory.app.uitests
+        TEST_TARGET_NAME: MakerStory
 schemes:
   MakerStory:
     build:
@@ -61,3 +73,12 @@ schemes:
       targets:
         - MakerStoryTests
       gatherCoverageData: false
+  # Needs scripts/mock_api.py running and API_BASE_URL=http://localhost:3999.
+  MakerStoryUITests:
+    build:
+      targets:
+        MakerStory: all
+        MakerStoryUITests: [test]
+    test:
+      targets:
+        - MakerStoryUITests

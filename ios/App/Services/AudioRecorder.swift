@@ -1,7 +1,8 @@
 import AVFoundation
 import Observation
 
-/// AAC (.m4a) recorder for voice input. Max 60 s to stay within /transcribe limits.
+/// 16 kHz mono 16-bit PCM WAV recorder for voice input (Muse Voice Transcribe accepts WAV only).
+/// Max 60 s (about 1.9 MB) to stay within /transcribe limits.
 @MainActor
 @Observable
 final class AudioRecorder {
@@ -28,12 +29,14 @@ final class AudioRecorder {
     let session = AVAudioSession.sharedInstance()
     try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
     try session.setActive(true)
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent("voice-\(UUID().uuidString).m4a")
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("voice-\(UUID().uuidString).wav")
     let settings: [String: Any] = [
-      AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-      AVSampleRateKey: 44_100,
+      AVFormatIDKey: Int(kAudioFormatLinearPCM),
+      AVSampleRateKey: 16_000,
       AVNumberOfChannelsKey: 1,
-      AVEncoderAudioQualityKey: AVAudioQuality.medium.rawValue,
+      AVLinearPCMBitDepthKey: 16,
+      AVLinearPCMIsBigEndianKey: false,
+      AVLinearPCMIsFloatKey: false,
     ]
     let recorder = try AVAudioRecorder(url: url, settings: settings)
     recorder.isMeteringEnabled = true

@@ -16,6 +16,11 @@ T020 · public site, admin, and mobile-web creator flow (done on `feat/web-T01x`
 
 - **Admin auth** helper `web/lib/admin-auth.ts#checkAdminAuth(header)`: use it inside any admin Server Function or route.
 
+## Integration (T040, 2026-10-29)
+- `queries.contract.ts` is bound to the backend (maps rows from `lib/db/queries.ts`; writes go through `lib/pipeline/public`). `WEB_FIXTURES` and the example fixtures are gone; pages unchanged. `AdminOrder` gained `messages`.
+- `/create/code/session` signs in in-process; `/create/bff/*` still forwards over HTTP.
+- Open: story videos from the web flow carry no soundtrack WAV, so captions are not made on Vercel.
+
 ## Open questions for other roles
 - **Backend: build is blocked on this branch** by `web/lib/ai/registry.ts` importing `./fixtures` and `./meta`, which only exist once T010 lands. Web was verified with temporary stand-ins that were not committed.
 - **Backend: `/media/{pathname}` from public pages.** Story videos are private pathnames; the web requests `/media/<path>?tag=<token>` on story-tag pages and `/media/<path>` elsewhere (shop, profiles, and admin print links behind basic auth). Please allow public read of creator story videos, or tell us the token scheme.
@@ -24,4 +29,4 @@ T020 · public site, admin, and mobile-web creator flow (done on `feat/web-T01x`
 - **Backend: `/creators/me` `split`** is used for "You earn per sale"; defaults to 50% if missing.
 
 ## Last updated
-2026-10-28
+2026-10-29

@@ -136,3 +136,21 @@ final class TimeoutTests: XCTestCase {
     for req in stub.requests { XCTAssertGreaterThanOrEqual(req.timeoutInterval, 300, req.url?.path ?? "") }
   }
 }
+
+final class ConfigTests: XCTestCase {
+  func testMissingOrBrokenBaseURLFallsBackToDeployedSite() {
+    XCTAssertEqual(AppConfig.siteURL(from: nil), AppConfig.deployedSiteURL)
+    XCTAssertEqual(AppConfig.siteURL(from: ""), AppConfig.deployedSiteURL)
+    XCTAssertEqual(AppConfig.siteURL(from: "$(API_BASE_URL)"), AppConfig.deployedSiteURL)
+    XCTAssertEqual(AppConfig.siteURL(from: "http://localhost:3999").absoluteString, "http://localhost:3999")
+    XCTAssertFalse(AppConfig.deployedSiteURL.absoluteString.contains("localhost"))
+  }
+
+  func testReleaseDefaultIsNotLocalhost() throws {
+    let yml = try String(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("project.yml"), encoding: .utf8)
+    let release = try XCTUnwrap(yml.range(of: "Release:")).upperBound
+    let line = try XCTUnwrap(yml[release...].split(separator: "\n").first { $0.contains("API_BASE_URL:") })
+    XCTAssertFalse(line.contains("localhost"))
+    XCTAssertTrue(line.contains("https://"))
+  }
+}

@@ -8,6 +8,11 @@ enum APIError: LocalizedError, Equatable {
   case transport(String)
   case invalidResponse
 
+  /// URLSession reports a cancelled task as URLError.cancelled, not CancellationError.
+  static func isCancellation(_ error: Error) -> Bool {
+    error is CancellationError || (error as? URLError)?.code == .cancelled || Task.isCancelled
+  }
+
   var errorDescription: String? {
     switch self {
     case .server(_, _, let message): return message

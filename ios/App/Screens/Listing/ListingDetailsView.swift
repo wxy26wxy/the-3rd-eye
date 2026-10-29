@@ -28,6 +28,7 @@ struct ListingDetailsView: View {
             .foregroundStyle(colors.text)
             .multilineTextAlignment(.center)
           ProgressView().tint(colors.text).accessibilityLabel(Text("Working"))
+          SlowWorkHint()
         }
       } else {
         form
@@ -38,6 +39,7 @@ struct ListingDetailsView: View {
           Task { await approve(via: "tap") }
         }
         .disabled(approving || title.trimmingCharacters(in: .whitespaces).isEmpty || priceCents <= 0)
+        SlowWorkHint(active: approving)
         if let capture {
           HStack(spacing: Theme.Space.m) {
             RecordButton(phase: capture.phase, idleLabel: "Say yes to approve") {
@@ -74,6 +76,7 @@ struct ListingDetailsView: View {
       .buttonStyle(PillButtonStyle(kind: .secondary, showsArrow: false))
       .disabled(improving || app.flow.product == nil)
       .accessibilityHint(Text("Writes a name, description and price for you to check"))
+      SlowWorkHint(active: improving)
 
       VoiceTextField(label: "Name", text: $title, prompt: "Happy Frog Sticker")
       VoiceTextField(label: "Description", text: $description, prompt: "A few words about it", axis: .vertical)

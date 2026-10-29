@@ -73,6 +73,18 @@
     "Buyers tap to hear your story" : {
 
     },
+    "Camera access is off, so I can't record a video. You can turn it on, or choose a video you already have." : {
+
+    },
+    "Camera access is off, so I can't record your video. You can turn it on, or choose a video you already have." : {
+
+    },
+    "Camera access is off, so I can't take the photo. You can turn it on, or pick a picture from your photos below." : {
+
+    },
+    "Camera access is off. You can turn it on in Settings." : {
+
+    },
     "Can't reach maker story. Check your connection and try again." : {
 
     },
@@ -82,6 +94,9 @@
     "Change it" : {
 
     },
+    "Change the words before saving" : {
+
+    },
     "Changing it…" : {
 
     },
@@ -89,6 +104,9 @@
 
     },
     "Checks your code and opens your studio" : {
+
+    },
+    "Choose a video instead" : {
 
     },
     "Choose from my photos" : {
@@ -124,6 +142,9 @@
     "Done" : {
 
     },
+    "Drafted story: %@" : {
+
+    },
     "Draw it, or say it out loud" : {
 
     },
@@ -136,6 +157,9 @@
     "Draws a new version with your change" : {
 
     },
+    "Edit it" : {
+
+    },
     "Extra tips for someone helping" : {
 
     },
@@ -143,9 +167,6 @@
 
     },
     "Finding your drawings" : {
-
-    },
-    "For example: LEO-2026" : {
 
     },
     "Go back" : {
@@ -176,6 +197,9 @@
 
     },
     "Helper mode, on" : {
+
+    },
+    "Here's a story we drafted from your video" : {
 
     },
     "Here's your idea" : {
@@ -212,6 +236,12 @@
     "Improve with AI" : {
 
     },
+    "In Settings, tap maker story, then turn on Camera." : {
+
+    },
+    "It comes from what you said. Use it, change it, or skip it." : {
+
+    },
     "It's saved in My designs." : {
 
     },
@@ -219,6 +249,9 @@
 
     },
     "Keeps this picture for your product" : {
+
+    },
+    "Keeps your story as it is" : {
 
     },
     "Large text" : {
@@ -320,6 +353,9 @@
     "One quick question" : {
 
     },
+    "Open Settings" : {
+
+    },
     "Open the camera" : {
 
     },
@@ -327,6 +363,9 @@
 
     },
     "Opens the order" : {
+
+    },
+    "Opens the Settings app so you can turn on the camera" : {
 
     },
     "Opens this way of making art" : {
@@ -384,6 +423,9 @@
     "QUESTION" : {
 
     },
+    "Read it to me" : {
+
+    },
     "Read picture descriptions out loud" : {
 
     },
@@ -420,7 +462,19 @@
     "Retake" : {
 
     },
+    "Save my story" : {
+
+    },
+    "Saves it as the story buyers read" : {
+
+    },
+    "Saves your changes as your story" : {
+
+    },
     "Saving your video…" : {
+
+    },
+    "Saving…" : {
 
     },
     "Say it instead of typing" : {
@@ -510,6 +564,9 @@
     "Simple mode" : {
 
     },
+    "Skip" : {
+
+    },
     "Skip for now" : {
 
     },
@@ -560,6 +617,9 @@
     "Sticker" : {
 
     },
+    "Still working. This can take a few minutes, so please keep the app open." : {
+
+    },
     "Stop" : {
 
     },
@@ -570,6 +630,9 @@
 
     },
     "Stops recording and writes down what you said" : {
+
+    },
+    "Story saved" : {
 
     },
     "Take a photo" : {
@@ -602,6 +665,9 @@
     "That picture couldn't be opened. Try another one." : {
 
     },
+    "That video couldn't be opened. Try another one." : {
+
+    },
     "The app got an answer it did not understand. Please try again." : {
 
     },
@@ -618,6 +684,9 @@
 
     },
     "This device has no camera, so you can pick a picture instead." : {
+
+    },
+    "This video has no sound, so it won't have captions." : {
 
     },
     "Tote bag" : {
@@ -641,6 +710,9 @@
     "Type your answer" : {
 
     },
+    "Type your code here" : {
+
+    },
     "Type your idea" : {
 
     },
@@ -654,6 +726,9 @@
 
     },
     "Use this" : {
+
+    },
+    "Use this story" : {
 
     },
     "Version" : {
@@ -672,6 +747,9 @@
 
     },
     "We found %lld drawings. Tap the one to use." : {
+
+    },
+    "We kept the first 15 seconds of your video." : {
 
     },
     "We make stickers and tote bags" : {
@@ -743,6 +821,9 @@
     "You said: %@" : {
 
     },
+    "You were signed out to keep your studio safe. Type your code to keep going." : {
+
+    },
     "You're live!" : {
 
     },
@@ -785,10 +866,16 @@
     "Your product" : {
 
     },
+    "Your story" : {
+
+    },
     "Your studio gave you a short code. Type it or say it." : {
 
     },
     "YOUR THANK-YOU" : {
+
+    },
+    "Your video was longer than 30 seconds, so we kept the first 30." : {
 
     }
   },

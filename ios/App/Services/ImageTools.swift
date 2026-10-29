@@ -1,4 +1,6 @@
+import ImageIO
 import UIKit
+import UniformTypeIdentifiers
 
 enum ImageTools {
   /// Redraws at scale 1 with the longest side ≤ `maxPixels`, orientation baked in,
@@ -14,5 +16,14 @@ enum ImageTools {
     }
   }
 
-  static func jpeg(_ image: UIImage) -> Data? { image.jpegData(compressionQuality: 0.85) }
+  /// JPEG of the pixels only: no EXIF, GPS, TIFF (camera make/model) or maker notes
+  /// from the original photo. Written with ImageIO so nothing but the quality is set.
+  static func jpeg(_ image: UIImage, quality: CGFloat = 0.85) -> Data? {
+    let upright = image.imageOrientation == .up ? image : normalized(image, maxPixels: .greatestFiniteMagnitude)
+    guard let cg = upright.cgImage else { return nil }
+    let data = NSMutableData()
+    guard let dest = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
+    CGImageDestinationAddImage(dest, cg, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+    return CGImageDestinationFinalize(dest) ? data as Data : nil
+  }
 }

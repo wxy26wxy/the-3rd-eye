@@ -43,6 +43,7 @@ struct LoadingScreen: View {
           .controlSize(.large)
           .tint(colors.textOnDark)
           .accessibilityLabel(Text("Working"))
+        SlowWorkHint(onDark: true)
       }
       Spacer()
     }

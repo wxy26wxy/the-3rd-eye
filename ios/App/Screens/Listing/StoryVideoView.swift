@@ -9,6 +9,9 @@ struct StoryVideoView: View {
   @State private var recording = false
   @State private var uploading = false
   @State private var error: String?
+  @State private var cameraDenied = false
+  @State private var videoFromLibrary = false
+  @State private var draft: StoryDraft?
 
   static let defaultPrompts = [
     String(localized: "Who are you?"),
@@ -52,11 +55,18 @@ struct StoryVideoView: View {
             Text("Saving your video…").themeFont(.body).foregroundStyle(colors.text)
           }
           .accessibilityElement(children: .combine)
+          SlowWorkHint()
+        }
+        if cameraDenied {
+          CameraDeniedCard(message: "Camera access is off, so I can't record your video. You can turn it on, or choose a video you already have.", libraryLabel: "Choose a video instead") {
+            videoFromLibrary = true
+            recording = true
+          }
         }
         if let error { ErrorCard(message: error) }
       }
     } actions: {
-      PillButton("Record my video", hint: "Opens the camera for up to 30 seconds") { recording = true }
+      PillButton("Record my video", hint: "Opens the camera for up to 30 seconds") { Task { await startRecording() } }
         .disabled(uploading)
       PillButton("Skip for now", hint: "We'll ask again the next time you list something", kind: .secondary, showsArrow: false) {
         app.push(.youreLive)
@@ -64,16 +74,34 @@ struct StoryVideoView: View {
       .disabled(uploading)
     }
     .fullScreenCover(isPresented: $recording) {
-      MediaPicker(mode: .video(maxSeconds: ThemeEffects.storyVideoSeconds)) { picked in
+      MediaPicker(mode: .video(maxSeconds: ThemeEffects.storyVideoSeconds), preferCamera: !videoFromLibrary) { picked in
         recording = false
         if case .video(let url)? = picked { Task { await upload(url) } }
       }
       .ignoresSafeArea()
     }
+    .sheet(isPresented: Binding(get: { draft != nil }, set: { if !$0 { draftDone() } })) {
+      if let draft { StoryDraftSheet(draft: draft) { draftDone() } }
+    }
     .task {
       if let fetched = try? await app.api.storyPrompts(), fetched.count == 3 { prompts = fetched }
       speakPrompts(force: false)
     }
+  }
+
+  /// Leaves the draft sheet (Use, Edit + Save, Skip, or swipe down) for "Video saved!".
+  private func startRecording() async {
+    let access = await CameraAccess.request()
+    cameraDenied = access == .denied
+    guard !cameraDenied else { return }
+    videoFromLibrary = false
+    recording = true
+  }
+
+  private func draftDone() {
+    guard draft != nil else { return }
+    draft = nil
+    app.push(.videoSaved)
   }
 
   private func speakPrompts(force: Bool) {
@@ -87,13 +115,17 @@ struct StoryVideoView: View {
     do {
       if app.creator == nil { await app.refreshCreator() }
       guard let creatorId = app.creator?.id else { throw APIError.unauthorized }
-      let data = try Data(contentsOf: url)
-      let ext = url.pathExtension.lowercased() == "mp4" ? "mp4" : "mov"
-      let uploaded = try await BlobUploader(api: app.api).upload(
-        data, creatorId: creatorId, kind: .storyVideo,
-        contentType: ext == "mp4" ? "video/mp4" : "video/quicktime", fileExtension: ext)
-      app.creator = try await app.api.saveStoryVideo(pathname: uploaded.pathname, mentionDisability: mentionDisability)
-      app.push(.videoSaved)
+      let sent = try await VideoUpload(api: app.api).upload(url, creatorId: creatorId, kind: .storyVideo, maxSeconds: ThemeEffects.storyVideoSeconds)
+      app.flow.storyVideoTrimmed = sent.trimmed
+      var creator = try await app.api.saveStoryVideo(pathname: sent.videoPathname, audioPathname: sent.audioPathname, mentionDisability: mentionDisability)
+      // The draft is on GET /creators/me; the story-video answer may not carry it.
+      if creator.storyDraft == nil, let fresh = try? await app.api.me() { creator = fresh }
+      app.creator = creator
+      if let found = creator.storyDraft, !found.text.isEmpty {
+        draft = found
+      } else {
+        app.push(.videoSaved)
+      }
     } catch {
       self.error = error.localizedDescription
     }

@@ -19,7 +19,7 @@ final class VoiceFlowUITests: XCTestCase {
       let code = app.textFields["Sign-in code"]
       XCTAssertTrue(code.waitForExistence(timeout: 5))
       code.tap()
-      code.typeText("TEST")
+      code.typeText("TEST-CODE")  // placeholder; the mock accepts any code
       app.buttons["Sign in"].tap()
     }
 

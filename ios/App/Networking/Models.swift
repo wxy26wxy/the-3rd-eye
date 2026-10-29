@@ -15,6 +15,21 @@ struct AccessPrefs: Codable, Equatable, Hashable {
   var highContrast: Bool = false
   var largeText: Bool = false
   var helperMode: Bool = false
+
+  init() {}
+
+  /// Missing or mistyped keys keep their defaults (older profiles store fewer keys).
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    func flag(_ key: CodingKeys, _ fallback: Bool) -> Bool { ((try? c.decodeIfPresent(Bool.self, forKey: key)) ?? nil) ?? fallback }
+    let d = AccessPrefs()
+    voiceFirst = flag(.voiceFirst, d.voiceFirst)
+    simpleMode = flag(.simpleMode, d.simpleMode)
+    speakDescriptions = flag(.speakDescriptions, d.speakDescriptions)
+    highContrast = flag(.highContrast, d.highContrast)
+    largeText = flag(.largeText, d.largeText)
+    helperMode = flag(.helperMode, d.helperMode)
+  }
 }
 
 struct Split: Codable, Equatable, Hashable {
@@ -23,6 +38,21 @@ struct Split: Codable, Equatable, Hashable {
   var productionBps: Int
 
   static let `default` = Split(creatorBps: 5000, orgBps: 3000, productionBps: 2000)
+
+  init(creatorBps: Int, orgBps: Int, productionBps: Int) {
+    self.creatorBps = creatorBps
+    self.orgBps = orgBps
+    self.productionBps = productionBps
+  }
+
+  /// Missing keys take the default split's value.
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    func bps(_ key: CodingKeys, _ fallback: Int) -> Int { ((try? c.decodeIfPresent(Int.self, forKey: key)) ?? nil) ?? fallback }
+    creatorBps = bps(.creatorBps, Self.default.creatorBps)
+    orgBps = bps(.orgBps, Self.default.orgBps)
+    productionBps = bps(.productionBps, Self.default.productionBps)
+  }
 
   enum CodingKeys: String, CodingKey {
     case creatorBps = "creator_bps"
@@ -45,6 +75,60 @@ struct Creator: Codable, Identifiable, Equatable {
   var accessPrefs: AccessPrefs?
   var split: Split?
   var isExample: Bool?
+  /// Story drafted from the story video's transcript (open-weight model), if any.
+  var storyDraft: StoryDraft?
+}
+
+/// `Creator.storyDraft`. Mirrors `POST /story/draft` (`headline`, `bio_short`,
+/// `story_text`); camelCase keys and a bare string are accepted too.
+struct StoryDraft: Codable, Equatable {
+  var headline: String?
+  var bioShort: String?
+  var storyText: String?
+  var provider: String?
+
+  /// What "Use" saves as `storyText`.
+  var text: String { [storyText, bioShort].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.first { !$0.isEmpty } ?? "" }
+
+  init(headline: String? = nil, bioShort: String? = nil, storyText: String? = nil, provider: String? = nil) {
+    self.headline = headline
+    self.bioShort = bioShort
+    self.storyText = storyText
+    self.provider = provider
+  }
+
+  private struct Key: CodingKey {
+    var stringValue: String
+    init(_ s: String) { stringValue = s }
+    init?(stringValue: String) { self.stringValue = stringValue }
+    var intValue: Int? { nil }
+    init?(intValue: Int) { nil }
+  }
+
+  init(from decoder: Decoder) throws {
+    if let single = try? decoder.singleValueContainer(), let text = try? single.decode(String.self) {
+      self.init(storyText: text)
+      return
+    }
+    let c = try decoder.container(keyedBy: Key.self)
+    func string(_ names: String...) -> String? {
+      for name in names { if let v = try? c.decodeIfPresent(String.self, forKey: Key(name)) { return v } }
+      return nil
+    }
+    self.init(
+      headline: string("headline"),
+      bioShort: string("bioShort", "bio_short"),
+      storyText: string("storyText", "story_text"),
+      provider: string("provider"))
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var c = encoder.container(keyedBy: Key.self)
+    try c.encodeIfPresent(headline, forKey: Key("headline"))
+    try c.encodeIfPresent(bioShort, forKey: Key("bioShort"))
+    try c.encodeIfPresent(storyText, forKey: Key("storyText"))
+    try c.encodeIfPresent(provider, forKey: Key("provider"))
+  }
 }
 
 /// `Artwork`; `ArtworkVariant` is the same shape plus `previewUrl`.
@@ -266,6 +350,8 @@ struct ApproveListingResponse: Decodable {
 
 struct StoryVideoRequest: Encodable {
   let videoUrl: String
+  /// Blob pathname of a 16 kHz mono WAV of the video's soundtrack (used for captions).
+  var audioUrl: String?
   var mentionDisability: Bool?
 }
 
@@ -286,6 +372,8 @@ struct ThankYouRequest: Encodable {
   var text: String?
   var imageUrl: String?
   var videoUrl: String?
+  /// Blob pathname of a WAV of the video's soundtrack (used for captions).
+  var audioUrl: String?
   var transcript: String?
   var draft: Bool?
 }

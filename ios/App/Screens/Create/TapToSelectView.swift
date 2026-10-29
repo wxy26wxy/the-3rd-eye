@@ -28,6 +28,7 @@ struct TapToSelectView: View {
         Task { await useChosen() }
       }
       .disabled(chosen == nil || busy)
+      SlowWorkHint(active: busy)
       PillButton("Retake", hint: "Takes a new photo", kind: .secondary, showsArrow: false) {
         app.replaceTop(with: .camera(app.flow.photoSource))
       }

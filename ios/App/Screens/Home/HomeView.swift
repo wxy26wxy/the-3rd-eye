@@ -42,7 +42,6 @@ struct HomeView: View {
       .tag(HomeTab.messages)
     }
     .onAppear { app.orders.start() }
-    .onChange(of: app.selectedTab) { app.speech.stop() }
   }
 }
 

@@ -30,7 +30,11 @@ final class AppState {
   let orders: OrdersStore
   var creator: Creator?
   private(set) var isSignedIn: Bool
-  var selectedTab: HomeTab = .create
+  /// The server ended the session (token expired); the code screen says so.
+  private(set) var sessionExpired = false
+  var selectedTab: HomeTab = .create {
+    didSet { if selectedTab != oldValue { speech.stop() } }
+  }
   /// Any route change stops speech before the next screen's onAppear can start
   /// its own (onDisappear of the old screen runs after that, so it can't be used).
   var createPath: [CreateRoute] = [] {
@@ -52,6 +56,9 @@ final class AppState {
     self.orders = OrdersStore(api: api)
     self.prefs = Self.loadPrefs()
     speech.speakDescriptions = prefs.speakDescriptions
+    api.onUnauthorized = { [weak self] in
+      Task { @MainActor in self?.sessionDidExpire() }
+    }
   }
 
   var split: Split { creator?.split ?? .default }
@@ -64,7 +71,15 @@ final class AppState {
     self.creator = creator
     if let serverPrefs = creator.accessPrefs { prefs = serverPrefs }
     isSignedIn = true
+    sessionExpired = false
     selectedTab = .create
+  }
+
+  /// Any route answered 401 with our token: sign out and go back to the code screen.
+  func sessionDidExpire() {
+    guard isSignedIn else { return }
+    sessionExpired = true
+    signOut()
   }
 
   func signOut() {
@@ -81,7 +96,7 @@ final class AppState {
     do {
       creator = try await api.me()
     } catch APIError.unauthorized {
-      signOut()
+      sessionDidExpire()
     } catch {
       // Keep the cached session; screens surface their own errors.
     }
@@ -92,6 +107,22 @@ final class AppState {
     guard isSignedIn else { return }
     if let updated = try? await api.updateMe(UpdateCreatorRequest(accessPrefs: prefs)) {
       creator = updated
+    }
+  }
+
+  // MARK: App lifecycle
+
+  /// Background: stop talking and polling. Foreground: resume polling, drop a stale speaking state.
+  func scenePhaseChanged(_ phase: ScenePhase) {
+    switch phase {
+    case .background:
+      speech.stop()
+      orders.stop()
+    case .active:
+      speech.resync()
+      if isSignedIn { orders.start() }
+    default:
+      break
     }
   }
 
@@ -147,6 +178,8 @@ final class CreateFlow {
   var artwork: Artwork?
   var product: Product?
   var approval: ApproveListingResponse?
+  /// The picked story video was longer than 30 s and only its start was kept.
+  var storyVideoTrimmed = false
 
   var currentVariant: ArtworkVariant? {
     variants.indices.contains(selectedVariant) ? variants[selectedVariant] : nil

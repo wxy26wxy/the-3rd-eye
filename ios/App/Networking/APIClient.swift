@@ -15,6 +15,14 @@ final class APIClient: @unchecked Sendable {
   private let transport: HTTPTransport
   private let tokenLock = NSLock()
   private var cachedToken: String?
+  private var unauthorizedHandler: (@Sendable () -> Void)?
+
+  /// Called (on any thread) after a signed-in request is answered 401: the token
+  /// expired or was revoked. The token is already cleared when it runs.
+  var onUnauthorized: (@Sendable () -> Void)? {
+    get { tokenLock.lock(); defer { tokenLock.unlock() }; return unauthorizedHandler }
+    set { tokenLock.lock(); unauthorizedHandler = newValue; tokenLock.unlock() }
+  }
 
   init(baseURL: URL = AppConfig.apiURL, transport: HTTPTransport = URLSession.shared, token: String? = Keychain.read(account: APIClient.tokenAccount)) {
     self.baseURL = baseURL
@@ -33,6 +41,10 @@ final class APIClient: @unchecked Sendable {
   var isSignedIn: Bool { token != nil }
 
   // MARK: Core
+
+  /// Long routes answer within 270 s on the server (docs/api.md, clarification 10);
+  /// the client waits longer so it never gives up first and retries work still running.
+  static let longTimeout: TimeInterval = 300
 
   static let decoder = JSONDecoder()
   static let encoder = JSONEncoder()
@@ -55,11 +67,23 @@ final class APIClient: @unchecked Sendable {
     do {
       (data, response) = try await transport.data(for: request)
     } catch {
+      // A cancelled task (screen left, retry) must stay a CancellationError so callers can ignore it.
+      if APIError.isCancellation(error) { throw CancellationError() }
       throw APIError.transport(error.localizedDescription)
     }
     guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
     guard (200..<300).contains(http.statusCode) else {
-      if http.statusCode == 401 { throw APIError.unauthorized }
+      if http.statusCode == 401 {
+        if let sent = request.value(forHTTPHeaderField: "Authorization") {
+          expire(sentAuthorization: sent)
+          throw APIError.unauthorized
+        }
+        // Not signed in (e.g. a wrong code on /auth/code): show the server's reason.
+        if let envelope = try? Self.decoder.decode(APIErrorEnvelope.self, from: data) {
+          throw APIError.server(status: 401, code: envelope.error.code, message: envelope.error.message)
+        }
+        throw APIError.unauthorized
+      }
       if let envelope = try? Self.decoder.decode(APIErrorEnvelope.self, from: data) {
         throw APIError.server(status: http.statusCode, code: envelope.error.code, message: envelope.error.message)
       }
@@ -70,6 +94,17 @@ final class APIClient: @unchecked Sendable {
     } catch {
       throw APIError.decoding(String(describing: error))
     }
+  }
+
+  /// Clears the session once, unless a newer sign-in already replaced the token that failed.
+  private func expire(sentAuthorization: String) {
+    tokenLock.lock()
+    let current = cachedToken.map { "Bearer \($0)" }
+    let handler = unauthorizedHandler
+    tokenLock.unlock()
+    guard current == sentAuthorization else { return }
+    token = nil
+    handler?()
   }
 
   func get<Response: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> Response {
@@ -108,20 +143,20 @@ final class APIClient: @unchecked Sendable {
   }
 
   func generateArtworks(prompt: String, transcript: String?, product: ProductType, n: Int) async throws -> [ArtworkVariant] {
-    let res: ArtworkVariantsResponse = try await post("artworks", TextToImageRequest(prompt: prompt, transcript: transcript, product: product, n: n), timeout: 180)
+    let res: ArtworkVariantsResponse = try await post("artworks", TextToImageRequest(prompt: prompt, transcript: transcript, product: product, n: n), timeout: Self.longTimeout)
     return res.artworks
   }
 
   func artworkFromPhoto(imageUrl: String, product: ProductType, source: String = "photo") async throws -> PhotoArtworkResponse {
-    try await post("artworks", PhotoArtworkRequest(source: source, imageUrl: imageUrl, product: product), timeout: 180)
+    try await post("artworks", PhotoArtworkRequest(source: source, imageUrl: imageUrl, product: product), timeout: Self.longTimeout)
   }
 
   func selectCandidate(artworkId: String, candidateId: String) async throws -> Artwork {
-    try await post("artworks/\(artworkId)/select", SelectCandidateRequest(candidateId: candidateId), timeout: 120)
+    try await post("artworks/\(artworkId)/select", SelectCandidateRequest(candidateId: candidateId), timeout: Self.longTimeout)
   }
 
   func refine(artworkId: String, instruction: String) async throws -> ArtworkVariant {
-    let res: RefineResponse = try await post("artworks/\(artworkId)/refine", RefineRequest(instruction: instruction), timeout: 180)
+    let res: RefineResponse = try await post("artworks/\(artworkId)/refine", RefineRequest(instruction: instruction), timeout: Self.longTimeout)
     return res.artwork
   }
 
@@ -133,15 +168,15 @@ final class APIClient: @unchecked Sendable {
   // MARK: Products and listings
 
   func createProduct(artworkId: String, type: ProductType) async throws -> Product {
-    try await post("products", CreateProductRequest(artworkId: artworkId, type: type), timeout: 120)
+    try await post("products", CreateProductRequest(artworkId: artworkId, type: type), timeout: Self.longTimeout)
   }
 
   func runListingAgent(productId: String) async throws -> ListingRunResponse {
-    try await send(request("POST", "listings/\(productId)/run", body: try Self.encoder.encode(Empty()), timeout: 180))
+    try await send(request("POST", "listings/\(productId)/run", body: try Self.encoder.encode(Empty()), timeout: Self.longTimeout))
   }
 
   func approveListing(productId: String, via: String, edits: ListingEdits?) async throws -> ApproveListingResponse {
-    try await post("listings/\(productId)/approve", ApproveListingRequest(approvedVia: via, edits: edits))
+    try await post("listings/\(productId)/approve", ApproveListingRequest(approvedVia: via, edits: edits), timeout: Self.longTimeout)
   }
 
   // MARK: Story
@@ -151,8 +186,8 @@ final class APIClient: @unchecked Sendable {
     return res.prompts
   }
 
-  func saveStoryVideo(pathname: String, mentionDisability: Bool) async throws -> Creator {
-    try await post("creators/me/story-video", StoryVideoRequest(videoUrl: pathname, mentionDisability: mentionDisability), timeout: 180)
+  func saveStoryVideo(pathname: String, audioPathname: String?, mentionDisability: Bool) async throws -> Creator {
+    try await post("creators/me/story-video", StoryVideoRequest(videoUrl: pathname, audioUrl: audioPathname, mentionDisability: mentionDisability), timeout: Self.longTimeout)
   }
 
   // MARK: Orders and messages
@@ -168,7 +203,8 @@ final class APIClient: @unchecked Sendable {
   }
 
   func sendThankYou(orderId: String, _ body: ThankYouRequest) async throws -> ThankYou {
-    try await post("orders/\(orderId)/thank-you", body)
+    // Captions are made while the request is open when a video is attached.
+    try await post("orders/\(orderId)/thank-you", body, timeout: body.videoUrl == nil ? 90 : Self.longTimeout)
   }
 
   func messages(orderId: String) async throws -> [Message] {

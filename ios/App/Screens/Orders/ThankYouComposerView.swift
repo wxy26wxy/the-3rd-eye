@@ -15,10 +15,14 @@ struct ThankYouComposerView: View {
   @State private var photo: UIImage?
   @State private var imageUrl: String?
   @State private var videoPathname: String?
+  @State private var audioPathname: String?
+  @State private var videoNote: String?
   @State private var recordingVideo = false
   @State private var uploading = false
   @State private var sending = false
   @State private var error: String?
+  @State private var cameraDenied = false
+  @State private var videoFromLibrary = false
 
   var body: some View {
     FlowScreen(title: "Say thank you", subtitle: "The buyer sees this when they tap the story tag.") {
@@ -46,6 +50,7 @@ struct ThankYouComposerView: View {
         }
         if videoPathname != nil {
           Label("Video added", systemImage: "checkmark.circle.fill").themeFont(.body).foregroundStyle(colors.text)
+          if let videoNote { Text(videoNote).themeFont(.bodyS).foregroundStyle(colors.textMuted) }
         }
         if uploading {
           HStack(spacing: Theme.Space.m) {
@@ -61,11 +66,17 @@ struct ThankYouComposerView: View {
           }
           .buttonStyle(PillButtonStyle(kind: .secondary, showsArrow: false))
           .accessibilityHint(Text("Adds a picture from your library"))
-          Button { recordingVideo = true } label: {
+          Button { Task { await startRecording() } } label: {
             Label("Add a video", systemImage: "video.fill")
           }
           .buttonStyle(PillButtonStyle(kind: .secondary, showsArrow: false))
           .accessibilityHint(Text("Records up to 15 seconds"))
+        }
+        if cameraDenied {
+          CameraDeniedCard(message: "Camera access is off, so I can't record a video. You can turn it on, or choose a video you already have.", libraryLabel: "Choose a video instead") {
+            videoFromLibrary = true
+            recordingVideo = true
+          }
         }
         if let error { ErrorCard(message: error) }
       }
@@ -74,6 +85,7 @@ struct ThankYouComposerView: View {
         Task { await send() }
       }
       .disabled(sending || uploading || (text.isEmpty && imageUrl == nil && videoPathname == nil))
+      SlowWorkHint(active: sending || uploading)
     }
     .onAppear { if capture == nil { capture = VoiceCapture(api: app.api) } }
     .onDisappear { capture?.cancel() }
@@ -83,12 +95,20 @@ struct ThankYouComposerView: View {
       Task { await uploadPhoto(item) }
     }
     .fullScreenCover(isPresented: $recordingVideo) {
-      MediaPicker(mode: .video(maxSeconds: ThemeEffects.thankYouVideoSeconds)) { picked in
+      MediaPicker(mode: .video(maxSeconds: ThemeEffects.thankYouVideoSeconds), preferCamera: !videoFromLibrary) { picked in
         recordingVideo = false
         if case .video(let url)? = picked { Task { await uploadVideo(url) } }
       }
       .ignoresSafeArea()
     }
+  }
+
+  private func startRecording() async {
+    let access = await CameraAccess.request()
+    cameraDenied = access == .denied
+    guard !cameraDenied else { return }
+    videoFromLibrary = false
+    recordingVideo = true
   }
 
   private func creatorId() async throws -> String {
@@ -136,12 +156,10 @@ struct ThankYouComposerView: View {
     uploading = true
     defer { uploading = false }
     do {
-      let data = try Data(contentsOf: url)
-      let ext = url.pathExtension.lowercased() == "mp4" ? "mp4" : "mov"
-      let uploaded = try await BlobUploader(api: app.api).upload(
-        data, creatorId: try await creatorId(), kind: .thankYouVideo,
-        contentType: ext == "mp4" ? "video/mp4" : "video/quicktime", fileExtension: ext)
-      videoPathname = uploaded.pathname
+      let sent = try await VideoUpload(api: app.api).upload(url, creatorId: try await creatorId(), kind: .thankYouVideo, maxSeconds: ThemeEffects.thankYouVideoSeconds)
+      videoPathname = sent.videoPathname
+      audioPathname = sent.audioPathname
+      videoNote = sent.trimmed ? String(localized: "We kept the first 15 seconds of your video.") : nil
     } catch {
       self.error = error.localizedDescription
     }
@@ -153,7 +171,7 @@ struct ThankYouComposerView: View {
     defer { sending = false }
     do {
       _ = try await app.api.sendThankYou(orderId: orderId, ThankYouRequest(
-        text: text.isEmpty ? nil : text, imageUrl: imageUrl, videoUrl: videoPathname, transcript: transcript))
+        text: text.isEmpty ? nil : text, imageUrl: imageUrl, videoUrl: videoPathname, audioUrl: audioPathname, transcript: transcript))
       await app.orders.refresh()
       dismiss()
     } catch {

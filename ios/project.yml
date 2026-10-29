@@ -33,7 +33,8 @@ targets:
         Debug:
           API_BASE_URL: "http://localhost:3000"
         Release:
-          API_BASE_URL: "http://localhost:3000"
+          # Deployed site (docs/handoffs/ios.md). Override: xcodebuild ... API_BASE_URL=https://...
+          API_BASE_URL: "https://maker-story-three.vercel.app"
     postBuildScripts:
       - name: Stamp git sha
         script: bash "${SRCROOT}/scripts/stamp_git_sha.sh"

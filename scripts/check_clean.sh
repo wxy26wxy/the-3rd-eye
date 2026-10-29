@@ -5,7 +5,8 @@ set -u
 cd "$(dirname "$0")/.."
 status=0
 patterns='Co-Authored-By|CLAUDE\.md|\.claude/|[Gg]enerated with \[|Anthropic|claude\.ai|Claude Code'
-hits=$(grep -rEIl --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude=check_clean.sh "$patterns" . 2>/dev/null || true)
+# Only files git would ship: tracked plus untracked-but-not-ignored.
+hits=$(git ls-files -co --exclude-standard -z 2>/dev/null | grep -zv 'scripts/check_clean.sh' | xargs -0 grep -EIl "$patterns" 2>/dev/null || true)
 if [ -n "$hits" ]; then
   echo "check_clean: disallowed text in files:"; echo "$hits"; status=1
 fi

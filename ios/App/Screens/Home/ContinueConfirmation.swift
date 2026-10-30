@@ -16,8 +16,11 @@ struct ContinueRequest: Identifiable, Equatable {
   var id: String { "\(artwork.id)-\(productType.rawValue)" }
 
   /// nil when nothing needs asking (no second product, nothing in progress): go straight on.
-  static func make(artwork: Artwork, productType: ProductType, creationInProgress: Bool) -> ContinueRequest? {
-    let another = artwork.hasPublished(productType)
+  /// `editingDraft`: "Edit listing" on a draft row, where a product in the shop is no reason to
+  /// ask (the creator chose that draft); only a creation in progress is.
+  static func make(artwork: Artwork, productType: ProductType, creationInProgress: Bool,
+                   editingDraft: Bool = false) -> ContinueRequest? {
+    let another = !editingDraft && artwork.hasPublished(productType)
     guard another || creationInProgress else { return nil }
     let draft = artwork.liveProducts.contains { $0.type == productType && !$0.isPublished }
     return ContinueRequest(artwork: artwork, productType: productType, another: another,
@@ -30,7 +33,8 @@ struct ContinueRequest: Identifiable, Equatable {
   }
 
   var confirmLabel: LocalizedStringKey {
-    if another && reusesDraft { return productType == .tote ? "Continue the tote draft" : "Continue the sticker draft" }
+    // Not the detail button's own label ("Continue the sticker draft"), so each is found once.
+    if another && reusesDraft { return "Yes, continue the draft" }
     if another { return productType == .tote ? "Make another tote" : "Make another sticker" }
     return "Replace it"
   }
@@ -63,9 +67,9 @@ extension AppState {
   }
 
   /// "Make a sticker / tote" from My designs: goes straight on, or returns what to ask first.
-  func requestContinue(artwork: Artwork, productType: ProductType) -> ContinueRequest? {
+  func requestContinue(artwork: Artwork, productType: ProductType, editingDraft: Bool = false) -> ContinueRequest? {
     guard let request = ContinueRequest.make(artwork: artwork, productType: productType,
-                                             creationInProgress: hasCreationInProgress) else {
+                                             creationInProgress: hasCreationInProgress, editingDraft: editingDraft) else {
       continueFrom(artwork: artwork, productType: productType)
       return nil
     }

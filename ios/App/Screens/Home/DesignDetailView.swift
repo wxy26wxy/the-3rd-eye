@@ -127,7 +127,10 @@ struct DesignDetailView: View {
     }
     let listed = products.filter(\.hasListing)
     ForEach(listed) { product in
-      PillButton(listed.count == 1 ? "Edit listing" : (product.type == .tote ? "Edit the tote listing" : "Edit the sticker listing"),
+      // With several listings each label is distinct (a draft and a live sticker can sit side by side).
+      PillButton(listed.count == 1 ? "Edit listing"
+                 : product.isPublished ? (product.type == .tote ? "Edit the tote listing" : "Edit the sticker listing")
+                 : (product.type == .tote ? "Edit the tote draft" : "Edit the sticker draft"),
                  hint: product.isPublished ? "Change the name, description or price" : "Finish the listing and put it in the shop",
                  kind: .secondary, showsArrow: false) {
         editListing(product, of: artwork)
@@ -146,11 +149,14 @@ struct DesignDetailView: View {
   }
 
   /// "Make a sticker", or "Make another sticker" (with a confirmation) when one is already in the
-  /// shop. Either asks first when the Create tab has a creation in progress.
+  /// shop; "Continue the sticker draft" when a draft of that type is there too (that is what
+  /// happens). Each asks first when the Create tab has a creation in progress.
   @ViewBuilder private func makeButton(_ type: ProductType, artwork: Artwork) -> some View {
     if artwork.hasPublished(type) {
-      PillButton(type == .tote ? "Make another tote" : "Make another sticker",
-                 hint: hasDraft(type, in: artwork)
+      let draft = hasDraft(type, in: artwork)
+      PillButton(draft ? (type == .tote ? "Continue the tote draft" : "Continue the sticker draft")
+                       : (type == .tote ? "Make another tote" : "Make another sticker"),
+                 hint: draft
                    ? (type == .tote ? "Goes on to your tote draft" : "Goes on to your sticker draft")
                    : (type == .tote ? "You already have this tote in the shop" : "You already have this sticker in the shop"),
                  kind: .secondary, showsArrow: false) {
@@ -168,8 +174,8 @@ struct DesignDetailView: View {
   }
 
   /// On to Listing details, or the confirmation first.
-  private func go(_ artwork: Artwork, _ type: ProductType) {
-    pending = app.requestContinue(artwork: artwork, productType: type)
+  private func go(_ artwork: Artwork, _ type: ProductType, editingDraft: Bool = false) {
+    pending = app.requestContinue(artwork: artwork, productType: type, editingDraft: editingDraft)
   }
 
   /// A published listing is edited in the sheet; a draft goes through Listing details, the
@@ -178,7 +184,8 @@ struct DesignDetailView: View {
     if product.isPublished {
       editing = product
     } else if let type = product.type {
-      go(artwork, type)
+      // Straight to the draft, even with a product of that type in the shop.
+      go(artwork, type, editingDraft: true)
     }
   }
 

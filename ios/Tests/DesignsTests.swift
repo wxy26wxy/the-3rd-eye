@@ -197,9 +197,14 @@ final class DesignsTests: XCTestCase {
     let shopAndDraft = artwork(products: [product("p-d", .sticker, "draft"), product("p-s", .sticker, "published")])
     let draft = ContinueRequest.make(artwork: shopAndDraft, productType: .sticker, creationInProgress: false)
     XCTAssertEqual(draft?.reusesDraft, true, "the draft is continued, so the text must say so")
-    XCTAssertEqual(draft?.confirmLabel, "Continue the sticker draft")
+    XCTAssertEqual(draft?.confirmLabel, "Yes, continue the draft")
     XCTAssertEqual(draft?.message, "This continues your sticker draft; no new product is made. To change the one in the shop, use Edit listing.")
     XCTAssertNil(ContinueRequest.make(artwork: shopAndDraft, productType: .tote, creationInProgress: false), "no tote yet")
+    XCTAssertNil(ContinueRequest.make(artwork: shopAndDraft, productType: .sticker, creationInProgress: false, editingDraft: true),
+                 "Edit listing on the draft row goes straight on, sticker in the shop or not (T091 review minor 1)")
+    let editInProgress = ContinueRequest.make(artwork: shopAndDraft, productType: .sticker, creationInProgress: true, editingDraft: true)
+    XCTAssertEqual(editInProgress?.another, false, "only the creation in progress is asked about")
+    XCTAssertEqual(editInProgress?.confirmLabel, "Replace it")
   }
 
   func testCreationInProgressAndRequestContinue() {

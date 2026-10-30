@@ -646,6 +646,9 @@ private struct BoxDragSurface: UIViewRepresentable {
 
   func updateUIView(_ uiView: UIView, context: Context) {
     context.coordinator.surface = self
+    // SwiftUI's `.disabled` does not reach UIKit recognisers: follow it here (no drag while a
+    // request runs).
+    uiView.isUserInteractionEnabled = context.environment.isEnabled
   }
 
   func makeCoordinator() -> Coordinator { Coordinator(surface: self) }

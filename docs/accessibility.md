@@ -37,9 +37,10 @@ Also check once with Increase Contrast on (high-contrast colours, no grain) and 
 
 ### VoiceOver test script (iOS: Adjust cutout)
 Needs a creator who can use the photo branch. Simulator: Create > Sticker > "Take a photo" falls back to the photo library. Use a photo of a toy or a drawing that SAM 3.1 splits into 2 or more pieces. Not yet run on a phone with VoiceOver (see docs/handoffs/ios.md).
-1. On the Adjust cutout screen VoiceOver reads the title, then "Your photo", then the mode buttons, then the pieces strip. The numbered chips on the photo are hidden from VoiceOver, so each piece is read once, as "Piece 1", "Piece 2" (checkbox behaviour).
+1. On the Adjust cutout screen VoiceOver reads the title, then "Your photo", then the mode buttons, then the pieces strip. The numbered labels on the photo are hidden from VoiceOver, so each piece is read once, as "Piece 1", "Piece 2" (checkbox behaviour).
 2. Focus "Piece 1". It reads "Piece 1, selected" (or "Not selected") with the hint "Leaves it out of the cutout" / "Adds it to the cutout". Double-tap toggles it; the state change is read.
 3. With "Piece 1" focused, swipe up or down to open the actions. Expected: "Box around this piece", "Add the area around this piece", and "Leave this piece out" (only while the piece is selected). Run "Add the area around this piece": a mark is added and "Added area, mark 1" appears as a mark that can be deleted (hint "Deletes this mark").
+   - Focus "Added area, mark 1" and double-tap: the mark is deleted and "Mark removed" is announced. This is the mark's accessibility action (T091); XCUITest cannot run it, because a test tap goes to the photo's touch layer instead, so check it here. Repeat with Switch Control if available.
 4. Select two pieces, double-tap "Apply cutout". The result is shown as text ("Your cutout") and "Use this" becomes available.
 5. The mode buttons' hint says to use the piece actions instead of dragging. Check that no step needs a drag or a tap on the photo itself.
 6. Check once with the largest Dynamic Type size: the three mode buttons stack vertically and nothing is clipped.
@@ -50,6 +51,7 @@ Signed in as a creator who has a few designs (a draft, one in the shop, one that
 2. Hint on a tile: "Opens the design. More actions are in the actions list." Swipe up or down: "Make a sticker" (only when no sticker is in the shop) and "Delete". Run "Delete": a confirmation appears; confirm, and the tile disappears.
 3. Double-tap a tile to open the design. Swipe through: the large picture, the badge, the products (type, title, status), then the buttons ("Edit listing", "Make a sticker" or "Make a tote", "Re-do the cutout", "See it in the shop", "Delete").
 4. "Re-do the cutout" opens Adjust cutout; run the script above, then "Use this" returns to the design.
+5. (T091) With a design in progress in Create (pick Sticker, then leave), open a design and double-tap "Make a sticker": the dialog "Replace the design you're making?" is read with its message and "Replace it" / "Cancel". On a design with a sticker in the shop and a sticker draft, the button reads "Continue the sticker draft" and its dialog says "This continues your sticker draft…" with "Yes, continue the draft".
 
 ### VoiceOver test script (web: Select screen)
 Safari on iPhone with VoiceOver on, or macOS Safari with VoiceOver (Control+Option+arrows), at `/create`, signed in, Sticker > photo. Same checks work with keyboard only (Tab, Space, Enter).

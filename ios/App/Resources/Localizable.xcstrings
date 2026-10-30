@@ -245,7 +245,13 @@
     "Edit listing" : {
 
     },
+    "Edit the sticker draft" : {
+
+    },
     "Edit the sticker listing" : {
+
+    },
+    "Edit the tote draft" : {
 
     },
     "Edit the tote listing" : {
@@ -992,6 +998,9 @@
 
     },
     "Writing your listing…" : {
+
+    },
+    "Yes, continue the draft" : {
 
     },
     "Yes, list it!" : {

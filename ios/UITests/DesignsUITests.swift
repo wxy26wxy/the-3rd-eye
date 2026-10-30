@@ -152,13 +152,15 @@ final class DesignsUITests: XCTestCase {
 
   // MARK: T091
 
-  /// A sticker in the shop and a sticker draft: "Make another sticker" continues the draft, and
+  /// A sticker in the shop and a sticker draft: the button reads "Continue the sticker draft", and
   /// the confirmation says so instead of promising a second listing.
   func testMakeAnotherWithADraftSaysItContinuesTheDraft() throws {
     let app = openDesigns()
     open(app, "Orange fish, In the shop")
-    tap(app, "Make another sticker")
-    let confirm = app.buttons["Continue the sticker draft"]
+    XCTAssertTrue(app.buttons["Continue the sticker draft"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["Make another sticker"].exists, "the label says what happens")
+    tap(app, "Continue the sticker draft")
+    let confirm = app.buttons["Yes, continue the draft"]
     XCTAssertTrue(confirm.waitForExistence(timeout: 5), "asks first, naming the draft")
     XCTAssertTrue(text(app, containing: "This continues your sticker draft").exists)
     XCTAssertFalse(text(app, containing: "A second product gets its own listing").exists)
@@ -167,6 +169,20 @@ final class DesignsUITests: XCTestCase {
     XCTAssertTrue(name.waitForExistence(timeout: 10), "Listing details")
     XCTAssertEqual(name.value as? String, "Fish Friend Sticker", "the draft, not a new product")
     XCTAssertTrue(try lastBody("products").isEmpty, "no product was made")
+  }
+
+  /// "Edit listing" on the draft row goes straight to Listing details, even with a sticker of the
+  /// same design in the shop (T091 review minor 1).
+  func testEditListingOnADraftNextToAPublishedOneDoesNotAsk() {
+    let app = openDesigns()
+    open(app, "Orange fish, In the shop")
+    XCTAssertTrue(app.buttons["Edit the sticker listing"].waitForExistence(timeout: 5), "the live one keeps its label")
+    tap(app, "Edit the sticker draft")
+    let name = app.textFields["Name"]
+    XCTAssertTrue(name.waitForExistence(timeout: 10), "Listing details, no dialog")
+    XCTAssertEqual(name.value as? String, "Fish Friend Sticker")
+    XCTAssertFalse(app.buttons["Yes, continue the draft"].exists)
+    XCTAssertFalse(text(app, containing: "already in the shop").exists)
   }
 
   /// Emptying a prefilled description sends "" (an omitted field would keep the saved text).

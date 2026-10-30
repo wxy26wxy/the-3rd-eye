@@ -310,6 +310,9 @@ final class AdjustCutoutUITests: XCTestCase {
   }
 
   /// Retake drops the photo with its marks; the next photo starts clean.
+  /// Fails without `CreateFlow.discardPhoto`: the test photo is only used again when the flow has
+  /// no photo, so with the old photo kept the camera screen stays and Adjust cutout never returns
+  /// (checked by running it with the call removed).
   func testRetakeClearsMarks() {
     let app = launchPhotoFlow(code: "TEST-CODE")
     let photo = app.otherElements["cutout-photo"]
@@ -322,7 +325,8 @@ final class AdjustCutoutUITests: XCTestCase {
     retake.tap()
     // The test photo is used again, so Adjust cutout comes back for the new answer.
     let piece = app.buttons["Piece 1"]
-    XCTAssertTrue(app.otherElements["cutout-photo"].waitForExistence(timeout: 20))
+    XCTAssertTrue(app.otherElements["cutout-photo"].waitForExistence(timeout: 20),
+                  "Retake dropped the old photo, so a new one was taken (with the old photo kept, this fails)")
     XCTAssertTrue(piece.waitForExistence(timeout: 5))
     XCTAssertFalse(piece.isSelected, "the old selection is gone")
     XCTAssertFalse(app.buttons["Added area, mark 1"].exists, "the old marks are gone")

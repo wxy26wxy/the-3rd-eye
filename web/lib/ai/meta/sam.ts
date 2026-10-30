@@ -1,9 +1,11 @@
 /**
  * SAM 3.1 via the Responses API (stream: true), parsed with @meta-sam/parser.
- * findAll() returns every instance of a phrase; segment() takes a phrase, a box or points
- * (object-prompt text built with the package's buildObjectPrompt). When SAM returns nothing
- * (or the call fails) both fall back to a sharp threshold mask.
- * UNVERIFIED: request shape (input_image + input_text in one user message) until live.
+ * findAll() returns every instance of a phrase; findCandidates() runs SAM_PHRASES in parallel
+ * (drawings and physical objects) and merges the results; segment() takes a box and/or labelled
+ * points (object-prompt text built with the package's buildObjectPrompt). When SAM returns
+ * nothing (or the call fails) they fall back to a sharp threshold mask.
+ * Verified live: phrase requests 2026-10-28, box and positive/negative point prompts 2026-10-29
+ * (recordings in test/fixtures/segment/).
  */
 import "server-only";
 import sharp from "sharp";
@@ -11,15 +13,73 @@ import {
   buildObjectPrompt, decodeMaskToRaster, decodeMaskToSVGPath, parseImageStream, recordsOfKind,
   type SegmentationMaskRecord,
 } from "@meta-sam/parser";
-import type { ImageRef, Mask, Segment, Segmenter, Trace } from "../types";
+import type { CandidateSearch, ImageRef, Mask, Segment, SegmentHint, Segmenter, Trace } from "../types";
 import { traced } from "../trace";
 import { CALL_TIMEOUT_MS, MODELS, metaClient } from "./client";
 import { callSignal } from "@/lib/deadline";
 import { inputImage, userMessage } from "./responses";
 import { loadImageRef, pngRef } from "@/lib/image/ref";
-import { bboxOf, emptyMask, maskFromPng, maskSharp, thresholdSegments, type BBox } from "@/lib/image/mask";
+import { area, bboxOf, emptyMask, maskFromPng, maskSharp, thresholdSegments, type BBox } from "@/lib/image/mask";
 
 const SAM_MAX_SIDE = 2048;
+/**
+ * Phrases a photo is searched with (one SAM call each, in parallel): drawings on paper and
+ * physical crafts, toys and things. Live check 2026-10-29: "object" alone found nothing on a photo
+ * of a knitted bear on a wooden table (nor did "item" or "thing"), while "handmade object" found
+ * the bear (0.91) and both a wallet and a clay figure on a desk (0.81 / 0.75). See docs/decisions.md.
+ */
+export const SAM_PHRASES = ["drawing", "handmade object"] as const;
+/** SAM results scoring under this are dropped, unless nothing scores higher. */
+export const MIN_CANDIDATE_SCORE = 0.1;
+/** Two results overlapping more than this are the same thing; the higher score is kept. */
+export const DEDUPE_IOU = 0.8;
+/** Results covering more than this share of the frame are the background (paper, table) and are dropped. */
+export const MAX_FRAME_COVERAGE = 0.95;
+export const MAX_CANDIDATES = 6;
+
+/** IoU computed only inside the boxes' overlap (areas precomputed), so it stays fast on full-size masks. */
+function segIou(a: Segment, aArea: number, b: Segment, bArea: number): number {
+  const x0 = Math.max(a.bbox[0], b.bbox[0]), y0 = Math.max(a.bbox[1], b.bbox[1]);
+  const x1 = Math.min(a.bbox[2], b.bbox[2]), y1 = Math.min(a.bbox[3], b.bbox[3]);
+  if (x1 <= x0 || y1 <= y0) return 0;
+  const w = a.mask.width;
+  let inter = 0;
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = y * w + x; if (a.mask.data[i] && b.mask.data[i]) inter++; }
+  const uni = aArea + bArea - inter;
+  return uni ? inter / uni : 0;
+}
+
+/** A result covering more than this share of the frame that contains another result is the paper or table around it. */
+export const MAX_CONTAINER_COVERAGE = 0.4;
+
+const bboxContains = (a: BBox, b: BBox) => a[0] <= b[0] && a[1] <= b[1] && a[2] >= b[2] && a[3] >= b[3];
+
+/**
+ * Merges results from several phrases: drops frame-filling ones, sorts by score, drops any that
+ * overlaps an already kept one by IoU > `iouMax`, drops a "container" (covers more than 40 % of
+ * the frame, its box contains another result's box AND it scores lower than that result: the
+ * sheet of paper or the table around a drawing; a confident close-up of a toy is kept), caps at `max`.
+ */
+export function dedupeSegmentsInfo(segs: Segment[], opts: { max?: number; iouMax?: number; maxCoverage?: number } = {}): CandidateSearch {
+  const max = opts.max ?? MAX_CANDIDATES, iouMax = opts.iouMax ?? DEDUPE_IOU, maxCoverage = opts.maxCoverage ?? MAX_FRAME_COVERAGE;
+  const sized = segs.map((s) => ({ s, a: area(s.mask) }))
+    .filter(({ s, a }) => a > 0 && a <= s.mask.width * s.mask.height * maxCoverage)
+    .sort((x, y) => y.s.score - x.s.score);
+  const kept: typeof sized = [];
+  for (const c of sized) {
+    if (kept.every((k) => segIou(c.s, c.a, k.s, k.a) <= iouMax)) kept.push(c);
+  }
+  const frame = (k: (typeof kept)[number]) => k.s.mask.width * k.s.mask.height;
+  const isContainer = (k: (typeof kept)[number]) =>
+    k.a > frame(k) * MAX_CONTAINER_COVERAGE && kept.some((o) => o !== k && o.s.score > k.s.score && bboxContains(k.s.bbox, o.s.bbox));
+  const rest = kept.filter((k) => !isContainer(k));
+  return { segments: rest.slice(0, max).map((k) => k.s), droppedContainer: rest.length < kept.length };
+}
+
+export function dedupeSegments(segs: Segment[], opts: { max?: number; iouMax?: number; maxCoverage?: number } = {}): Segment[] {
+  return dedupeSegmentsInfo(segs, opts).segments;
+}
+
 type StreamEvent = { type: string; [k: string]: unknown };
 export type SamStreamFn = (body: Record<string, unknown>) => Promise<AsyncIterable<StreamEvent>>;
 
@@ -143,11 +203,20 @@ export class MetaSegmenter implements Segmenter {
     return segs.length ? segs : this.fallback(prep);
   }
 
-  async segment(
-    image: ImageRef,
-    hint: { phrase?: string; points?: { x: number; y: number }[]; box?: [number, number, number, number] },
-    opts: { trace: Trace },
-  ): Promise<Segment | null> {
+  async findCandidates(image: ImageRef, opts: { trace: Trace; max?: number }): Promise<CandidateSearch> {
+    const prep = await this.prepare(image);
+    const runs = await Promise.allSettled(SAM_PHRASES.map((p) => this.run(prep, p, opts.trace)));
+    const all: Segment[] = [];
+    runs.forEach((r, i) => {
+      if (r.status === "fulfilled") all.push(...r.value);
+      else console.warn(`[sam] findCandidates "${SAM_PHRASES[i]}" failed:`, r.reason instanceof Error ? r.reason.message : r.reason);
+    });
+    const confident = all.filter((s) => s.score >= MIN_CANDIDATE_SCORE);
+    const found = dedupeSegmentsInfo(confident.length ? confident : all, { max: opts.max });
+    return found.segments.length ? found : dedupeSegmentsInfo(await this.fallback(prep), { max: opts.max });
+  }
+
+  async segment(image: ImageRef, hint: SegmentHint, opts: { trace: Trace }): Promise<Segment | null> {
     if (hint.phrase && !hint.points?.length && !hint.box) return (await this.findAll(image, hint.phrase, opts))[0] ?? null;
     const prep = await this.prepare(image);
     const sx = prep.sentW / prep.width, sy = prep.sentH / prep.height;
@@ -160,8 +229,10 @@ export class MetaSegmenter implements Segmenter {
         objects: [{
           id: 1,
           prompts: [{
-            ...(hint.box ? { box: { left: clampX(hint.box[0]), top: clampY(hint.box[1]), right: Math.max(clampX(hint.box[0]) + 1, clampX(hint.box[2])), bottom: Math.max(clampY(hint.box[1]) + 1, clampY(hint.box[3])) } } : {}),
-            ...(hint.points?.length ? { points: hint.points.map((p) => ({ x: clampX(p.x), y: clampY(p.y) })) } : {}),
+            ...(hint.box ? { box: objectBox(hint.box, sx, sy, prep.sentW, prep.sentH) } : {}),
+            ...(hint.points?.length ? {
+              points: hint.points.map((p) => ({ x: clampX(p.x), y: clampY(p.y), ...(p.label === "negative" ? { label: "negative" as const } : {}) })),
+            } : {}),
           }],
         }],
       });
@@ -174,18 +245,30 @@ export class MetaSegmenter implements Segmenter {
   }
 }
 
-/** Chooses the fallback segment containing a hint point or overlapping the hint box the most. */
-export function pickByHint(segs: Segment[], hint: { points?: { x: number; y: number }[]; box?: BBox }): Segment | null {
+/** Half-open box in request pixels: left/top floored, right/bottom ceiled (an edge-reaching box keeps the last column/row), ≥ 1 px. */
+export function objectBox(box: [number, number, number, number], sx: number, sy: number, w: number, h: number) {
+  const left = Math.max(0, Math.min(w - 1, Math.floor(box[0] * sx))), top = Math.max(0, Math.min(h - 1, Math.floor(box[1] * sy)));
+  const right = Math.min(w, Math.max(left + 1, Math.ceil(box[2] * sx))), bottom = Math.min(h, Math.max(top + 1, Math.ceil(box[3] * sy)));
+  return { left, top, right, bottom };
+}
+
+/** Chooses the fallback segment containing a positive hint point (and no negative one), else the one overlapping the hint box the most. */
+export function pickByHint(segs: Segment[], hint: SegmentHint): Segment | null {
   if (!segs.length) return null;
-  if (hint.points?.length) {
-    const p = hint.points[0];
-    const hit = segs.find((s) => s.mask.data[Math.round(p.y) * s.mask.width + Math.round(p.x)]);
+  const at = (s: Segment, p: { x: number; y: number }) => s.mask.data[Math.round(p.y) * s.mask.width + Math.round(p.x)];
+  const positive = (hint.points ?? []).filter((p) => p.label !== "negative");
+  const negative = (hint.points ?? []).filter((p) => p.label === "negative");
+  const allowed = segs.filter((s) => !negative.some((p) => at(s, p)));
+  if (positive.length) {
+    const hit = allowed.find((s) => positive.some((p) => at(s, p)));
     if (hit) return hit;
+    if (!hint.box) return null; // no fallback piece under the creator's taps: better nothing than a random blob
   }
   if (hint.box) {
     const [x0, y0, x1, y1] = hint.box;
     const overlap = (b: BBox) => Math.max(0, Math.min(x1, b[2]) - Math.max(x0, b[0])) * Math.max(0, Math.min(y1, b[3]) - Math.max(y0, b[1]));
-    return [...segs].sort((a, b) => overlap(b.bbox) - overlap(a.bbox))[0];
+    const pool = allowed.length ? allowed : segs;
+    return [...pool].sort((a, b) => overlap(b.bbox) - overlap(a.bbox))[0];
   }
-  return segs[0];
+  return allowed[0] ?? null;
 }

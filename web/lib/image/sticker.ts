@@ -8,7 +8,8 @@ import sharp from "sharp";
 import { Potrace } from "potrace";
 import type { Mask } from "@/lib/ai/types";
 import {
-  bboxOf, componentMask, components, cropMask, dilate, fillHoles, maskFromAlpha, maskSharp, maskToGrey, padMask, type BBox,
+  alphaToMask, bboxOf, componentMask, components, cropMask, dilate, fillHoles, maskFromAlpha, maskSharp, maskToGrey, padMask,
+  type AlphaMask, type BBox,
 } from "@/lib/image/mask";
 
 export const PRINT_DPI = 300;
@@ -64,18 +65,36 @@ export async function ensureDpi(png: Buffer, minShortSide = MIN_SHORT_SIDE, dpi?
   return (dpi ? out.withMetadata({ density: dpi }) : out).png().toBuffer();
 }
 
-/** Applies the mask as alpha and trims to the mask's bounding box. */
-export async function removeBackground(png: Buffer, mask: Mask): Promise<{ png: Buffer; mask: Mask; bbox: BBox }> {
-  const bbox = bboxOf(mask);
-  if (!bbox) throw new Error("Mask is empty");
+/**
+ * Applies the mask as alpha and trims to its bounding box. An `AlphaMask` (from `finishMask`) is
+ * used as-is, so the edge stays anti-aliased; a binary `Mask` becomes a hard 0/255 alpha.
+ * The image is resized to the mask size when they differ (finishArtwork passes them equal).
+ */
+export async function removeBackground(png: Buffer, mask: Mask | AlphaMask): Promise<{ png: Buffer; mask: Mask; bbox: BBox }> {
+  const soft = "alpha" in mask;
+  const alpha = soft ? Buffer.from(mask.alpha) : maskToGrey(mask);
+  const binary = soft ? alphaToMask(mask) : mask;
+  const visible = soft ? alphaToMask(mask, 0) : mask;
+  const bbox = bboxOf(visible);
+  if (!bbox || !bboxOf(binary)) throw new Error("Mask is empty");
+  const { width, height } = mask;
   // removeAlpha is applied at output time by sharp, so materialize RGB first, then join the mask as alpha.
-  const rgb = await sharp(png).rotate().resize(mask.width, mask.height, { fit: "fill" }).removeAlpha().raw().toBuffer();
-  const alpha = maskToGrey(mask);
+  const rgb = await sharp(png).rotate().resize(width, height, { fit: "fill" }).removeAlpha().raw().toBuffer();
   const [x0, y0, x1, y1] = bbox;
-  const withAlpha = await sharp(rgb, { raw: { width: mask.width, height: mask.height, channels: 3 } })
-    .joinChannel(alpha, { raw: { width: mask.width, height: mask.height, channels: 1 } }).png().toBuffer();
+  const withAlpha = await sharp(rgb, { raw: { width, height, channels: 3 } })
+    .joinChannel(alpha, { raw: { width, height, channels: 1 } }).png().toBuffer();
   const cut = await sharp(withAlpha).extract({ left: x0, top: y0, width: x1 - x0, height: y1 - y0 }).png().toBuffer();
-  return { png: cut, mask: cropMask(mask, bbox), bbox };
+  return { png: cut, mask: cropMask(binary, bbox), bbox };
+}
+
+/**
+ * The upscale (1 to MAX_UPSCALE) that brings a cut of `bbox` up to `minShortSide`. Applied to the
+ * opaque original before cutting, so the RGBA cut is never resampled (no fringe on soft edges).
+ */
+export function cutUpscale(bbox: BBox, minShortSide = MIN_SHORT_SIDE): number {
+  const short = Math.min(bbox[2] - bbox[0], bbox[3] - bbox[1]);
+  if (short <= 0 || short >= minShortSide) return 1;
+  return Math.min(MAX_UPSCALE, minShortSide / short);
 }
 
 export type StickerFiles = {

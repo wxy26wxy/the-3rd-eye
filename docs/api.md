@@ -18,11 +18,13 @@ Media never goes through these routes except short audio (≤ 4 MB). Images/vide
 `POST /prompts/shape` `{ transcript, answers?: string[], product: "sticker"|"tote" }` → `{ prompt, style_notes, clarifying_question: string|null, spoken_confirmation }`
 `POST /artworks` one of:
 - `{ source: "text2image", prompt, transcript?, product, n?: 1..4 }` → `{ artworks: ArtworkVariant[] }` (one row per variant; each has `altText`, `spokenDescription`, `differencesFromPrompt`, `genResponseId`)
-- `{ source: "photo"|"canvas", imageUrl, product }` → `{ artwork: Artwork, candidates: Candidate[] }` (SAM finds every drawing; `cleanedUrl` null until a candidate is chosen when `candidates.length > 1`)
+- `{ source: "photo"|"canvas", imageUrl, product }` → `{ artwork: Artwork, candidates: Candidate[], imageSize: { w, h } }` (SAM finds every drawing or object; `cleanedUrl` null until a candidate is chosen when `candidates.length > 1`; `imageSize` = pixel size of the stored original, the coordinate space of `bbox`, `points` and `box`)
 `POST /artworks/{id}/select` `{ candidateId }` → `Artwork` (cleaned PNG + cut path)
 `POST /artworks/{id}/refine` `{ instruction }` → `{ artwork: ArtworkVariant }` (new row, `parentArtworkId` set)
-`POST /artworks/{id}/cleanup` `{ points?: {x,y}[], box?, phrase? }` → `Artwork`
-`GET /artworks` → `{ artworks: Artwork[] }` (mine, newest first)
+`POST /artworks/{id}/cleanup` `{ candidateIds?: string[], points?: { x, y, label: "positive"|"negative" }[], box?: [x0,y0,x1,y1] }` (at least one) → `Artwork` (see T080 clarifications)
+`GET /artworks` → `{ artworks: ArtworkListItem[] }` (mine, newest first; each carries `products`)
+`GET /artworks/{id}` → `{ artwork: Artwork, candidates: Candidate[], imageSize: { w, h } | null, originalUrl: string | null }` (`originalUrl` presigned, valid 10 min)
+`DELETE /artworks/{id}` → `{ id, deleted: true, archivedProductIds: string[] }`
 
 ## Products and listings
 `POST /products` `{ artworkId, type: "sticker"|"tote" }` → `Product` (sticker: `printPngUrl`, `printSvgUrl`, `mockupUrl`; tote: `mockupUrl`) — may take up to 60 s
@@ -48,6 +50,10 @@ Media never goes through these routes except short audio (≤ 4 MB). Images/vide
 Creator { id, slug, displayName, studioName, avatarUrl, bioShort, storyText, storyVideoUrl, storyVideoVtt, mentionDisability, accessPrefs, split, isExample }
 Artwork { id, creatorId, source, transcript, shapedPrompt, originalUrl, cleanedUrl, maskUrl, cutPathSvg, altText, spokenDescription, differencesFromPrompt, genResponseId, parentArtworkId, status, createdAt }
 ArtworkVariant = Artwork & { previewUrl }
+ArtworkListItem = Artwork & { products: ArtworkProduct[] }
+ArtworkProduct { id, type: "sticker"|"tote", status: "draft"|"published"|"archived", title: string|null }
+ImageSize { w, h } /* px of the stored original */
+CleanupPoint { x, y, label: "positive"|"negative" } /* px in original */
 Candidate { id, bbox: [x0,y0,x1,y1] /* px in original */, score, thumbUrl }
 Product { id, artworkId, creatorId, type, mockupUrl, printPngUrl, printSvgUrl, priceCents, status }
 ListingDraft { title, description, tags[], price_cents, print_ok, notes }
@@ -99,3 +105,25 @@ Additive; no new public route and no change to `POST /auth/code`.
 3. **Rotating a code** (`/admin` → New code) makes the old code and its link fail with `401 invalid_code`. Tokens already issued (`<id>.<exp>.<sig>`) are not tied to the code and stay valid until they expire (30 days).
 4. **Hidden creators** (`creators.hidden`, for testing): left out of shop grids, `/artists`, the featured artist, "more from this studio", and `/c/<slug>` (not found). A direct product link `/p/<id>` still opens and can be bought, `/t/<token>` keeps working for their orders, and they can sign in and use every creator route.
 
+## Clarifications (T080 backend, 2026-10-29): adjust the cut-out, manage designs
+Additive except `cleanup`, whose body changed (no client called it before; `phrase` is gone).
+
+1. **Coordinates.** `Candidate.bbox`, cleanup `points` and `box` are pixels of the **stored original**: origin top-left, x to the right, y down, size `imageSize { w, h }` (returned by `POST /artworks` for photo/canvas and by `GET /artworks/{id}`). It is not the size of the photo the client uploaded (the server rotates it by EXIF and may upscale it up to ×2). A box is half-open `[x0, y0, x1, y1)` with `x0 < x1`, `y0 < y1`. Negative values are rejected (`400`); values past `w`/`h` are clamped to the image. Convert a tap on a view showing the original (aspect-fit) as `x = (tapX - imageLeft) * imageSize.w / shownWidth`, same for y; non-integers are fine (the server floors).
+2. **`POST /artworks/{id}/cleanup`** body `{ candidateIds?, points?, box? }`, at least one key (`400 invalid_request` otherwise):
+   - `candidateIds`: 1–6 ids from this artwork's `candidates` (`400 invalid_candidate` for any other id). The cut-out is the **union** of those candidates; no model call, a few seconds. One id behaves like `select`. Use it for "combine pieces".
+   - `points`: 1–10 `{ x, y, label }`. `label` is `"positive"` (part of the object) or `"negative"` (not part of it); it defaults to `"positive"` when omitted. Negative-only points need `candidateIds` or a `box` (`400 invalid_request` otherwise).
+   - `box`: the whole object (`[x0, y0, x1, y1]`, see 1).
+   - **Always send the current selection with the adjustment:** the client keeps the chosen `candidateIds` and sends them together with every `points` / `box` edit. The labels apply to the **combined result**:
+     - a **negative** point removes the whole connected piece of a chosen candidate that it lands on (no model call; e.g. a shadow that SAM returned as a separate piece, or one of two combined pieces);
+     - a **box** or any **positive** point adds one SAM object, prompted with the box and all points (negative points also shape that object), unioned with the candidates.
+     - Not supported: carving part of a single connected candidate piece away with a negative point (it removes the whole piece). Use a box around what should stay, plus negative points, instead.
+   - The mask is finished on the server (holes filled, small gaps closed, specks dropped only when under 0.5 % of their piece **and** under 0.02 % of the frame / 64 px, soft anti-aliased edge) before the cut.
+   - Response: `Artwork` with a new `cleanedUrl` (a new URL every time, safe to cache), `cutPathSvg`, `altText`, `spokenDescription`, `status: "ready"`, plus `details: { failedProductIds: string[], unpublishedProductIds: string[] }`. When nothing is found, or the selection is too small to cut → `422 no_drawing_found`.
+   - When the artwork already has products, their print files and mockups are rebuilt from the new cut-out in the same request, in parallel (one mockup image call each, about 16 s; the whole request still answers within 270 s or `504 deadline_exceeded`). The new cut-out is kept even when a rebuild fails: those products keep their previous files and are listed in `details.failedProductIds` (call cleanup again with the same body to retry). Each rebuilt product's print check (resolution, contrast) is recomputed; a **published** product whose check now fails is moved back to `draft` (`details.unpublishedProductIds`) and must be approved again. Product ids, price and listing text do not change; a published product's shop image changes with the new cut.
+   - `maskUrl` (private) after a cleanup is the soft mask at the cut's working size (the original upscaled by the same factor as `cleanedUrl`, at most ×2), not necessarily the original's size.
+3. **`GET /artworks/{id}`** (own artwork, else `404 not_found`) → `{ artwork: Artwork, candidates: Candidate[], imageSize: ImageSize | null, originalUrl: string | null }`. `originalUrl` is a presigned URL of the stored original (valid 10 minutes, fetch it directly; do not store it); `imageSize` is its size. Both are null only for rows without an original. Use it for "Re-do the cutout" (show the original, draw the box / points, call `cleanup`) and to resume an artwork whose candidate was never chosen.
+4. **`GET /artworks`** items carry `products: ArtworkProduct[]` (newest first; empty when none) for status badges. `title` is the listing title, or null before the listing agent ran.
+5. **Tile state** (both clients): `status: "ready"` and `cleanedUrl` set → show the cut-out; `cleanedUrl` null and `lastError` set → failed (offer "Re-do the cutout" or delete); `cleanedUrl` null, no `lastError`, `candidates.length > 1` in `GET /artworks/{id}` → waiting for a choice (open the picker). A tile never needs an endless spinner.
+6. **`DELETE /artworks/{id}`** (own artwork, else `404 not_found`) → `{ id, deleted: true, archivedProductIds }`. Soft delete: the artwork leaves `GET /artworks` and `GET /artworks/{id}` answers 404. Its products are set to `status: "archived"` and leave the shop (shop list and product page). Orders already placed keep working: `GET /orders`, `GET /orders/{id}` and the story-tag page `/t/{token}` still render. Not undoable through the API.
+7. **Candidates for photos of objects.** A photo now looks for both drawings and physical objects (two SAM phrases, overlapping results merged, anything covering more than 95 % of the frame dropped, a result covering more than 40 % of the frame whose box contains a higher-scoring result dropped as the paper or table, at most 6). `Candidate` is unchanged. A single candidate is auto-selected only when it covers at most 50 % of the frame and no surrounding paper/table result was dropped; otherwise `cleanedUrl` stays null and the client shows the picker with that one candidate.
+8. **Archived products** (after `DELETE /artworks/{id}`): `POST /listings/{id}/run` and `/approve` answer `409 product_archived`.

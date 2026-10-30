@@ -3,7 +3,7 @@
  * contract shared with the web and iOS clients: do not rename.
  */
 import type {
-  ArtworkRow, CreatorRow, ListingRow, MessageRow, OrderSummaryRow, ProductRow, ThankYouRow,
+  ArtworkRow, ArtworkWithProducts, CreatorRow, ListingRow, MessageRow, OrderSummaryRow, ProductRow, ThankYouRow,
 } from "@/lib/db/queries";
 
 export function toCreator(c: CreatorRow) {
@@ -22,6 +22,11 @@ export function toArtwork(a: ArtworkRow) {
     altText: a.altText, spokenDescription: a.spokenDescription, differencesFromPrompt: a.differencesFromPrompt,
     genResponseId: a.genResponseId, parentArtworkId: a.parentArtworkId, status: a.status, lastError: a.lastError, createdAt: a.createdAt,
   };
+}
+
+/** `GET /artworks` item: the artwork plus its products for status badges. */
+export function toArtworkListItem(a: ArtworkWithProducts) {
+  return { ...toArtwork(a), products: a.products.map(({ id, type, status, title }) => ({ id, type, status, title })) };
 }
 
 export function toArtworkVariant(a: ArtworkRow) {

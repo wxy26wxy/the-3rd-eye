@@ -6,14 +6,15 @@ import type { AgentStep, ListingDraft, Moderation, Trace } from "@/lib/ai/types"
 import { checkResolution, measureContrast, printCheckFrom, type ContrastCheck, type ResolutionCheck } from "@/lib/products/checks";
 import { productSpec, type ProductKind } from "@/lib/products/registry";
 import {
-  getCreatorById, getListing, insertProduct, setListingDraftCopy, updateProduct, upsertListing,
+  getArtwork, getCreatorById, getListing, getProduct, insertProduct, setListingDraftCopy, setListingPrintCheck, updateProduct, upsertListing,
   type ArtworkRow, type ListingRow, type ProductRow,
 } from "@/lib/db/queries";
 import { creatorPath, storage } from "@/lib/storage";
 import { ApiError } from "@/lib/http";
 import { ensureDpi } from "@/lib/image/sticker";
 
-export async function createProduct(artwork: ArtworkRow, type: ProductKind, task = "T010"): Promise<ProductRow> {
+/** Builds and stores a product's print PNG (+ die-cut SVG) and mockup from the artwork's cleaned PNG. */
+async function buildProductFiles(artwork: ArtworkRow, type: ProductKind, task: string) {
   if (!artwork.cleanedUrl) throw new Error("Choose and clean up the artwork first");
   const spec = productSpec(type);
   const cleanedPng = await storage().read(artwork.cleanedUrl);
@@ -26,11 +27,46 @@ export async function createProduct(artwork: ArtworkRow, type: ProductKind, task
     built.printSvg ? storage().putPrivate(creatorPath(cid, "print", "svg"), built.printSvg, "image/svg+xml") : null,
     storage().putPublic(creatorPath(cid, "mockups", "png"), built.mockupPng, "image/png"),
   ]);
-  const mid = Math.round((spec.priceRange.min + spec.priceRange.max) / 2 / 50) * 50;
+  return { mockupUrl: mockup.url, printPngUrl: png.pathname, printSvgUrl: svg?.pathname ?? null, spec, printPng, cleanedPng };
+}
+
+export async function createProduct(artwork: ArtworkRow, type: ProductKind, task = "T010"): Promise<ProductRow> {
+  const files = await buildProductFiles(artwork, type, task);
+  const mid = Math.round((files.spec.priceRange.min + files.spec.priceRange.max) / 2 / 50) * 50;
   return insertProduct({
-    artworkId: artwork.id, creatorId: cid, type, mockupUrl: mockup.url,
-    printPngUrl: png.pathname, printSvgUrl: svg?.pathname ?? null, priceCents: mid, status: "draft", createdByTask: task,
+    artworkId: artwork.id, creatorId: artwork.creatorId, type, mockupUrl: files.mockupUrl,
+    printPngUrl: files.printPngUrl, printSvgUrl: files.printSvgUrl, priceCents: mid, status: "draft", createdByTask: task,
   });
+}
+
+export type RebuildResult = { product: ProductRow; printOk: boolean; unpublished: boolean };
+
+/**
+ * After the artwork was cut out again: rebuilds the product's print file(s) and mockup from the
+ * new cleaned PNG so the shop image, print file and mockup agree, then re-runs the print check
+ * (resolution of the new print file, contrast of the new art) into `listing.printCheck`. A
+ * published product whose check now fails goes back to draft (approve re-checks before it can be
+ * published again). Id, price and listing copy are unchanged.
+ */
+export async function rebuildProductFiles(productId: string, task = "T080"): Promise<RebuildResult> {
+  const product = await getProduct(productId);
+  if (!product) throw new Error("Unknown product");
+  const artwork = await getArtwork(product.artworkId);
+  if (!artwork?.cleanedUrl) throw new Error("Product has no artwork");
+  const files = await buildProductFiles(artwork, product.type, task);
+  const meta = await sharp(files.printPng).metadata();
+  const check = printCheckFrom(
+    checkResolution({ productType: product.type, width: meta.width ?? 0, height: meta.height ?? 0 }),
+    await measureContrast(files.cleanedPng),
+  );
+  const unpublished = product.status === "published" && !check.print_ok;
+  if (unpublished) console.warn(`[products] ${product.id} moved back to draft after a re-cut: ${check.notes}`);
+  const updated = await updateProduct(product.id, {
+    mockupUrl: files.mockupUrl, printPngUrl: files.printPngUrl, printSvgUrl: files.printSvgUrl, ...(unpublished ? { status: "draft" as const } : {}),
+  });
+  // Product first (new files + status), then the check that describes them.
+  await setListingPrintCheck(product.id, check);
+  return { product: updated, printOk: check.print_ok, unpublished };
 }
 
 /** Builds and stores the print file(s) for a product that has none (products made before T050). */
@@ -64,6 +100,7 @@ function toolResult<T extends { ok: boolean }>(trace: Step[], tool: string): T |
  * through approve.
  */
 export async function runListingAgent(product: ProductRow, artwork: ArtworkRow, task = "T050"): Promise<{ listing: ListingDraft; trace: AgentStep[]; row: ListingRow }> {
+  if (product.status === "archived") throw new ApiError(409, "product_archived", "This product was removed with its design");
   const creator = await getCreatorById(product.creatorId);
   const imageUrl = artwork.cleanedUrl ?? product.mockupUrl;
   if (!imageUrl) throw new Error("Product has no image yet");
@@ -124,6 +161,7 @@ export async function approveListing(
   input: { approvedVia: "voice" | "tap"; edits?: { title?: string; description?: string; priceCents?: number } },
   task = "T010",
 ): Promise<{ product: ProductRow; listing: ListingRow; storyVideoNeeded: boolean }> {
+  if (product.status === "archived") throw new ApiError(409, "product_archived", "This product was removed with its design");
   const stored = await getListing(product.id);
   if (!stored) throw new ApiError(409, "listing_missing", "Run the listing agent first");
   // A pending re-run (published product) is what gets approved; otherwise the stored listing.

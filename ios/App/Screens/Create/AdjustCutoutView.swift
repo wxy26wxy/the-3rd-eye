@@ -443,7 +443,7 @@ struct AdjustCutoutView: View {
       let result = try await app.api.cleanup(artworkId: artwork.id, request)
       preview = Preview(request: request, result: result)
       showingPreview = true
-      notice = result.failedProductIds.isEmpty ? nil : CleanupResult.rebuildFailedMessage
+      notice = result.productNotice
       UIAccessibility.post(notification: .announcement, argument: String(localized: "Here is the preview of your cutout."))
     } catch is CancellationError {
       return
@@ -477,7 +477,7 @@ struct AdjustCutoutView: View {
 
   private func finish(_ result: CleanupResult) {
     app.flow.artwork = result.artwork
-    app.flow.cutoutNotice = result.failedProductIds.isEmpty ? nil : CleanupResult.rebuildFailedMessage
+    app.flow.cutoutNotice = result.productNotice
     if isRedo {
       app.createPath.removeLast()
     } else {

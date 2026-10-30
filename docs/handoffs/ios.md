@@ -4,7 +4,7 @@
 `ios/**` (except `ios/App/Theme/Tokens.swift`, generated from `design/tokens.json`).
 
 ## Current task
-T081 · remove duplicated voice/speech UI and rely on iOS system accessibility (see "System accessibility (T081)" below and `docs/accessibility.md`). Earlier: T070 deep link, T060 TestFlight, T051 fix wave, T030 SwiftUI creator app.
+T082 · Adjust cutout screen (see "Adjust cutout (T082)" below). Earlier: T081 system accessibility (see "System accessibility (T081)" and `docs/accessibility.md`), T070 deep link, T060 TestFlight, T051 fix wave, T030 SwiftUI creator app.
 
 ## Install on your iPhone (deployed site)
 1. On the Mac: `cd ios && xcodegen generate && open MakerStory.xcodeproj` (needs Xcode and `brew install xcodegen`).
@@ -27,6 +27,7 @@ Server: build setting `API_BASE_URL` (Debug default `http://localhost:3000`, Rel
 Without the backend: `python3 scripts/mock_api.py` (port 3999) and build with `API_BASE_URL=http://localhost:3999`. UI tests (voice branch: the confirmation text on the loading screen and the "WHAT THE IMAGE SHOWS" card with the description on Voice result; deep link):
 `xcodebuild test -scheme MakerStoryUITests -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build/DerivedData API_BASE_URL=http://localhost:3999`
 On a phone: see "Install on your iPhone" above. No entitlements are used.
+UI tests now include `AdjustCutoutUITests` (photo branch). To run the mock on another port, start it with the port and pass both `API_BASE_URL=http://localhost:<port>` and `TEST_RUNNER_MOCK_API_URL=http://localhost:<port>` to `xcodebuild test`.
 The mock also answers `POST /creators/me/story-video` (logs `audioUrl`, returns a `storyDraft`) and `POST /orders/o1/thank-you`.
 
 ## Layout
@@ -56,7 +57,7 @@ The mock also answers `POST /creators/me/story-video` (logs `audioUrl`, returns 
 Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s PCM asset), camera-permission flow, interruption handling, the story-draft sheet against the live backend, 401 from the live backend's token expiry.
 
 ## Last updated
-2026-10-29 (T081)
+2026-10-29 (T082)
 
 ## TestFlight (T060)
 - Icon: `pnpm icon` renders `ios/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` from `design/tokens.json` (no alpha, as App Store Connect requires). To use a designer-made icon, replace that PNG.
@@ -83,3 +84,12 @@ Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s 
 - Sign out: icon button in the tab-screen header (My designs, Orders, Messages) with a confirmation that also shows the version and server URL.
 - Tests: `Tests/SystemAccessibilityTests.swift` (contrast → palette, description fallback); `UITests/VoiceFlowUITests.swift` asserts the description card and that no Hear/Stop button exists.
 - VoiceOver test script (Speak → Voice result with the description card): `docs/accessibility.md`.
+
+## Adjust cutout (T082)
+- `App/Screens/Create/AdjustCutoutView.swift` (route `.adjustCutout`, replaces Tap to select). Pieces are toggled by numbered chips on the photo or the thumbnail strip (checkbox: label "Piece n", trait selected). Mode control "Add area / Remove area / Draw a box": taps add positive / negative marks (tap a mark to delete it, ≤ 10), a drag draws the box; "Clear marks" removes both. "Preview cutout" → `cleanup` → `cleanedUrl` on a `Checkerboard` with "Back to photo"/"Show the preview"; "Use this" reuses the preview when nothing changed, else `select` (one piece, no marks) or `cleanup {candidateIds, points, box}`.
+- Coordinates: `CutoutGeometry` maps view ↔ `imageSize` pixels (aspect-fit rect, clamped); the photo is shown in a frame with the `imageSize` aspect. State lives in `CreateFlow` (`imageSize`, `selectedCandidateIds`, `points`, `box`; `resetCutout` on each new photo answer selects the only piece when there is one).
+- Redo: Design ready shows "Adjust cutout" when `flow.photoArtwork` is the shown artwork; the screen then has no step pill and no Retake, and "Use this" pops back. Without a local photo or `imageSize` it loads `GET /artworks/{id}` and shows `originalUrl`.
+- Cleanup `details`: `failedProductIds` → "Your cutout is saved. One product could not be rebuilt; try again later."; `unpublishedProductIds` → "One product went back to draft because the new cutout is too small to print. Open My designs to fix it." (`CleanupResult.productNotice`, shown on the screen and on Design ready). Chosen `candidateIds` are sent with every points/box edit.
+- Debug-only hooks (`App/Services/UITestHooks.swift`, `AppConfig.blobAPIURL`): launch environment `UITEST_PHOTO=1` uses a generated 600 × 800 photo on the photo screen; `MOCK_BLOB_API=<mock>/blob/` sends blob uploads to the mock. Release ignores both.
+- Mock: photo `POST /artworks` answers `p1` with `cand-1`, `cand-2` and `imageSize` 1200 × 1600 (sign-in code starting `ONE` → one piece already cut, so the auto-skip runs); `POST /artworks/p1/select|cleanup` (cleanup carries empty `details` lists), `GET /artworks/p1`, `POST /uploads`, `PUT /blob/`; `GET /__mock/last/<cleanup|select|artworks>` returns the last body sent.
+- Not verified: live backend, a phone, a VoiceOver pass of this screen.

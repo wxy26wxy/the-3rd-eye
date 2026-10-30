@@ -56,8 +56,9 @@ enum CutoutRequest {
     case cleanup(CleanupRequest)
   }
 
-  /// Builds the request exactly as the creator composed it: chosen candidates, marks and box
-  /// (the server unions them and applies "Remove area" marks to the combined result).
+  /// Builds the request exactly as the creator composed it: the chosen candidates go with every
+  /// mark and box. On the server a "Remove area" mark drops the chosen piece it lands on; a box or
+  /// an "Add area" mark adds one SAM object, unioned with the pieces.
   /// Nil when there is nothing to send, or when only "Remove area" marks exist with nothing to remove from.
   static func make(selected: [Candidate], points: [CutoutPoint], box: [Double]?) -> CleanupRequest? {
     let ids = selected.map(\.id)
@@ -74,8 +75,16 @@ enum CutoutRequest {
 }
 
 extension CleanupResult {
-  /// Shown when `details.failedProductIds` is not empty; the cut-out itself was saved.
-  static var rebuildFailedMessage: String {
-    String(localized: "Your cutout is saved. One product could not be rebuilt; try again later.")
+  /// One plain line per kind of product trouble; nil when the products are fine.
+  /// The cut-out itself was saved either way.
+  var productNotice: String? {
+    var lines: [String] = []
+    if !failedProductIds.isEmpty {
+      lines.append(String(localized: "Your cutout is saved. One product could not be rebuilt; try again later."))
+    }
+    if !unpublishedProductIds.isEmpty {
+      lines.append(String(localized: "One product went back to draft because the new cutout is too small to print. Open My designs to fix it."))
+    }
+    return lines.isEmpty ? nil : lines.joined(separator: "\n")
   }
 }

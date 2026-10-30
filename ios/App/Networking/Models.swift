@@ -344,24 +344,32 @@ struct PhotoArtworkRequest: Encodable {
 
 struct ArtworkVariantsResponse: Decodable { let artworks: [ArtworkVariant] }
 struct PhotoArtworkResponse: Decodable { let artwork: Artwork; let candidates: [Candidate]; var imageSize: ImageSize? }
-/// `POST /artworks/{id}/cleanup` answer: the `Artwork`, plus `details.failedProductIds` when a
-/// product already made from it could not be rebuilt from the new cut-out.
+/// `POST /artworks/{id}/cleanup` answer: the `Artwork` plus `details` about products already made
+/// from it: `failedProductIds` could not be rebuilt, `unpublishedProductIds` went back to draft
+/// (the new cut-out is too small to print).
 struct CleanupResult: Decodable, Equatable {
   let artwork: Artwork
   var failedProductIds: [String] = []
+  var unpublishedProductIds: [String] = []
 
-  private struct Details: Decodable { var failedProductIds: [String]? }
+  private struct Details: Decodable {
+    var failedProductIds: [String]?
+    var unpublishedProductIds: [String]?
+  }
   private enum Keys: String, CodingKey { case details }
 
-  init(artwork: Artwork, failedProductIds: [String] = []) {
+  init(artwork: Artwork, failedProductIds: [String] = [], unpublishedProductIds: [String] = []) {
     self.artwork = artwork
     self.failedProductIds = failedProductIds
+    self.unpublishedProductIds = unpublishedProductIds
   }
 
   init(from decoder: Decoder) throws {
     artwork = try Artwork(from: decoder)
     let c = try decoder.container(keyedBy: Keys.self)
-    failedProductIds = (try? c.decodeIfPresent(Details.self, forKey: .details))?.failedProductIds ?? []
+    let details = try? c.decodeIfPresent(Details.self, forKey: .details)
+    failedProductIds = details?.failedProductIds ?? []
+    unpublishedProductIds = details?.unpublishedProductIds ?? []
   }
 }
 

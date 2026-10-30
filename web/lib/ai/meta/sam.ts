@@ -49,9 +49,16 @@ function segIou(a: Segment, aArea: number, b: Segment, bArea: number): number {
   return uni ? inter / uni : 0;
 }
 
+/** A result covering more than this share of the frame that contains another result is the paper or table around it. */
+export const MAX_CONTAINER_COVERAGE = 0.4;
+
+const bboxContains = (a: BBox, b: BBox) => a[0] <= b[0] && a[1] <= b[1] && a[2] >= b[2] && a[3] >= b[3];
+
 /**
  * Merges results from several phrases: drops frame-filling ones, sorts by score, drops any that
- * overlaps an already kept one by IoU > `iouMax`, caps at `max`.
+ * overlaps an already kept one by IoU > `iouMax`, drops a "container" (covers more than 40 % of
+ * the frame and its box contains another result's box: the sheet of paper or the table around a
+ * drawing), caps at `max`.
  */
 export function dedupeSegments(segs: Segment[], opts: { max?: number; iouMax?: number; maxCoverage?: number } = {}): Segment[] {
   const max = opts.max ?? MAX_CANDIDATES, iouMax = opts.iouMax ?? DEDUPE_IOU, maxCoverage = opts.maxCoverage ?? MAX_FRAME_COVERAGE;
@@ -60,11 +67,14 @@ export function dedupeSegments(segs: Segment[], opts: { max?: number; iouMax?: n
     .sort((x, y) => y.s.score - x.s.score);
   const kept: typeof sized = [];
   for (const c of sized) {
-    if (kept.length >= max) break;
     if (kept.every((k) => segIou(c.s, c.a, k.s, k.a) <= iouMax)) kept.push(c);
   }
-  return kept.map((k) => k.s);
+  const frame = (k: (typeof kept)[number]) => k.s.mask.width * k.s.mask.height;
+  const isContainer = (k: (typeof kept)[number]) =>
+    k.a > frame(k) * MAX_CONTAINER_COVERAGE && kept.some((o) => o !== k && bboxContains(k.s.bbox, o.s.bbox));
+  return kept.filter((k) => !isContainer(k)).slice(0, max).map((k) => k.s);
 }
+
 type StreamEvent = { type: string; [k: string]: unknown };
 export type SamStreamFn = (body: Record<string, unknown>) => Promise<AsyncIterable<StreamEvent>>;
 
@@ -214,7 +224,7 @@ export class MetaSegmenter implements Segmenter {
         objects: [{
           id: 1,
           prompts: [{
-            ...(hint.box ? { box: objectBox(hint.box, clampX, clampY, prep.sentW, prep.sentH) } : {}),
+            ...(hint.box ? { box: objectBox(hint.box, sx, sy, prep.sentW, prep.sentH) } : {}),
             ...(hint.points?.length ? {
               points: hint.points.map((p) => ({ x: clampX(p.x), y: clampY(p.y), ...(p.label === "negative" ? { label: "negative" as const } : {}) })),
             } : {}),
@@ -230,10 +240,10 @@ export class MetaSegmenter implements Segmenter {
   }
 }
 
-/** Half-open box in request pixels, at least 1 px wide and tall, inside the frame. */
-function objectBox(box: [number, number, number, number], cx: (v: number) => number, cy: (v: number) => number, w: number, h: number) {
-  const left = cx(box[0]), top = cy(box[1]);
-  const right = Math.min(w, Math.max(left + 1, cx(box[2]))), bottom = Math.min(h, Math.max(top + 1, cy(box[3])));
+/** Half-open box in request pixels: left/top floored, right/bottom ceiled (an edge-reaching box keeps the last column/row), ≥ 1 px. */
+export function objectBox(box: [number, number, number, number], sx: number, sy: number, w: number, h: number) {
+  const left = Math.max(0, Math.min(w - 1, Math.floor(box[0] * sx))), top = Math.max(0, Math.min(h - 1, Math.floor(box[1] * sy)));
+  const right = Math.min(w, Math.max(left + 1, Math.ceil(box[2] * sx))), bottom = Math.min(h, Math.max(top + 1, Math.ceil(box[3] * sy)));
   return { left, top, right, bottom };
 }
 
@@ -247,6 +257,7 @@ export function pickByHint(segs: Segment[], hint: SegmentHint): Segment | null {
   if (positive.length) {
     const hit = allowed.find((s) => positive.some((p) => at(s, p)));
     if (hit) return hit;
+    if (!hint.box) return null; // no fallback piece under the creator's taps: better nothing than a random blob
   }
   if (hint.box) {
     const [x0, y0, x1, y1] = hint.box;

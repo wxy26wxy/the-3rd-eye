@@ -11,5 +11,6 @@ export const CleanupBody = z.object({
     .refine(([x0, y0, x1, y1]) => x0 < x1 && y0 < y1, "box must be [x0, y0, x1, y1] with x0 < x1 and y0 < y1").optional(),
 })
   .refine((b) => b.candidateIds || b.points || b.box, "Give candidateIds, points or a box")
-  .refine((b) => !b.points || b.box || b.points.some((p) => p.label === "positive"), "Add at least one positive point or a box");
+  .refine((b) => !b.points || b.box || b.candidateIds || b.points.some((p) => p.label === "positive"),
+    "Negative points need candidateIds or a box to take away from; or add a positive point");
 export type CleanupBody = z.infer<typeof CleanupBody>;

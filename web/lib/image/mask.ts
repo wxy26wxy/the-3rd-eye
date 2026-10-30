@@ -243,14 +243,35 @@ export function iou(a: Mask, b: Mask): number {
   return uni ? inter / uni : 0;
 }
 
-/** Drops connected pieces smaller than `minFraction` of the largest piece. */
-export function dropIslands(mask: Mask, minFraction = 0.005): Mask {
+/**
+ * Drops specks: a connected piece goes only when it is BOTH under `minFraction` of the largest
+ * piece AND under an absolute floor (`minFrameFraction` of the frame, at least `minPx` pixels).
+ * Small but real parts of a drawing (the dot of an "i", a star) stay.
+ */
+export function dropIslands(mask: Mask, minFraction = MIN_ISLAND_FRACTION, minFrameFraction = MIN_ISLAND_FRAME_FRACTION, minPx = MIN_ISLAND_PX): Mask {
   const { labels, parts } = components(mask);
   if (parts.length <= 1) return mask;
   const largest = parts.reduce((m, p) => Math.max(m, p.area), 0);
-  const keep = new Set(parts.filter((p) => p.area >= largest * minFraction).map((p) => p.label));
+  const floor = Math.max(minPx, mask.width * mask.height * minFrameFraction);
+  const keep = new Set(parts.filter((p) => p.area >= largest * minFraction || p.area >= floor).map((p) => p.label));
   const out = emptyMask(mask.width, mask.height);
   for (let i = 0; i < labels.length; i++) out.data[i] = keep.has(labels[i]) ? 1 : 0;
+  return out;
+}
+
+/** Removes every connected piece of `mask` that contains one of `points` (pixel coordinates of the mask). */
+export function removePiecesAt(mask: Mask, points: { x: number; y: number }[]): Mask {
+  if (!points.length) return mask;
+  const { labels } = components(mask);
+  const drop = new Set<number>();
+  for (const p of points) {
+    const x = Math.max(0, Math.min(mask.width - 1, Math.floor(p.x))), y = Math.max(0, Math.min(mask.height - 1, Math.floor(p.y)));
+    const l = labels[y * mask.width + x];
+    if (l) drop.add(l);
+  }
+  if (!drop.size) return mask;
+  const out = emptyMask(mask.width, mask.height);
+  for (let i = 0; i < labels.length; i++) out.data[i] = labels[i] && !drop.has(labels[i]) ? 1 : 0;
   return out;
 }
 
@@ -265,13 +286,17 @@ export async function resizeMask(mask: Mask, width: number, height: number): Pro
 export const FINISH_MAX_SIDE = 2048;
 /** Morphological close radius at the working scale (bridges hairline gaps between SAM pieces). */
 export const CLOSE_RADIUS_PX = 2;
-/** Pieces smaller than this fraction of a part's main blob are dropped. */
+/** A piece is a speck (dropped) when under this fraction of its part's main blob… */
 export const MIN_ISLAND_FRACTION = 0.005;
+/** …and also under this fraction of the frame (0.02 %)… */
+export const MIN_ISLAND_FRAME_FRACTION = 0.0002;
+/** …or under this many pixels, whichever floor is larger. */
+export const MIN_ISLAND_PX = 64;
 
 /**
  * Turns segmentation masks into a clean, anti-aliased alpha at `target` size.
- * Each part (one per chosen candidate or SAM object): fill holes, drop specks under 0.5 % of its
- * main blob. Then union the parts (so every combined piece is kept), close ≈ 2 px at request
+ * Each part (one per chosen candidate or SAM object): fill holes, drop specks (under 0.5 % of its
+ * main blob and under 0.02 % of the frame / 64 px). Then union the parts (so every combined piece is kept), close ≈ 2 px at request
  * scale, fill holes again, and resize with a linear kernel after a light blur so the edge is a
  * soft 0–255 ramp instead of a staircase. Swappable: the pipeline only depends on the signature.
  */
@@ -281,7 +306,7 @@ export async function finishMask(parts: Mask | Mask[], target: { width: number; 
   const { width, height } = list[0];
   const scale = Math.min(1, FINISH_MAX_SIDE / Math.max(width, height));
   const w = Math.max(1, Math.round(width * scale)), h = Math.max(1, Math.round(height * scale));
-  const cleaned = await Promise.all(list.map(async (p) => dropIslands(fillHoles(await resizeMask(p, w, h)), MIN_ISLAND_FRACTION)));
+  const cleaned = await Promise.all(list.map(async (p) => dropIslands(fillHoles(await resizeMask(p, w, h)))));
   let m = unionMasks(cleaned);
   m = fillHoles(await erode(await dilate(m, CLOSE_RADIUS_PX), CLOSE_RADIUS_PX));
   const { data, info } = await maskSharp(m).blur(0.6)

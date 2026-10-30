@@ -19,5 +19,6 @@ export const POST = route<{ params: Promise<{ id: string }> }>(async (req, { par
   if (hint.candidateIds?.some((c) => !artwork.candidates?.some((k) => k.id === c))) {
     throw new ApiError(400, "invalid_candidate", "Pick one of the shown drawings");
   }
-  return json(toArtwork(await runPipeline(() => cleanupArtwork(artwork, hint))));
+  const out = await runPipeline(() => cleanupArtwork(artwork, hint));
+  return json({ ...toArtwork(out.artwork), details: { failedProductIds: out.failedProductIds, unpublishedProductIds: out.unpublishedProductIds } });
 });

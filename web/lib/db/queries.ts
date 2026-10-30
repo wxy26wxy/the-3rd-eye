@@ -289,6 +289,14 @@ export async function upsertListing(values: typeof listings.$inferInsert): Promi
   return row;
 }
 
+/** Replaces the stored print check (and a pending draft's) after the product's files were rebuilt. */
+export async function setListingPrintCheck(productId: string, printCheck: unknown): Promise<void> {
+  const row = await getListing(productId);
+  if (!row) return;
+  const draftCopy = row.draftCopy ? { ...row.draftCopy, printCheck } : row.draftCopy;
+  await db().update(listings).set({ printCheck, draftCopy }).where(eq(listings.productId, productId));
+}
+
 /** Keeps new agent copy for a published product without touching the live listing (null clears it). */
 export async function setListingDraftCopy(productId: string, draftCopy: ListingRow["draftCopy"]): Promise<void> {
   await db().update(listings).set({ draftCopy }).where(eq(listings.productId, productId));

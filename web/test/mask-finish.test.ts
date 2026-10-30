@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
 import type { Mask, Segment } from "@/lib/ai/types";
-import { alphaToMask, area, emptyMask, erode, finishMask, iou, unionMasks } from "@/lib/image/mask";
-import { dedupeSegments } from "@/lib/ai/meta/sam";
+import { alphaToMask, area, emptyMask, erode, finishMask, iou, removePiecesAt, unionMasks } from "@/lib/image/mask";
+import { dedupeSegments, objectBox, pickByHint } from "@/lib/ai/meta/sam";
 import { removeBackground } from "@/lib/image/sticker";
 
 /** Mask from a predicate over (x, y). */
@@ -44,6 +44,19 @@ describe("finishMask", () => {
     const out = alphaToMask(await finishMask(m, { width: 200, height: 200 }));
     expect(out.data[100 * 200 + 100]).toBe(1); // 1-px seam closed
     expect(out.data[5 * 200 + 5]).toBe(0); // speck dropped
+  });
+
+  it("keeps a small real piece (a 30×30 dot next to a big disc) in one mask", async () => {
+    const m = shape(1000, 800, (x, y) => disc(300, 400, 250)(x, y) || (x >= 800 && x < 830 && y >= 380 && y < 410));
+    const out = alphaToMask(await finishMask(m, { width: 1000, height: 800 }));
+    expect(out.data[395 * 1000 + 815]).toBe(1); // 900 px dot: under 0.5 % of the disc but above 0.02 % of the frame
+  });
+
+  it("removePiecesAt drops only the piece under a point", () => {
+    const m = unionMasks([shape(200, 100, disc(50, 50, 30)), shape(200, 100, disc(150, 50, 30))]);
+    const out = removePiecesAt(m, [{ x: 150, y: 50 }, { x: 100, y: 5 }]);
+    expect(out.data[50 * 200 + 50]).toBe(1);
+    expect(out.data[50 * 200 + 150]).toBe(0);
   });
 
   it("keeps every combined piece, even a small one", async () => {
@@ -93,5 +106,26 @@ describe("dedupeSegments (two SAM phrases)", () => {
     expect(out).toEqual([body, head]);
     const many = Array.from({ length: 9 }, (_, i) => seg(shape(400, 40, disc(20 + i * 44, 20, 15)), 0.5 + i / 100));
     expect(dedupeSegments(many)).toHaveLength(6);
+  });
+
+  it("drops a container (the paper around a drawing) covering > 40 % of the frame", () => {
+    const paper = seg(shape(200, 200, (x, y) => x >= 20 && x < 180 && y >= 20 && y < 180), 0.6); // 64 % of the frame
+    const drawing = seg(shape(200, 200, disc(100, 100, 30)), 0.5);
+    expect(dedupeSegments([paper, drawing])).toEqual([drawing]);
+    const bigToy = seg(shape(200, 200, disc(100, 100, 75)), 0.9); // 44 %, contains nothing → kept
+    const other = seg(shape(200, 200, disc(190, 190, 8)), 0.5);
+    expect(dedupeSegments([bigToy, other])).toEqual([bigToy, other]);
+  });
+});
+
+describe("SAM hint helpers", () => {
+  it("an edge-reaching box keeps the last column and row", () => {
+    expect(objectBox([0, 0, 320, 256], 1, 1, 320, 256)).toEqual({ left: 0, top: 0, right: 320, bottom: 256 });
+    expect(objectBox([10.5, 10.5, 10.6, 10.6], 1, 1, 320, 256)).toEqual({ left: 10, top: 10, right: 11, bottom: 11 });
+  });
+  it("pickByHint returns nothing when positive taps hit no fallback piece and there is no box", () => {
+    const a = seg(shape(100, 100, disc(30, 30, 10)), 0.9);
+    expect(pickByHint([a], { points: [{ x: 80, y: 80 }] })).toBeNull();
+    expect(pickByHint([a], { points: [{ x: 30, y: 30 }] })).toBe(a);
   });
 });

@@ -32,7 +32,7 @@ const scene = () => sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" w
   <circle cx="860" cy="560" r="70" fill="none" stroke="#d23b3b" stroke-width="26"/>
 </svg>`)).png().toBuffer();
 
-const probePhrases = (process.env.LIVE_PHRASES || "drawing,object").split(",");
+const probePhrases = (process.env.LIVE_PHRASES ?? "drawing,handmade object").split(",").filter(Boolean);
 const photos = (process.env.LIVE_PHOTOS || "").split(",").filter(Boolean);
 
 describe.skipIf(!live)("live SAM on photos of objects", () => {

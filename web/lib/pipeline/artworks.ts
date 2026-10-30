@@ -10,7 +10,7 @@ import { ai } from "@/lib/ai/registry";
 import type { GeneratedImage, Mask, Segment, SegmentPoint, Trace } from "@/lib/ai/types";
 import { cutUpscale, ensureDpi, previewCutPath, removeBackground } from "@/lib/image/sticker";
 import { pngRef } from "@/lib/image/ref";
-import { alphaToPng, area, bboxOf, emptyMask, finishMask, maskFromPng, maskToPng, unionMasks } from "@/lib/image/mask";
+import { alphaToMask, alphaToPng, area, bboxOf, emptyMask, finishMask, maskFromPng, maskToPng, removePiecesAt, unionMasks } from "@/lib/image/mask";
 import { insertArtwork, listProductsForArtwork, updateArtwork, type ArtworkRow } from "@/lib/db/queries";
 import { rebuildProductFiles } from "@/lib/pipeline/products";
 import { clientUploadPath, creatorPath, readClientUpload, storage } from "@/lib/storage";
@@ -54,6 +54,9 @@ async function finishArtwork(
   const tw = Math.round(W * k), th = Math.round(H * k);
   const source = tw === W && th === H ? original : await sharp(original).resize(tw, th, { kernel: "lanczos3", fit: "fill" }).png().toBuffer();
   const alpha = await finishMask(parts, { width: tw, height: th });
+  if (!bboxOf(alphaToMask(alpha))) {
+    throw new ApiError(422, "no_drawing_found", "That selection is too small to cut out. Try a box around the whole thing.", { artworkId: artwork.id });
+  }
   const cut = await removeBackground(source, alpha);
   const cleaned = cut.png;
   const [cleanedFile, maskFile, description, cutPathSvg] = await Promise.all([
@@ -69,12 +72,25 @@ async function finishArtwork(
   });
 }
 
-/** Re-cut + keep any products made from the artwork consistent with the new cut-out. */
-async function recut(artwork: ArtworkRow, original: Buffer, parts: Mask[], opts: { prompt?: string; task: string }): Promise<ArtworkRow> {
+export type RecutResult = { artwork: ArtworkRow; failedProductIds: string[]; unpublishedProductIds: string[] };
+
+/**
+ * Re-cut, then rebuild every live product made from the artwork in parallel. A product whose
+ * rebuild fails keeps its old files and is reported in `failedProductIds` (the cut itself stands);
+ * one whose print check now fails is moved back to draft (`unpublishedProductIds`).
+ */
+async function recut(artwork: ArtworkRow, original: Buffer, parts: Mask[], opts: { prompt?: string; task: string }): Promise<RecutResult> {
   const row = await finishArtwork(artwork, original, parts, opts);
   const products = await listProductsForArtwork(artwork.id);
-  for (const p of products) await rebuildProductFiles(p.id, opts.task);
-  return row;
+  const results = await Promise.allSettled(products.map((p) => rebuildProductFiles(p.id, opts.task)));
+  const failedProductIds: string[] = [], unpublishedProductIds: string[] = [];
+  results.forEach((r, i) => {
+    if (r.status === "rejected") {
+      failedProductIds.push(products[i].id);
+      console.warn(`[artworks] rebuilding product ${products[i].id} failed:`, r.reason instanceof Error ? r.reason.message : r.reason);
+    } else if (r.value.unpublished) unpublishedProductIds.push(products[i].id);
+  });
+  return { artwork: row, failedProductIds, unpublishedProductIds };
 }
 
 /** One generated (or refined) image → stored, segmented, cut out and described artwork row. */
@@ -137,6 +153,8 @@ export async function refineArtwork(parent: ArtworkRow, instruction: string, tas
   });
 }
 
+/** A single candidate covering more than this share of the frame is not auto-selected. */
+const AUTO_SELECT_MAX_COVERAGE = 0.5;
 /** Longest side of the image candidate thumbnails are cut from (thumbs are 320 px). */
 const THUMB_SOURCE_SIDE = 1024;
 
@@ -177,7 +195,10 @@ export async function createFromImage(
     await updateArtwork(id, { lastError: "no_drawing_found" });
     throw new ApiError(422, "no_drawing_found", "We could not find a drawing or object in that picture. Try a photo with it on a plain background, filling most of the frame, in good light.", { artworkId: id });
   }
-  if (candidates.length === 1) artwork = await selectCandidate(artwork, candidates[0].id, task);
+  // Auto-select a single candidate, unless it covers most of the frame (likely the paper or the table): then show the picker.
+  if (candidates.length === 1 && area(segs[0].mask) <= imageSize.w * imageSize.h * AUTO_SELECT_MAX_COVERAGE) {
+    artwork = await selectCandidate(artwork, candidates[0].id, task);
+  }
   return { artwork, candidates, imageSize };
 }
 
@@ -197,33 +218,42 @@ async function candidateMasks(artwork: ArtworkRow, ids: string[]): Promise<Mask[
 }
 
 export async function selectCandidate(artwork: ArtworkRow, candidateId: string, task = "T010"): Promise<ArtworkRow> {
-  return cleanupArtwork(artwork, { candidateIds: [candidateId] }, task);
+  return (await cleanupArtwork(artwork, { candidateIds: [candidateId] }, task)).artwork;
 }
 
 export type CleanupHint = { candidateIds?: string[]; points?: SegmentPoint[]; box?: [number, number, number, number] };
 
 /**
- * Re-cut: the union of the chosen candidates' stored masks (no model call) and, with points or a
- * box, one SAM object prompted with them. Products made from the artwork are rebuilt.
+ * Re-cut. Candidate pieces: the chosen candidates' stored masks, minus every connected piece that
+ * holds a negative point (no model call). SAM piece: with a box or a positive point, one SAM
+ * object prompted with the box and all points. The cut is the union of both. Products made from
+ * the artwork are rebuilt.
  */
-export async function cleanupArtwork(artwork: ArtworkRow, hint: CleanupHint, task = "T080"): Promise<ArtworkRow> {
+export async function cleanupArtwork(artwork: ArtworkRow, hint: CleanupHint, task = "T080"): Promise<RecutResult> {
   if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
   trackArtwork(artwork.id);
+  const negatives = (hint.points ?? []).filter((p) => p.label === "negative");
+  const askSam = Boolean(hint.box) || (hint.points ?? []).some((p) => p.label !== "negative");
   const [original, fromCandidates] = await Promise.all([
     storage().read(artwork.originalUrl),
     hint.candidateIds?.length ? candidateMasks(artwork, [...new Set(hint.candidateIds)]) : Promise.resolve([] as Mask[]),
   ]);
-  const parts = [...fromCandidates];
-  if (hint.points?.length || hint.box) {
+  const meta = await sharp(original).metadata();
+  const W = meta.width ?? 0, H = meta.height ?? 0;
+  const sized = await Promise.all(fromCandidates.map((m) => toSize(m, W, H)));
+  const parts = sized.map((m) => removePiecesAt(m, negatives)).filter((m) => area(m) > 0);
+  if (askSam) {
     const seg = await (await ai()).segmenter.segment(pngRef(original), { points: hint.points, box: hint.box }, { trace: traceFor(artwork.id, task, "segment") });
-    if (seg && area(seg.mask) > 0) parts.push(seg.mask);
+    if (seg && area(seg.mask) > 0) parts.push(await toSize(seg.mask, W, H));
   }
   if (!parts.length) {
     throw new ApiError(422, "no_drawing_found", "We could not find anything there. Try a box around the whole thing, or tap on it.", { artworkId: artwork.id });
   }
-  const meta = await sharp(original).metadata();
-  const W = meta.width ?? parts[0].width, H = meta.height ?? parts[0].height;
-  // Stored masks are at the original's size; guard against older rows that are not.
-  const sized = await Promise.all(parts.map(async (m) => (m.width === W && m.height === H ? m : maskFromPng(await sharp(await maskToPng(m)).resize(W, H, { kernel: "nearest", fit: "fill" }).png().toBuffer()))));
-  return recut(artwork, original, sized, { prompt: artwork.shapedPrompt ?? undefined, task });
+  return recut(artwork, original, parts, { prompt: artwork.shapedPrompt ?? undefined, task });
+}
+
+/** Stored masks are at the original's size; guard against older rows that are not. */
+async function toSize(m: Mask, W: number, H: number): Promise<Mask> {
+  if (!W || !H || (m.width === W && m.height === H)) return m;
+  return maskFromPng(await sharp(await maskToPng(m)).resize(W, H, { kernel: "nearest", fit: "fill" }).png().toBuffer());
 }

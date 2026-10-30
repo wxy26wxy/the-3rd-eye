@@ -93,7 +93,7 @@ describe("BFF hop", () => {
     for (let i = 0; i < RATE_LIMITS.model; i++) {
       expect((await post("/create/bff/artworks", { "x-forwarded-for": "1.1.1.1", cookie: "ms_creator=x" })).status).not.toBe(429);
       // inner hop from the server's own IP, signed for the client: not counted again
-      expect((await post("/api/v1/artworks", { "x-forwarded-for": "10.0.0.1", ...bffIpHeaders("1.1.1.1") })).status).not.toBe(429);
+      expect((await post("/api/v1/artworks", { "x-forwarded-for": "10.0.0.1", ...bffIpHeaders("1.1.1.1", "/api/v1/artworks") })).status).not.toBe(429);
     }
     expect((await post("/create/bff/artworks", { "x-forwarded-for": "1.1.1.1", cookie: "ms_creator=x" })).status).toBe(429);
     expect((await post("/create/bff/artworks", { "x-forwarded-for": "2.2.2.2", cookie: "ms_creator=x" })).status).not.toBe(429);
@@ -103,6 +103,17 @@ describe("BFF hop", () => {
     const forged = { [BFF_IP_HEADER]: "5.5.5.5", [BFF_SIG_HEADER]: "0".repeat(64) };
     for (let i = 0; i < RATE_LIMITS.model; i++) await post("/api/v1/artworks", { "x-forwarded-for": "6.6.6.6", ...forged });
     expect((await post("/api/v1/artworks", { "x-forwarded-for": "6.6.6.6", ...forged })).status).toBe(429);
+  });
+
+  it("a signature is bound to its path and needs the secret", async () => {
+    const sig = bffIpHeaders("4.4.4.4", "/api/v1/prompts");
+    for (let i = 0; i < RATE_LIMITS.model; i++) await post("/api/v1/artworks", { "x-forwarded-for": "10.0.0.2", ...sig });
+    expect((await post("/api/v1/artworks", { "x-forwarded-for": "10.0.0.2", ...sig })).status).toBe(429);
+    const signed = bffIpHeaders("4.4.4.4", "/api/v1/artworks");
+    delete process.env.CREATOR_SESSION_SECRET; // no secret: never trusts the header
+    limiter.reset();
+    for (let i = 0; i < RATE_LIMITS.model; i++) await post("/api/v1/artworks", { "x-forwarded-for": "10.0.0.3", ...signed });
+    expect((await post("/api/v1/artworks", { "x-forwarded-for": "10.0.0.3", ...signed })).status).toBe(429);
   });
 
   it("limits an encoded BFF path", async () => {

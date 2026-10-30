@@ -56,22 +56,25 @@ function normalizeIp(ip: string | null): string | null {
 export const BFF_IP_HEADER = "x-the3rdeye-client-ip";
 export const BFF_SIG_HEADER = "x-the3rdeye-bff-sig";
 
-function sign(ip: string): string | null {
+/** Subkey with its own label, so a BFF signature can never double as a creator-token signature. */
+function sign(ip: string, path: string): string | null {
   const secret = process.env.CREATOR_SESSION_SECRET;
-  return secret ? createHmac("sha256", secret).update(ip).digest("hex") : null;
+  if (!secret) return null;
+  const key = createHmac("sha256", secret).update("the3rdeye-bff-client-ip-v1").digest();
+  return createHmac("sha256", key).update(`${ip}\n${path}`).digest("hex");
 }
 
-/** Headers the BFF forwarder adds so the inner hop knows the request was already counted at the BFF. */
-export function bffIpHeaders(ip: string | null): Record<string, string> {
-  const sig = ip ? sign(ip) : null;
+/** Headers the BFF forwarder adds so the inner hop knows the request was already counted at the BFF. `path` is the inner pathname. */
+export function bffIpHeaders(ip: string | null, path: string): Record<string, string> {
+  const sig = ip ? sign(ip, path) : null;
   return ip && sig ? { [BFF_IP_HEADER]: ip, [BFF_SIG_HEADER]: sig } : {};
 }
 
 /** True when the request carries a valid BFF signature for its claimed client IP. */
-export function isSignedBffHop(headers: Pick<Headers, "get">): boolean {
+export function isSignedBffHop(headers: Pick<Headers, "get">, path: string): boolean {
   const ip = headers.get(BFF_IP_HEADER);
   const given = headers.get(BFF_SIG_HEADER);
-  const want = ip ? sign(ip) : null;
+  const want = ip ? sign(ip, path) : null;
   if (!ip || !given || !want || given.length !== want.length) return false;
   return timingSafeEqual(Buffer.from(given), Buffer.from(want));
 }
@@ -129,7 +132,7 @@ export function rateLimitResponse(
   const group = classify(req.method, pathname);
   if (!group) return null;
   // The BFF hop already counted this client call on the real IP; a valid signature proves it.
-  if (isSignedBffHop(req.headers)) return null;
+  if (isSignedBffHop(req.headers, pathname)) return null;
   const ip = clientIp(req.headers);
   if (!ip) {
     if (!warnedUnknownIp) { warnedUnknownIp = true; console.warn("[rate-limit] no client IP on request; not limiting"); }

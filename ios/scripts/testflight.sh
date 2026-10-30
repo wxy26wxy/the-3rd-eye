@@ -24,7 +24,7 @@ fi
 mkdir -p build
 log="build/testflight-${build}.log"
 archive="build/The3rdEye-${version}-${build}.xcarchive"
-xcodebuild -scheme The3rdEye -configuration Release \
+xcodebuild -project The3rdEye.xcodeproj -scheme The3rdEye -configuration Release \
   -destination 'generic/platform=iOS' \
   -archivePath "$archive" -allowProvisioningUpdates ${auth[@]+"${auth[@]}"} archive \
   > "$log" 2>&1 || { tail -20 "$log"; echo "archive failed; see $log" >&2; exit 1; }

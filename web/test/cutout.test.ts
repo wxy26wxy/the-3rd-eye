@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   boxAround, centrePoint, chooseAction, fitRect, imageBox, imagePoint, leavesNothing, makeRequest,
   needsTrimAdvice, percentRect, productNotice, sameRequest, type CutoutPoint,
-  boxRescueArtworkId, initialChoice, wholeImageBox, type AppliedCutout,
+  boxRescueArtworkId, initialChoice, isStuck, wholeImageBox, type AppliedCutout,
 } from "@/components/create/cutout";
 import { api, ApiError } from "@/components/create/api";
 
@@ -183,5 +183,15 @@ describe("zero-pieces box path", () => {
     } finally {
       globalThis.fetch = realFetch;
     }
+  });
+});
+
+describe("isStuck", () => {
+  const neg = { x: 1, y: 1, label: "negative" as const };
+  it("only Remove-area marks with no piece and no box → stuck", () => {
+    expect(isStuck([], [neg], null)).toBe(true);
+    expect(isStuck(["k1"], [neg], null)).toBe(false);
+    expect(isStuck([], [neg], [0, 0, 5, 5])).toBe(false);
+    expect(isStuck([], [], null)).toBe(false);
   });
 });

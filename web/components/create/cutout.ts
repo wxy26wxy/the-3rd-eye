@@ -168,3 +168,8 @@ export function boxRescueArtworkId(err: unknown): string | null {
 export function wholeImageBox(image: ImageSize | null | undefined): Box | null {
   return usableSize(image) ? [0, 0, image.w, image.h] : null;
 }
+
+/** Marks exist but no request can be sent (only "Remove area" marks and no piece): Apply and Use this stay disabled. */
+export function isStuck(selectedIds: readonly string[], points: readonly CutoutPoint[], box: Box | null): boolean {
+  return !makeRequest(selectedIds, points, box) && (points.length > 0 || box !== null);
+}

@@ -9,7 +9,7 @@ import { Loading, Status } from "@/components/ui/Loading";
 import { api, type Artwork, type ArtworkDetail, type CleanupResult } from "../api";
 import { CreateScreen, HydratingScreen, MissingState } from "../CreateScreen";
 import {
-  boxAround, centrePoint, chooseAction, initialChoice, leavesNothing, makeRequest, MAX_POINTS, needsTrimAdvice, ORIGINAL_URL_TTL_MS,
+  boxAround, centrePoint, chooseAction, initialChoice, isStuck, leavesNothing, makeRequest, MAX_POINTS, needsTrimAdvice, ORIGINAL_URL_TTL_MS,
   productNotice, sameRequest, usableSize, wholeImageBox, type AppliedCutout, type Box, type CleanupRequest, type CutoutPoint, type ImageSize, type XY,
 } from "../cutout";
 import { describeError, ErrorNotice, type ScreenError } from "../errors";
@@ -129,16 +129,27 @@ function SelectFlow() {
   const instruction = (none && mode === "box" ? t.instructionBoxNone : modes.find((x) => x.id === mode)?.instruction) ?? "";
   const lead = none ? t.copyNone : candidates.length === 1 ? t.copyOne : fmt(t.copyMany, { n: candidates.length });
   const wholeBox = none ? wholeImageBox(imageSize) : null;
-  const stuck = !request && (points.length > 0 || box !== null);
+  const stuck = isStuck(ordered, points, box);
 
   function say(text: string) { setAnnounce((a) => (a === text ? `${text} ` : text)); }
   /** Notices are shown and also spoken through the one permanent live region. */
   function tell(text: string | null) { setNotice(text); if (text) say(text); }
+  /**
+   * Speaks `text` after a change; when the change leaves only marks that cannot be sent, speaks
+   * the "Pick a piece…" line too (it is shown below, and Apply / Use this stay disabled).
+   */
+  function sayAfter(text: string | null, next: { ids?: string[]; points?: CutoutPoint[]; box?: Box | null }) {
+    const nowStuck = isStuck(next.ids ?? selectedIds, next.points ?? points, next.box === undefined ? box : next.box);
+    const line = [text, nowStuck && !stuck ? t.needPiece : null].filter(Boolean).join(" ");
+    if (line) say(line);
+  }
 
   function toggle(id: string) {
     if (busy) return;
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    const ids = selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id];
+    setSelectedIds(ids);
     setNotice(null);
+    sayAfter(null, { ids });
   }
   function addMark(p: CutoutPoint) {
     if (busy) return;
@@ -148,13 +159,14 @@ function SelectFlow() {
     if (p.label === "negative" && leavesNothing(selected, next, box)) { tell(t.instructionRemove); return; }
     setPoints(next);
     setNotice(null);
-    say(t.announceMark);
+    sayAfter(t.announceMark, { points: next });
   }
   function removeMark(i: number) {
     if (busy) return;
-    setPoints((prev) => prev.filter((_, j) => j !== i));
+    const next = points.filter((_, j) => j !== i);
+    setPoints(next);
     setNotice(null);
-    say(t.announceUnmark);
+    sayAfter(t.announceUnmark, { points: next });
   }
   function placeBox(b: Box | null) {
     if (busy || !b) return;
@@ -185,9 +197,10 @@ function SelectFlow() {
       const pn = productNotice(art.details, NOTICE_COPY);
       setApplied(sent, art);
       setShowApplied(true);
-      setNotice(pn);
       update({ cutoutNotice: pn ?? undefined });
-      say(pn ? `${t.applied} ${pn}` : t.applied);
+      // Focus moves to the "Your cutout is saved" heading, which is read there; the live region
+      // speaks only the product notice, so the heading is not read twice.
+      tell(pn);
       focusOn("result");
     } catch (err) {
       if (!live.current) return;

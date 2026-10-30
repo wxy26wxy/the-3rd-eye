@@ -34,3 +34,6 @@
 
 ## 2026-10-30 · production · rate limiting + demo docs (8e350f9)
 - https://the-3rd-835bbkwxt-xinyao-wangs-projects.vercel.app → https://the-3rd-eye.vercel.app. Adds in-app per-IP rate limits (login code 10/min, note form 30/min, model routes 20/min; signed client IP across the BFF) and the demo script / README refresh. Rollback target: https://the-3rd-comuhhw6q-xinyao-wangs-projects.vercel.app.
+
+## 2026-10-30 · production · review fix wave (9531526)
+- https://the-3rd-9mxe9dflc-xinyao-wangs-projects.vercel.app → https://the-3rd-eye.vercel.app. T090: scoped public-original delete, 503 on moderation outage, tags-aware moderation reuse, captions-route test, live row on draft edits, Select-screen follow-ups (persisted cutout, zero-pieces box, tappable labels, tokens), fragment sign-in link, a11y nits. Rollback target: https://the-3rd-835bbkwxt-xinyao-wangs-projects.vercel.app.

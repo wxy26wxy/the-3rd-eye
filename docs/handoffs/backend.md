@@ -64,3 +64,9 @@ T087: `ArtworkProduct` now has `priceCents`, `description`, `mockupUrl`. Clients
 - Set `RATE_LIMIT_DISABLED=1` for local runs that hammer these routes (set by hand; ignored when `VERCEL_ENV=production`; the iOS mock API does not pass through the proxy).
 - Not covered: `POST /uploads`; add a group in `lib/rate-limit.ts` if wanted. Unknown IP is let through (logged once).
 - Review fix round 1: BFF calls are counted once on the real client IP and forwarded with a signed `x-the3rdeye-client-ip`; deferred: 429 as a page for the sign-in form and note form (minors 7, 8), eviction scan cost (10), proxy-reset and route-level tests (11).
+## T090 fix wave (2026-10-30)
+- `lib/pipeline/notes.ts#moderateNote`: buyer-note moderation for the story-tag reply and ship notes; provider failure → `503 moderation_unavailable` with the caller's hint (`NOTE_UNAVAILABLE`, `SHIP_NOTE_UNAVAILABLE`).
+- `lib/storage/refs.ts#isSourceUpload`: the public upload is deleted after the private original only for `photo` / `photos` / `canvas` kinds.
+- `moderateFinal` reuses the agent's moderation only when title, description and tags all match.
+- `approveListing` with edits over a pending draft uses the live row for tags, print check, trace, gate and moderation.
+- New tests: `captions-route`, `note-moderation`, delete scope, tags-aware moderation reuse, approve over a pending draft.

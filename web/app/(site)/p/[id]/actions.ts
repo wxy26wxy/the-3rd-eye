@@ -34,6 +34,7 @@ export async function placeOrder(productId: string, _prev: BuyState, formData: F
     orderId = res.orderId;
   } catch (err) {
     if ((err as { code?: string })?.code === "note_rejected") return { values: raw, error: m.product.noteRejected };
+    if ((err as { code?: string })?.code === "moderation_unavailable") return { values: raw, error: m.product.noteUnavailable };
     console.error("placeOrder failed", err);
     return { values: raw, error: m.product.buyError };
   }

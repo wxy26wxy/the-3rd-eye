@@ -87,6 +87,8 @@
   --size-min-target: 44px;
   --size-avatar: 40px;
   --size-method-icon: 56px;
+  --size-photo-max-height: 65vh;
+  --opacity-disabled: 0.6;
   --grain-opacity: 0.16;
   --display-stroke: 2px;
   --display-shadow-y: 5px;

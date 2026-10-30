@@ -9,8 +9,8 @@ import { Loading, Status } from "@/components/ui/Loading";
 import { api, type Artwork, type ArtworkDetail, type CleanupResult } from "../api";
 import { CreateScreen, HydratingScreen, MissingState } from "../CreateScreen";
 import {
-  boxAround, centrePoint, chooseAction, leavesNothing, makeRequest, MAX_POINTS, needsTrimAdvice, ORIGINAL_URL_TTL_MS,
-  productNotice, sameRequest, usableSize, type Box, type CleanupRequest, type CutoutPoint, type ImageSize, type XY,
+  boxAround, centrePoint, chooseAction, initialChoice, isStuck, leavesNothing, makeRequest, MAX_POINTS, needsTrimAdvice, ORIGINAL_URL_TTL_MS,
+  productNotice, sameRequest, usableSize, wholeImageBox, type AppliedCutout, type Box, type CleanupRequest, type CutoutPoint, type ImageSize, type XY,
 } from "../cutout";
 import { describeError, ErrorNotice, type ScreenError } from "../errors";
 import { makeProduct, useCreate } from "../store";
@@ -31,14 +31,16 @@ function cleanupError(err: unknown, sent: CleanupRequest | null): ScreenError {
 
 /**
  * SAM found pieces in the photo. The creator picks one or several (combined), adds areas or
- * leaves pieces out with taps, or draws a box; "Apply cutout" saves the cut on the server and
+ * leaves pieces out with taps, or draws a box (with no pieces found, a box or an added area is
+ * the only way); "Apply cutout" saves the cut on the server and
  * shows it; "Use this" goes on to make the product. Same API and rules as the iOS Adjust cutout
  * screen (docs/api.md T080). While a request runs, every control and the way back are locked.
  */
 export function Select() {
   const { ready, draft } = useCreate();
   if (!ready) return <HydratingScreen title={t.title} />;
-  if (!draft.photoArtworkId || !draft.candidates?.length || !draft.product) return <MissingState />;
+  // An empty list is the zero-pieces path (photo answered 422 no_drawing_found): box or "Add area" only.
+  if (!draft.photoArtworkId || !draft.candidates || !draft.product) return <MissingState />;
   return <SelectFlow key={draft.photoArtworkId} />;
 }
 
@@ -51,16 +53,25 @@ function SelectFlow() {
   const { draft, update } = useCreate();
   const artworkId = draft.photoArtworkId as string;
   const candidates = draft.candidates ?? [];
-  const [selectedIds, setSelectedIds] = useState<string[]>(() => (candidates[0] ? [candidates[0].id] : []));
-  const [points, setPoints] = useState<CutoutPoint[]>([]);
-  const [box, setBox] = useState<Box | null>(null);
-  const [mode, setMode] = useState<TapMode>("add");
+  const none = candidates.length === 0;
+  // A cut saved by Apply comes back after a reload with the choice that made it.
+  const [start] = useState(() => initialChoice(draft.appliedCutout, artworkId, candidates));
+  const [selectedIds, setSelectedIds] = useState<string[]>(start.selectedIds);
+  const [points, setPoints] = useState<CutoutPoint[]>(start.points);
+  const [box, setBox] = useState<Box | null>(start.box);
+  const [mode, setMode] = useState<TapMode>(none ? "box" : "add");
   const [work, setWork] = useState<Work | null>(null);
   const [failed, setFailed] = useState<Work | null>(null);
   const [error, setError] = useState<ScreenError | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [announce, setAnnounce] = useState("");
-  const [applied, setApplied] = useState<{ request: CleanupRequest; artwork: CleanupResult } | null>(null);
+  const [applied, setAppliedState] = useState<AppliedCutout | null>(start.restored ? draft.appliedCutout ?? null : null);
+  /** Remembers the saved cut here and in the draft. */
+  const setApplied = (request: CleanupRequest, art: CleanupResult) => {
+    const saved: AppliedCutout = { artworkId, request, cleanedUrl: art.cleanedUrl, altText: art.altText };
+    setAppliedState(saved);
+    update({ appliedCutout: saved });
+  };
   const [showApplied, setShowApplied] = useState(false);
   const [detail, setDetail] = useState<Detail>({ state: "loading" });
   const retake = draft.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
@@ -114,18 +125,31 @@ function SelectFlow() {
   const action = chooseAction(ordered, points, box);
   const appliedNow = applied && sameRequest(applied.request, request) ? applied : null;
   const shown = showApplied ? appliedNow : null;
-  const instruction = MODES.find((x) => x.id === mode)?.instruction ?? "";
-  const lead = candidates.length === 1 ? t.copyOne : fmt(t.copyMany, { n: candidates.length });
-  const stuck = !request && (points.length > 0 || box !== null);
+  const modes = none ? MODES.filter((x) => x.id !== "remove") : MODES;
+  const instruction = (none && mode === "box" ? t.instructionBoxNone : modes.find((x) => x.id === mode)?.instruction) ?? "";
+  const lead = none ? t.copyNone : candidates.length === 1 ? t.copyOne : fmt(t.copyMany, { n: candidates.length });
+  const wholeBox = none ? wholeImageBox(imageSize) : null;
+  const stuck = isStuck(ordered, points, box);
 
   function say(text: string) { setAnnounce((a) => (a === text ? `${text} ` : text)); }
   /** Notices are shown and also spoken through the one permanent live region. */
   function tell(text: string | null) { setNotice(text); if (text) say(text); }
+  /**
+   * Speaks `text` after a change; when the change leaves only marks that cannot be sent, speaks
+   * the "Pick a piece…" line too (it is shown below, and Apply / Use this stay disabled).
+   */
+  function sayAfter(text: string | null, next: { ids?: string[]; points?: CutoutPoint[]; box?: Box | null }) {
+    const nowStuck = isStuck(next.ids ?? selectedIds, next.points ?? points, next.box === undefined ? box : next.box);
+    const line = [text, nowStuck && !stuck ? t.needPiece : null].filter(Boolean).join(" ");
+    if (line) say(line);
+  }
 
   function toggle(id: string) {
     if (busy) return;
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    const ids = selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id];
+    setSelectedIds(ids);
     setNotice(null);
+    sayAfter(null, { ids });
   }
   function addMark(p: CutoutPoint) {
     if (busy) return;
@@ -135,13 +159,14 @@ function SelectFlow() {
     if (p.label === "negative" && leavesNothing(selected, next, box)) { tell(t.instructionRemove); return; }
     setPoints(next);
     setNotice(null);
-    say(t.announceMark);
+    sayAfter(t.announceMark, { points: next });
   }
   function removeMark(i: number) {
     if (busy) return;
-    setPoints((prev) => prev.filter((_, j) => j !== i));
+    const next = points.filter((_, j) => j !== i);
+    setPoints(next);
     setNotice(null);
-    say(t.announceUnmark);
+    sayAfter(t.announceUnmark, { points: next });
   }
   function placeBox(b: Box | null) {
     if (busy || !b) return;
@@ -170,11 +195,12 @@ function SelectFlow() {
       const art = await api<CleanupResult>(`artworks/${artworkId}/cleanup`, { json: sent });
       if (!live.current) return;
       const pn = productNotice(art.details, NOTICE_COPY);
-      setApplied({ request: sent, artwork: art });
+      setApplied(sent, art);
       setShowApplied(true);
-      setNotice(pn);
       update({ cutoutNotice: pn ?? undefined });
-      say(pn ? `${t.applied} ${pn}` : t.applied);
+      // Focus moves to the "Your cutout is saved" heading, which is read there; the live region
+      // speaks only the product notice, so the heading is not read twice.
+      tell(pn);
       focusOn("result");
     } catch (err) {
       if (!live.current) return;
@@ -199,13 +225,14 @@ function SelectFlow() {
         if (action.kind === "select") {
           id = (await api<Artwork>(`artworks/${artworkId}/select`, { json: { candidateId: action.candidateId } })).id;
           if (!live.current) return;
-          update({ cutoutNotice: undefined });
+          // The server's cut is now this one piece; an earlier Apply no longer describes it.
+          update({ cutoutNotice: undefined, appliedCutout: undefined });
         } else {
           const art = await api<CleanupResult>(`artworks/${artworkId}/cleanup`, { json: action.body });
           if (!live.current) return;
           id = art.id;
           // Saved now: a retry after a failed product step must not cut again.
-          setApplied({ request: action.body, artwork: art });
+          setApplied(action.body, art);
           update({ cutoutNotice: productNotice(art.details, NOTICE_COPY) ?? undefined });
         }
       }
@@ -252,15 +279,15 @@ function SelectFlow() {
           <h2 ref={resultRef} tabIndex={-1} className={styles.resultHeading}>{t.applied}</h2>
           <div className={styles.checker} style={imageSize ? { aspectRatio: `${imageSize.w} / ${imageSize.h}` } : undefined}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={shown.artwork.cleanedUrl ?? ""} alt={shown.artwork.altText ?? t.cutoutAlt} />
+            <img src={shown.cleanedUrl ?? ""} alt={shown.altText ?? t.cutoutAlt} />
           </div>
         </>
       ) : imageSize && originalUrl ? (
         <CutoutPhoto
           src={originalUrl} image={imageSize} candidates={candidates} selectedIds={selectedIds} points={points} box={box}
-          mode={mode} disabled={busy} onTap={onTap} onBox={placeBox} onRemoveMark={removeMark} onImageError={onPhotoError}
+          mode={mode} disabled={busy} onTap={onTap} onBox={placeBox} onRemoveMark={removeMark} onToggle={toggle} onImageError={onPhotoError}
         />
-      ) : detail.state === "loading" ? <Loading label={t.loadingPhoto} /> : <Status>{t.photoMissing}</Status>}
+      ) : detail.state === "loading" ? <Loading label={t.loadingPhoto} /> : <Status>{none ? t.photoMissingNone : t.photoMissing}</Status>}
 
       {appliedNow ? (
         <Button block variant="secondary" arrow={false} onClick={() => setShowApplied((v) => !v)} disabled={busy}>
@@ -272,14 +299,15 @@ function SelectFlow() {
         <>
           <fieldset className={styles.modes} disabled={busy}>
             <legend className="visually-hidden">{t.modesLabel}</legend>
-            {MODES.map((x) => (
+            {modes.map((x) => (
               <label key={x.id} className={styles.mode}>
                 <input className="visually-hidden" type="radio" name={`${uid}-mode`} value={x.id} checked={mode === x.id} onChange={() => setMode(x.id)} />
                 <span>{x.label}</span>
               </label>
             ))}
           </fieldset>
-          <p className={styles.instruction}>{instruction} {t.keyboardHint}</p>
+          <p className={styles.instruction}>{instruction} {none ? t.keyboardHintNone : t.keyboardHint}</p>
+          {wholeBox ? <button type="button" className={styles.pieceAction} onClick={() => placeBox(wholeBox)} disabled={busy}>{t.wholePhoto}</button> : null}
         </>
       ) : null}
 
@@ -290,7 +318,7 @@ function SelectFlow() {
         <ErrorNotice error={error} onRetry={() => void (failed === "use" ? goOn() : apply())} retakeHref={busy ? undefined : retake} />
       </div>
 
-      <fieldset className={styles.fieldset} disabled={busy}>
+      {none ? null : <fieldset className={styles.fieldset} disabled={busy}>
         <legend className="visually-hidden">{t.groupLabel}</legend>
         <ul role="list" className={styles.variants}>
           {candidates.map((c, i) => {
@@ -312,7 +340,7 @@ function SelectFlow() {
             );
           })}
         </ul>
-      </fieldset>
+      </fieldset>}
     </CreateScreen>
   );
 }

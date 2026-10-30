@@ -4,11 +4,12 @@ import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { m } from "@/components/messages";
 import { ArtImage } from "@/components/ui/ArtImage";
-import { ButtonFace } from "@/components/ui/Button";
+import { Button, ButtonFace } from "@/components/ui/Button";
 import { CameraIcon, UploadIcon } from "@/components/ui/Icons";
 import { Loading } from "@/components/ui/Loading";
 import { api, extFor, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid, type Artwork, type Candidate } from "../api";
 import { CreateScreen, MissingState } from "../CreateScreen";
+import { boxRescueArtworkId } from "../cutout";
 import { describeError, ErrorNotice, type ScreenError } from "../errors";
 import { makeProduct, useCreate, useCreator } from "../store";
 import styles from "../Create.module.css";
@@ -48,6 +49,8 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<ScreenError | null>(null);
   const [lastFile, setLastFile] = useState<File | null>(null);
+  /** Artwork kept by a 422 no_drawing_found: the creator can box the drawing on that photo. */
+  const [rescueId, setRescueId] = useState<string | null>(null);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
   if (ready && !draft.product) return <MissingState />;
@@ -56,6 +59,7 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
   async function onFile(file: File | undefined) {
     if (!file || !draft.product) return;
     setError(null);
+    setRescueId(null);
     setLastFile(file);
     setPreview(URL.createObjectURL(file));
     setPhase("uploading");
@@ -70,7 +74,7 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
       const res = await api<{ artwork: Artwork; candidates: Candidate[]; imageSize?: { w: number; h: number } | null }>("artworks", { json: { source: "photo", imageUrl: blob.url, product: draft.product } });
       // No cut yet (several pieces, or one the server would not auto-pick): the creator picks and adjusts.
       if (!res.artwork.cleanedUrl && res.candidates.length > 0) {
-        update({ photoArtworkId: res.artwork.id, candidates: res.candidates, imageSize: res.imageSize ?? null, transcript: undefined, cutoutNotice: undefined });
+        update({ photoArtworkId: res.artwork.id, candidates: res.candidates, imageSize: res.imageSize ?? null, appliedCutout: undefined, transcript: undefined, cutoutNotice: undefined });
         router.push("/create/select");
         return;
       }
@@ -80,8 +84,15 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
       router.push("/create/ready");
     } catch (err) {
       setError(describeError(err, m.create.photo.error));
+      setRescueId(boxRescueArtworkId(err));
       setPhase("pick");
     }
+  }
+
+  /** Zero pieces found: open Select on this photo with no pieces, in box mode. */
+  function drawBox(id: string) {
+    update({ photoArtworkId: id, candidates: [], imageSize: null, appliedCutout: undefined, transcript: undefined, cutoutNotice: undefined });
+    router.push("/create/select");
   }
 
   return (
@@ -91,6 +102,9 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
       {phase === "finding" ? <Loading label={m.create.photo.finding} /> : null}
       {phase === "making" ? <Loading label={m.create.result.making.replace("{product}", draft.product === "tote" ? m.common.tote.toLowerCase() : m.common.sticker.toLowerCase())} /> : null}
       <ErrorNotice error={error} onRetry={lastFile ? () => void onFile(lastFile) : undefined} />
+      {rescueId && phase === "pick" ? (
+        <Button block variant="secondary" arrow={false} onClick={() => drawBox(rescueId)}>{m.create.photo.drawBox}</Button>
+      ) : null}
       {phase === "pick" ? (
         <FilePicker
           label={preview ? m.create.photo.retake : camera ? m.create.photo.pickCamera : m.create.photo.pickUpload}

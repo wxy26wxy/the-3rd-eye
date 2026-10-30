@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   boxAround, centrePoint, chooseAction, fitRect, imageBox, imagePoint, leavesNothing, makeRequest,
   needsTrimAdvice, percentRect, productNotice, sameRequest, type CutoutPoint,
+  boxRescueArtworkId, initialChoice, isStuck, wholeImageBox, type AppliedCutout,
 } from "@/components/create/cutout";
+import { api, ApiError } from "@/components/create/api";
 
 const IMG = { w: 1200, h: 1600 };
 
@@ -137,5 +139,59 @@ describe("needsTrimAdvice", () => {
     expect(needsTrimAdvice({ status: 422 }, null)).toBe(false);
     expect(needsTrimAdvice({ status: 504 }, withNeg)).toBe(false);
     expect(needsTrimAdvice(new Error("x"), withNeg)).toBe(false);
+  });
+});
+
+describe("initialChoice (reload after Apply)", () => {
+  const pieces = [{ id: "k1" }, { id: "k2" }];
+  const saved: AppliedCutout = { artworkId: "a1", request: { candidateIds: ["k2"], points: [{ x: 1, y: 2, label: "positive" }], box: [0, 0, 5, 5] }, cleanedUrl: "c.png", altText: null };
+  it("restores the saved request for the same artwork", () => {
+    expect(initialChoice(saved, "a1", pieces)).toEqual({ selectedIds: ["k2"], points: [{ x: 1, y: 2, label: "positive" }], box: [0, 0, 5, 5], restored: true });
+  });
+  it("falls back to the first piece for another artwork, an unknown piece, or nothing saved", () => {
+    const first = { selectedIds: ["k1"], points: [], box: null, restored: false };
+    expect(initialChoice(saved, "a2", pieces)).toEqual(first);
+    expect(initialChoice({ ...saved, request: { candidateIds: ["gone"] } }, "a1", pieces)).toEqual(first);
+    expect(initialChoice(undefined, "a1", pieces)).toEqual(first);
+  });
+  it("zero pieces: a saved box-only cut comes back; nothing saved → empty choice", () => {
+    expect(initialChoice({ ...saved, request: { box: [1, 1, 9, 9] } }, "a1", []).box).toEqual([1, 1, 9, 9]);
+    expect(initialChoice(undefined, "a1", [])).toEqual({ selectedIds: [], points: [], box: null, restored: false });
+  });
+});
+
+describe("zero-pieces box path", () => {
+  it("boxRescueArtworkId reads the artwork id of a 422 no_drawing_found only", () => {
+    expect(boxRescueArtworkId(new ApiError(422, "no_drawing_found", "x", { artworkId: "a1" }))).toBe("a1");
+    expect(boxRescueArtworkId(new ApiError(422, "no_drawing_found", "x"))).toBeNull();
+    expect(boxRescueArtworkId(new ApiError(504, "deadline_exceeded", "x", { artworkId: "a1" }))).toBeNull();
+    expect(boxRescueArtworkId(new Error("x"))).toBeNull();
+  });
+  it("wholeImageBox covers the image", () => {
+    expect(wholeImageBox({ w: 800, h: 600 })).toEqual([0, 0, 800, 600]);
+    expect(wholeImageBox(null)).toBeNull();
+  });
+  it("the web ApiError keeps the extra fields of the API error (artworkId)", async () => {
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async () => Response.json({ error: { code: "no_drawing_found", message: "Nothing found", artworkId: "a9" } }, { status: 422 })) as typeof fetch;
+    try {
+      const err = await api("artworks", { json: {} }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).artworkId).toBe("a9");
+      expect((err as ApiError).message).toBe("Nothing found");
+      expect(boxRescueArtworkId(err)).toBe("a9");
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+});
+
+describe("isStuck", () => {
+  const neg = { x: 1, y: 1, label: "negative" as const };
+  it("only Remove-area marks with no piece and no box → stuck", () => {
+    expect(isStuck([], [neg], null)).toBe(true);
+    expect(isStuck(["k1"], [neg], null)).toBe(false);
+    expect(isStuck([], [neg], [0, 0, 5, 5])).toBe(false);
+    expect(isStuck([], [], null)).toBe(false);
   });
 });

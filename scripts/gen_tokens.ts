@@ -36,7 +36,10 @@ for (const [k, v] of Object.entries(tokens.space)) css += `  --space-${k}: ${v}p
 for (const [k, v] of Object.entries(tokens.radius)) css += `  --radius-${kebab(k)}: ${v}px;\n`;
 for (const [k, v] of Object.entries(tokens.border)) css += `  --border-${k}: ${v}px;\n`;
 for (const [k, v] of Object.entries<any>(tokens.shadow)) css += `  --shadow-${kebab(k)}: ${v.x}px ${v.y}px ${v.blur}px ${deref(v.color)};\n`;
-for (const [k, v] of Object.entries(tokens.size)) css += `  --size-${kebab(k)}: ${v}px;\n`;
+// Numbers are px; a string keeps its own unit (e.g. "65vh").
+const cssSize = (v: unknown) => (typeof v === "number" ? `${v}px` : String(v));
+for (const [k, v] of Object.entries(tokens.size)) css += `  --size-${kebab(k)}: ${cssSize(v)};\n`;
+for (const [k, v] of Object.entries(tokens.opacity ?? {})) css += `  --opacity-${kebab(k)}: ${v};\n`;
 css += `  --grain-opacity: ${tokens.effects.grain.opacity};\n`;
 css += `  --display-stroke: ${tokens.effects.displayStroke.width}px;\n  --display-shadow-y: ${tokens.effects.displayStroke.shadowY}px;\n`;
 for (const [k, v] of Object.entries(tokens.motion)) css += `  --motion-${k}: ${typeof v === "number" ? v + "ms" : v};\n`;
@@ -80,7 +83,14 @@ for (const [k, v] of Object.entries(tokens.radius)) swift += `    static let ${k
 swift += `  }\n  enum Border {\n`;
 for (const [k, v] of Object.entries(tokens.border)) swift += `    static let ${k}: CGFloat = ${v}\n`;
 swift += `  }\n  enum Size {\n`;
-for (const [k, v] of Object.entries(tokens.size)) swift += `    static let ${k}: CGFloat = ${v}\n`;
+for (const [k, v] of Object.entries(tokens.size)) {
+  const vh = typeof v === "string" ? v.match(/^([\d.]+)vh$/) : null;
+  // A viewport-height size becomes a share of the screen height named `<key>Share` (65vh → photoMaxHeightShare = 0.65).
+  if (vh) swift += `    /// Share of the screen height, not points (${v} on the web).\n    static let ${k}Share: CGFloat = ${Number(vh[1]) / 100}\n`;
+  else swift += `    static let ${k}: CGFloat = ${v}\n`;
+}
+swift += `  }\n  enum Opacity {\n`;
+for (const [k, v] of Object.entries(tokens.opacity ?? {})) swift += `    static let ${k}: Double = ${v}\n`;
 swift += `  }\n  enum Shadow {\n`;
 for (const [k, v] of Object.entries<any>(tokens.shadow)) swift += `    static let ${k} = (x: CGFloat(${v.x}), y: CGFloat(${v.y}), color: ${hexToSwift(deref(v.color) as string)})\n`;
 swift += `  }\n  static let displayTilt: Double = ${parseFloat(tokens.font.display.tilt)}\n  static let grainOpacity: Double = ${tokens.effects.grain.opacity}\n}\n`;

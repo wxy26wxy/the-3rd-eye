@@ -74,8 +74,15 @@ describe("publish gate uses the server's tool results", () => {
     await expect(approveListing(draftProduct, { approvedVia: "tap" })).rejects.toMatchObject({ code: "moderation_failed" });
   });
 
+  it("moderates again when the agent checked other tags than the final ones", async () => {
+    modelSays({ tags: ["frog", "bad tag"] }, [{ step: 1, tool: "moderate_content", args: { title: "Frog", description: "A frog.", tags: ["frog"] }, result: { ok: true, reason: "" } }]);
+    await runListingAgent(draftProduct, artwork);
+    expect(state.moderateCalls).toHaveLength(1);
+    expect((state.moderateCalls[0] as Row).tags).toEqual(["frog", "bad tag"]);
+  });
+
   it("reuses the agent's moderation when it checked exactly the final text", async () => {
-    modelSays({}, [{ step: 1, tool: "moderate_content", args: { title: "Frog", description: "A frog." }, result: { ok: true, reason: "" } }]);
+    modelSays({ tags: ["pond", "frog"] }, [{ step: 1, tool: "moderate_content", args: { title: "Frog", description: "A frog.", tags: [" frog", "pond"] }, result: { ok: true, reason: "" } }]);
     await runListingAgent(draftProduct, artwork);
     expect(state.moderateCalls).toHaveLength(0);
     await approveListing(draftProduct, { approvedVia: "tap" });

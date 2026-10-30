@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clientUploadPath, storeIdFromToken } from "@/lib/storage/refs";
+import { clientUploadPath, isSourceUpload, storeIdFromToken } from "@/lib/storage/refs";
 import { ApiError } from "@/lib/http";
 
 const A = "11111111-1111-1111-1111-111111111111";
@@ -35,5 +35,18 @@ describe("client-supplied blob references", () => {
   it("reads the store id from a read/write token", () => {
     expect(storeIdFromToken("vercel_blob_rw_AbC123_secret")).toBe("abc123");
     expect(storeIdFromToken(undefined)).toBeNull();
+  });
+});
+
+describe("isSourceUpload", () => {
+  it("is true only for the creator's photo / photos / canvas uploads", () => {
+    expect(isSourceUpload(own, A)).toBe(true);
+    expect(isSourceUpload(`creators/${A}/photos/x.jpg`, A)).toBe(true);
+    expect(isSourceUpload(`creators/${A}/canvas/x.png`, A)).toBe(true);
+    for (const kind of ["thumbs", "mockups", "cleaned", "avatar", "story-video", "thank-you", "audio"]) {
+      expect(isSourceUpload(`creators/${A}/${kind}/x.png`, A)).toBe(false);
+    }
+    expect(isSourceUpload(`creators/${B}/photo/x.jpg`, A)).toBe(false);
+    expect(isSourceUpload(`creators/${A}/photo/sub/x.jpg`, A)).toBe(false);
   });
 });

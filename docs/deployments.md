@@ -24,3 +24,7 @@
 - Vercel project renamed `maker-story` → `the-3rd-eye`; new production host https://the-3rd-eye.vercel.app attached; the old alias https://maker-story-three.vercel.app stays attached on purpose so the TestFlight build 0.3.0 (1) already installed keeps working until 0.4.0 (1) replaces it. `NEXT_PUBLIC_SITE_URL` (production) now `https://the-3rd-eye.vercel.app`.
 - Deployment https://the-3rd-nmm800mm8-xinyao-wangs-projects.vercel.app (`vercel deploy --yes --prod` from `web/` at main 7de964e: rename + T080 cutout pipeline + T081-independent web changes). Verified: `<title>` is "The 3rd Eye · art with a story you can hold"; `/create/code?c=` prefill works. Rollback target: https://maker-story-hroeg8lkl-xinyao-wangs-projects.vercel.app (v0.3).
 - Approved by: the founder (rename decision and plan approval, 2026-10-29).
+
+## 2026-10-30 · production · v0.4 + web cutout parity (c285533)
+- https://the-3rd-7cskup1jd-xinyao-wangs-projects.vercel.app → https://the-3rd-eye.vercel.app. Adds the web Select-screen cutout adjuster (T084) on top of v0.4 (rename, T080 pipeline). Rollback target: https://the-3rd-nmm800mm8-xinyao-wangs-projects.vercel.app.
+- Approved by: the founder (plan approval). TestFlight 0.4.0 (1) of The 3rd Eye still pending on the Apple account sign-in.

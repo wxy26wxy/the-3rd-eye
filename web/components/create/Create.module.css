@@ -99,3 +99,77 @@
 .signout { display: flex; justify-content: center; }
 .center { text-align: center; justify-items: center; }
 .fieldset { border: 0; min-width: 0; }
+
+/* Select: adjust the cutout (T084) */
+/* The frame carries the border so the photo box inside has exactly the photo's aspect ratio
+   (until max-height clamps it: then the stage is letterboxed left and right). */
+.cutFrame { overflow: hidden; background: var(--surface-alt); border: var(--border-card) solid var(--border); border-radius: var(--radius-m); }
+.cutPhoto { position: relative; width: 100%; max-height: 65vh; }
+.cutStage { position: absolute; top: 0; left: 50%; transform: translateX(-50%); height: 100%; max-width: 100%; }
+.cutImg { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; }
+.outline {
+  position: absolute; pointer-events: none;
+  border: var(--border-card) dashed var(--surface); border-radius: var(--radius-s);
+  box-shadow: 0 0 0 var(--border-thin) var(--border);
+}
+.outlineOn { border-style: solid; border-color: var(--selected); background: color-mix(in srgb, var(--selected) 30%, transparent); }
+.chip {
+  position: absolute; top: var(--space-xs); left: var(--space-xs);
+  display: inline-grid; place-items: center; min-width: var(--space-xl); padding: 0 var(--space-xs);
+  border-radius: var(--radius-pill); border: var(--border-thin) solid var(--border);
+  background: var(--surface); color: var(--text);
+  font-size: var(--type-caption-size); font-weight: var(--type-title-m-weight); white-space: nowrap;
+}
+.outlineOn .chip { background: var(--primary); color: var(--primary-text); }
+.drawnBox { position: absolute; pointer-events: none; border: var(--border-card) dashed var(--primary); box-shadow: 0 0 0 var(--border-thin) var(--surface); }
+.tapLayer { position: absolute; inset: 0; cursor: crosshair; }
+.tapLayerBox { touch-action: none; }
+.markLayer { pointer-events: none; }
+.mark {
+  position: absolute; transform: translate(-50%, -50%); pointer-events: auto;
+  display: grid; place-items: center; width: var(--size-min-target); height: var(--size-min-target);
+  background: transparent; border: 0; padding: 0; cursor: pointer;
+}
+.mark:focus-visible { outline: var(--border-card) solid var(--focus-ring); border-radius: var(--radius-pill); }
+.markDot {
+  display: grid; place-items: center; width: var(--space-xl); height: var(--space-xl); border-radius: var(--radius-pill);
+  font-weight: var(--type-title-l-weight); line-height: 1; border: var(--border-thin) solid var(--border);
+}
+.markAdd .markDot { background: var(--accent); color: var(--accent-ink); }
+.markRemove .markDot { background: var(--surface); color: var(--danger); border-color: var(--danger); }
+.checker {
+  position: relative; width: 100%; max-height: 65vh; overflow: hidden;
+  border: var(--border-card) solid var(--border); border-radius: var(--radius-m);
+  background: repeating-conic-gradient(var(--surface-alt) 0 25%, var(--surface) 0 50%) 0 0 / var(--space-xl) var(--space-xl);
+}
+.checker img { display: block; width: 100%; height: 100%; object-fit: contain; padding: var(--space-s); }
+.modes {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-xs);
+  padding: var(--space-xs); min-width: 0;
+  background: var(--surface-alt); border: var(--border-thin) solid var(--border); border-radius: var(--radius-m);
+}
+.mode {
+  position: relative; display: grid; place-items: center; min-height: var(--size-min-target);
+  padding: var(--space-xs); border-radius: var(--radius-s); background: var(--surface); text-align: center;
+  font-size: var(--type-caption-size); font-weight: var(--type-title-m-weight); cursor: pointer;
+}
+.mode input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.mode:has(input:checked) { background: var(--primary); color: var(--primary-text); }
+.mode:has(input:focus-visible) { outline: var(--border-card) solid var(--focus-ring); outline-offset: var(--border-thin); }
+.modes:disabled .mode { cursor: default; opacity: 0.6; }
+.instruction { font-size: var(--type-body-s-size); line-height: var(--type-body-s-lh); color: var(--text-muted); text-align: center; }
+.tickBox { border-radius: var(--radius-s); display: grid; place-items: center; color: var(--surface-alt); font-size: var(--type-caption-size); }
+.pick:has(input:checked) .tickBox::after { content: "✓"; }
+.pick:has(input:disabled) { cursor: default; }
+.pieceActions { display: grid; gap: var(--space-xs); }
+.pieceAction {
+  min-height: var(--size-min-target); padding: var(--space-xs) var(--space-s);
+  border-radius: var(--radius-pill); border: var(--border-thin) solid var(--border);
+  background: var(--surface); color: var(--text); font-size: var(--type-caption-size); font-weight: var(--type-title-m-weight);
+  cursor: pointer;
+}
+.pieceAction:disabled { cursor: default; opacity: 0.6; }
+.textButton {
+  justify-self: center; min-height: var(--size-min-target); min-width: var(--size-min-target); padding: 0 var(--space-s);
+  background: none; border: 0; color: var(--text); text-decoration: underline; font-size: var(--type-body-size); cursor: pointer;
+}

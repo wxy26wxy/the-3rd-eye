@@ -122,3 +122,9 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 ### T070 · ios · feat/ios-T070 · `makerstory://code/<CODE>` deep link
 - The app registers the `makerstory` URL scheme; a code link opens the code screen with the code filled in (signed-out only; no auto-submit; VoiceOver announcement). See `docs/handoffs/ios.md` → Deep link.
 - Verify (from `ios/`): `xcodebuild test -scheme MakerStory …` → 62 tests; `python3 scripts/mock_api.py &` then `xcodebuild test -scheme MakerStoryUITests … -only-testing:MakerStoryUITests/DeepLinkUITests API_BASE_URL=http://localhost:3999` → passes; manual: `xcrun simctl openurl booted makerstory://code/ABC123` → prompt → code screen.
+
+### T086 · design · feat/design-T086 · readiness for the next canvas version (docs only)
+- Rewrote `docs/handoffs/design.md` (heads-up for the designer and agent; one-hour intake checklist), updated `docs/design/screens.md` (screens with no board, removed elements, rename, intake log). No code or tokens changed.
+- Dry run against canvas version `1793328546-ac11`: no earlier id was recorded, so it is the baseline. Colours, type sizes and grain match `design/tokens.json` except 4 illustration colours without a token (listed in the handoff).
+- Verify: read the two docs; `bash scripts/check_clean.sh` passes; `git diff main --stat` shows only the three doc files.
+- Gap: there is no automated no-raw-values lint on web or iOS; the checklist uses grep commands until one is added.

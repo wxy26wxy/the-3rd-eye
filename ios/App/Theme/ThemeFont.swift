@@ -17,7 +17,8 @@ enum TextRole {
     case .bodyS: return Tokens.TypeScale.bodyS
     case .caption: return Tokens.TypeScale.caption
     case .eyebrow: return Tokens.TypeScale.eyebrow
-    case .step: return Tokens.TypeScale.step
+    // tokens.json has no `step` role since the Sky tokens (T100): no step pill on the boards.
+    case .step: return Tokens.TypeScale.eyebrow
     }
   }
 
@@ -41,36 +42,34 @@ enum TextRole {
     }
   }
 
-  /// Rubik weight for the role in tokens.json (variable font axis).
-  private var bodyWeight: Font.Weight {
+  /// Inter weight for the role in tokens.json `type.<role>.weight` (variable font axis).
+  private var weight: Font.Weight {
     switch self {
-    case .titleL: return .heavy
-    case .titleM, .eyebrow, .step: return .bold
-    case .body: return .semibold
-    default: return .medium
+    case .displayXL, .displayL, .displayM, .caption: return .medium
+    case .titleL, .titleM: return .semibold
+    case .eyebrow, .step: return .heavy
+    default: return .regular
     }
   }
 
   var font: Font {
-    if isDisplay {
-      return .custom(Tokens.FontName.display, size: size, relativeTo: textStyle)
-    }
-    return .custom(Tokens.FontName.body, size: size, relativeTo: textStyle).weight(bodyWeight)
+    let name = isDisplay ? Tokens.FontName.display : Tokens.FontName.body
+    return .custom(name, size: size, relativeTo: textStyle).weight(weight)
   }
 
   /// letterSpacing in tokens.json is em-based; converted to points here.
   var tracking: CGFloat {
     switch self {
-    case .eyebrow: return size * 0.12
-    case .step: return size * 0.08
-    case .displayXL, .displayL, .displayM: return size * 0.01
+    case .eyebrow, .step: return size * 0.08
+    case .displayXL, .displayL: return size * -0.04
+    case .displayM: return size * -0.03
     default: return 0
     }
   }
 
   var uppercased: Bool {
     switch self {
-    case .eyebrow, .step, .displayXL, .displayL, .displayM: return true
+    case .eyebrow, .step: return true
     default: return false
     }
   }

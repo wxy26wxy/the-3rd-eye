@@ -25,13 +25,12 @@ struct VoiceResultView: View {
         if app.flow.variants.count > 1 {
           TabView(selection: $flow.selectedVariant) {
             ForEach(Array(app.flow.variants.enumerated()), id: \.element.id) { index, variant in
-              artwork(variant).tag(index)
+              artwork(variant, position: (index + 1, app.flow.variants.count)).tag(index)
             }
           }
           .tabViewStyle(.page(indexDisplayMode: .always))
           .indexViewStyle(.page(backgroundDisplayMode: .always))
           .frame(height: ThemeEffects.artworkMaxHeight)
-          .accessibilityLabel(Text("Picture \(app.flow.selectedVariant + 1) of \(app.flow.variants.count). Swipe left or right for others."))
         } else if let variant = app.flow.currentVariant {
           artwork(variant).frame(maxHeight: ThemeEffects.artworkMaxHeight)
         }
@@ -65,13 +64,17 @@ struct VoiceResultView: View {
     .onDisappear { capture?.cancel() }
   }
 
-  private func artwork(_ variant: ArtworkVariant) -> some View {
-    RemoteImage(url: variant.displayURL, altText: variant.altText)
+  /// One VoiceOver element per picture: its alt text, plus "picture n of N" in the pager
+  /// (a label on the TabView itself never reached VoiceOver; the UI test checks this).
+  private func artwork(_ variant: ArtworkVariant, position: (Int, Int)? = nil) -> some View {
+    let alt = variant.altText ?? String(localized: "Your picture")
+    return RemoteImage(url: variant.displayURL, altText: variant.altText)
       .padding(Theme.Space.s)
       .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt))
       .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.card))
       .accessibilityElement(children: .ignore)
-      .accessibilityLabel(Text(variant.altText ?? String(localized: "Your picture")))
+      .accessibilityLabel(position.map { Text("\(alt), picture \($0.0) of \($0.1)") } ?? Text(alt))
+      .accessibilityHint(position == nil ? Text("") : Text("Swipe left or right for other pictures"))
       .accessibilityAddTraits(.isImage)
   }
 

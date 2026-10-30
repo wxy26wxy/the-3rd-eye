@@ -31,7 +31,7 @@ def artwork(i):
     return {
         "id": f"a{i}", "creatorId": "c-test", "source": "text2image", "transcript": "a frog with a crown",
         "shapedPrompt": "A frog", "originalUrl": None, "cleanedUrl": f"{BASE}/img.png", "maskUrl": None,
-        "cutPathSvg": None, "altText": "Green frog with a gold crown",
+        "cutPathSvg": None, "altText": "Green frog with a gold crown" + ("" if i == 1 else f", version {i}"),
         "spokenDescription": "A smiling green frog sits in the middle. It wears a small gold crown with three points, "
                              "and it has big round eyes and thick dark outlines.",
         "differencesFromPrompt": None, "genResponseId": f"r{i}", "parentArtworkId": None,
@@ -61,8 +61,15 @@ def thank_you(body):
             "videoUrl": body.get("videoUrl"), "createdAt": "2026-10-29T10:00:00Z"}
 
 
+def sign_in(body):
+    # A code starting with MULTI signs in with simpleMode off, so the app asks for 3 pictures.
+    multi = str(body.get("code", "")).upper().startswith("MULTI")
+    creator = {**CREATOR, "accessPrefs": {**CREATOR["accessPrefs"], "simpleMode": not multi}}
+    return {"token": "c-test.mock", "creator": creator}
+
+
 ROUTES = {
-    ("POST", "/api/v1/auth/code"): lambda b: {"token": "c-test.mock", "creator": CREATOR},
+    ("POST", "/api/v1/auth/code"): sign_in,
     ("GET", "/api/v1/creators/me"): lambda b: CREATOR,
     ("PUT", "/api/v1/creators/me"): lambda b: {**CREATOR, **{k: v for k, v in b.items() if k in CREATOR}},
     ("POST", "/api/v1/creators/me/story-video"): story_video,
@@ -73,7 +80,7 @@ ROUTES = {
         "prompt": "A cheerful green frog wearing a gold crown", "style_notes": "",
         "clarifying_question": None,
         "spoken_confirmation": "A happy frog with a gold crown. Drawing it now."},
-    ("POST", "/api/v1/artworks"): lambda b: (time.sleep(2), {"artworks": [artwork(1)]})[1],
+    ("POST", "/api/v1/artworks"): lambda b: (time.sleep(2), {"artworks": [artwork(i + 1) for i in range(int(b.get("n") or 1))]})[1],
     ("GET", "/api/v1/artworks"): lambda b: {"artworks": [artwork(1)]},
     ("GET", "/api/v1/orders"): lambda b: {"orders": [], "unread": 0},
 }

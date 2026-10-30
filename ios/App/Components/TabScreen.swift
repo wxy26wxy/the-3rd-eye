@@ -47,8 +47,8 @@ struct SignOutButton: View {
   }
 
   private var details: String {
-    let build = String(localized: "Version \(AppConfig.version) (\(AppConfig.gitSHA)), \(AppConfig.siteURL.absoluteString)")
-    guard let name = app.creator?.displayName else { return build }
-    return String(localized: "Signed in as \(name).") + " " + build
+    let (version, sha, server) = (AppConfig.version, AppConfig.gitSHA, AppConfig.siteURL.absoluteString)
+    guard let name = app.creator?.displayName else { return String(localized: "Version \(version) (\(sha)), \(server)") }
+    return String(localized: "Signed in as \(name). Version \(version) (\(sha)), \(server)")
   }
 }

@@ -7,6 +7,16 @@
     ", " : {
 
     },
+    "%@, picture %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, picture %2$lld of %3$lld"
+          }
+        }
+      }
+    },
     "%lld" : {
 
     },
@@ -344,16 +354,6 @@
     "Pick one. You can make the other next time." : {
 
     },
-    "Picture %lld of %lld. Swipe left or right for others." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Picture %1$lld of %2$lld. Swipe left or right for others."
-          }
-        }
-      }
-    },
     "Please sign in again with your code." : {
 
     },
@@ -474,8 +474,15 @@
     "Sign-in code" : {
 
     },
-    "Signed in as %@." : {
-
+    "Signed in as %@. Version %@ (%@), %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Signed in as %1$@. Version %2$@ (%3$@), %4$@"
+          }
+        }
+      }
     },
     "Signing in…" : {
 
@@ -537,6 +544,9 @@
 
     },
     "Story saved" : {
+
+    },
+    "Swipe left or right for other pictures" : {
 
     },
     "Take a photo" : {

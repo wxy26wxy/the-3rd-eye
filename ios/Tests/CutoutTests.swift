@@ -76,6 +76,37 @@ final class CutoutTests: XCTestCase {
                    .cleanup(CleanupRequest(candidateIds: ["c1"], points: [marks[1]], box: nil)))
   }
 
+  func testRedoAlwaysCleansUpSoProductNoticesArrive() {
+    XCTAssertEqual(CutoutRequest.action(selected: [one], points: [], box: nil, productsMayExist: true),
+                   .cleanup(CleanupRequest(candidateIds: ["c1"], points: nil, box: nil)))
+  }
+
+  func testRemoveMarkOnTheOnlyPieceLeavesNothing() {
+    let onOne = CutoutPoint(x: 300, y: 400, label: .negative)
+    let elsewhere = CutoutPoint(x: 1150, y: 50, label: .negative)
+    XCTAssertTrue(CutoutRequest.leavesNothing(selected: [one], points: [onOne], box: nil))
+    XCTAssertFalse(CutoutRequest.leavesNothing(selected: [one], points: [elsewhere], box: nil), "a mark outside the piece drops nothing")
+    XCTAssertFalse(CutoutRequest.leavesNothing(selected: [one], points: [onOne], box: [0, 0, 600, 800]), "a box keeps something")
+    XCTAssertFalse(CutoutRequest.leavesNothing(selected: [one, two], points: [onOne], box: nil), "the other piece stays")
+    XCTAssertFalse(CutoutRequest.leavesNothing(selected: [one], points: [onOne, CutoutPoint(x: 1, y: 1, label: .positive)], box: nil))
+  }
+
+  /// The VoiceOver actions (and context menu) on a piece.
+  func testPieceActionsMapToBoxAndCentrePoint() {
+    XCTAssertEqual(CutoutRequest.box(around: two), [660, 896, 1060, 1429])
+    XCTAssertEqual(CutoutRequest.centrePoint(of: two), CutoutPoint(x: 860, y: 1162.5, label: .positive))
+    XCTAssertNil(CutoutRequest.box(around: Candidate(id: "x", bbox: [5, 5, 5, 9])))
+    XCTAssertNil(CutoutRequest.centrePoint(of: Candidate(id: "x", bbox: [1, 2])))
+    XCTAssertEqual(CutoutRequest.make(selected: [], points: [], box: CutoutRequest.box(around: two)),
+                   CleanupRequest(candidateIds: nil, points: nil, box: [660, 896, 1060, 1429]))
+  }
+
+  func testZeroImageSizeIsNotUsable() {
+    XCTAssertFalse(ImageSize(w: 0, h: 0).isUsable)
+    XCTAssertFalse(ImageSize(w: 1200, h: 0).isUsable)
+    XCTAssertTrue(size.isUsable)
+  }
+
   func testNothingToSend() {
     XCTAssertNil(CutoutRequest.make(selected: [], points: [], box: nil))
     XCTAssertNil(CutoutRequest.action(selected: [], points: [], box: nil))

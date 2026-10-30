@@ -6,6 +6,7 @@ Build the app against it: xcodebuild ... API_BASE_URL=http://localhost:3999
 Shapes follow docs/api.md. Images point at a 1x1 PNG served here.
 Photo flow: launch the app with UITEST_PHOTO=1 and MOCK_BLOB_API=<base>/blob/ (UI tests do);
 POST /artworks {source: photo} answers 2 candidates and imageSize 1200x1600 (sign-in code ONE...: 1).
+Sign-in NOCUT... makes cleanup answer 422, DETAILS... gives cleanup non-empty details.
 GET /__mock/last/<cleanup|select|artworks> returns the last body the app sent there.
 """
 import json
@@ -73,7 +74,8 @@ CANDIDATES = [
 # Last request body per route, read back by UI tests through GET /__mock/last/<name>.
 LAST = {}
 # A sign-in code starting with ONE makes photo answers carry a single, already cut-out candidate.
-MODE = {"single": False}
+# NOCUT… makes every cleanup answer 422; DETAILS… makes it carry non-empty details.
+MODE = {"single": False, "fail": False, "details": False}
 CUTS = {"n": 0}
 
 
@@ -102,12 +104,49 @@ def select(body):
     return photo_artwork(f"{BASE}/img.png?select={body.get('candidateId')}", f"Cut-out of {body.get('candidateId')}")
 
 
+class MockError(Exception):
+    def __init__(self, status, code, message):
+        super().__init__(message)
+        self.status, self.code, self.message = status, code, message
+
+
+def check_cleanup(body):
+    """The CleanupBody rules of docs/api.md (T080 §2); the server answers 400 like this."""
+    bad = MockError(400, "invalid_request", "cleanup body does not match the contract")
+    if not any(k in body for k in ("candidateIds", "points", "box")) or set(body) - {"candidateIds", "points", "box"}:
+        raise bad
+    ids = body.get("candidateIds")
+    if ids is not None:
+        if not isinstance(ids, list) or not 1 <= len(ids) <= 6:
+            raise bad
+        if any(i not in {c["id"] for c in CANDIDATES} for i in ids):
+            raise MockError(400, "invalid_candidate", "unknown candidate id")
+    points = body.get("points")
+    if points is not None:
+        if not isinstance(points, list) or not 1 <= len(points) <= 10:
+            raise bad
+        for p in points:
+            if not isinstance(p.get("x"), (int, float)) or not isinstance(p.get("y"), (int, float)) \
+                    or p.get("label", "positive") not in ("positive", "negative"):
+                raise bad
+        if "box" not in body and ids is None and not any(p.get("label", "positive") == "positive" for p in points):
+            raise bad
+    box = body.get("box")
+    if box is not None and (not isinstance(box, list) or len(box) != 4 or not (box[0] < box[2] and box[1] < box[3])):
+        raise bad
+
+
 def cleanup(body):
     LAST["cleanup"] = body
     print(f"mock_api: cleanup {json.dumps(body)}", file=sys.stderr, flush=True)
+    check_cleanup(body)
+    if MODE["fail"]:
+        raise MockError(422, "no_drawing_found", "Nothing was left in the cutout.")
     CUTS["n"] += 1
-    return {**photo_artwork(f"{BASE}/img.png?cut={CUTS['n']}", "Cut-out preview"),
-            "details": {"failedProductIds": [], "unpublishedProductIds": []}}
+    details = {"failedProductIds": [], "unpublishedProductIds": []}
+    if MODE["details"]:
+        details = {"failedProductIds": ["pr1"], "unpublishedProductIds": ["pr2"]}
+    return {**photo_artwork(f"{BASE}/img.png?cut={CUTS['n']}", "Cut-out preview"), "details": details}
 
 
 def artwork_detail(_body):
@@ -123,7 +162,10 @@ def blob_put(_body, query=""):
 def sign_in(body):
     # A code starting with MULTI signs in with simpleMode off, so the app asks for 3 pictures.
     multi = str(body.get("code", "")).upper().startswith("MULTI")
-    MODE["single"] = str(body.get("code", "")).upper().startswith("ONE")
+    code = str(body.get("code", "")).upper()
+    MODE["single"] = code.startswith("ONE")
+    MODE["fail"] = code.startswith("NOCUT")
+    MODE["details"] = code.startswith("DETAILS")
     LAST.clear()
     creator = {**CREATOR, "accessPrefs": {**CREATOR["accessPrefs"], "simpleMode": not multi}}
     return {"token": "c-test.mock", "creator": creator}
@@ -178,7 +220,10 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(raw) if raw else {}
         except ValueError:
             body = {}
-        self._send(200, fn(body))
+        try:
+            self._send(200, fn(body))
+        except MockError as e:
+            self._send(e.status, {"error": {"code": e.code, "message": e.message}})
 
     def do_GET(self):
         self._handle("GET")

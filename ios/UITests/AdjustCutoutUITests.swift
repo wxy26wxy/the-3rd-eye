@@ -21,13 +21,13 @@ final class AdjustCutoutUITests: XCTestCase {
   func testTwoPiecesAreCombined() throws {
     let app = launchPhotoFlow(code: "TEST-CODE")
 
-    let first = app.buttons["Piece 1"].firstMatch
+    let first = app.buttons["Piece 1"]
     XCTAssertTrue(first.waitForExistence(timeout: 20), "Adjust cutout shows the pieces")
     XCTAssertFalse(first.isSelected)
     first.tap()
-    XCTAssertTrue(app.buttons["Piece 1"].firstMatch.isSelected, "the chip reads as selected")
-    app.buttons["Piece 2"].firstMatch.tap()
-    XCTAssertTrue(app.buttons["Piece 2"].firstMatch.isSelected)
+    XCTAssertTrue(app.buttons["Piece 1"].isSelected, "the chip reads as selected")
+    app.buttons["Piece 2"].tap()
+    XCTAssertTrue(app.buttons["Piece 2"].isSelected)
 
     tapUseThis(app)
     XCTAssertTrue(app.staticTexts["Put it up for sale now?"].waitForExistence(timeout: 10), "goes on to Design ready")
@@ -41,19 +41,19 @@ final class AdjustCutoutUITests: XCTestCase {
   func testAddAreaTapIsSentInImagePixels() throws {
     let app = launchPhotoFlow(code: "TEST-CODE")
 
-    let photo = app.otherElements["cutout-photo"].firstMatch
+    let photo = app.otherElements["cutout-photo"]
     XCTAssertTrue(photo.waitForExistence(timeout: 20))
-    app.buttons["Piece 1"].firstMatch.tap()
-    XCTAssertTrue(app.buttons["Add area"].firstMatch.isSelected, "Add area is the starting mode")
+    app.buttons["Piece 1"].tap()
+    XCTAssertTrue(app.buttons["Add area"].isSelected, "Add area is the starting mode")
     photo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-    XCTAssertTrue(app.buttons["Added area, mark 1"].firstMatch.waitForExistence(timeout: 3), "the mark is shown")
+    XCTAssertTrue(app.buttons["Added area, mark 1"].waitForExistence(timeout: 3), "the mark is shown")
 
-    let preview = app.buttons["Preview cutout"].firstMatch
-    if !preview.isHittable { app.swipeUp() }
-    preview.tap()
-    let back = app.buttons["Back to photo"].firstMatch
-    XCTAssertTrue(back.waitForExistence(timeout: 10), "the preview is shown with a way back")
-    XCTAssertTrue(app.otherElements["cutout-preview"].firstMatch.exists)
+    let apply = app.buttons["Apply cutout"]
+    if !apply.isHittable { app.swipeUp() }
+    apply.tap()
+    let back = app.buttons["Back to photo"]
+    XCTAssertTrue(back.waitForExistence(timeout: 10), "the saved cutout is shown with a way back")
+    XCTAssertTrue(app.otherElements["cutout-applied"].exists)
 
     let body = try lastBody("cleanup")
     XCTAssertEqual(body["candidateIds"] as? [String], ["cand-1"])
@@ -66,20 +66,82 @@ final class AdjustCutoutUITests: XCTestCase {
     XCTAssertTrue(photo.waitForExistence(timeout: 3), "back to the photo with the marks")
   }
 
-  /// One piece: Finding drawings skips to Design ready, which offers "Adjust cutout".
+  /// The piece actions VoiceOver offers are also in the thumbnail's context menu (XCUITest cannot
+  /// run VoiceOver custom actions): "Box around this piece" sends that piece's bbox as the box.
+  func testBoxAroundPieceAction() throws {
+    let app = launchPhotoFlow(code: "TEST-CODE")
+    let piece = app.buttons["Piece 2"]
+    XCTAssertTrue(piece.waitForExistence(timeout: 20))
+    piece.press(forDuration: 1.2)
+    let action = app.buttons["Box around this piece"]
+    XCTAssertTrue(action.waitForExistence(timeout: 5), "the context menu offers the piece actions")
+    action.tap()
+    let apply = app.buttons["Apply cutout"]
+    if !apply.isHittable { app.swipeUp() }
+    apply.tap()
+    XCTAssertTrue(app.buttons["Back to photo"].waitForExistence(timeout: 10))
+    let body = try lastBody("cleanup")
+    XCTAssertEqual(body["box"] as? [Double], [660, 896, 1060, 1429])
+    XCTAssertNil(body["candidateIds"], "no piece was picked")
+  }
+
+  /// A cleanup answered 422 shows the advice instead of the server message.
+  func testNothingFoundShowsAdvice() {
+    let app = launchPhotoFlow(code: "NOCUT-CODE")
+    let piece = app.buttons["Piece 1"]
+    XCTAssertTrue(piece.waitForExistence(timeout: 20))
+    piece.tap()
+    app.buttons["Piece 2"].tap()
+    tapUseThis(app)
+    let advice = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "To trim one piece, draw a box around what should stay.")).firstMatch
+    XCTAssertTrue(advice.waitForExistence(timeout: 10), "422 is explained")
+    XCTAssertFalse(app.staticTexts["Put it up for sale now?"].exists, "stays on the screen")
+  }
+
+  /// Products that could not be rebuilt or went back to draft are explained on Design ready.
+  func testProductNoticesReachDesignReady() {
+    let app = launchPhotoFlow(code: "DETAILS-CODE")
+    let piece = app.buttons["Piece 1"]
+    XCTAssertTrue(piece.waitForExistence(timeout: 20))
+    piece.tap()
+    app.buttons["Piece 2"].tap()
+    tapUseThis(app)
+    XCTAssertTrue(app.staticTexts["Put it up for sale now?"].waitForExistence(timeout: 10))
+    let notice = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@",
+                                                      "could not be rebuilt", "too small to print")).firstMatch
+    XCTAssertTrue(notice.exists, "both product notices are shown")
+  }
+
+  /// One piece: Finding drawings skips to Design ready, which offers "Adjust cutout". Without a
+  /// change "Use this" goes straight back; after adding an area it sends cleanup with the piece.
   func testSinglePieceCanBeAdjustedFromDesignReady() throws {
     let app = launchPhotoFlow(code: "ONE-CODE")
 
-    let adjust = app.buttons["Adjust cutout"].firstMatch
+    let adjust = app.buttons["Adjust cutout"]
     XCTAssertTrue(adjust.waitForExistence(timeout: 20), "Design ready offers Adjust cutout")
     adjust.tap()
-    let piece = app.buttons["Piece 1"].firstMatch
+    let piece = app.buttons["Piece 1"]
     XCTAssertTrue(piece.waitForExistence(timeout: 5))
     XCTAssertTrue(piece.isSelected, "the piece already used is selected")
     XCTAssertFalse(app.buttons["Retake"].exists, "redo mode has no Retake")
     tapUseThis(app)
     XCTAssertTrue(app.buttons["Adjust cutout"].waitForExistence(timeout: 10), "back on Design ready")
-    XCTAssertEqual(try lastBody("select")["candidateId"] as? String, "cand-1")
+    XCTAssertTrue(try lastBody("cleanup").isEmpty, "nothing changed, so nothing is cut again")
+    XCTAssertTrue(try lastBody("select").isEmpty)
+
+    app.buttons["Adjust cutout"].tap()
+    XCTAssertTrue(piece.waitForExistence(timeout: 5))
+    piece.press(forDuration: 1.2)
+    let addArea = app.buttons["Add the area around this piece"]
+    XCTAssertTrue(addArea.waitForExistence(timeout: 5))
+    addArea.tap()
+    tapUseThis(app)
+    XCTAssertTrue(app.buttons["Adjust cutout"].waitForExistence(timeout: 10), "back on Design ready")
+    let body = try lastBody("cleanup")
+    XCTAssertEqual(body["candidateIds"] as? [String], ["cand-1"])
+    let point = try XCTUnwrap((body["points"] as? [[String: Any]])?.first)
+    XCTAssertEqual(point["x"] as? Double, 300)
+    XCTAssertEqual(point["y"] as? Double, 426.5)
   }
 
   // MARK: Helpers
@@ -101,7 +163,7 @@ final class AdjustCutoutUITests: XCTestCase {
   }
 
   private func tapUseThis(_ app: XCUIApplication) {
-    let use = app.buttons["Use this"].firstMatch
+    let use = app.buttons["Use this"]
     XCTAssertTrue(use.waitForExistence(timeout: 5))
     if !use.isHittable { app.swipeUp() }
     XCTAssertTrue(use.isEnabled)

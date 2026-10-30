@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Transparency backdrop for a cut-out preview (two theme surfaces in squares).
+/// Transparency backdrop for a cut-out preview (faint border-colour squares on the surface).
 struct Checkerboard: View {
   var square: CGFloat = Theme.Space.m
   @Environment(\.themeColors) private var colors
@@ -16,7 +16,7 @@ struct Checkerboard: View {
           path.addRect(CGRect(x: CGFloat(column) * square, y: CGFloat(row) * square, width: square, height: square))
         }
       }
-      context.fill(path, with: .color(colors.surfaceAlt))
+      context.fill(path, with: .color(colors.border.opacity(ThemeEffects.checkerOpacity)))
     }
     .accessibilityHidden(true)
   }

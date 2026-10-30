@@ -67,10 +67,34 @@ enum CutoutRequest {
     return CleanupRequest(candidateIds: ids.isEmpty ? nil : ids, points: points.isEmpty ? nil : points, box: box)
   }
 
-  /// `select` for a single candidate without marks, else `cleanup`.
-  static func action(selected: [Candidate], points: [CutoutPoint], box: [Double]?) -> Action? {
-    if points.isEmpty, box == nil, selected.count == 1, let only = selected.first { return .select(candidateId: only.id) }
+  /// `select` for a single candidate without marks, else `cleanup`. With `productsMayExist`
+  /// (a redo) it is always `cleanup`, whose answer reports products that could not be rebuilt.
+  static func action(selected: [Candidate], points: [CutoutPoint], box: [Double]?, productsMayExist: Bool = false) -> Action? {
+    if !productsMayExist, points.isEmpty, box == nil, selected.count == 1, let only = selected.first { return .select(candidateId: only.id) }
     return make(selected: selected, points: points, box: box).map(Action.cleanup)
+  }
+
+  /// A "Remove area" mark drops the whole chosen piece it lands on (docs/api.md T080 §2).
+  /// True when the marks would drop every chosen piece and nothing else (box, "Add area") is left.
+  static func leavesNothing(selected: [Candidate], points: [CutoutPoint], box: [Double]?) -> Bool {
+    guard box == nil, !selected.isEmpty, !points.contains(where: { $0.label == .positive }) else { return false }
+    let negatives = points.filter { $0.label == .negative }
+    return selected.allSatisfy { piece in negatives.contains { contains(piece.bbox, x: $0.x, y: $0.y) } }
+  }
+
+  /// "Box around this piece": the piece's own bbox.
+  static func box(around piece: Candidate) -> [Double]? {
+    piece.bbox.count == 4 && piece.bbox[0] < piece.bbox[2] && piece.bbox[1] < piece.bbox[3] ? piece.bbox : nil
+  }
+
+  /// "Add the area around this piece": a positive point at the centre of its bbox.
+  static func centrePoint(of piece: Candidate) -> CutoutPoint? {
+    guard let b = box(around: piece) else { return nil }
+    return CutoutPoint(x: (b[0] + b[2]) / 2, y: (b[1] + b[3]) / 2, label: .positive)
+  }
+
+  private static func contains(_ bbox: [Double], x: Double, y: Double) -> Bool {
+    bbox.count == 4 && x >= bbox[0] && x < bbox[2] && y >= bbox[1] && y < bbox[3]
   }
 }
 
@@ -86,5 +110,10 @@ extension CleanupResult {
       lines.append(String(localized: "One product went back to draft because the new cutout is too small to print. Open My designs to fix it."))
     }
     return lines.isEmpty ? nil : lines.joined(separator: "\n")
+  }
+
+  /// Said when a "Remove area" mark would leave nothing, and for a cleanup answered 422.
+  static var removeAdvice: String {
+    String(localized: "Tap a piece to leave it out of the cutout. To trim one piece, draw a box around what should stay.")
   }
 }

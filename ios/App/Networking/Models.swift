@@ -172,6 +172,9 @@ struct Candidate: Codable, Identifiable, Equatable, Hashable {
 struct ImageSize: Codable, Equatable, Hashable {
   let w: Double
   let h: Double
+
+  /// The server can answer 0 × 0 when it could not read the original; such a size is not used.
+  var isUsable: Bool { w > 0 && h > 0 }
 }
 
 /// A mark on the photo for `POST /artworks/{id}/cleanup`, in `ImageSize` pixels.

@@ -47,16 +47,25 @@
     "Add area" : {
 
     },
+    "Add the area around this piece" : {
+
+    },
     "Added area, mark %lld" : {
 
     },
     "Adds a picture from your library" : {
 
     },
+    "Adds it to the cutout" : {
+
+    },
     "Adjust cutout" : {
 
     },
     "Answer out loud" : {
+
+    },
+    "Apply cutout" : {
 
     },
     "Approve and list it" : {
@@ -75,6 +84,9 @@
 
     },
     "Bought by %@" : {
+
+    },
+    "Box around this piece" : {
 
     },
     "Box drawn" : {
@@ -137,12 +149,6 @@
     "Create" : {
 
     },
-    "Cutout preview" : {
-
-    },
-    "Cuts out what you picked and goes on" : {
-
-    },
     "Cutting it out…" : {
 
     },
@@ -165,12 +171,6 @@
 
     },
     "Done" : {
-
-    },
-    "Double-tap to add it to the cutout" : {
-
-    },
-    "Double-tap to leave it out of the cutout" : {
 
     },
     "Drafted story: %@" : {
@@ -204,9 +204,6 @@
 
     },
     "Happy Frog Sticker" : {
-
-    },
-    "Here is the preview of your cutout." : {
 
     },
     "Here's a story we drafted from your video" : {
@@ -261,6 +258,18 @@
     "Lay your drawing flat in good light. It's fine if there are a few on the page." : {
 
     },
+    "Leave this piece out" : {
+
+    },
+    "Leaves it out of the cutout" : {
+
+    },
+    "Left out" : {
+
+    },
+    "Left out, mark %lld" : {
+
+    },
     "Listening" : {
 
     },
@@ -298,9 +307,6 @@
 
     },
     "Makes the product and writes the listing" : {
-
-    },
-    "Making the preview…" : {
 
     },
     "Making your picture now. This can take up to a minute." : {
@@ -417,9 +423,6 @@
     "Please sign in again with your code." : {
 
     },
-    "Preview cutout" : {
-
-    },
     "Price in dollars" : {
 
     },
@@ -453,9 +456,6 @@
     "Remove area" : {
 
     },
-    "Removed area, mark %lld" : {
-
-    },
     "Removes every mark and the box" : {
 
     },
@@ -474,7 +474,13 @@
     "Saves it as the story buyers read" : {
 
     },
+    "Saves this cutout to your design and shows it" : {
+
+    },
     "Saves your changes as your story" : {
+
+    },
+    "Saving the cutout…" : {
 
     },
     "Saving your video…" : {
@@ -496,9 +502,6 @@
 
     },
     "See what buyers see" : {
-
-    },
-    "Selected" : {
 
     },
     "Selects this product" : {
@@ -525,13 +528,10 @@
     "Sent with a picture or video." : {
 
     },
-    "Show the preview" : {
+    "Show the cutout" : {
 
     },
-    "Shows the cutout before you use it" : {
-
-    },
-    "Shows the cutout on its own" : {
+    "Shows the saved cutout on its own" : {
 
     },
     "Shows your live product" : {
@@ -639,13 +639,13 @@
     "Takes a photo of your drawing" : {
 
     },
+    "Tap a piece to leave it out of the cutout. To trim one piece, draw a box around what should stay." : {
+
+    },
     "Tap the big button and talk. Your words will show up here." : {
 
     },
     "Tap the photo where the cutout should include more. Tap a mark again to remove it." : {
-
-    },
-    "Tap the photo where the cutout should leave something out. Tap a mark again to remove it." : {
 
     },
     "Tell buyers your story" : {
@@ -676,6 +676,9 @@
 
     },
     "The photo is missing. Go back and take it again." : {
+
+    },
+    "Then tap or drag on the photo. With VoiceOver, use the actions on each piece in the list." : {
 
     },
     "Thinking…" : {
@@ -726,6 +729,9 @@
     "Use this story" : {
 
     },
+    "Uses this cutout and goes on" : {
+
+    },
     "Version %@ (%@), %@" : {
       "localizations" : {
         "en" : {
@@ -766,9 +772,6 @@
     "We're adding captions. Every product you sell will play it." : {
 
     },
-    "What a tap on the photo does" : {
-
-    },
     "What are we making?" : {
 
     },
@@ -788,6 +791,9 @@
 
     },
     "Why do you make art?" : {
+
+    },
+    "With VoiceOver, use the actions on each piece in the list instead." : {
 
     },
     "Working" : {
@@ -851,6 +857,12 @@
 
     },
     "Your code" : {
+
+    },
+    "Your cutout" : {
+
+    },
+    "Your cutout is saved. Here it is." : {
 
     },
     "Your cutout is saved. One product could not be rebuilt; try again later." : {

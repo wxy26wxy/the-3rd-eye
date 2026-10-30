@@ -58,7 +58,7 @@ Accessibility settings sheet, helper-mode button, "Hear what the image shows" pl
 
 | Canvas version | Date | Boards | Result |
 |---|---|---|---|
-| `1793328546-ac11` | 2026-10-29 | 27 board files (9 prototype, 16 E4 creator flow, Logo, Mascot, Web-Green) | Baseline (dry run). 4 colours without a token: `#FBF4DF`, `#3C4A3D`, `#CFE0A0`, `#56705A`. All other colours, font sizes and the grain match `design/tokens.json`. Wordmark still "maker story". Procedure: `docs/handoffs/design.md`. |
+| `1793328546-ac11` | 2026-10-29 | 27 board files (9 prototype, 15 E4 creator flow, Logo, Mascot, Web-Green) | Baseline (dry run). 4 colours without a token: `#FBF4DF`, `#3C4A3D`, `#CFE0A0`, `#56705A`. All other colours, font sizes and the grain match `design/tokens.json`. Wordmark still "maker story". Procedure: `docs/handoffs/design.md`. |
 
 ## Accessibility deviations from the design
 

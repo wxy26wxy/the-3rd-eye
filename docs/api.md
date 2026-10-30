@@ -18,11 +18,13 @@ Media never goes through these routes except short audio (≤ 4 MB). Images/vide
 `POST /prompts/shape` `{ transcript, answers?: string[], product: "sticker"|"tote" }` → `{ prompt, style_notes, clarifying_question: string|null, spoken_confirmation }`
 `POST /artworks` one of:
 - `{ source: "text2image", prompt, transcript?, product, n?: 1..4 }` → `{ artworks: ArtworkVariant[] }` (one row per variant; each has `altText`, `spokenDescription`, `differencesFromPrompt`, `genResponseId`)
-- `{ source: "photo"|"canvas", imageUrl, product }` → `{ artwork: Artwork, candidates: Candidate[] }` (SAM finds every drawing; `cleanedUrl` null until a candidate is chosen when `candidates.length > 1`)
+- `{ source: "photo"|"canvas", imageUrl, product }` → `{ artwork: Artwork, candidates: Candidate[], imageSize: { w, h } }` (SAM finds every drawing or object; `cleanedUrl` null until a candidate is chosen when `candidates.length > 1`; `imageSize` = pixel size of the stored original, the coordinate space of `bbox`, `points` and `box`)
 `POST /artworks/{id}/select` `{ candidateId }` → `Artwork` (cleaned PNG + cut path)
 `POST /artworks/{id}/refine` `{ instruction }` → `{ artwork: ArtworkVariant }` (new row, `parentArtworkId` set)
-`POST /artworks/{id}/cleanup` `{ points?: {x,y}[], box?, phrase? }` → `Artwork`
-`GET /artworks` → `{ artworks: Artwork[] }` (mine, newest first)
+`POST /artworks/{id}/cleanup` `{ candidateIds?: string[], points?: { x, y, label: "positive"|"negative" }[], box?: [x0,y0,x1,y1] }` (at least one) → `Artwork` (see T080 clarifications)
+`GET /artworks` → `{ artworks: ArtworkListItem[] }` (mine, newest first; each carries `products`)
+`GET /artworks/{id}` → `{ artwork: Artwork, candidates: Candidate[], imageSize: { w, h } | null, originalUrl: string | null }` (`originalUrl` presigned, valid 10 min)
+`DELETE /artworks/{id}` → `{ id, deleted: true, archivedProductIds: string[] }`
 
 ## Products and listings
 `POST /products` `{ artworkId, type: "sticker"|"tote" }` → `Product` (sticker: `printPngUrl`, `printSvgUrl`, `mockupUrl`; tote: `mockupUrl`) — may take up to 60 s
@@ -48,6 +50,10 @@ Media never goes through these routes except short audio (≤ 4 MB). Images/vide
 Creator { id, slug, displayName, studioName, avatarUrl, bioShort, storyText, storyVideoUrl, storyVideoVtt, mentionDisability, accessPrefs, split, isExample }
 Artwork { id, creatorId, source, transcript, shapedPrompt, originalUrl, cleanedUrl, maskUrl, cutPathSvg, altText, spokenDescription, differencesFromPrompt, genResponseId, parentArtworkId, status, createdAt }
 ArtworkVariant = Artwork & { previewUrl }
+ArtworkListItem = Artwork & { products: ArtworkProduct[] }
+ArtworkProduct { id, type: "sticker"|"tote", status: "draft"|"published"|"archived", title: string|null }
+ImageSize { w, h } /* px of the stored original */
+CleanupPoint { x, y, label: "positive"|"negative" } /* px in original */
 Candidate { id, bbox: [x0,y0,x1,y1] /* px in original */, score, thumbUrl }
 Product { id, artworkId, creatorId, type, mockupUrl, printPngUrl, printSvgUrl, priceCents, status }
 ListingDraft { title, description, tags[], price_cents, print_ok, notes }
@@ -91,3 +97,21 @@ Additive; no existing field or path removed.
 8. **Listing agent results are the server's.** `print_ok` = the resolution check and the contrast check, computed by the server (the tools are run server-side when the model skipped them); moderation runs on the final title and description. `ListingDraft.print_ok` and `notes` reflect those results, not the model's claim. Re-running `POST /listings/{id}/run` on a published product does not touch the live listing: the new copy is kept as a pending draft (`listings.draft_copy`) and goes live only through `approve` (which re-checks print and moderation and clears the draft).
 9. **Tote print file.** `POST /products` with `type: "tote"` now returns `printPngUrl` (private, 150 dpi, short side ≥ 1500 px, transparent background kept); `printSvgUrl` stays null for totes.
 10. **Orders store the production share** (`orders.production_share_cents`), computed with the creator and organization shares at order time.
+
+## Clarifications (T080 backend, 2026-10-29): adjust the cut-out, manage designs
+Additive except `cleanup`, whose body changed (no client called it before; `phrase` is gone).
+
+1. **Coordinates.** `Candidate.bbox`, cleanup `points` and `box` are pixels of the **stored original**: origin top-left, x to the right, y down, size `imageSize { w, h }` (returned by `POST /artworks` for photo/canvas and by `GET /artworks/{id}`). It is not the size of the photo the client uploaded (the server rotates it by EXIF and may upscale it up to ×2). A box is half-open `[x0, y0, x1, y1)` with `x0 < x1`, `y0 < y1`; values outside the image are clamped. Convert a tap on a view showing the original (aspect-fit) as `x = (tapX - imageLeft) * imageSize.w / shownWidth`, same for y; non-integers are fine (the server floors).
+2. **`POST /artworks/{id}/cleanup`** body `{ candidateIds?, points?, box? }`, at least one key (`400 invalid_request` otherwise):
+   - `candidateIds`: 1–6 ids from this artwork's `candidates` (`400 invalid_candidate` for any other id). The cut-out is the **union** of those candidates; no model call, a few seconds. One id behaves like `select`. Use it for "combine pieces".
+   - `points`: 1–10 `{ x, y, label }`. `label` is `"positive"` (part of the object) or `"negative"` (not part of it); it defaults to `"positive"` when omitted. Without a `box`, at least one point must be positive (`400 invalid_request`).
+   - `box`: the whole object (`[x0, y0, x1, y1]`, see 1).
+   - `points` and/or `box` are sent to SAM as **one object**; the result is unioned with any `candidateIds`. Negative points shape only the SAM object: they do not trim the `candidateIds` masks. To trim a combined selection, send a `box` around it with positive and negative points and without `candidateIds`.
+   - The mask is finished on the server (holes filled, small gaps closed, specks under 0.5 % of the main piece dropped except pieces the creator chose, soft anti-aliased edge) before the cut.
+   - Response: `Artwork` with a new `cleanedUrl` (a new URL every time, safe to cache), `cutPathSvg`, `altText`, `spokenDescription`, `status: "ready"`. When nothing is found → `422 no_drawing_found`.
+   - When the artwork already has products, their print files and mockups are rebuilt from the new cut-out in the same request (allow up to 120 s); product ids, status, price and listing text do not change. A published product's shop image changes with it.
+3. **`GET /artworks/{id}`** (own artwork, else `404 not_found`) → `{ artwork: Artwork, candidates: Candidate[], imageSize: ImageSize | null, originalUrl: string | null }`. `originalUrl` is a presigned URL of the stored original (valid 10 minutes, fetch it directly; do not store it); `imageSize` is its size. Both are null only for rows without an original. Use it for "Re-do the cutout" (show the original, draw the box / points, call `cleanup`) and to resume an artwork whose candidate was never chosen.
+4. **`GET /artworks`** items carry `products: ArtworkProduct[]` (newest first; empty when none) for status badges. `title` is the listing title, or null before the listing agent ran.
+5. **Tile state** (both clients): `status: "ready"` and `cleanedUrl` set → show the cut-out; `cleanedUrl` null and `lastError` set → failed (offer "Re-do the cutout" or delete); `cleanedUrl` null, no `lastError`, `candidates.length > 1` in `GET /artworks/{id}` → waiting for a choice (open the picker). A tile never needs an endless spinner.
+6. **`DELETE /artworks/{id}`** (own artwork, else `404 not_found`) → `{ id, deleted: true, archivedProductIds }`. Soft delete: the artwork leaves `GET /artworks` and `GET /artworks/{id}` answers 404. Its products are set to `status: "archived"` and leave the shop (shop list and product page). Orders already placed keep working: `GET /orders`, `GET /orders/{id}` and the story-tag page `/t/{token}` still render. Not undoable through the API.
+7. **Candidates for photos of objects.** A photo now looks for both drawings and physical objects (two SAM phrases, overlapping results merged, anything covering more than 95 % of the frame, such as the paper or the table, dropped, at most 6). `Candidate` is unchanged.

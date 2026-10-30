@@ -59,3 +59,6 @@
 .code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-display-m-size); font-weight: var(--type-title-m-weight); letter-spacing: var(--type-eyebrow-ls); overflow-wrap: anywhere; }
 .codeQr { width: 10rem; flex-shrink: 0; }
 .codeBody { display: flex; flex-wrap: wrap; gap: var(--space-l); align-items: flex-start; }
+.codeLive { display: grid; gap: var(--space-s); }
+.confirm { display: grid; gap: var(--space-xs); min-width: 14rem; max-width: 22rem; }
+.h2:focus-visible { outline: var(--border-thin) solid var(--border); outline-offset: var(--space-xs); }

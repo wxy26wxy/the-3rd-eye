@@ -268,7 +268,11 @@
       "copyLink": "Copy link",
       "dismiss": "Done, hide the code",
       "nameRequired": "Enter a display name.",
-      "error": "Could not save. Please try again."
+      "error": "Could not save. Please try again.",
+      "rotateConfirm": "Replace the code for {name}? The old code and its sign-in link stop working.",
+      "rotateYes": "Yes, make a new code",
+      "rotateCancel": "Cancel",
+      "exampleNote": "Example creator: running the seed again puts back the demo code kept in web/.creator-codes.local."
     }
   },
   "create": {

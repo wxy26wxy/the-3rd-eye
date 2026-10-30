@@ -46,3 +46,8 @@ T020 · public site, admin, and mobile-web creator flow (done on `feat/web-T01x`
 - Hidden creators: `/c/<slug>` is not found, the product page hides "See more work by …" (`PublicCreator.hidden`), they are absent from the shop grids, `/artists`, Meet the artist and "more from this studio"; `/p/<id>` and `/t/<token>` still work.
 - For iOS: the app registers `the3rdeye://`; `the3rdeye://code/<CODE>` opens the code screen pre-filled (no auto-submit).
 
+
+## T084 Adjust cutout on Select (2026-10-30)
+- `/create/select` matches the iOS Adjust cutout screen: checkboxes to combine pieces, "Add area / Remove area / Draw a box" on the photo, per-piece buttons "Box around this piece" / "Add the area around this piece", "Clear marks", "Apply cutout" (a save, shown on a checkerboard), "Use this". Calls: `GET /artworks/{id}`, `POST /artworks/{id}/select`, `POST /artworks/{id}/cleanup`, `POST /products`.
+- Pure logic in `components/create/cutout.ts` (tested in `test/cutout.test.ts`); draft gains `imageSize` and `cutoutNotice` (shown on Ready).
+- Not on the web: a designs list with delete / continue (the web flow has none).

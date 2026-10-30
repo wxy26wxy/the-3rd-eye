@@ -49,7 +49,7 @@ async function issuedView(issued: IssuedCode, template: string): Promise<IssuedV
     displayName: issued.displayName,
     code: issued.code,
     signInUrl: `${await siteOrigin()}/create/code?c=${code}`,
-    appUrl: `makerstory://code/${code}`,
+    appUrl: `the3rdeye://code/${code}`,
   };
 }
 

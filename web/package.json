@@ -1,5 +1,5 @@
 {
-  "name": "web",
+  "name": "@the-3rd-eye/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {

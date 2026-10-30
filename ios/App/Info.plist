@@ -4,10 +4,12 @@
 <dict>
 	<key>APIBaseURL</key>
 	<string>$(API_BASE_URL)</string>
+	<key>DeployedSiteURL</key>
+	<string>$(DEPLOYED_SITE_URL)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>maker story</string>
+	<string>The 3rd Eye</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIconName</key>
@@ -26,10 +28,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.makerstory.app</string>
+			<string>com.the3rdeye.app</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>makerstory</string>
+				<string>the3rdeye</string>
 			</array>
 		</dict>
 	</array>
@@ -53,11 +55,11 @@
 		</dict>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>maker story uses the camera to photograph your drawings and record your story video.</string>
+	<string>The 3rd Eye uses the camera to photograph your drawings and record your story video.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>maker story listens when you describe your art idea, answer a question, or record a thank-you.</string>
+	<string>The 3rd Eye listens when you describe your art idea, answer a question, or record a thank-you.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>maker story lets you pick a picture or video of your art from your library.</string>
+	<string>The 3rd Eye lets you pick a picture or video of your art from your library.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>BagelFatOne-Regular.ttf</string>

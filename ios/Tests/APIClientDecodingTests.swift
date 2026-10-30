@@ -1,5 +1,5 @@
 import XCTest
-@testable import MakerStory
+@testable import The3rdEye
 
 final class APIClientDecodingTests: XCTestCase {
   private let base = URL(string: "http://localhost:3000/api/v1")!

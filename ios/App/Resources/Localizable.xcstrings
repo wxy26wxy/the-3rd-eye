@@ -83,7 +83,7 @@
     "Camera access is off. You can turn it on in Settings." : {
 
     },
-    "Can't reach maker story. Check your connection and try again." : {
+    "Can't reach %@. Check your connection and try again." : {
 
     },
     "Cancel" : {
@@ -204,7 +204,7 @@
     "Improve with AI" : {
 
     },
-    "In Settings, tap maker story, then turn on Camera." : {
+    "In Settings, tap %@, then turn on Camera." : {
 
     },
     "It comes from what you said. Use it, change it, or skip it." : {
@@ -256,9 +256,6 @@
 
     },
     "Make the frog green" : {
-
-    },
-    "maker story" : {
 
     },
     "Makes the product and writes the listing" : {

@@ -18,7 +18,7 @@ enum APIError: LocalizedError, Equatable {
     case .server(_, _, let message): return message
     case .unauthorized: return String(localized: "Please sign in again with your code.")
     case .decoding: return String(localized: "The app got an answer it did not understand. Please try again.")
-    case .transport: return String(localized: "Can't reach maker story. Check your connection and try again.")
+    case .transport: return String(localized: "Can't reach \(Tokens.Brand.name). Check your connection and try again.")
     case .invalidResponse: return String(localized: "Something went wrong. Please try again.")
     }
   }

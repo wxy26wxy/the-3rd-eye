@@ -1,5 +1,5 @@
 import Foundation
-@testable import MakerStory
+@testable import The3rdEye
 
 /// Records requests and answers with a fixed status and body.
 final class StubTransport: HTTPTransport, @unchecked Sendable {

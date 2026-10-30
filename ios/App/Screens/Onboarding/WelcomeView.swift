@@ -7,7 +7,8 @@ struct WelcomeView: View {
     ScrollView {
       VStack(spacing: Theme.Space.xl) {
         TagMascot(pose: .waving)
-        DisplayText("maker story", role: .displayXL)
+        DisplayText(verbatim: Tokens.Brand.wordmark, role: .displayXL)
+          .accessibilityLabel(Text(verbatim: Tokens.Brand.name))
         Text("Turn your art into things people buy.")
           .themeFont(.bodyL)
           .foregroundStyle(colors.textOnDark)

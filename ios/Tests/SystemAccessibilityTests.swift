@@ -1,6 +1,6 @@
 import SwiftUI
 import XCTest
-@testable import MakerStory
+@testable import The3rdEye
 
 /// iOS takes contrast from the system setting and shows image descriptions as text (T081).
 final class SystemAccessibilityTests: XCTestCase {

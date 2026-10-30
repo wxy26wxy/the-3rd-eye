@@ -1,5 +1,5 @@
 import XCTest
-@testable import MakerStory
+@testable import The3rdEye
 
 final class StoryDraftTests: XCTestCase {
   private func creator(withDraft json: String) throws -> Creator {

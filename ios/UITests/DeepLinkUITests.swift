@@ -1,7 +1,7 @@
 import XCTest
 
-/// Opening makerstory://code/<CODE> while signed out lands on the code screen with the
-/// code filled in. The system "Open in maker story?" prompt is accepted from Springboard.
+/// Opening the3rdeye://code/<CODE> while signed out lands on the code screen with the
+/// code filled in. The system "Open in The 3rd Eye?" prompt is accepted from Springboard.
 /// Run with scripts/mock_api.py like VoiceFlowUITests (a signed-in state is reset by the mock's 401-free sign-in).
 final class DeepLinkUITests: XCTestCase {
   override func setUp() { continueAfterFailure = false }
@@ -14,7 +14,7 @@ final class DeepLinkUITests: XCTestCase {
       throw XCTSkip("App is signed in on this simulator; deep-link prefill only applies while signed out.")
     }
 
-    app.open(URL(string: "makerstory://code/testlink1")!)
+    app.open(URL(string: "the3rdeye://code/testlink1")!)
     let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
     let open = springboard.buttons["Open"]
     if open.waitForExistence(timeout: 5) { open.tap() }

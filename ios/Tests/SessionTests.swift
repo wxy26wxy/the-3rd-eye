@@ -1,5 +1,5 @@
 import XCTest
-@testable import MakerStory
+@testable import The3rdEye
 
 @MainActor
 final class SessionTests: XCTestCase {
@@ -105,14 +105,17 @@ final class ConfigTests: XCTestCase {
     XCTAssertEqual(AppConfig.siteURL(from: "$(API_BASE_URL)"), AppConfig.deployedSiteURL)
     XCTAssertEqual(AppConfig.siteURL(from: "http://localhost:3999").absoluteString, "http://localhost:3999")
     XCTAssertFalse(AppConfig.deployedSiteURL.absoluteString.contains("localhost"))
+    XCTAssertEqual(AppConfig.deployedSiteURL.scheme, "https")
   }
 
   func testReleaseDefaultIsNotLocalhost() throws {
     let yml = try String(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("project.yml"), encoding: .utf8)
     let release = try XCTUnwrap(yml.range(of: "Release:")).upperBound
     let line = try XCTUnwrap(yml[release...].split(separator: "\n").first { $0.contains("API_BASE_URL:") })
-    XCTAssertFalse(line.contains("localhost"))
-    XCTAssertTrue(line.contains("https://"))
+    XCTAssertTrue(line.contains("$(DEPLOYED_SITE_URL)"))
+    let site = try XCTUnwrap(yml.split(separator: "\n").first { $0.contains("DEPLOYED_SITE_URL:") })
+    XCTAssertFalse(site.contains("localhost"))
+    XCTAssertTrue(site.contains("https://"))
   }
 }
 

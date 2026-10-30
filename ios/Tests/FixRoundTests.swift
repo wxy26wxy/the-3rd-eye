@@ -1,5 +1,5 @@
 import XCTest
-@testable import MakerStory
+@testable import The3rdEye
 
 @MainActor
 final class FixRoundTests: XCTestCase {

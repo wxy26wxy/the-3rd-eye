@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct MakerStoryApp: App {
+struct The3rdEyeApp: App {
   @State private var app = AppState()
   @Environment(\.scenePhase) private var scenePhase
 

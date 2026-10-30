@@ -1,1 +1,1 @@
-ALTER TABLE "creators" ADD COLUMN "hidden" boolean DEFAULT false NOT NULL;
+ALTER TABLE "creators" ADD COLUMN IF NOT EXISTS "hidden" boolean DEFAULT false NOT NULL;

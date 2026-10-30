@@ -189,3 +189,8 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Reviews filed for every task under `docs/reviews/2026-10-29-*` and `2026-10-30-*`; parked minors are listed in each review's re-review section and in the handoffs.
 - Open on the founder: App Store Connect sign-in in Xcode (or an API key) so TestFlight 0.4.0 (1) can upload; first public push of the repository to GitHub (`wxy26wxy/the-3rd-eye`).
 - Next (Oct 30): TestFlight 0.4.0 (1) → tester invite → phone test round 2 (object photo → adjust → sticker; My designs; no mics; VoiceOver pass); physical sticker + NFC tag test; round-2 fixes; design canvas intake when the new version lands; `v0.6` in the evening.
+
+### T094 · backend · feat/backend-T094 · In-app rate limiting
+- Per-IP sliding-window limits in `proxy.ts` (`lib/rate-limit.ts`): auth code 10 / min, public POSTs 30 / min, model routes 20 / min; 429 with `Retry-After`. Per instance, not global; `RATE_LIMIT_DISABLED=1` turns it off. Docs: risks, architecture, backend handoff.
+- Verify: `pnpm exec vitest run test/rate-limit.test.ts` (8 tests).
+- Unfinished: `POST /uploads` not limited; Firewall rules when the plan allows.

@@ -1,13 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { CREATE_PUBLIC_PATHS, CREATOR_COOKIE } from "@/components/create/constants";
 import { ADMIN_REALM, checkAdminAuth } from "@/lib/admin-auth";
+import { rateLimitResponse } from "@/lib/rate-limit";
 
 /**
  * - /admin/*: HTTP basic auth against ADMIN_PASSWORD (any username). Disabled when unset.
+ * - POST rate limits per IP (login codes, public forms, model routes): see lib/rate-limit.ts.
  * - /create/*: optimistic sign-in check; real authorization happens in /api/v1.
  */
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const limited = rateLimitResponse(req, pathname);
+  if (limited) return limited as NextResponse;
   if (pathname === "/admin" || pathname.startsWith("/admin/")) return adminGate(req);
   if (pathname.startsWith("/create")) return creatorGate(req);
   return NextResponse.next();
@@ -30,4 +34,4 @@ function creatorGate(req: NextRequest) {
   return NextResponse.redirect(url);
 }
 
-export const config = { matcher: ["/admin/:path*", "/create/:path*"] };
+export const config = { matcher: ["/admin/:path*", "/create/:path*", "/api/v1/:path*", "/t/:path*"] };

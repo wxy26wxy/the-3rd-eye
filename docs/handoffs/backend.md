@@ -57,3 +57,9 @@ Contract: `docs/api.md` → "Clarifications (T080 backend)". What the clients bu
 - **Live checks (opt-in, skipped by default):** `LIVE_SAM=1 LIVE_PHOTOS=a.jpg,b.png pnpm exec dotenv -e .env.local -- vitest run test/live` (SAM on photos, writes cut-outs to `LIVE_OUT`); `LIVE_DB=1 … vitest run test/live/artwork-queries.live.test.ts` (read-only).
 
 T087: `ArtworkProduct` now has `priceCents`, `description`, `mockupUrl`. Clients prefill the edit form from them; an empty price on a published product keeps the live price server-side.
+
+## T094 in-app rate limiting (2026-10-30)
+- `proxy.ts` now also matches `/api/v1/*` and `/t/*` and returns 429 (`Retry-After`, `{ error: { code: "rate_limited" } }`) per IP: auth code 10 / min, public POSTs 30 / min, model routes 20 / min. Numbers and route patterns: `lib/rate-limit.ts`.
+- Per function instance only (in-memory); not a global limit. Clients: treat 429 as "wait `Retry-After` seconds".
+- Set `RATE_LIMIT_DISABLED=1` for local runs that hammer these routes (Playwright, mock flows, load tests).
+- Not covered: `POST /uploads`; add a group in `lib/rate-limit.ts` if wanted. Unknown IP is let through (logged once).

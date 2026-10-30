@@ -66,3 +66,9 @@ Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s 
 - First time only: create the app record in App Store Connect (My Apps → + → New App → iOS, bundle id `com.makerstory.app`, SKU `maker-story`).
 - Testers: App Store Connect → TestFlight. Internal testers are team members (add the person under Users and Access first); they get the build minutes after processing. External testers use a group with a public link; the first build goes through Beta App Review (about a day). Give each tester one creator code privately; never put codes in the test notes.
 - Log every upload in `docs/deployments.md` (version, build, git sha, who was invited).
+
+## Deep link (T070)
+- `makerstory://code/<CODE>` (scheme registered in `Info.plist` `CFBundleURLTypes`) is parsed by `App/Services/DeepLink.swift`; `AppState.open(_:)` stores it as `pendingCode` while signed out, `RootView` pushes the code screen, and `CodeEntryView` fills the field once and shows "We filled in your code from the link. Tap Sign in." (no auto-submit). Ignored while signed in.
+- `/admin` shows this link on the one-time code card next to the web link. iOS shows the system "Open in maker story?" prompt first.
+- Tests: `Tests/DeepLinkTests.swift` (parse, cleanup, length cap, pending only while signed out) and `UITests/DeepLinkUITests.swift` (opens the link against `scripts/mock_api.py`, accepts the Springboard prompt, checks the prefilled field).
+- Universal links (https) would need an apple-app-site-association file on the site; not done.

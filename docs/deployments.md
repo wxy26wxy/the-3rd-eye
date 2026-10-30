@@ -9,3 +9,8 @@
 ## 2026-10-29 · TestFlight build 0.3.0 (1)
 - Uploaded from branch `feat/ios-T060` at git 9553cb4 (the archive was signed with the working tree of 1f14cc8 plus the team-id change) by running the archive and export commands from `ios/scripts/testflight.sh` by hand; team `WHMG95UWKZ`. Later uploads use the script.
 - Points at production https://maker-story-three.vercel.app. Invite: one tester (client), internal group. Rollback: expire the build in App Store Connect → TestFlight; testers keep the previous build.
+
+## 2026-10-29 · production · v0.3 (1efbed7)
+- https://maker-story-hroeg8lkl-xinyao-wangs-projects.vercel.app → alias https://maker-story-three.vercel.app. `vercel deploy --yes --prod` from `web/` after the T070 web merge; migration 0003 (`creators.hidden`) applied first with `pnpm migrate`.
+- New: `/admin` Creators panel (add creator, one-time code card with QR, sign-in link and app link, New code, hide from shop), `/create/code?c=` prefill, hidden creators excluded from public pages. Rollback target: https://maker-story-o9k5oafyh-xinyao-wangs-projects.vercel.app (v0.2 + T050 fixes); rolling back does not require reverting the migration (the column is additive).
+- Approved by: the founder (plan approval, 2026-10-29 evening). Next: T085 renames the project to The 3rd Eye; this alias stops working at that point.

@@ -26,9 +26,18 @@ export interface ImageProvider {
 
 export type Mask = { width: number; height: number; data: Uint8Array /* 0/1 per pixel */ };
 export type Segment = { mask: Mask; svgPath: string; bbox: [number, number, number, number]; score: number };
+/** A tap on the image: positive = part of the object, negative = not part of it (default positive). */
+export type SegmentPoint = { x: number; y: number; label?: "positive" | "negative" };
+/** Pixel coordinates of the image passed in; `box` is half-open [x0, y0, x1, y1). */
+export type SegmentHint = { phrase?: string; points?: SegmentPoint[]; box?: [number, number, number, number] };
 export interface Segmenter {
   findAll(image: ImageRef, phrase: string, opts: { trace: Trace }): Promise<Segment[]>;
-  segment(image: ImageRef, hint: { phrase?: string; points?: { x: number; y: number }[]; box?: [number, number, number, number] }, opts: { trace: Trace }): Promise<Segment | null>;
+  /**
+   * Every drawing or physical object in a photo: several phrases, overlapping results merged,
+   * frame-filling results (the paper, the table) dropped, best first, at most `max`.
+   */
+  findCandidates(image: ImageRef, opts: { trace: Trace; max?: number }): Promise<Segment[]>;
+  segment(image: ImageRef, hint: SegmentHint, opts: { trace: Trace }): Promise<Segment | null>;
 }
 
 export type Description = { alt_text: string; spoken: string; dominant_colors: string[]; subject: string; differences_from_prompt: string };

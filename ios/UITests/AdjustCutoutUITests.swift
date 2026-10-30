@@ -85,17 +85,66 @@ final class AdjustCutoutUITests: XCTestCase {
     XCTAssertNil(body["candidateIds"], "no piece was picked")
   }
 
-  /// A cleanup answered 422 shows the advice instead of the server message.
-  func testNothingFoundShowsAdvice() {
+  /// A cleanup without "Remove area" marks answered 422 shows the server's reason, not the advice.
+  func testNothingFoundShowsServerReason() {
     let app = launchPhotoFlow(code: "NOCUT-CODE")
     let piece = app.buttons["Piece 1"]
     XCTAssertTrue(piece.waitForExistence(timeout: 20))
     piece.tap()
     app.buttons["Piece 2"].tap()
     tapUseThis(app)
-    let advice = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "To trim one piece, draw a box around what should stay.")).firstMatch
-    XCTAssertTrue(advice.waitForExistence(timeout: 10), "422 is explained")
+    let reason = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Nothing was left in the cutout.")).firstMatch
+    XCTAssertTrue(reason.waitForExistence(timeout: 10), "422 shows the server's message")
     XCTAssertFalse(app.staticTexts["Put it up for sale now?"].exists, "stays on the screen")
+  }
+
+  /// A cleanup with a "Remove area" mark answered 422 explains how to trim instead.
+  func testNothingFoundAfterRemoveMarkShowsAdvice() {
+    let app = launchPhotoFlow(code: "NOCUT-CODE")
+    let photo = app.otherElements["cutout-photo"]
+    XCTAssertTrue(photo.waitForExistence(timeout: 20))
+    app.buttons["Piece 1"].tap()
+    app.buttons["Piece 2"].tap()
+    app.buttons["Remove area"].tap()
+    // Inside piece 1 (bbox 100,160 to 500,693 of 1200 × 1600).
+    photo.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.27)).tap()
+    XCTAssertTrue(app.buttons["Left out, mark 1"].waitForExistence(timeout: 3))
+    tapUseThis(app)
+    // The error card reads exactly the advice; the Remove area instruction adds a VoiceOver line.
+    let advice = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@",
+      "Tap a piece to leave it out of the cutout. To trim one piece, draw a box around what should stay.")).firstMatch
+    XCTAssertTrue(advice.waitForExistence(timeout: 10), "422 after a Remove area mark is explained")
+    XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Nothing was left in the cutout.")).firstMatch.exists)
+  }
+
+  /// Redo: Apply saves a different cut, then going back to the opening pieces must cut again on
+  /// "Use this" (the server now has the applied cut, not the opening one).
+  func testUseThisAfterApplyThenRevertCutsAgain() throws {
+    let app = launchPhotoFlow(code: "ONE-CODE")
+    let adjust = app.buttons["Adjust cutout"]
+    XCTAssertTrue(adjust.waitForExistence(timeout: 20))
+    adjust.tap()
+    let piece = app.buttons["Piece 1"]
+    XCTAssertTrue(piece.waitForExistence(timeout: 5))
+    piece.press(forDuration: 1.2)
+    let addArea = app.buttons["Add the area around this piece"]
+    XCTAssertTrue(addArea.waitForExistence(timeout: 5))
+    addArea.tap()
+    let apply = app.buttons["Apply cutout"]
+    if !apply.isHittable { app.swipeUp() }
+    apply.tap()
+    XCTAssertTrue(app.buttons["Back to photo"].waitForExistence(timeout: 10))
+    XCTAssertNotNil(try lastBody("cleanup")["points"], "the applied cut had the mark")
+
+    app.buttons["Back to photo"].tap()
+    let clear = app.buttons["Clear marks"]
+    XCTAssertTrue(clear.waitForExistence(timeout: 3))
+    clear.tap()
+    tapUseThis(app)
+    XCTAssertTrue(app.buttons["Adjust cutout"].waitForExistence(timeout: 10), "back on Design ready")
+    let body = try lastBody("cleanup")
+    XCTAssertEqual(body["candidateIds"] as? [String], ["cand-1"])
+    XCTAssertNil(body["points"], "the opening pieces were cut again")
   }
 
   /// Products that could not be rebuilt or went back to draft are explained on Design ready.
@@ -144,6 +193,44 @@ final class AdjustCutoutUITests: XCTestCase {
     XCTAssertEqual(point["y"] as? Double, 426.5)
   }
 
+  /// "Leave this piece out" is offered only for a piece that is in the cutout (T082 R4); the
+  /// context menu mirrors the VoiceOver actions, which XCUITest cannot list.
+  func testLeaveOutOnlyOnSelectedPieces() {
+    let app = launchPhotoFlow(code: "TEST-CODE")
+    let piece = app.buttons["Piece 1"]
+    XCTAssertTrue(piece.waitForExistence(timeout: 20))
+    XCTAssertFalse(piece.isSelected)
+    piece.press(forDuration: 1.2)
+    XCTAssertTrue(app.buttons["Box around this piece"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["Leave this piece out"].exists, "not offered for an unselected piece")
+    app.buttons["Add the area around this piece"].tap()
+    piece.tap()
+    XCTAssertTrue(app.buttons["Piece 1"].isSelected)
+    piece.press(forDuration: 1.2)
+    let leaveOut = app.buttons["Leave this piece out"]
+    XCTAssertTrue(leaveOut.waitForExistence(timeout: 5), "offered once selected")
+    leaveOut.tap()
+    XCTAssertFalse(app.buttons["Piece 1"].isSelected, "and it leaves the piece out")
+  }
+
+  /// Switching tabs while Apply runs does not lose the cut the server saves (T082 R2): the mock
+  /// takes 4 s (SLOW…), and the saved cutout is there on return.
+  func testApplySurvivesATabSwitch() throws {
+    let app = launchPhotoFlow(code: "SLOW-CODE")
+    let piece = app.buttons["Piece 1"]
+    XCTAssertTrue(piece.waitForExistence(timeout: 20))
+    piece.tap()
+    let apply = app.buttons["Apply cutout"]
+    if !apply.isHittable { app.swipeUp() }
+    apply.tap()
+    app.tabBars.buttons["My designs"].tap()
+    XCTAssertTrue(app.buttons["Blue bird on a branch, In the shop"].waitForExistence(timeout: 10))
+    sleep(5)
+    app.tabBars.buttons["Create"].tap()
+    XCTAssertTrue(app.buttons["Back to photo"].waitForExistence(timeout: 10), "the applied cut is shown")
+    XCTAssertEqual(try lastBody("cleanup")["candidateIds"] as? [String], ["cand-1"])
+  }
+
   // MARK: Helpers
 
   private func launchPhotoFlow(code: String) -> XCUIApplication {
@@ -169,21 +256,4 @@ final class AdjustCutoutUITests: XCTestCase {
     XCTAssertTrue(use.isEnabled)
     use.tap()
   }
-
-  private func lastBody(_ route: String) throws -> [String: Any] {
-    let url = mockAPIURL.appendingPathComponent("__mock/last/\(route)")
-    let done = expectation(description: "mock \(route)")
-    let received = Received()
-    URLSession.shared.dataTask(with: url) { data, _, _ in
-      received.data = data
-      done.fulfill()
-    }.resume()
-    wait(for: [done], timeout: 10)
-    return try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(received.data)) as? [String: Any])
-  }
-}
-
-/// Written once by the URLSession callback, read after the expectation is fulfilled.
-private final class Received: @unchecked Sendable {
-  var data: Data?
 }

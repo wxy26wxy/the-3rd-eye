@@ -6,12 +6,21 @@ Build the app against it: xcodebuild ... API_BASE_URL=http://localhost:3999
 Shapes follow docs/api.md. Images point at a 1x1 PNG served here.
 Photo flow: launch the app with UITEST_PHOTO=1 and MOCK_BLOB_API=<base>/blob/ (UI tests do);
 POST /artworks {source: photo} answers 2 candidates and imageSize 1200x1600 (sign-in code ONE...: 1).
-Sign-in NOCUT... makes cleanup answer 422, DETAILS... gives cleanup non-empty details.
-GET /__mock/last/<cleanup|select|artworks> returns the last body the app sent there.
+Sign-in NOCUT... makes cleanup answer 422, DETAILS... gives cleanup non-empty details, SLOW... makes
+cleanup take 4 s (switching tabs meanwhile must not lose the cut).
+GET /__mock/last/<cleanup|select|artworks|products|approve|delete> returns the last body the app sent there
+(for delete: {"id": ...}).
+My designs (T083): GET /artworks lists four designs, d1 in the shop (photo, published sticker),
+d2 a draft (sticker draft with a listing title), d3 failed (lastError, no cutout), d4 still cutting
+(made just now), d5 in the shop as a tote from an older server (no price in the summary).
+d1's live price (8.00) differs from the listing suggestion (5.00). GET/DELETE /artworks/<id>, POST /products, POST /listings/<id>/approve answer for them;
+signing in again restores the list.
 """
 import json
+import re
 import sys
 import time
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 3999
@@ -75,7 +84,7 @@ CANDIDATES = [
 LAST = {}
 # A sign-in code starting with ONE makes photo answers carry a single, already cut-out candidate.
 # NOCUT… makes every cleanup answer 422; DETAILS… makes it carry non-empty details.
-MODE = {"single": False, "fail": False, "details": False}
+MODE = {"single": False, "fail": False, "details": False, "slow": False}
 CUTS = {"n": 0}
 
 
@@ -140,6 +149,8 @@ def cleanup(body):
     LAST["cleanup"] = body
     print(f"mock_api: cleanup {json.dumps(body)}", file=sys.stderr, flush=True)
     check_cleanup(body)
+    if MODE["slow"]:
+        time.sleep(4)
     if MODE["fail"]:
         raise MockError(422, "no_drawing_found", "Nothing was left in the cutout.")
     CUTS["n"] += 1
@@ -154,6 +165,109 @@ def artwork_detail(_body):
     return {"artwork": photo_artwork(), "candidates": cands, "imageSize": IMAGE_SIZE, "originalUrl": f"{BASE}/img.png"}
 
 
+# My designs (T083). Rebuilt on each sign-in so a deleted design comes back for the next test.
+def designs():
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+    def row(i, source, cleaned, alt, products, last_error=None, created="2026-10-29T09:00:00.000Z"):
+        return {
+            "id": i, "creatorId": "c-test", "source": source, "transcript": None, "shapedPrompt": None,
+            "originalUrl": f"{BASE}/img.png", "cleanedUrl": cleaned, "maskUrl": None, "cutPathSvg": None,
+            "altText": alt, "spokenDescription": None, "differencesFromPrompt": None, "genResponseId": None,
+            "parentArtworkId": None, "status": "ready" if cleaned else "draft", "lastError": last_error,
+            "createdAt": created, "products": products,
+        }
+    return [
+        # Live price 8.00 differs from the agent's suggestion 5.00 (SUGGESTED_CENTS): an approve
+        # without priceCents must keep 8.00 (T087 backend), and the app always sends the price anyway.
+        row("d1", "photo", f"{BASE}/img.png?d=1", "Blue bird on a branch",
+            [{"id": "pr-d1", "type": "sticker", "status": "published", "title": "Blue Bird Sticker",
+              "priceCents": 800, "description": "A blue bird singing on a branch.", "mockupUrl": f"{BASE}/img.png?m=1"}]),
+        row("d2", "text2image", f"{BASE}/img.png?d=2", "Green frog with a gold crown",
+            [{"id": "pr-d2", "type": "sticker", "status": "draft", "title": "Frog King Sticker",
+              "priceCents": 600, "description": "A frog wearing a crown.", "mockupUrl": f"{BASE}/img.png?m=2"}]),
+        row("d3", "photo", None, "Red flower", [], last_error="The cutout timed out."),
+        row("d4", "photo", None, "Yellow sun", [], created=now),
+        # An older server: the product summary has no price, description or mockup.
+        row("d5", "photo", f"{BASE}/img.png?d=5", "Purple cat",
+            [{"id": "pr-d5", "type": "tote", "status": "published", "title": "Purple Cat Tote"}]),
+    ]
+
+
+SUGGESTED_CENTS = 500
+
+
+DESIGNS = {"list": designs()}
+
+
+def find_design(artwork_id):
+    for d in DESIGNS["list"]:
+        if d["id"] == artwork_id:
+            return d
+    raise MockError(404, "not_found", "no such artwork")
+
+
+def design_detail(artwork_id):
+    d = find_design(artwork_id)
+    art = {k: v for k, v in d.items() if k != "products"}
+    return {"artwork": art, "candidates": CANDIDATES, "imageSize": IMAGE_SIZE, "originalUrl": f"{BASE}/img.png"}
+
+
+def delete_design(artwork_id):
+    d = find_design(artwork_id)
+    LAST["delete"] = {"id": artwork_id}
+    DESIGNS["list"] = [x for x in DESIGNS["list"] if x["id"] != artwork_id]
+    return {"id": artwork_id, "deleted": True, "archivedProductIds": [p["id"] for p in d["products"]]}
+
+
+def design_cleanup(artwork_id, body):
+    d = find_design(artwork_id)
+    result = cleanup(body)
+    d["cleanedUrl"], d["status"], d["lastError"] = result["cleanedUrl"], "ready", None
+    return {**result, "id": artwork_id, "altText": d["altText"]}
+
+
+def create_product(body):
+    LAST["products"] = body
+    if body.get("artworkId") in {d["id"] for d in DESIGNS["list"]} and not find_design(body["artworkId"])["cleanedUrl"]:
+        raise MockError(409, "artwork_not_ready", "Pick and clean up the artwork first")
+    return {"id": f"pr-new-{body.get('type')}", "artworkId": body.get("artworkId"), "creatorId": "c-test",
+            "type": body.get("type"), "mockupUrl": f"{BASE}/img.png", "printPngUrl": None, "printSvgUrl": None,
+            "priceCents": 500, "status": "draft"}
+
+
+def approve(product_id, body):
+    LAST["approve"] = {**body, "productId": product_id}
+    edits = body.get("edits") or {}
+    price = edits.get("priceCents")
+    for d in DESIGNS["list"]:
+        for p in d["products"]:
+            if p["id"] == product_id:
+                p["status"] = "published"
+                p["title"] = edits.get("title") or p["title"]
+                p["priceCents"] = price or p.get("priceCents") or SUGGESTED_CENTS
+                price = p["priceCents"]
+                if edits.get("description"):
+                    p["description"] = edits["description"]
+    title = edits.get("title") or "Listing"
+    return {"product": {"id": product_id, "artworkId": None, "creatorId": "c-test", "type": "sticker",
+                        "mockupUrl": f"{BASE}/img.png", "printPngUrl": None, "printSvgUrl": None,
+                        "priceCents": price or SUGGESTED_CENTS, "status": "published"},
+            "listing": {"productId": product_id, "title": title, "description": edits.get("description"),
+                        "tags": [], "priceSuggestionCents": SUGGESTED_CENTS, "approvedAt": "2026-10-30T10:00:00Z",
+                        "approvedVia": body.get("approvedVia"), "madeByVoice": False},
+            "storyVideoNeeded": False}
+
+
+# Routes with an id in the path: (method, regex) -> fn(id, body).
+PATTERN_ROUTES = [
+    ("GET", re.compile(r"^/api/v1/artworks/(d\d+)$"), lambda i, b: design_detail(i)),
+    ("DELETE", re.compile(r"^/api/v1/artworks/([\w-]+)$"), lambda i, b: delete_design(i)),
+    ("POST", re.compile(r"^/api/v1/artworks/(d\d+)/cleanup$"), design_cleanup),
+    ("POST", re.compile(r"^/api/v1/listings/([\w-]+)/approve$"), approve),
+]
+
+
 def blob_put(_body, query=""):
     pathname = query.split("pathname=", 1)[1].split("&")[0] if "pathname=" in query else "upload.bin"
     return {"url": f"{BASE}/img.png", "downloadUrl": f"{BASE}/img.png", "pathname": pathname, "contentType": "image/jpeg"}
@@ -166,7 +280,9 @@ def sign_in(body):
     MODE["single"] = code.startswith("ONE")
     MODE["fail"] = code.startswith("NOCUT")
     MODE["details"] = code.startswith("DETAILS")
+    MODE["slow"] = code.startswith("SLOW")
     LAST.clear()
+    DESIGNS["list"] = designs()
     creator = {**CREATOR, "accessPrefs": {**CREATOR["accessPrefs"], "simpleMode": not multi}}
     return {"token": "c-test.mock", "creator": creator}
 
@@ -189,7 +305,8 @@ ROUTES = {
     ("GET", "/api/v1/artworks/p1"): artwork_detail,
     # Blob client upload: token event, then the PUT the app sends to MOCK_BLOB_API (= BASE/blob/).
     ("POST", "/api/v1/uploads"): lambda b: {"clientToken": "vercel_blob_client_mockstore_token"},
-    ("GET", "/api/v1/artworks"): lambda b: {"artworks": [artwork(1)]},
+    ("GET", "/api/v1/artworks"): lambda b: {"artworks": DESIGNS["list"]},
+    ("POST", "/api/v1/products"): create_product,
     ("GET", "/api/v1/orders"): lambda b: {"orders": [], "unread": 0},
 }
 
@@ -215,6 +332,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, LAST.get(path.rsplit("/", 1)[1]) or {})
         fn = ROUTES.get((method, path))
         if not fn:
+            for m, pattern, handler in PATTERN_ROUTES:
+                match = pattern.match(path) if m == method else None
+                if match:
+                    fn = (lambda h, i: lambda b: h(i, b))(handler, match.group(1))
+                    break
+        if not fn:
             return self._send(404, {"error": {"code": "not_found", "message": f"mock has no {method} {path}"}})
         try:
             body = json.loads(raw) if raw else {}
@@ -233,6 +356,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         self._handle("PUT")
+
+    def do_DELETE(self):
+        self._handle("DELETE")
 
     def log_message(self, fmt, *args):
         sys.stderr.write("mock_api: " + (fmt % args) + "\n")

@@ -30,4 +30,22 @@ extension XCTestCase {
     confirm.tap()
     XCTAssertTrue(app.buttons["Start creating"].waitForExistence(timeout: 5))
   }
+
+  /// The last body the app sent to a mock route (`GET /__mock/last/<route>`); empty when none.
+  func lastBody(_ route: String) throws -> [String: Any] {
+    let url = mockAPIURL.appendingPathComponent("__mock/last/\(route)")
+    let done = expectation(description: "mock \(route)")
+    let received = Received()
+    URLSession.shared.dataTask(with: url) { data, _, _ in
+      received.data = data
+      done.fulfill()
+    }.resume()
+    wait(for: [done], timeout: 10)
+    return try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(received.data)) as? [String: Any])
+  }
+}
+
+/// Written once by the URLSession callback, read after the expectation is fulfilled.
+private final class Received: @unchecked Sendable {
+  var data: Data?
 }

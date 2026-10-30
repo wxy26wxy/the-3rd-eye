@@ -150,6 +150,10 @@ struct Artwork: Codable, Identifiable, Equatable, Hashable {
   var status: String?
   var createdAt: String?
   var previewUrl: String?
+  /// Set when a pipeline step failed (docs/api.md, T010 clarification 10).
+  var lastError: String?
+  /// Only on `GET /artworks` items (`ArtworkListItem`): its products, newest first.
+  var products: [ArtworkProduct]?
 
   /// Best image to show for this artwork.
   var displayURL: URL? {
@@ -158,6 +162,29 @@ struct Artwork: Codable, Identifiable, Equatable, Hashable {
 }
 
 typealias ArtworkVariant = Artwork
+
+/// `ArtworkProduct` on a `GET /artworks` item: enough for a status badge.
+struct ArtworkProduct: Codable, Identifiable, Equatable, Hashable {
+  let id: String
+  var type: ProductType?
+  var status: String?
+  /// The listing title, or null before the listing agent ran.
+  var title: String?
+  /// Live price, listing description and mockup (T087 backend; absent from older servers).
+  var priceCents: Int?
+  var description: String?
+  var mockupUrl: String?
+
+  var isPublished: Bool { status == "published" }
+  var isArchived: Bool { status == "archived" }
+  var hasListing: Bool { !(title ?? "").trimmingCharacters(in: .whitespaces).isEmpty }
+}
+
+struct DeleteArtworkResponse: Decodable {
+  let id: String
+  var deleted: Bool?
+  var archivedProductIds: [String]?
+}
 
 struct Candidate: Codable, Identifiable, Equatable, Hashable {
   let id: String

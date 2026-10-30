@@ -112,8 +112,18 @@ extension CleanupResult {
     return lines.isEmpty ? nil : lines.joined(separator: "\n")
   }
 
-  /// Said when a "Remove area" mark would leave nothing, and for a cleanup answered 422.
+  /// Said when a "Remove area" mark would leave nothing, and for a cleanup with "Remove area"
+  /// marks answered 422.
   static var removeAdvice: String {
     String(localized: "Tap a piece to leave it out of the cutout. To trim one piece, draw a box around what should stay.")
+  }
+
+  /// What Adjust cutout shows for a failed request: the advice only when a 422 followed marks that
+  /// leave something out, otherwise the server's reason. Nil for a cancelled request.
+  static func errorMessage(for error: Error, request: CleanupRequest?) -> String? {
+    if APIError.isCancellation(error) { return nil }
+    let leftSomethingOut = request?.points?.contains { $0.label == .negative } == true
+    if case APIError.server(422, _, _) = error, leftSomethingOut { return removeAdvice }
+    return error.localizedDescription
   }
 }

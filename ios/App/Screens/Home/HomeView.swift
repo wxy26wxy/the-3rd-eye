@@ -19,8 +19,9 @@ struct HomeView: View {
       .tabItem { Label("Create", systemImage: "paintbrush.pointed.fill") }
       .tag(HomeTab.create)
 
-      NavigationStack {
+      NavigationStack(path: $app.designsPath) {
         MyDesignsView()
+          .navigationDestination(for: DesignRoute.self) { DesignDestination(route: $0) }
       }
       .tabItem { Label("My designs", systemImage: "square.grid.2x2.fill") }
       .tag(HomeTab.designs)
@@ -62,6 +63,17 @@ private struct CreateDestination: View {
     case .storyVideo: StoryVideoView()
     case .videoSaved: VideoSavedView()
     case .youreLive: YoureLiveView()
+    }
+  }
+}
+
+private struct DesignDestination: View {
+  let route: DesignRoute
+
+  var body: some View {
+    switch route {
+    case .detail(let id): DesignDetailView(artworkId: id)
+    case .redoCutout: AdjustCutoutView(origin: .designs)
     }
   }
 }

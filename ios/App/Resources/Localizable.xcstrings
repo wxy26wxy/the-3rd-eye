@@ -35,7 +35,16 @@
     "A happy frog wearing a crown" : {
 
     },
+    "A second product gets its own listing. To change the one in the shop, use Edit listing." : {
+
+    },
     "Add a name and a price first, or tap Improve with AI." : {
+
+    },
+    "Add a name and a price to list it, or tap Improve with AI." : {
+
+    },
+    "Add a name first." : {
 
     },
     "Add a photo" : {
@@ -72,6 +81,9 @@
 
     },
     "Artwork" : {
+
+    },
+    "Asks before deleting this design" : {
 
     },
     "Asks before signing you out" : {
@@ -122,6 +134,9 @@
     "Change it" : {
 
     },
+    "Change the name, description or price" : {
+
+    },
     "Change the words before saving" : {
 
     },
@@ -152,7 +167,22 @@
     "Cutting it out…" : {
 
     },
+    "Cutting out…" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Delete design" : {
+
+    },
+    "Delete this design?" : {
+
+    },
     "Deletes this mark" : {
+
+    },
+    "Deleting…" : {
 
     },
     "Describe it, we draw it" : {
@@ -164,6 +194,12 @@
     "Design" : {
 
     },
+    "Design deleted" : {
+
+    },
+    "Didn't work" : {
+
+    },
     "Die-cut around your art" : {
 
     },
@@ -171,6 +207,9 @@
 
     },
     "Done" : {
+
+    },
+    "Draft" : {
 
     },
     "Drafted story: %@" : {
@@ -194,10 +233,31 @@
     "Edit it" : {
 
     },
+    "Edit listing" : {
+
+    },
+    "Edit the sticker listing" : {
+
+    },
+    "Edit the tote listing" : {
+
+    },
+    "Enter a price between $1.00 and $1,000.00, like 5.00." : {
+
+    },
     "Finding your drawings" : {
 
     },
+    "Finish the listing and put it in the shop" : {
+
+    },
     "Go back" : {
+
+    },
+    "Goes on to your sticker draft" : {
+
+    },
+    "Goes on to your tote draft" : {
 
     },
     "Goes to the previous screen" : {
@@ -240,13 +300,25 @@
     "In Settings, tap %@, then turn on Camera." : {
 
     },
+    "In the shop" : {
+
+    },
     "It comes from what you said. Use it, change it, or skip it." : {
+
+    },
+    "It leaves My designs, and its products leave the shop. Orders already placed keep working." : {
 
     },
     "It's saved in My designs." : {
 
     },
+    "Keep the name to 80 letters or fewer." : {
+
+    },
     "Keeps the design and goes to My designs" : {
+
+    },
+    "Keeps the listing as it is" : {
 
     },
     "Keeps this picture for your product" : {
@@ -256,6 +328,9 @@
 
     },
     "Lay your drawing flat in good light. It's fine if there are a few on the page." : {
+
+    },
+    "Leave empty to keep it" : {
 
     },
     "Leave this piece out" : {
@@ -282,6 +357,9 @@
     "Listing it…" : {
 
     },
+    "Listing saved" : {
+
+    },
     "Loading order" : {
 
     },
@@ -294,13 +372,28 @@
     "Looking for every drawing on the page. This takes a few seconds." : {
 
     },
+    "Make a sticker" : {
+
+    },
+    "Make a tote" : {
+
+    },
     "Make another" : {
+
+    },
+    "Make another sticker" : {
+
+    },
+    "Make another tote" : {
 
     },
     "Make the change" : {
 
     },
     "Make the frog green" : {
+
+    },
+    "Makes a sticker and writes its listing" : {
 
     },
     "Makes the product and writes the listing" : {
@@ -336,7 +429,13 @@
     "Name" : {
 
     },
+    "Needs a cutout" : {
+
+    },
     "Next" : {
+
+    },
+    "No cutout yet. Tap Re-do the cutout and pick your art." : {
 
     },
     "No designs yet. Make one in Create." : {
@@ -375,13 +474,22 @@
     "Open the camera" : {
 
     },
+    "Opening your photo…" : {
+
+    },
     "Opens the camera for up to 30 seconds" : {
+
+    },
+    "Opens the design. More actions are in the actions list." : {
 
     },
     "Opens the order" : {
 
     },
     "Opens the Settings app so you can turn on the camera" : {
+
+    },
+    "Opens the shop page buyers see" : {
 
     },
     "Opens this way of making art" : {
@@ -429,10 +537,16 @@
     "Puts it in the shop" : {
 
     },
+    "Puts it on a tote bag and writes its listing" : {
+
+    },
     "Putting your art on a tote bag. This can take up to a minute." : {
 
     },
     "QUESTION" : {
+
+    },
+    "Re-do the cutout" : {
 
     },
     "Record a short video, about 30 seconds. Buyers see it when they tap the story tag. You only do this once." : {
@@ -463,6 +577,9 @@
 
     },
     "Retake" : {
+
+    },
+    "Save changes" : {
 
     },
     "Save my story" : {
@@ -496,6 +613,15 @@
 
     },
     "Say what to change" : {
+
+    },
+    "See it in the shop" : {
+
+    },
+    "See the sticker in the shop" : {
+
+    },
+    "See the tote in the shop" : {
 
     },
     "See what buyers see" : {
@@ -612,6 +738,9 @@
     "Sticker" : {
 
     },
+    "Still cutting it out. If it stays like this, tap Re-do the cutout." : {
+
+    },
     "Still working. This can take a few minutes, so please keep the app open." : {
 
     },
@@ -681,7 +810,22 @@
     "Thinking…" : {
 
     },
+    "This design has no photo to cut out again." : {
+
+    },
+    "This design is no longer in My designs." : {
+
+    },
     "This device has no camera, so you can pick a picture instead." : {
+
+    },
+    "This one didn't work. Re-do the cutout, or delete it." : {
+
+    },
+    "This sticker is already in the shop" : {
+
+    },
+    "This tote is already in the shop" : {
 
     },
     "This video has no sound, so it won't have captions." : {
@@ -709,6 +853,9 @@
 
     },
     "Type your idea" : {
+
+    },
+    "Updates the listing in the shop" : {
 
     },
     "Upload a picture" : {
@@ -817,6 +964,12 @@
     "Yes, list it!" : {
 
     },
+    "You already have this sticker in the shop" : {
+
+    },
+    "You already have this tote in the shop" : {
+
+    },
     "You can add up to 10 marks. Tap a mark to remove it." : {
 
     },
@@ -853,6 +1006,9 @@
     "Your art on a cotton bag" : {
 
     },
+    "Your changes are checked again before they go live." : {
+
+    },
     "Your code" : {
 
     },
@@ -863,6 +1019,9 @@
 
     },
     "Your cutout is saved. One product could not be rebuilt; try again later." : {
+
+    },
+    "Your design" : {
 
     },
     "Your design is ready!" : {

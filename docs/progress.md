@@ -189,3 +189,8 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Reviews filed for every task under `docs/reviews/2026-10-29-*` and `2026-10-30-*`; parked minors are listed in each review's re-review section and in the handoffs.
 - Open on the founder: App Store Connect sign-in in Xcode (or an API key) so TestFlight 0.4.0 (1) can upload; first public push of the repository to GitHub (`wxy26wxy/the-3rd-eye`).
 - Next (Oct 30): TestFlight 0.4.0 (1) → tester invite → phone test round 2 (object photo → adjust → sticker; My designs; no mics; VoiceOver pass); physical sticker + NFC tag test; round-2 fixes; design canvas intake when the new version lands; `v0.6` in the evening.
+
+### T093 · growth · feat/growth-T093 · demo script, README, accessibility scripts (docs only)
+- Added `docs/demo_script.md` (3:00 beat sheet, shot list, creator choice by name, narration, model on screen, a fallback per live step). Rewrote `README.md` (product, the four problems, real vs staged, model map with ids, run, test, accessibility, open-weight stage, build dates). Added VoiceOver test scripts for iOS Adjust cutout, iOS My designs and the web Select screen to `docs/accessibility.md`. Filled `docs/handoffs/growth.md` (footage list, submission-form draft).
+- Verify: read the four files; `bash scripts/check_clean.sh` passes; `git diff main --stat` shows docs only.
+- Unfinished: scripts not run with VoiceOver on a device; the founder's phone footage; submission-form placeholders (links, team).

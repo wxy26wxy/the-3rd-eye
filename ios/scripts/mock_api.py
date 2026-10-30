@@ -13,8 +13,12 @@ GET /__mock/last/<cleanup|select|artworks|products|approve|delete> returns the l
 My designs (T083): GET /artworks lists four designs, d1 in the shop (photo, published sticker),
 d2 a draft (sticker draft with a listing title), d3 failed (lastError, no cutout), d4 still cutting
 (made just now), d5 in the shop as a tote from an older server (no price in the summary).
+d6 in the shop as a sticker and with a sticker draft too ("Make another sticker" continues the draft).
 d1's live price (8.00) differs from the listing suggestion (5.00). GET/DELETE /artworks/<id>, POST /products, POST /listings/<id>/approve answer for them;
 signing in again restores the list.
+Approve refusals (T091): a title or description containing "unkind" answers 409 moderation_failed;
+sign-in NOPRINT... makes every approve answer 409 print_check_failed. Both carry technical messages,
+as the server's can, so the app must show its own words.
 """
 import json
 import re
@@ -84,7 +88,7 @@ CANDIDATES = [
 LAST = {}
 # A sign-in code starting with ONE makes photo answers carry a single, already cut-out candidate.
 # NOCUT… makes every cleanup answer 422; DETAILS… makes it carry non-empty details.
-MODE = {"single": False, "fail": False, "details": False, "slow": False}
+MODE = {"single": False, "fail": False, "details": False, "slow": False, "noprint": False}
 CUTS = {"n": 0}
 
 
@@ -191,6 +195,12 @@ def designs():
         # An older server: the product summary has no price, description or mockup.
         row("d5", "photo", f"{BASE}/img.png?d=5", "Purple cat",
             [{"id": "pr-d5", "type": "tote", "status": "published", "title": "Purple Cat Tote"}]),
+        # A sticker in the shop and a second sticker still a draft (newest first, as the server sends).
+        row("d6", "photo", f"{BASE}/img.png?d=6", "Orange fish",
+            [{"id": "pr-d6b", "type": "sticker", "status": "draft", "title": "Fish Friend Sticker",
+              "priceCents": 700, "description": "A second fish.", "mockupUrl": f"{BASE}/img.png?m=6b"},
+             {"id": "pr-d6", "type": "sticker", "status": "published", "title": "Orange Fish Sticker",
+              "priceCents": 900, "description": "An orange fish.", "mockupUrl": f"{BASE}/img.png?m=6"}]),
     ]
 
 
@@ -239,6 +249,11 @@ def create_product(body):
 def approve(product_id, body):
     LAST["approve"] = {**body, "productId": product_id}
     edits = body.get("edits") or {}
+    if MODE.get("noprint"):
+        raise MockError(409, "print_check_failed", "effective dpi 96 < 150; contrast 1.2:1")
+    words = f"{edits.get('title') or ''} {edits.get('description') or ''}".lower()
+    if "unkind" in words:
+        raise MockError(409, "moderation_failed", "flagged: harassment (0.91)")
     price = edits.get("priceCents")
     for d in DESIGNS["list"]:
         for p in d["products"]:
@@ -247,7 +262,7 @@ def approve(product_id, body):
                 p["title"] = edits.get("title") or p["title"]
                 p["priceCents"] = price or p.get("priceCents") or SUGGESTED_CENTS
                 price = p["priceCents"]
-                if edits.get("description"):
+                if "description" in edits:
                     p["description"] = edits["description"]
     title = edits.get("title") or "Listing"
     return {"product": {"id": product_id, "artworkId": None, "creatorId": "c-test", "type": "sticker",
@@ -281,6 +296,7 @@ def sign_in(body):
     MODE["fail"] = code.startswith("NOCUT")
     MODE["details"] = code.startswith("DETAILS")
     MODE["slow"] = code.startswith("SLOW")
+    MODE["noprint"] = code.startswith("NOPRINT")
     LAST.clear()
     DESIGNS["list"] = designs()
     creator = {**CREATOR, "accessPrefs": {**CREATOR["accessPrefs"], "simpleMode": not multi}}

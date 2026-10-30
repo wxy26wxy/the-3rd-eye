@@ -13,6 +13,18 @@ enum APIError: LocalizedError, Equatable {
     error is CancellationError || (error as? URLError)?.code == .cancelled || Task.isCancelled
   }
 
+  /// `POST /listings/{id}/approve` refusals in the creator's words: the server's message for these
+  /// can be a technical note (print check details, a moderation category).
+  static func approveMessage(for error: Error) -> String {
+    if case APIError.server(409, "print_check_failed", _) = error {
+      return String(localized: "This picture won't print well yet. Re-do the cutout in My designs, or try a bigger, clearer photo.")
+    }
+    if case APIError.server(409, "moderation_failed", _) = error {
+      return String(localized: "Some words in the name or description can't go in the shop. Change them and try again.")
+    }
+    return error.localizedDescription
+  }
+
   var errorDescription: String? {
     switch self {
     case .server(_, _, let message): return message

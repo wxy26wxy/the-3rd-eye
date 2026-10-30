@@ -177,4 +177,65 @@ final class DesignsTests: XCTestCase {
     XCTAssertEqual(CleanupResult.errorMessage(for: error, request: CleanupRequest(candidateIds: ["c1"])), "Nothing was left in the cutout.")
     XCTAssertNil(CleanupResult.errorMessage(for: CancellationError(), request: withNegative))
   }
+
+  // MARK: T091 polish
+
+  func testContinueAsksOnlyForASecondProductOrACreationInProgress() {
+    let plain = artwork(products: [product("p-d", .sticker, "draft")])
+    XCTAssertNil(ContinueRequest.make(artwork: plain, productType: .sticker, creationInProgress: false), "goes straight on")
+    let replace = ContinueRequest.make(artwork: plain, productType: .sticker, creationInProgress: true)
+    XCTAssertEqual(replace?.another, false)
+    XCTAssertEqual(replace?.replacesCreation, true)
+    XCTAssertEqual(replace?.confirmLabel, "Replace it")
+
+    let shopOnly = artwork(products: [product("p-s", .sticker, "published")])
+    let second = ContinueRequest.make(artwork: shopOnly, productType: .sticker, creationInProgress: false)
+    XCTAssertEqual(second?.reusesDraft, false)
+    XCTAssertEqual(second?.confirmLabel, "Make another sticker")
+    XCTAssertEqual(second?.message, "A second product gets its own listing. To change the one in the shop, use Edit listing.")
+
+    let shopAndDraft = artwork(products: [product("p-d", .sticker, "draft"), product("p-s", .sticker, "published")])
+    let draft = ContinueRequest.make(artwork: shopAndDraft, productType: .sticker, creationInProgress: false)
+    XCTAssertEqual(draft?.reusesDraft, true, "the draft is continued, so the text must say so")
+    XCTAssertEqual(draft?.confirmLabel, "Continue the sticker draft")
+    XCTAssertEqual(draft?.message, "This continues your sticker draft; no new product is made. To change the one in the shop, use Edit listing.")
+    XCTAssertNil(ContinueRequest.make(artwork: shopAndDraft, productType: .tote, creationInProgress: false), "no tote yet")
+  }
+
+  func testCreationInProgressAndRequestContinue() {
+    let app = AppState(api: APIClient(baseURL: base, transport: StubTransport(body: "{}"), token: "t"))
+    XCTAssertFalse(app.hasCreationInProgress, "the product picker alone is not a creation")
+    app.createPath = [.chooseMethod, .camera(.library)]
+    XCTAssertTrue(app.hasCreationInProgress)
+    let old = app.flow
+    let design = artwork()
+    let pending = app.requestContinue(artwork: design, productType: .sticker)
+    XCTAssertEqual(pending?.replacesCreation, true)
+    XCTAssertTrue(app.flow === old, "nothing is replaced before the confirmation")
+    XCTAssertEqual(app.createPath, [.chooseMethod, .camera(.library)])
+
+    app.createPath = [.listingDetails, .youreLive]
+    XCTAssertFalse(app.hasCreationInProgress, "a design already live is done")
+    XCTAssertNil(app.requestContinue(artwork: design, productType: .sticker))
+    XCTAssertEqual(app.createPath, [.listingDetails], "went straight on")
+  }
+
+  func testEmptiedDescriptionIsSentAsEmpty() throws {
+    XCTAssertEqual(EditListingSheet.descriptionEdit("  A bird. ", saved: "Old"), "A bird.")
+    XCTAssertEqual(EditListingSheet.descriptionEdit("  ", saved: "Old"), "", "clearing a saved description sends \"\"")
+    XCTAssertNil(EditListingSheet.descriptionEdit("", saved: nil), "nothing known to clear: omitted, the server keeps it")
+    XCTAssertNil(EditListingSheet.descriptionEdit("", saved: ""))
+    let json = try JSONEncoder().encode(ListingEdits(title: "T", description: "", priceCents: 500))
+    let object = try XCTUnwrap(JSONSerialization.jsonObject(with: json) as? [String: Any])
+    XCTAssertEqual(object["description"] as? String, "", "sent explicitly, not left out")
+  }
+
+  func testApproveRefusalsUseTheAppsWords() {
+    let print = APIError.server(status: 409, code: "print_check_failed", message: "effective dpi 96 < 150")
+    let words = APIError.server(status: 409, code: "moderation_failed", message: "flagged: harassment")
+    XCTAssertTrue(APIError.approveMessage(for: print).hasPrefix("This picture won't print well yet."))
+    XCTAssertTrue(APIError.approveMessage(for: words).hasPrefix("Some words in the name or description"))
+    let other = APIError.server(status: 409, code: "listing_missing", message: "Write the listing first.")
+    XCTAssertEqual(APIError.approveMessage(for: other), "Write the listing first.")
+  }
 }

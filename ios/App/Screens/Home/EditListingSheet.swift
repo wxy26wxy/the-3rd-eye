@@ -4,7 +4,9 @@ import SwiftUI
 /// `POST /listings/{id}/approve` with `edits`; the server checks the words again before they go live.
 /// Name, description and price start from the `GET /artworks` product summary. The price is always
 /// sent: when the server did not send the live price the creator types it (an omitted price could
-/// fall back to the agent's suggestion on older servers). An empty description keeps the saved one.
+/// fall back to the agent's suggestion on older servers). Emptying a prefilled description clears it
+/// (`""` is sent; the server keeps the saved text only when the field is omitted). When the server
+/// did not send the description (older server), an empty field is omitted and the saved text stays.
 /// Drafts do not use this sheet; they go through Listing details (story video, You're live).
 struct EditListingSheet: View {
   /// Server limits on `approve` edits.
@@ -70,17 +72,26 @@ struct EditListingSheet: View {
     error = nil
     defer { saving = false }
     do {
-      let edits = ListingEdits(title: name, description: words.isEmpty ? nil : words, priceCents: cents)
+      let edits = ListingEdits(title: name, description: Self.descriptionEdit(words, saved: product.description), priceCents: cents)
       let res = try await app.api.approveListing(productId: product.id, via: "tap", edits: edits)
       app.designs.listingSaved(productId: product.id, title: res.listing.title ?? name, status: res.product.status,
-                               priceCents: res.product.priceCents ?? cents, description: res.listing.description)
+                               priceCents: res.product.priceCents ?? cents, description: res.listing.description ?? edits.description)
       UIAccessibility.post(notification: .announcement, argument: String(localized: "Listing saved"))
       dismiss()
     } catch {
       if APIError.isCancellation(error) { return }
       if case APIError.server(409, "product_archived", _) = error { Task { await app.designs.load() } }
-      fail(error.localizedDescription)
+      fail(APIError.approveMessage(for: error))
     }
+  }
+
+  /// The `edits.description` to send: the typed text; `""` to clear a saved description the field
+  /// was prefilled with; nil (omitted, keeps the saved text) when there was nothing to prefill.
+  static func descriptionEdit(_ typed: String, saved: String?) -> String? {
+    let words = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !words.isEmpty { return words }
+    let hadSaved = !(saved ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    return hadSaved ? "" : nil
   }
 
   private func fail(_ message: String) {

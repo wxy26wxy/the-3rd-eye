@@ -3,6 +3,7 @@ import { fmt, m } from "@/components/messages";
 import { ArtImage } from "@/components/ui/ArtImage";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Status } from "@/components/ui/Loading";
 import { Title } from "@/components/ui/Text";
 import { CreateScreen, MissingState } from "../CreateScreen";
 import { resetDraft, useCreate } from "../store";
@@ -33,6 +34,7 @@ export function Ready() {
           eager
         />
       </Card>
+      {draft.cutoutNotice ? <Status>{draft.cutoutNotice}</Status> : null}
     </CreateScreen>
   );
 }

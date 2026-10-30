@@ -67,14 +67,15 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
         access: UPLOAD_ACCESS, handleUploadUrl: HANDLE_UPLOAD_URL, contentType: clean.type || undefined,
       });
       setPhase("finding");
-      const res = await api<{ artwork: Artwork; candidates: Candidate[] }>("artworks", { json: { source: "photo", imageUrl: blob.url, product: draft.product } });
-      if (res.candidates.length > 1 && !res.artwork.cleanedUrl) {
-        update({ photoArtworkId: res.artwork.id, candidates: res.candidates, transcript: undefined });
+      const res = await api<{ artwork: Artwork; candidates: Candidate[]; imageSize?: { w: number; h: number } | null }>("artworks", { json: { source: "photo", imageUrl: blob.url, product: draft.product } });
+      // No cut yet (several pieces, or one the server would not auto-pick): the creator picks and adjusts.
+      if (!res.artwork.cleanedUrl && res.candidates.length > 0) {
+        update({ photoArtworkId: res.artwork.id, candidates: res.candidates, imageSize: res.imageSize ?? null, transcript: undefined, cutoutNotice: undefined });
         router.push("/create/select");
         return;
       }
       setPhase("making");
-      update({ transcript: undefined });
+      update({ transcript: undefined, cutoutNotice: undefined });
       await makeProduct(res.artwork.id, draft.product);
       router.push("/create/ready");
     } catch (err) {

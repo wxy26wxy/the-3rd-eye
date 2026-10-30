@@ -17,6 +17,10 @@ export type Artwork = {
 };
 export type ArtworkVariant = Artwork & { previewUrl: string | null };
 export type Candidate = { id: string; bbox: [number, number, number, number]; score: number; thumbUrl: string };
+/** `GET /artworks/{id}`: `originalUrl` is presigned for 10 minutes (fetch directly, do not store). */
+export type ArtworkDetail = { artwork: Artwork; candidates: Candidate[]; imageSize: { w: number; h: number } | null; originalUrl: string | null };
+/** `POST /artworks/{id}/cleanup`: the saved cut plus products that could not follow it. */
+export type CleanupResult = Artwork & { details?: { failedProductIds: string[]; unpublishedProductIds: string[] } };
 export type Product = { id: string; artworkId: string; creatorId: string; type: ProductType; mockupUrl: string | null; printPngUrl: string | null; printSvgUrl: string | null; priceCents: number; status: string };
 export type ListingDraft = { title: string; description: string; tags: string[]; price_cents: number; print_ok: boolean; notes: string };
 export type AgentStep = { step: number; tool?: string; args?: unknown; result?: unknown; text?: string };

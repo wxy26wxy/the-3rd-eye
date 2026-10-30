@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
-import { RATE_LIMITS, RateLimiter, classify, clientIp, limiter } from "@/lib/rate-limit";
+import { BFF_IP_HEADER, BFF_SIG_HEADER, bffIpHeaders, RATE_LIMITS, RateLimiter, classify, clientIp, limiter } from "@/lib/rate-limit";
 
 describe("RateLimiter", () => {
   it("allows up to the limit, then blocks with a Retry-After", () => {
@@ -80,5 +80,37 @@ describe("proxy rate limiting", () => {
     for (let i = 0; i < 15; i++) expect((await post("/api/v1/auth/code")).status).not.toBe(429);
     process.env.RATE_LIMIT_DISABLED = "1";
     for (let i = 0; i < 15; i++) expect((await post("/api/v1/auth/code", "7.7.7.7")).status).not.toBe(429);
+  });
+});
+
+describe("BFF hop", () => {
+  beforeEach(() => { limiter.reset(); process.env.CREATOR_SESSION_SECRET = "test-secret-0123456789"; });
+  afterEach(() => { limiter.reset(); delete process.env.CREATOR_SESSION_SECRET; });
+  const post = (path: string, headers: Record<string, string>) =>
+    proxy(new NextRequest(`http://localhost${path}`, { method: "POST", headers }));
+
+  it("gives two client IPs separate buckets at the BFF and skips the signed inner hop", async () => {
+    for (let i = 0; i < RATE_LIMITS.model; i++) {
+      expect((await post("/create/bff/artworks", { "x-forwarded-for": "1.1.1.1", cookie: "ms_creator=x" })).status).not.toBe(429);
+      // inner hop from the server's own IP, signed for the client: not counted again
+      expect((await post("/api/v1/artworks", { "x-forwarded-for": "10.0.0.1", ...bffIpHeaders("1.1.1.1") })).status).not.toBe(429);
+    }
+    expect((await post("/create/bff/artworks", { "x-forwarded-for": "1.1.1.1", cookie: "ms_creator=x" })).status).toBe(429);
+    expect((await post("/create/bff/artworks", { "x-forwarded-for": "2.2.2.2", cookie: "ms_creator=x" })).status).not.toBe(429);
+  });
+
+  it("a forged signature falls back to the connection IP", async () => {
+    const forged = { [BFF_IP_HEADER]: "5.5.5.5", [BFF_SIG_HEADER]: "0".repeat(64) };
+    for (let i = 0; i < RATE_LIMITS.model; i++) await post("/api/v1/artworks", { "x-forwarded-for": "6.6.6.6", ...forged });
+    expect((await post("/api/v1/artworks", { "x-forwarded-for": "6.6.6.6", ...forged })).status).toBe(429);
+  });
+
+  it("limits an encoded BFF path", async () => {
+    for (let i = 0; i < RATE_LIMITS.model; i++) await post("/create/bff/%61rtworks", { "x-forwarded-for": "3.3.3.3", cookie: "ms_creator=x" });
+    expect((await post("/create/bff/%61rtworks", { "x-forwarded-for": "3.3.3.3", cookie: "ms_creator=x" })).status).toBe(429);
+  });
+
+  it("keys IPv6 by /64", () => {
+    expect(clientIp(new Headers({ "x-forwarded-for": "2001:db8:1:2:aaaa::1" }))).toBe(clientIp(new Headers({ "x-forwarded-for": "2001:db8:1:2::ffff" })));
   });
 });

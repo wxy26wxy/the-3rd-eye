@@ -34,4 +34,4 @@ function creatorGate(req: NextRequest) {
   return NextResponse.redirect(url);
 }
 
-export const config = { matcher: ["/admin/:path*", "/create/:path*", "/api/v1/:path*", "/t/:path*"] };
+export const config = { matcher: ["/admin/:path*", "/create/:path*", "/api/v1/auth/code", "/api/v1/public/:path*", "/api/v1/(artworks|products|listings|prompts|transcribe|story)/:path*", "/api/v1/(artworks|products|listings|prompts|transcribe|story)", "/t/:path*"] };

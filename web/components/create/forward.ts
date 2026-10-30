@@ -1,5 +1,6 @@
 import "server-only";
 import type { NextRequest } from "next/server";
+import { bffIpHeaders, clientIp } from "@/lib/rate-limit";
 
 /**
  * Headers for a same-origin call to /api/v1 from a route handler. The incoming cookies are
@@ -14,6 +15,7 @@ export function forwardHeaders(req: NextRequest, token?: string): Headers {
   const cookie = req.headers.get("cookie");
   if (cookie) h.set("cookie", cookie);
   if (token) h.set("authorization", `Bearer ${token}`);
+  for (const [k, v] of Object.entries(bffIpHeaders(clientIp(req.headers)))) h.set(k, v);
   const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
   if (bypass) h.set("x-vercel-protection-bypass", bypass);
   return h;

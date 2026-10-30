@@ -22,7 +22,7 @@ Media never goes through these routes except short audio (≤ 4 MB). Images/vide
 `POST /artworks/{id}/select` `{ candidateId }` → `Artwork` (cleaned PNG + cut path)
 `POST /artworks/{id}/refine` `{ instruction }` → `{ artwork: ArtworkVariant }` (new row, `parentArtworkId` set)
 `POST /artworks/{id}/cleanup` `{ candidateIds?: string[], points?: { x, y, label: "positive"|"negative" }[], box?: [x0,y0,x1,y1] }` (at least one) → `Artwork` (see T080 clarifications)
-`GET /artworks` → `{ artworks: ArtworkListItem[] }` (mine, newest first; each carries `products`)
+`GET /artworks` → `{ artworks: ArtworkListItem[] }` (mine, newest first; each carries `products` with `priceCents`, `title`, `description`, `mockupUrl`)
 `GET /artworks/{id}` → `{ artwork: Artwork, candidates: Candidate[], imageSize: { w, h } | null, originalUrl: string | null }` (`originalUrl` presigned, valid 10 min)
 `DELETE /artworks/{id}` → `{ id, deleted: true, archivedProductIds: string[] }`
 
@@ -80,7 +80,7 @@ Additive only; no existing field or path changed.
 10. **Errors may carry extra fields** inside `error`, e.g. `{ "error": { "code": "deadline_exceeded", "message": "...", "artworkId": "...", "artworkIds": [...] } }`.
     - Long routes (`/artworks*`, `/products`, `/listings/*`) answer within 270 s: on timeout `504 deadline_exceeded` with the artwork id(s) created so far; those rows stay `status: "draft"` with `lastError` set (new nullable `Artwork.lastError`). Other pipeline failures also set `lastError` and include `artworkId`.
     - `POST /artworks` photo/canvas with no drawing found → `422 no_drawing_found` (with `artworkId` and a hint in `message`).
-    - `POST /listings/{id}/approve` → `409 print_check_failed` when the print check failed, `409 moderation_failed` when the text fails moderation. Edited title/description are moderated again before publishing, so edits cannot bypass the check; `409 listing_missing` before the agent ran. A missing `edits.priceCents` keeps a **published** product's live price (the agent's suggestion only prices a draft); a missing `title`/`description` keeps the listing text.
+    - `POST /listings/{id}/approve` → `409 print_check_failed` when the print check failed, `409 moderation_failed` when the text fails moderation. Edited title/description are moderated again before publishing, so edits cannot bypass the check; `409 listing_missing` before the agent ran. A missing `edits.priceCents` keeps a **published** product's live price (the agent's suggestion only prices a draft); a missing `title`/`description` keeps the live listing text when the request has any `edits`, even if a pending re-run draft exists (the draft's text goes live only for fields the request sends; changed text is moderated again); an approve with no `edits` publishes the pending draft. Omit `priceCents` to keep the price: `priceCents: 0` is not empty (it is clamped to 100).
 11. **`product` on `POST /artworks`** is used: text prompts get the product's print style appended when they were not shaped for it; it is recorded on the artwork (`shapingTrace.product`).
 
 ## Clarifications (T050 fix wave, 2026-10-29)

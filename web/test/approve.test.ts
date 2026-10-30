@@ -44,6 +44,22 @@ describe("approveListing gates", () => {
     expect(state.lastPatch?.priceCents).toBe(1200);
   });
 
+  it("only priceCents on a published product skips moderation and keeps the text", async () => {
+    await approveListing({ ...(product as object), status: "published", priceCents: 900 } as never, { approvedVia: "tap", edits: { priceCents: 700 } });
+    expect(state.moderateCalls).toHaveLength(0);
+    expect(state.lastPatch?.priceCents).toBe(700);
+    expect(state.listing?.title).toBe("Frog");
+  });
+
+  it("published with a pending draft: omitted fields keep the live text and are re-moderated against it", async () => {
+    state.listing = { ...base, draftCopy: { title: "New frog", description: "New text.", tags: ["x"], priceSuggestionCents: 800, printCheck: { print_ok: true }, moderation: { ok: true, reason: "" } } };
+    await approveListing({ ...(product as object), status: "published", priceCents: 900 } as never, { approvedVia: "tap", edits: { description: "Mine." } });
+    expect(state.listing?.title).toBe("Frog");
+    expect(state.listing?.description).toBe("Mine.");
+    expect(state.lastPatch?.priceCents).toBe(900);
+    expect(state.moderateCalls).toHaveLength(1);
+  });
+
   it("409 print_check_failed when the print check failed", async () => {
     state.listing = { ...base, printCheck: { print_ok: false, notes: "Too small" } };
     await expect(approveListing(product, { approvedVia: "tap" })).rejects.toMatchObject({ status: 409, code: "print_check_failed" });

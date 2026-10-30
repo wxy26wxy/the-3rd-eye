@@ -174,8 +174,11 @@ export async function approveListing(
   if (printCheck?.print_ok !== true) {
     throw new ApiError(409, "print_check_failed", printCheck?.notes || "This artwork will not print well at this size. Try a larger or clearer picture.");
   }
-  const title = input.edits?.title?.trim() || existing.title;
-  const description = input.edits?.description?.trim() ?? existing.description ?? "";
+  // With an edits object, a field not sent keeps the live text (clients send only what was typed). A plain
+  // approve (no edits) publishes the pending re-run copy. Changed text is moderated again.
+  const base = pending && input.edits && Object.values(input.edits).some((v) => v !== undefined) ? stored : existing;
+  const title = input.edits?.title?.trim() || base.title;
+  const description = input.edits?.description?.trim() ?? base.description ?? "";
   let moderation = existing.moderation as { ok?: boolean; reason?: string } | null;
   const textChanged = title !== existing.title || description !== (existing.description ?? "");
   if (textChanged || moderation?.ok === undefined) {

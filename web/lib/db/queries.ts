@@ -207,7 +207,7 @@ export type ArtworkWithProducts = ArtworkRow & { products: ArtworkProductRow[] }
 
 /** Groups joined artwork × product rows (artwork order kept, products newest first). */
 export function groupArtworkProducts(
-  rows: { artwork: ArtworkRow; product: (Omit<ArtworkProductRow, "title" | "description"> & { createdAt: Date }) | null; title: string | null; description?: string | null }[],
+  rows: { artwork: ArtworkRow; product: (Omit<ArtworkProductRow, "title" | "description"> & { createdAt: Date }) | null; title: string | null; description: string | null }[],
 ): ArtworkWithProducts[] {
   const out = new Map<string, ArtworkWithProducts & { _times: number[] }>();
   for (const r of rows) {

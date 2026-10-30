@@ -175,9 +175,14 @@ export async function approveListing(
   if (product.status === "archived") throw new ApiError(409, "product_archived", "This product was removed with its design");
   const stored = await getListing(product.id);
   if (!stored) throw new ApiError(409, "listing_missing", "Run the listing agent first");
-  // A pending re-run (published product) is what gets approved; otherwise the stored listing.
+  // A plain approve (no edits) of a pending re-run (published product) publishes the pending copy whole:
+  // its text, tags, print check, moderation and agent trace. With an edits object the creator edited the
+  // LIVE listing (clients prefill from it and send only what was typed), so every field not sent, tags,
+  // print check and agent trace included, comes from the live row; the pending copy is discarded.
   const pending = stored.draftCopy;
-  const existing = pending
+  const editsSent = Boolean(input.edits && Object.values(input.edits).some((v) => v !== undefined));
+  const usePending = Boolean(pending) && !editsSent;
+  const existing = usePending && pending
     ? { ...stored, title: pending.title, description: pending.description, tags: pending.tags, priceSuggestionCents: pending.priceSuggestionCents,
       printCheck: pending.printCheck, moderation: pending.moderation, agentTrace: pending.agentTrace }
     : stored;
@@ -185,11 +190,8 @@ export async function approveListing(
   if (printCheck?.print_ok !== true) {
     throw new ApiError(409, "print_check_failed", printCheck?.notes || "This artwork will not print well at this size. Try a larger or clearer picture.");
   }
-  // With an edits object, a field not sent keeps the live text (clients send only what was typed). A plain
-  // approve (no edits) publishes the pending re-run copy. Changed text is moderated again.
-  const base = pending && input.edits && Object.values(input.edits).some((v) => v !== undefined) ? stored : existing;
-  const title = input.edits?.title?.trim() || base.title;
-  const description = input.edits?.description?.trim() ?? base.description ?? "";
+  const title = input.edits?.title?.trim() || existing.title;
+  const description = input.edits?.description?.trim() ?? existing.description ?? "";
   let moderation = existing.moderation as { ok?: boolean; reason?: string } | null;
   const textChanged = title !== existing.title || description !== (existing.description ?? "");
   if (textChanged || moderation?.ok === undefined) {
@@ -198,8 +200,10 @@ export async function approveListing(
     moderation = await agent.moderate({ title, description, tags: existing.tags }, { trace: { stage: "moderate", listingId: product.id, task } });
   }
   if (moderation?.ok !== true) {
-    if (pending) await setListingDraftCopy(product.id, { ...pending, moderation });
-    else await upsertListing({ ...stored, productId: product.id, moderation });
+    // Record the result on the copy that was checked: the pending draft, or the stored row. Edited text on
+    // top of a pending re-run is neither, so nothing is written (the live row's own moderation still holds).
+    if (usePending && pending) await setListingDraftCopy(product.id, { ...pending, moderation });
+    else if (!pending || !textChanged) await upsertListing({ ...stored, productId: product.id, moderation });
     throw new ApiError(409, "moderation_failed", moderation?.reason || "This listing text cannot be published. Please change it.");
   }
   // A published product keeps its live price unless the creator sends one; the agent's suggestion only prices a draft.

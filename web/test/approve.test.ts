@@ -60,6 +60,37 @@ describe("approveListing gates", () => {
     expect(state.moderateCalls).toHaveLength(1);
   });
 
+  it("published with a pending draft and edits: tags, print check and agent trace come from the live row", async () => {
+    const live = { ...base, tags: ["frog", "pond"], printCheck: { print_ok: true, notes: "live check" }, agentTrace: [{ step: 1, tool: "live" }] };
+    const pendingCopy = {
+      title: "New frog", description: "New text.", tags: ["pending-tag"], priceSuggestionCents: 800,
+      printCheck: { print_ok: true, notes: "pending check" }, moderation: { ok: true, reason: "" }, agentTrace: [{ step: 1, tool: "pending" }],
+    };
+    state.listing = { ...live, draftCopy: pendingCopy };
+    await approveListing({ ...(product as object), status: "published", priceCents: 900 } as never, { approvedVia: "tap", edits: { title: "My frog" } });
+    expect(state.published).toBe(true);
+    expect(state.listing?.title).toBe("My frog");
+    expect(state.listing?.description).toBe("A frog.");
+    expect(state.listing?.tags).toEqual(["frog", "pond"]);
+    expect(state.listing?.printCheck).toEqual({ print_ok: true, notes: "live check" });
+    expect(state.listing?.agentTrace).toEqual([{ step: 1, tool: "live" }]);
+    expect(state.listing?.draftCopy).toBeNull();
+    expect(state.moderateCalls).toEqual([{ title: "My frog", description: "A frog.", tags: ["frog", "pond"] }]);
+  });
+
+  it("published with a pending draft and no edits: the pending copy is published whole", async () => {
+    state.listing = { ...base, draftCopy: {
+      title: "New frog", description: "New text.", tags: ["pending-tag"], priceSuggestionCents: 800,
+      printCheck: { print_ok: true, notes: "pending check" }, moderation: { ok: true, reason: "" }, agentTrace: [{ step: 1, tool: "pending" }],
+    } };
+    await approveListing({ ...(product as object), status: "published", priceCents: 900 } as never, { approvedVia: "tap" });
+    expect(state.listing?.title).toBe("New frog");
+    expect(state.listing?.tags).toEqual(["pending-tag"]);
+    expect(state.listing?.printCheck).toEqual({ print_ok: true, notes: "pending check" });
+    expect(state.listing?.agentTrace).toEqual([{ step: 1, tool: "pending" }]);
+    expect(state.moderateCalls).toHaveLength(0);
+  });
+
   it("409 print_check_failed when the print check failed", async () => {
     state.listing = { ...base, printCheck: { print_ok: false, notes: "Too small" } };
     await expect(approveListing(product, { approvedVia: "tap" })).rejects.toMatchObject({ status: 409, code: "print_check_failed" });

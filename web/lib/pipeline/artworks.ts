@@ -7,11 +7,12 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { ai } from "@/lib/ai/registry";
-import type { GeneratedImage, Mask, Segment, Trace } from "@/lib/ai/types";
-import { ensureDpi, previewCutPath, removeBackground } from "@/lib/image/sticker";
+import type { GeneratedImage, Mask, Segment, SegmentPoint, Trace } from "@/lib/ai/types";
+import { cutUpscale, ensureDpi, previewCutPath, removeBackground } from "@/lib/image/sticker";
 import { pngRef } from "@/lib/image/ref";
-import { area, emptyMask, maskFromPng, maskToPng } from "@/lib/image/mask";
-import { insertArtwork, updateArtwork, type ArtworkRow } from "@/lib/db/queries";
+import { alphaToPng, area, bboxOf, emptyMask, finishMask, maskFromPng, maskToPng, unionMasks } from "@/lib/image/mask";
+import { insertArtwork, listProductsForArtwork, updateArtwork, type ArtworkRow } from "@/lib/db/queries";
+import { rebuildProductFiles } from "@/lib/pipeline/products";
 import { clientUploadPath, creatorPath, readClientUpload, storage } from "@/lib/storage";
 import type { SamCandidate } from "@/lib/db/schema";
 import { trackArtwork } from "@/lib/deadline";
@@ -33,16 +34,31 @@ function unionMask(segs: Segment[], width: number, height: number): Mask {
   return out;
 }
 
-/** Cuts the artwork out with `mask`, stores cleaned PNG (public) + mask (private), describes it. */
+export type ImageSize = { w: number; h: number };
+
+/**
+ * Cuts the artwork out of `original` with the union of `parts`, stores the cleaned PNG (public) and
+ * the finished soft mask (private), describes it. The opaque original is upscaled first when the
+ * cut would be under MIN_SHORT_SIDE (never the RGBA cut); the mask is finished (holes, gaps,
+ * specks, anti-aliased edge) by `finishMask` at that size.
+ */
 async function finishArtwork(
-  artwork: ArtworkRow, original: Buffer, mask: Mask, opts: { prompt?: string; task: string },
+  artwork: ArtworkRow, original: Buffer, parts: Mask[], opts: { prompt?: string; task: string },
 ): Promise<ArtworkRow> {
   const trace = traceFor(artwork.id, opts.task, "describe");
-  const cut = await removeBackground(original, mask);
-  const cleaned = await ensureDpi(cut.png);
+  // `parts` are at the original's size (callers guarantee it).
+  const { width: W, height: H } = parts[0];
+  const bbox = bboxOf(unionMasks(parts));
+  if (!bbox) throw new ApiError(422, "no_drawing_found", "Nothing was selected there. Try a box around the whole thing.", { artworkId: artwork.id });
+  const k = cutUpscale(bbox);
+  const tw = Math.round(W * k), th = Math.round(H * k);
+  const source = tw === W && th === H ? original : await sharp(original).resize(tw, th, { kernel: "lanczos3", fit: "fill" }).png().toBuffer();
+  const alpha = await finishMask(parts, { width: tw, height: th });
+  const cut = await removeBackground(source, alpha);
+  const cleaned = cut.png;
   const [cleanedFile, maskFile, description, cutPathSvg] = await Promise.all([
     storage().putPublic(creatorPath(artwork.creatorId, "cleaned", "png"), cleaned, "image/png"),
-    storage().putPrivate(creatorPath(artwork.creatorId, "masks", "png"), await maskToPng(mask), "image/png"),
+    storage().putPrivate(creatorPath(artwork.creatorId, "masks", "png"), await alphaToPng(alpha), "image/png"),
     (await ai()).describer.describe(pngRef(await sharp(cleaned).flatten({ background: "#ffffff" }).png().toBuffer()), { prompt: opts.prompt, trace }),
     previewCutPath(cleaned),
   ]);
@@ -51,6 +67,14 @@ async function finishArtwork(
     altText: description.alt_text, spokenDescription: description.spoken,
     differencesFromPrompt: description.differences_from_prompt || null, status: "ready", lastError: null,
   });
+}
+
+/** Re-cut + keep any products made from the artwork consistent with the new cut-out. */
+async function recut(artwork: ArtworkRow, original: Buffer, parts: Mask[], opts: { prompt?: string; task: string }): Promise<ArtworkRow> {
+  const row = await finishArtwork(artwork, original, parts, opts);
+  const products = await listProductsForArtwork(artwork.id);
+  for (const p of products) await rebuildProductFiles(p.id, opts.task);
+  return row;
 }
 
 /** One generated (or refined) image → stored, segmented, cut out and described artwork row. */
@@ -72,7 +96,7 @@ export async function processGenerated(
   const segs = await registry.segmenter.findAll(pngRef(img.png), phrase, { trace: traceFor(id, meta.task, "segment") });
   let mask = unionMask(segs, img.width, img.height);
   if (area(mask) < img.width * img.height * 0.01) mask = (await registry.segmenter.findAll(pngRef(img.png), "illustration", { trace: traceFor(id, meta.task, "segment") }))[0]?.mask ?? mask;
-  return finishArtwork(artwork, img.png, mask, { prompt: meta.shapedPrompt, task: meta.task });
+  return finishArtwork(artwork, img.png, [mask], { prompt: meta.shapedPrompt, task: meta.task });
 }
 
 /** A short noun phrase for SAM from the shaped prompt ("Sticker illustration of a happy frog, ..." → "happy frog"). */
@@ -113,26 +137,34 @@ export async function refineArtwork(parent: ArtworkRow, instruction: string, tas
   });
 }
 
-/** Photo or canvas upload → original stored privately, SAM finds every drawing as a candidate. */
+/** Longest side of the image candidate thumbnails are cut from (thumbs are 320 px). */
+const THUMB_SOURCE_SIDE = 1024;
+
+/** Photo or canvas upload → original stored privately, SAM finds every drawing or object as a candidate. */
 export async function createFromImage(
   creatorId: string,
   input: { source: "photo" | "canvas"; imageUrl: string; product: "sticker" | "tote" },
   task = "T010",
-): Promise<{ artwork: ArtworkRow; candidates: SamCandidate[] }> {
+): Promise<{ artwork: ArtworkRow; candidates: SamCandidate[]; imageSize: ImageSize }> {
   const uploadPath = clientUploadPath(input.imageUrl, creatorId);
   const raw = await readClientUpload(uploadPath, creatorId, 25 * 1024 * 1024);
   const png = await ensureDpi(await sharp(raw).rotate().flatten({ background: "#ffffff" }).png().toBuffer());
+  const meta = await sharp(png).metadata();
+  const imageSize: ImageSize = { w: meta.width ?? 0, h: meta.height ?? 0 };
   const id = randomUUID();
   trackArtwork(id);
   const original = await storage().putPrivate(creatorPath(creatorId, "originals", "png"), png, "image/png");
   // The private copy (EXIF dropped by the re-encode) is the original from now on; remove the public upload.
   await storage().delete(uploadPath).catch((err) => console.warn("[artworks] could not delete the public upload:", err instanceof Error ? err.message : err));
   let artwork = await insertArtwork({
-    id, creatorId, source: input.source, originalUrl: original.pathname, shapingTrace: { product: input.product }, status: "draft", createdByTask: task,
+    id, creatorId, source: input.source, originalUrl: original.pathname, shapingTrace: { product: input.product, imageSize }, status: "draft", createdByTask: task,
   });
-  const segs = (await (await ai()).segmenter.findAll(pngRef(png), "drawing", { trace: traceFor(id, task, "segment") })).slice(0, MAX_CANDIDATES);
-  const candidates = await Promise.all(segs.map(async (s): Promise<SamCandidate> => {
-    const cut = await removeBackground(png, s.mask);
+  const segs = await (await ai()).segmenter.findCandidates(pngRef(png), { trace: traceFor(id, task, "segment"), max: MAX_CANDIDATES });
+  const ts = Math.min(1, THUMB_SOURCE_SIDE / Math.max(imageSize.w, imageSize.h));
+  const small = { width: Math.max(1, Math.round(imageSize.w * ts)), height: Math.max(1, Math.round(imageSize.h * ts)) };
+  const smallPng = ts < 1 ? await sharp(png).resize(small.width, small.height, { fit: "fill" }).png().toBuffer() : png;
+  const candidates = await Promise.all(segs.slice(0, MAX_CANDIDATES).map(async (s): Promise<SamCandidate> => {
+    const cut = await removeBackground(smallPng, await finishMask(s.mask, small));
     const thumb = await sharp(cut.png).resize(320, 320, { fit: "inside" }).png().toBuffer();
     const [thumbFile, maskFile] = await Promise.all([
       storage().putPublic(creatorPath(creatorId, "thumbs", "png"), thumb, "image/png"),
@@ -143,30 +175,55 @@ export async function createFromImage(
   artwork = await updateArtwork(id, { candidates });
   if (candidates.length === 0) {
     await updateArtwork(id, { lastError: "no_drawing_found" });
-    throw new ApiError(422, "no_drawing_found", "We could not find a drawing in that picture. Try a photo with the drawing on plain paper, filling most of the frame, in good light.", { artworkId: id });
+    throw new ApiError(422, "no_drawing_found", "We could not find a drawing or object in that picture. Try a photo with it on a plain background, filling most of the frame, in good light.", { artworkId: id });
   }
   if (candidates.length === 1) artwork = await selectCandidate(artwork, candidates[0].id, task);
-  return { artwork, candidates };
+  return { artwork, candidates, imageSize };
+}
+
+/** Pixel size of the stored original: recorded at upload (`shapingTrace.imageSize`), else read from the file. */
+export async function originalSize(artwork: ArtworkRow, read: () => Promise<Buffer> = () => storage().read(artwork.originalUrl!)): Promise<ImageSize | null> {
+  if (!artwork.originalUrl) return null;
+  const st = artwork.shapingTrace as { imageSize?: ImageSize } | null;
+  if (st?.imageSize?.w && st.imageSize.h) return st.imageSize;
+  const meta = await sharp(await read()).metadata();
+  return meta.width && meta.height ? { w: meta.width, h: meta.height } : null;
+}
+
+async function candidateMasks(artwork: ArtworkRow, ids: string[]): Promise<Mask[]> {
+  const chosen = ids.map((cid) => artwork.candidates?.find((c) => c.id === cid));
+  if (chosen.some((c) => !c)) throw new ApiError(400, "invalid_candidate", "Pick one of the shown drawings");
+  return Promise.all(chosen.map(async (c) => maskFromPng(await storage().read(c!.maskUrl))));
 }
 
 export async function selectCandidate(artwork: ArtworkRow, candidateId: string, task = "T010"): Promise<ArtworkRow> {
-  trackArtwork(artwork.id);
-  const cand = artwork.candidates?.find((c) => c.id === candidateId);
-  if (!cand || !artwork.originalUrl) throw new Error("Unknown candidate");
-  const [original, maskPng] = await Promise.all([storage().read(artwork.originalUrl), storage().read(cand.maskUrl)]);
-  return finishArtwork(artwork, original, await maskFromPng(maskPng), { task });
+  return cleanupArtwork(artwork, { candidateIds: [candidateId] }, task);
 }
 
-/** Re-cut with a hint (tap points, a box, or a phrase). */
-export async function cleanupArtwork(
-  artwork: ArtworkRow,
-  hint: { points?: { x: number; y: number }[]; box?: [number, number, number, number]; phrase?: string },
-  task = "T010",
-): Promise<ArtworkRow> {
-  if (!artwork.originalUrl) throw new Error("Artwork has no original image");
+export type CleanupHint = { candidateIds?: string[]; points?: SegmentPoint[]; box?: [number, number, number, number] };
+
+/**
+ * Re-cut: the union of the chosen candidates' stored masks (no model call) and, with points or a
+ * box, one SAM object prompted with them. Products made from the artwork are rebuilt.
+ */
+export async function cleanupArtwork(artwork: ArtworkRow, hint: CleanupHint, task = "T080"): Promise<ArtworkRow> {
+  if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
   trackArtwork(artwork.id);
-  const original = await storage().read(artwork.originalUrl);
-  const seg = await (await ai()).segmenter.segment(pngRef(original), hint, { trace: traceFor(artwork.id, task, "segment") });
-  if (!seg) throw new Error("Could not find the drawing there");
-  return finishArtwork(artwork, original, seg.mask, { prompt: artwork.shapedPrompt ?? undefined, task });
+  const [original, fromCandidates] = await Promise.all([
+    storage().read(artwork.originalUrl),
+    hint.candidateIds?.length ? candidateMasks(artwork, [...new Set(hint.candidateIds)]) : Promise.resolve([] as Mask[]),
+  ]);
+  const parts = [...fromCandidates];
+  if (hint.points?.length || hint.box) {
+    const seg = await (await ai()).segmenter.segment(pngRef(original), { points: hint.points, box: hint.box }, { trace: traceFor(artwork.id, task, "segment") });
+    if (seg && area(seg.mask) > 0) parts.push(seg.mask);
+  }
+  if (!parts.length) {
+    throw new ApiError(422, "no_drawing_found", "We could not find anything there. Try a box around the whole thing, or tap on it.", { artworkId: artwork.id });
+  }
+  const meta = await sharp(original).metadata();
+  const W = meta.width ?? parts[0].width, H = meta.height ?? parts[0].height;
+  // Stored masks are at the original's size; guard against older rows that are not.
+  const sized = await Promise.all(parts.map(async (m) => (m.width === W && m.height === H ? m : maskFromPng(await sharp(await maskToPng(m)).resize(W, H, { kernel: "nearest", fit: "fill" }).png().toBuffer()))));
+  return recut(artwork, original, sized, { prompt: artwork.shapedPrompt ?? undefined, task });
 }

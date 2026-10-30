@@ -175,4 +175,33 @@ final class CutoutTests: XCTestCase {
     flow.resetCutout(candidates: [one, two], imageSize: size)
     XCTAssertEqual(flow.selectedCandidateIds, [], "with several pieces the creator picks")
   }
+
+  // MARK: T091: marks close together, Retake
+
+  func testTapDeletesOnlyOnAMarksDot() {
+    let centres = [CGPoint(x: 100, y: 100), CGPoint(x: 118, y: 100)]
+    XCTAssertEqual(CutoutGeometry.markIndex(at: CGPoint(x: 104, y: 98), centres: centres, radius: 12), 0)
+    XCTAssertEqual(CutoutGeometry.markIndex(at: CGPoint(x: 112, y: 100), centres: centres, radius: 12), 1, "the nearest dot wins")
+    XCTAssertNil(CutoutGeometry.markIndex(at: CGPoint(x: 100, y: 115), centres: centres, radius: 12),
+                 "15 pt from a mark is outside its dot: a new mark goes there")
+    XCTAssertNil(CutoutGeometry.markIndex(at: .zero, centres: [], radius: 12))
+  }
+
+  func testDiscardPhotoClearsMarksAndPieces() {
+    let flow = CreateFlow()
+    flow.photo = UIImage()
+    flow.photoArtwork = Artwork(id: "p1", status: "draft")
+    flow.resetCutout(candidates: [one, two], imageSize: size)
+    flow.selectedCandidateIds = ["c1"]
+    flow.points = [CutoutPoint(x: 1, y: 2, label: .positive)]
+    flow.box = [0, 0, 10, 10]
+    flow.discardPhoto()
+    XCTAssertNil(flow.photo)
+    XCTAssertNil(flow.photoArtwork)
+    XCTAssertTrue(flow.candidates.isEmpty)
+    XCTAssertTrue(flow.selectedCandidateIds.isEmpty)
+    XCTAssertTrue(flow.points.isEmpty)
+    XCTAssertNil(flow.box)
+    XCTAssertNil(flow.imageSize)
+  }
 }

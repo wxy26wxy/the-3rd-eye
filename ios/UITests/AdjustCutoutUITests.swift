@@ -231,6 +231,104 @@ final class AdjustCutoutUITests: XCTestCase {
     XCTAssertEqual(try lastBody("cleanup")["candidateIds"] as? [String], ["cand-1"])
   }
 
+  // MARK: T091
+
+  /// Marks can go right next to another mark, on a piece's number label and at the photo's edge;
+  /// a tap on a mark's dot still deletes it (T082 Minor 8).
+  func testMarksGoCloseTogetherOnALabelAndAtTheEdge() {
+    let app = launchPhotoFlow(code: "TEST-CODE")
+    let photo = app.otherElements["cutout-photo"]
+    XCTAssertTrue(photo.waitForExistence(timeout: 20))
+    let centre = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+    centre.tap()
+    XCTAssertTrue(app.buttons["Added area, mark 1"].waitForExistence(timeout: 3))
+    centre.withOffset(CGVector(dx: 16, dy: 0)).tap()
+    XCTAssertTrue(app.buttons["Added area, mark 2"].waitForExistence(timeout: 3), "16 pt from a mark adds another")
+
+    // Piece 1's label sits at its top-left corner (bbox 100,160 of 1200 × 1600).
+    photo.coordinate(withNormalizedOffset: CGVector(dx: 100.0 / 1200, dy: 160.0 / 1600)).withOffset(CGVector(dx: 12, dy: 12)).tap()
+    XCTAssertTrue(app.buttons["Added area, mark 3"].waitForExistence(timeout: 3), "a tap on a label adds a mark")
+    XCTAssertFalse(app.buttons["Piece 1"].isSelected, "the label does not pick the piece")
+
+    photo.coordinate(withNormalizedOffset: CGVector(dx: 0.995, dy: 0.4)).tap()
+    let edge = app.buttons["Added area, mark 4"]
+    XCTAssertTrue(edge.waitForExistence(timeout: 3))
+    // XCUITest clips element frames to the photo container, so whether the dot is drawn whole
+    // (only the picture is clipped now) is not visible here; the mark exists and is reachable.
+    XCTAssertTrue(edge.isHittable, "a mark at the edge is placed and reachable")
+
+    app.buttons["Added area, mark 1"].tap()
+    XCTAssertFalse(app.buttons["Added area, mark 4"].waitForExistence(timeout: 2), "a tap on a dot deletes that mark")
+    XCTAssertTrue(app.buttons["Added area, mark 3"].exists)
+  }
+
+  /// "Draw a box": a drag on the photo is sent as the box, in image pixels.
+  func testDraggedBoxIsSent() throws {
+    let app = launchPhotoFlow(code: "TEST-CODE")
+    let photo = app.otherElements["cutout-photo"]
+    XCTAssertTrue(photo.waitForExistence(timeout: 20))
+    app.buttons["Draw a box"].tap()
+    // Tapping the mode scrolls the page a little, so the drag stays in the photo's lower part.
+    let start = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.4))
+    let end = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.9))
+    start.press(forDuration: 0.3, thenDragTo: end)
+    XCTAssertTrue(app.buttons["Clear marks"].waitForExistence(timeout: 3), "the box is drawn")
+    let apply = app.buttons["Apply cutout"]
+    if !apply.isHittable { app.swipeUp() }
+    apply.tap()
+    XCTAssertTrue(app.buttons["Back to photo"].waitForExistence(timeout: 10))
+    let box = try XCTUnwrap(try lastBody("cleanup")["box"] as? [Double])
+    XCTAssertEqual(box.count, 4)
+    for (sent, expected) in zip(box, [240.0, 640, 1080, 1440]) {
+      XCTAssertEqual(sent, expected, accuracy: 48, "within 12 pt of the drag (4 image px per pt)")
+    }
+  }
+
+  /// "Remove area" on a selected piece while a box is drawn is allowed (the box keeps something)
+  /// and sent with the piece, the box and a negative point.
+  func testRemoveAreaOnASelectedPieceWithABox() throws {
+    let app = launchPhotoFlow(code: "TEST-CODE")
+    let photo = app.otherElements["cutout-photo"]
+    XCTAssertTrue(photo.waitForExistence(timeout: 20))
+    app.buttons["Piece 1"].tap()
+    app.buttons["Piece 2"].press(forDuration: 1.2)
+    let boxAction = app.buttons["Box around this piece"]
+    XCTAssertTrue(boxAction.waitForExistence(timeout: 5))
+    boxAction.tap()
+    app.buttons["Remove area"].tap()
+    photo.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.27)).tap()
+    XCTAssertTrue(app.buttons["Left out, mark 1"].waitForExistence(timeout: 3), "not refused: the box keeps something")
+    let apply = app.buttons["Apply cutout"]
+    if !apply.isHittable { app.swipeUp() }
+    apply.tap()
+    XCTAssertTrue(app.buttons["Back to photo"].waitForExistence(timeout: 10))
+    let body = try lastBody("cleanup")
+    XCTAssertEqual(body["candidateIds"] as? [String], ["cand-1"])
+    XCTAssertEqual(body["box"] as? [Double], [660, 896, 1060, 1429])
+    let point = try XCTUnwrap((body["points"] as? [[String: Any]])?.first)
+    XCTAssertEqual(point["label"] as? String, "negative")
+  }
+
+  /// Retake drops the photo with its marks; the next photo starts clean.
+  func testRetakeClearsMarks() {
+    let app = launchPhotoFlow(code: "TEST-CODE")
+    let photo = app.otherElements["cutout-photo"]
+    XCTAssertTrue(photo.waitForExistence(timeout: 20))
+    app.buttons["Piece 1"].tap()
+    photo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    XCTAssertTrue(app.buttons["Added area, mark 1"].waitForExistence(timeout: 3))
+    let retake = app.buttons["Retake"]
+    for _ in 0..<3 where !retake.isHittable { app.swipeUp() }
+    retake.tap()
+    // The test photo is used again, so Adjust cutout comes back for the new answer.
+    let piece = app.buttons["Piece 1"]
+    XCTAssertTrue(app.otherElements["cutout-photo"].waitForExistence(timeout: 20))
+    XCTAssertTrue(piece.waitForExistence(timeout: 5))
+    XCTAssertFalse(piece.isSelected, "the old selection is gone")
+    XCTAssertFalse(app.buttons["Added area, mark 1"].exists, "the old marks are gone")
+    XCTAssertFalse(app.buttons["Clear marks"].exists)
+  }
+
   // MARK: Helpers
 
   private func launchPhotoFlow(code: String) -> XCUIApplication {

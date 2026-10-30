@@ -1,12 +1,15 @@
 import SwiftUI
 
-/// Adjust cutout: pick one or more of the pieces SAM found (numbered chips on the photo and a
-/// thumbnail strip), add areas or leave pieces out with taps, or draw a box; "Apply cutout" saves
+/// Adjust cutout: pick one or more of the pieces SAM found (thumbnail strip; numbered labels mark
+/// them on the photo), add areas or leave pieces out with taps, or draw a box; "Apply cutout" saves
 /// the cut on the server and shows it on a checkerboard; "Use this" goes on to Design ready.
 /// Opened again from Design ready to redo it. All coordinates sent are pixels of the stored
 /// original (`CreateFlow.imageSize`).
 ///
-/// VoiceOver: the thumbnail strip is the list of pieces (the chips on the photo are hidden from
+/// Taps on the photo: on a mark's dot it deletes that mark, anywhere else (also on a piece's
+/// number label, which takes no taps) it adds a mark, so marks can sit close together.
+///
+/// VoiceOver: the thumbnail strip is the list of pieces (the labels on the photo are hidden from
 /// it); each piece has actions for what the photo taps do ("Box around this piece", "Add the area
 /// around this piece", "Leave this piece out"). The same actions are in the piece's context menu.
 struct AdjustCutoutView: View {
@@ -128,7 +131,9 @@ struct AdjustCutoutView: View {
       SlowWorkHint(active: work != nil)
       if !isRedo {
         PillButton("Retake", hint: "Takes a new photo", kind: .secondary, showsArrow: false) {
-          app.replaceTop(with: .camera(flow.photoSource))
+          let source = flow.photoSource
+          flow.discardPhoto()
+          app.replaceTop(with: .camera(source))
         }
         .disabled(work != nil)
       }
@@ -194,6 +199,9 @@ struct AdjustCutoutView: View {
     photoImage
       .aspectRatio(size.w / size.h, contentMode: .fit)
       .frame(maxWidth: .infinity)
+      // Only the picture is clipped: a mark at the edge stays whole, overhanging the frame.
+      .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m))
+      .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.card))
       .overlay {
         GeometryReader { geo in
           let frame = CutoutGeometry.fitRect(image: size, in: geo.size)
@@ -210,22 +218,21 @@ struct AdjustCutoutView: View {
             if let start = dragStart, let end = dragEnd {
               boxOutline(rect: CGRect(x: min(start.x, end.x), y: min(start.y, end.y), width: abs(end.x - start.x), height: abs(end.y - start.y)))
             }
-            ForEach(Array(flow.points.enumerated()), id: \.offset) { index, point in
-              mark(point, index: index)
-                .position(CutoutGeometry.viewPoint(x: point.x, y: point.y, shownIn: frame, image: size))
-            }
+            // Labels under the marks: a mark placed on a label stays visible.
             ForEach(Array(candidates.enumerated()), id: \.element.id) { index, candidate in
               if let rect = CutoutGeometry.viewRect(box: candidate.bbox, shownIn: frame, image: size) {
                 chip(candidate, number: index + 1)
                   .position(chipCenter(for: rect, in: frame))
               }
             }
+            ForEach(Array(flow.points.enumerated()), id: \.offset) { index, point in
+              mark(point, index: index)
+                .position(CutoutGeometry.viewPoint(x: point.x, y: point.y, shownIn: frame, image: size))
+            }
           }
           .disabled(work != nil)
         }
       }
-      .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m))
-      .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.card))
       .accessibilityElement(children: .contain)
       .accessibilityLabel(Text("Your photo"))
       .accessibilityIdentifier("cutout-photo")
@@ -239,33 +246,53 @@ struct AdjustCutoutView: View {
     }
   }
 
-  /// Taps add marks; in box mode a drag draws the box.
+  /// The only layer that takes touches on the photo (marks and labels take none). A tap on a mark's
+  /// dot deletes it; any other tap adds a mark (Add / Remove area). In box mode a drag draws the box
+  /// and a tap on a dot still deletes that mark.
   @ViewBuilder private func gestureLayer(frame: CGRect, size: ImageSize) -> some View {
     if mode == .box {
-      Color.clear
-        .contentShape(Rectangle())
-        .gesture(
-          DragGesture(minimumDistance: Theme.Space.xs)
-            .onChanged { value in
-              dragStart = value.startLocation
-              dragEnd = value.location
-            }
-            .onEnded { value in
-              dragStart = nil
-              dragEnd = nil
-              guard let box = CutoutGeometry.imageBox(from: value.startLocation, to: value.location, shownIn: frame, image: size) else { return }
-              setBox(box)
-            }
-        )
+      // A UIKit pan: inside the screen's scroll view it wins over scrolling once it starts on the
+      // photo (a SwiftUI DragGesture there lost the touch to the scroll view). A tap deletes the
+      // mark under it.
+      BoxDragSurface(
+        changed: { start, current in
+          dragStart = start
+          dragEnd = current
+        },
+        ended: { start, end in
+          dragStart = nil
+          dragEnd = nil
+          guard let box = CutoutGeometry.imageBox(from: start, to: end, shownIn: frame, image: size) else { return }
+          setBox(box)
+        },
+        tapped: { location in
+          if let index = markIndex(at: location, frame: frame, size: size) { removeMark(at: index) }
+        }
+      )
     } else {
       Color.clear
         .contentShape(Rectangle())
         .gesture(SpatialTapGesture().onEnded { value in
+          if let index = markIndex(at: value.location, frame: frame, size: size) {
+            removeMark(at: index)
+            return
+          }
           let p = CutoutGeometry.imagePoint(value.location, shownIn: frame, image: size)
           addMark(CutoutPoint(x: p.x, y: p.y, label: mode == .remove ? .negative : .positive))
         })
     }
   }
+
+  /// The mark whose drawn dot is under `location`, if any (the nearest one when dots overlap).
+  private func markIndex(at location: CGPoint, frame: CGRect, size: ImageSize) -> Int? {
+    let centres = flow.points.map { CutoutGeometry.viewPoint(x: $0.x, y: $0.y, shownIn: frame, image: size) }
+    return CutoutGeometry.markIndex(at: location, centres: centres, radius: Self.markDot / 2)
+  }
+
+  /// Diameter of a mark's dot, which is also where a tap deletes it. Smaller than a 44 pt target
+  /// on purpose, so a new mark can go right next to one (Clear marks and the VoiceOver action on
+  /// each mark are the other ways to delete).
+  private static let markDot = Theme.Space.xxl
 
   private func outline(rect: CGRect, selected: Bool) -> some View {
     RoundedRectangle(cornerRadius: Theme.Radius.s)
@@ -290,51 +317,49 @@ struct AdjustCutoutView: View {
       .accessibilityHidden(true)
   }
 
-  /// Numbered chip at the piece's top-left corner (kept inside the photo). Hidden from
-  /// VoiceOver: the thumbnail strip is the accessible list, so each piece is read once.
+  /// Number label at the piece's top-left corner (kept inside the photo). It takes no taps, so a
+  /// mark can be placed on it; pieces are picked in the strip below. Hidden from VoiceOver: the
+  /// strip is the accessible list, so each piece is read once.
   private func chip(_ candidate: Candidate, number: Int) -> some View {
     let on = isSelected(candidate)
-    return Button { toggle(candidate) } label: {
-      HStack(spacing: 0) {
-        if on {
-          Image(systemName: "checkmark").font(TextRole.caption.font.weight(.heavy))
-        }
-        Text("\(number)").themeFont(.caption)
+    return HStack(spacing: 0) {
+      if on {
+        Image(systemName: "checkmark").font(TextRole.caption.font.weight(.heavy))
       }
-      .foregroundStyle(on ? colors.primaryText : colors.text)
-      .padding(.horizontal, Theme.Space.s)
-      .frame(minHeight: Theme.Size.iconButton - Theme.Space.s)
-      .background(Capsule().fill(on ? colors.primary : colors.surface))
-      .overlay(Capsule().stroke(colors.border, lineWidth: Theme.Border.thin))
-      .frame(minWidth: Theme.Size.iconButton, minHeight: Theme.Size.iconButton)
-      .contentShape(Rectangle())
+      Text("\(number)").themeFont(.caption)
     }
-    .buttonStyle(.plain)
+    .foregroundStyle(on ? colors.primaryText : colors.text)
+    .padding(.horizontal, Theme.Space.xs)
+    .frame(minWidth: Theme.Space.xxl, minHeight: Theme.Space.xxl)
+    .background(Capsule().fill(on ? colors.primary : colors.surface))
+    .overlay(Capsule().stroke(colors.border, lineWidth: Theme.Border.thin))
+    .allowsHitTesting(false)
     .accessibilityHidden(true)
   }
 
   private func chipCenter(for rect: CGRect, in frame: CGRect) -> CGPoint {
-    let half = Theme.Size.iconButton / 2
+    let half = Theme.Space.xxl / 2
     return CGPoint(x: min(max(rect.minX + half, frame.minX + half), max(frame.maxX - half, frame.minX + half)),
                    y: min(max(rect.minY + half, frame.minY + half), max(frame.maxY - half, frame.minY + half)))
   }
 
-  /// A + or − mark: 48 pt target, tap to remove.
+  /// A + or − mark. Touches go to the gesture layer (a tap on the dot deletes it); VoiceOver and
+  /// Switch Control get a button with a 48 pt frame whose action deletes it.
   private func mark(_ point: CutoutPoint, index: Int) -> some View {
     let positive = point.label == .positive
-    return Button { removeMark(at: index) } label: {
-      Image(systemName: positive ? "plus" : "minus")
-        .font(TextRole.caption.font.weight(.heavy))
-        .foregroundStyle(positive ? colors.accentInk : colors.danger)
-        .frame(width: Theme.Space.xxl, height: Theme.Space.xxl)
-        .background(Circle().fill(positive ? colors.accent : colors.surface))
-        .overlay(Circle().stroke(positive ? colors.border : colors.danger, lineWidth: Theme.Border.thin))
-        .frame(width: Theme.Size.iconButton, height: Theme.Size.iconButton)
-        .contentShape(Rectangle())
-    }
-    .buttonStyle(.plain)
-    .accessibilityLabel(positive ? Text("Added area, mark \(index + 1)") : Text("Left out, mark \(index + 1)"))
-    .accessibilityHint(Text("Deletes this mark"))
+    return Image(systemName: positive ? "plus" : "minus")
+      .font(TextRole.caption.font.weight(.heavy))
+      .foregroundStyle(positive ? colors.accentInk : colors.danger)
+      .frame(width: Self.markDot, height: Self.markDot)
+      .background(Circle().fill(positive ? colors.accent : colors.surface))
+      .overlay(Circle().stroke(positive ? colors.border : colors.danger, lineWidth: Theme.Border.thin))
+      .frame(width: Theme.Size.iconButton, height: Theme.Size.iconButton)
+      .allowsHitTesting(false)
+      .accessibilityElement(children: .ignore)
+      .accessibilityAddTraits(.isButton)
+      .accessibilityAction { removeMark(at: index) }
+      .accessibilityLabel(positive ? Text("Added area, mark \(index + 1)") : Text("Left out, mark \(index + 1)"))
+      .accessibilityHint(Text("Deletes this mark"))
   }
 
   private func appliedImage(_ artwork: Artwork, size: ImageSize) -> some View {
@@ -591,6 +616,61 @@ struct AdjustCutoutView: View {
       } else {
         app.push(.designReady)
       }
+    }
+  }
+}
+
+/// Box mode's touch surface: a pan draws the box, a tap reports its location. Coordinates are
+/// in this view's space, which fills the photo overlay like the SwiftUI layers above it.
+private struct BoxDragSurface: UIViewRepresentable {
+  let changed: (CGPoint, CGPoint) -> Void
+  let ended: (CGPoint, CGPoint) -> Void
+  let tapped: (CGPoint) -> Void
+
+  func makeUIView(context: Context) -> UIView {
+    let view = UIView()
+    view.backgroundColor = .clear
+    let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.pan(_:)))
+    pan.maximumNumberOfTouches = 1
+    view.addGestureRecognizer(pan)
+    view.addGestureRecognizer(UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tap(_:))))
+    return view
+  }
+
+  func updateUIView(_ uiView: UIView, context: Context) {
+    context.coordinator.surface = self
+  }
+
+  func makeCoordinator() -> Coordinator { Coordinator(surface: self) }
+
+  @MainActor
+  final class Coordinator: NSObject {
+    var surface: BoxDragSurface
+    private var start: CGPoint?
+
+    init(surface: BoxDragSurface) { self.surface = surface }
+
+    @objc func pan(_ recognizer: UIPanGestureRecognizer) {
+      let location = recognizer.location(in: recognizer.view)
+      switch recognizer.state {
+      case .began:
+        let origin = CGPoint(x: location.x - recognizer.translation(in: recognizer.view).x,
+                             y: location.y - recognizer.translation(in: recognizer.view).y)
+        start = origin
+        surface.changed(origin, location)
+      case .changed:
+        if let start { surface.changed(start, location) }
+      case .ended:
+        if let start { surface.ended(start, location) }
+        start = nil
+      default:
+        if let start { surface.ended(start, start) }
+        start = nil
+      }
+    }
+
+    @objc func tap(_ recognizer: UITapGestureRecognizer) {
+      surface.tapped(recognizer.location(in: recognizer.view))
     }
   }
 }

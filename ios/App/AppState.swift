@@ -225,6 +225,13 @@ final class CreateFlow {
     cutoutNotice = nil
   }
 
+  /// Retake: the photo, its pieces, marks and box go, so the next photo starts clean.
+  func discardPhoto() {
+    photo = nil
+    photoArtwork = nil
+    resetCutout(candidates: [], imageSize: nil)
+  }
+
   var currentVariant: ArtworkVariant? {
     variants.indices.contains(selectedVariant) ? variants[selectedVariant] : nil
   }

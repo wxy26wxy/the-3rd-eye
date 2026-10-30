@@ -1,7 +1,12 @@
 import SwiftUI
 
-/// Semantic colors resolved for the current contrast preference.
+/// Semantic colors resolved for the system contrast setting.
 struct ThemeColors {
+  /// Settings → Accessibility → Display & Text Size → Increase Contrast picks the high-contrast palette.
+  static func resolved(for contrast: ColorSchemeContrast) -> ThemeColors {
+    contrast == .increased ? .highContrast : .standard
+  }
+
   var bg: Color
   var surface: Color
   var surfaceAlt: Color

@@ -10,8 +10,7 @@ struct PickProductView: View {
       title: "What are we making?",
       subtitle: "Pick one. You can make the other next time.",
       step: (1, 3),
-      showsBack: false,
-      trailing: AnyView(SettingsButton())
+      showsBack: false
     ) {
       VStack(spacing: Theme.Space.l) {
         product(.sticker, icon: "seal.fill", name: "Sticker", detail: "Die-cut around your art")

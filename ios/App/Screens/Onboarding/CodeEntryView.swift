@@ -29,7 +29,7 @@ struct CodeEntryView: View {
               .foregroundStyle(colors.text)
           }
         }
-        VoiceTextField(label: "Sign-in code", text: $code, prompt: "Type your code here", keyboard: .asciiCapable)
+        LabeledTextField(label: "Sign-in code", text: $code, prompt: "Type your code here", keyboard: .asciiCapable)
           .textInputAutocapitalization(.characters)
           .autocorrectionDisabled()
           .onAppear(perform: takePendingCode)

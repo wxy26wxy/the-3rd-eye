@@ -24,7 +24,7 @@ struct StoryDraftSheet: View {
           .foregroundStyle(colors.textMuted)
 
         if editing {
-          VoiceTextField(label: "Your story", text: $text, axis: .vertical, appendsVoice: true)
+          LabeledTextField(label: "Your story", text: $text, axis: .vertical)
         } else {
           Card {
             VStack(alignment: .leading, spacing: Theme.Space.s) {
@@ -37,14 +37,6 @@ struct StoryDraftSheet: View {
           }
           .accessibilityElement(children: .combine)
           .accessibilityLabel(Text("Drafted story: \(spokenText)"))
-
-          Button(app.speech.isSpeaking ? "Stop" : "Read it to me") {
-            if app.speech.isSpeaking { app.speech.stop() } else { app.speech.speak(spokenText, force: true) }
-          }
-          .themeFont(.body)
-          .foregroundStyle(colors.text)
-          .underline()
-          .frame(minHeight: Theme.Size.minTarget)
         }
 
         if let error { ErrorCard(message: error) }
@@ -57,13 +49,11 @@ struct StoryDraftSheet: View {
             PillButton(saving ? "Saving…" : "Use this story", hint: "Saves it as the story buyers read") { Task { await save() } }
               .disabled(saving || trimmed.isEmpty)
             PillButton("Edit it", hint: "Change the words before saving", kind: .secondary, showsArrow: false) {
-              app.speech.stop()
               editing = true
             }
             .disabled(saving)
           }
           PillButton("Skip", hint: "Keeps your story as it is", kind: .secondary, showsArrow: false) {
-            app.speech.stop()
             onDone()
           }
           .disabled(saving)
@@ -75,9 +65,9 @@ struct StoryDraftSheet: View {
     .interactiveDismissDisabled(saving)
     .onAppear {
       if text.isEmpty { text = draft.text }
-      app.speech.speak(spokenText)
+      // Once, with the draft as received (not on every keystroke while editing).
+      UIAccessibility.post(notification: .announcement, argument: String(localized: "Drafted story: \(spokenText)"))
     }
-    .onDisappear { app.speech.stop() }
   }
 
   private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -91,7 +81,6 @@ struct StoryDraftSheet: View {
     error = nil
     defer { saving = false }
     do {
-      app.speech.stop()
       app.creator = try await app.api.updateMe(UpdateCreatorRequest(storyText: trimmed))
       UIAccessibility.post(notification: .announcement, argument: String(localized: "Story saved"))
       onDone()

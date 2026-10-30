@@ -5,7 +5,7 @@ struct LoadingScreen: View {
   let title: LocalizedStringKey
   let detail: LocalizedStringResource
   var pose: TagMascot.Pose = .listening
-  /// Text of what the app is saying out loud, shown for creators who can't hear it.
+  /// What the app understood ("I HEARD" card); announced to VoiceOver before the detail.
   var spoken: String?
   var error: String?
   var retry: (() -> Void)?
@@ -52,7 +52,9 @@ struct LoadingScreen: View {
     .toolbar(.hidden, for: .navigationBar)
     .accessibilityElement(children: .contain)
     .onAppear {
-      UIAccessibility.post(notification: .announcement, argument: String(localized: detail))
+      // One announcement, so the confirmation and the detail don't cut each other off.
+      let parts = [spoken, String(localized: detail)].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+      UIAccessibility.post(notification: .announcement, argument: parts.joined(separator: " "))
     }
   }
 }

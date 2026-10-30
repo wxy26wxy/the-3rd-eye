@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Layout for the non-flow tabs: headline + settings button, cream sheet below.
+/// Layout for the non-flow tabs: headline + sign-out button, cream sheet below.
 struct TabScreen<Content: View>: View {
   let title: LocalizedStringKey
   @ViewBuilder var content: Content
@@ -12,7 +12,7 @@ struct TabScreen<Content: View>: View {
         HStack(alignment: .center) {
           DisplayText(title, role: .displayM, tilted: false)
           Spacer()
-          SettingsButton()
+          SignOutButton()
         }
         .padding(.horizontal, Theme.Space.page)
         .padding(.vertical, Theme.Space.l)
@@ -27,16 +27,28 @@ struct TabScreen<Content: View>: View {
     }
     .screenBackground()
     .toolbar(.hidden, for: .navigationBar)
-    .stopsSpeechOnDisappear()
   }
 }
 
-/// Opens SettingsView as a sheet.
-struct SettingsButton: View {
-  @State private var showing = false
+/// Sign out, with the account and build shown in the confirmation. Accessibility
+/// settings come from iOS (VoiceOver, Dynamic Type, Increase Contrast, dictation).
+struct SignOutButton: View {
+  @Environment(AppState.self) private var app
+  @State private var confirming = false
 
   var body: some View {
-    IconButton(systemName: "gearshape.fill", label: "Settings", hint: "Accessibility and account settings") { showing = true }
-      .sheet(isPresented: $showing) { SettingsView() }
+    IconButton(systemName: "rectangle.portrait.and.arrow.right", label: "Sign out", hint: "Asks before signing you out") { confirming = true }
+      .confirmationDialog(Text("Sign out?"), isPresented: $confirming, titleVisibility: .visible) {
+        Button("Sign out", role: .destructive) { app.signOut() }
+        Button("Cancel", role: .cancel) {}
+      } message: {
+        Text(details)
+      }
+  }
+
+  private var details: String {
+    let (version, sha, server) = (AppConfig.version, AppConfig.gitSHA, AppConfig.siteURL.absoluteString)
+    guard let name = app.creator?.displayName else { return String(localized: "Version \(version) (\(sha)), \(server)") }
+    return String(localized: "Signed in as \(name). Version \(version) (\(sha)), \(server)")
   }
 }

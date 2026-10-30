@@ -4,15 +4,15 @@
 `ios/**` (except `ios/App/Theme/Tokens.swift`, generated from `design/tokens.json`).
 
 ## Current task
-T051 · fix wave from the v0.1 whole-build review (captions soundtrack, story draft, session expiry, metadata-free photos, deferred iOS minors). Earlier: T030 SwiftUI creator app.
+T081 · remove duplicated voice/speech UI and rely on iOS system accessibility (see "System accessibility (T081)" below and `docs/accessibility.md`). Earlier: T070 deep link, T060 TestFlight, T051 fix wave, T030 SwiftUI creator app.
 
 ## Install on your iPhone (deployed site)
 1. On the Mac: `cd ios && xcodegen generate && open MakerStory.xcodeproj` (needs Xcode and `brew install xcodegen`).
 2. Plug in the iPhone (unlock it, tap "Trust"). On the phone turn on Settings → Privacy & Security → Developer Mode if asked, and restart it.
 3. In Xcode select the **MakerStory** target → **Signing & Capabilities** → Team: your Apple ID ("Personal Team"; add it under Xcode → Settings → Accounts if missing). If the bundle id `com.makerstory.app` is taken, change it to something unique like `com.<yourname>.makerstory`.
-4. Pick **Product → Scheme → Edit Scheme… → Run → Build Configuration: Release**, so the app talks to `https://maker-story-three.vercel.app` (Debug talks to `http://localhost:3000`, which on a phone is the phone itself). To use another deployment, set Build Settings → User-Defined → `API_BASE_URL` (Release) to its https URL.
+4. Pick **Product → Scheme → Edit Scheme… → Run → Build Configuration: Release**, so the app talks to `https://maker-story-three.vercel.app` (Debug also talks to the deployed site since the 2026-10-29 decision; switch it to `http://localhost:3000` by hand only for a local server). To use another deployment, set Build Settings → User-Defined → `API_BASE_URL` (Release) to its https URL.
 5. Choose the phone as the run destination and press **Run**. First time only: on the phone open Settings → General → VPN & Device Management → your Apple ID → Trust, then open the app.
-6. In the app: Settings (gear) → "Server" shows the URL it uses. Sign in with your creator code (codes are issued per creator and are not in the repo). Allow camera and microphone when asked; if you said no, the app shows an "Open Settings" button.
+6. In the app: on My designs, Orders or Messages, the sign-out button (top right) shows the version and server URL in its confirmation; tap Cancel to stay signed in. Sign in with your creator code (codes are issued per creator and are not in the repo). Allow camera and microphone when asked; if you said no, the app shows an "Open Settings" button.
 7. Check on the phone: record a story video (captions need the soundtrack, which the app now sends), accept or edit the drafted story, send a thank-you with a short video. Free provisioning expires after 7 days; press Run again to renew.
 
 ## Build and run
@@ -24,16 +24,16 @@ xcodebuild test -scheme MakerStory -destination 'platform=iOS Simulator,name=iPh
 xcrun simctl boot "iPhone 17"; xcrun simctl install booted build/DerivedData/Build/Products/Debug-iphonesimulator/MakerStory.app; xcrun simctl launch booted com.makerstory.app
 ```
 Server: build setting `API_BASE_URL` (Debug default `http://localhost:3000`, Release default `https://maker-story-three.vercel.app`; empty or invalid falls back to the deployed site), e.g. `xcodebuild ... API_BASE_URL=https://<deployment> build`. Only `localhost` has an ATS exception; any deployed server must be https. On a physical phone `localhost` is the phone itself, so point it at the deployment.
-Without the backend: `python3 scripts/mock_api.py` (port 3999) and build with `API_BASE_URL=http://localhost:3999`. UI test of the voice branch (checks the confirmation text on the loading screen, that the description is speaking when Voice result appears, and that stopping it mid-sentence doesn't freeze the app). Speech events are logged under subsystem `com.makerstory.app`, category `speech` (`xcrun simctl spawn booted log stream --level debug --predicate 'subsystem == "com.makerstory.app"'`):
-`xcodebuild test -scheme MakerStoryUITests -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath build/DerivedData API_BASE_URL=http://localhost:3999`
+Without the backend: `python3 scripts/mock_api.py` (port 3999) and build with `API_BASE_URL=http://localhost:3999`. UI tests (voice branch: the confirmation text on the loading screen and the "WHAT THE IMAGE SHOWS" card with the description on Voice result; deep link):
+`xcodebuild test -scheme MakerStoryUITests -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build/DerivedData API_BASE_URL=http://localhost:3999`
 On a phone: see "Install on your iPhone" above. No entitlements are used.
 The mock also answers `POST /creators/me/story-video` (logs `audioUrl`, returns a `storyDraft`) and `POST /orders/o1/thank-you`.
 
 ## Layout
-- `App/Theme/` — the only place tokens are read: `Theme` aliases, `ThemeColors` (standard / high contrast via `@Environment(\.themeColors)`), `TextRole` fonts (Bagel Fat One + Rubik, Dynamic Type), `DisplayText`, `PillButton(Style)`, `IconButton`, `Card`/`ChoiceCard`, `StepPill`, `Starburst`, `ScallopDivider`/`CreamSheet`, `GrainOverlay`/`screenBackground()`, `TagMascot` (listening, cheering, waving). `ThemeEffects` holds `effects`/`motion` values the generator does not emit yet.
+- `App/Theme/` — the only place tokens are read: `Theme` aliases, `ThemeColors` (standard / high contrast via `@Environment(\.themeColors)`; `ThemeColors.resolved(for:)` picks high contrast when the system's Increase Contrast is on), `TextRole` fonts (Bagel Fat One + Rubik, Dynamic Type), `DisplayText`, `PillButton(Style)`, `IconButton`, `Card`/`ChoiceCard`, `StepPill`, `Starburst`, `ScallopDivider`/`CreamSheet`, `GrainOverlay`/`screenBackground()`, `TagMascot` (listening, cheering, waving). `ThemeEffects` holds `effects`/`motion` values the generator does not emit yet.
 - `App/Networking/` — `APIClient` (all `/api/v1` routes, Bearer token in Keychain), `Models` (Codable from docs/api.md), `APIError`, `BlobUploader`, `Transcriber`, `Keychain`.
-- `App/Services/` — `VideoTools` (length cap by passthrough trim; soundtrack → 16 kHz mono WAV via `AVAssetReader`) and `VideoUpload` (video + WAV upload, used by story and thank-you), `Speech` (AVSpeechSynthesizer; stops on tab switch, backgrounding and audio interruptions; respects "Speak descriptions"; hands off to VoiceOver announcements when VoiceOver is on; stopped by any real create-flow route change in `AppState.createPath.didSet`, so arrival speech is not cancelled by the old screen; never stops the synthesizer on the main thread, see docs/decisions.md), `AudioRecorder` (16 kHz mono PCM WAV, ≤ 60 s), `Poller`, `OrdersStore` (10 s polling, unread badge), `Money` (share), `VoiceIntent` ("yes" detection), `ImageTools`.
-- `App/Components/` — `SlowWorkHint` (after 30 s on long calls), `CameraAccess`/`CameraDeniedCard` (permission check, Settings link), `FlowScreen`, `TabScreen`, `LoadingScreen`, `VoiceCapture`/`RecordButton`/`MicIconButton`, `VoiceTextField`, `RemoteImage`, `ErrorCard`, `MediaPicker`, `SafariView`.
+- `App/Services/` — `VideoTools` (length cap by passthrough trim; soundtrack → 16 kHz mono WAV via `AVAssetReader`) and `VideoUpload` (video + WAV upload, used by story and thank-you), `AudioRecorder` (16 kHz mono PCM WAV, ≤ 60 s; used only by `SpeakView` and "Say what to change"), `Poller`, `OrdersStore` (10 s polling, unread badge), `Money` (share), `ImageTools`, `DeepLink`. No text-to-speech.
+- `App/Components/` — `SlowWorkHint` (after 30 s on long calls), `CameraAccess`/`CameraDeniedCard` (permission check, Settings link), `FlowScreen`, `TabScreen` (header with `SignOutButton`), `LoadingScreen` (announces the "I HEARD" text and the detail together), `VoiceCapture`/`RecordButton` (only `SpeakView` and `VoiceResultView`), `LabeledTextField` (no mic; keyboard dictation), `View.announces(_:)` (VoiceOver announcement on appear and on change; the text must also be on screen), `RemoteImage`, `ErrorCard`, `MediaPicker`, `SafariView`.
 - `App/Screens/` — one view per file, named after the design boards.
 - Copy: `App/Resources/Localizable.xcstrings` (refresh with `xcodebuild -exportLocalizations -project MakerStory.xcodeproj -localizationPath /tmp/loc -exportLanguage en`).
 
@@ -56,7 +56,7 @@ The mock also answers `POST /creators/me/story-video` (logs `audioUrl`, returns 
 Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s PCM asset), camera-permission flow, interruption handling, the story-draft sheet against the live backend, 401 from the live backend's token expiry.
 
 ## Last updated
-2026-10-29 (T051)
+2026-10-29 (T081)
 
 ## TestFlight (T060)
 - Icon: `pnpm icon` renders `ios/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` from `design/tokens.json` (no alpha, as App Store Connect requires). To use a designer-made icon, replace that PNG.
@@ -72,3 +72,14 @@ Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s 
 - The web task T070 shows this link on the `/admin` one-time code card next to the web link (merged separately). iOS shows the system "Open in maker story?" prompt first.
 - Tests: `Tests/DeepLinkTests.swift` (parse, cleanup, length cap, pending only while signed out) and `UITests/DeepLinkUITests.swift` (opens the link against `scripts/mock_api.py`, accepts the Springboard prompt, checks the prefilled field).
 - Universal links (https) would need an apple-app-site-association file on the site; not done.
+
+## System accessibility (T081)
+- No in-app speech, no per-field mic, no settings sheet, no helper-mode toggle (ADR 2026-10-29 in `docs/decisions.md`). iOS dictation, VoiceOver, Dynamic Type (up to `accessibility5`) and Increase Contrast do those jobs. `simpleMode` is still read; it defaults to on and no client can change it (API `PUT /creators/me` or seed only), so the app asks for one picture. The other `AccessPrefs` flags are decoded but unused on iOS.
+- Mock: a sign-in code starting `MULTI` returns `simpleMode: false`, and `POST /artworks` returns `n` pictures, so `VoiceFlowUITests.testPagerPictureReadsItsAltText` can check the pager (each picture: "<alt text>, picture n of N").
+- Voice result shows a "WHAT THE IMAGE SHOWS" card (`spokenDescription`, else `altText`, for the selected picture) and announces it on arrival and when the picture changes; the picture's VoiceOver label is its alt text.
+- Announced once (and shown): the clarifying question (SpeakView), the drawing confirmation (loading screen), "Your design is ready! …", "You're live! …", "Video saved!", the story talking points, the drafted story, the AI listing summary and the listing validation error.
+- Kept voice features: "Say it out loud" (SpeakView, starts in voice mode; "Type instead" stays) and "Say what to change" on Voice result.
+- Listing approval is a tap; the thank-you is typed (the `draftThankYou` client call stays in `APIClient` but no screen uses it).
+- Sign out: icon button in the tab-screen header (My designs, Orders, Messages) with a confirmation that also shows the version and server URL.
+- Tests: `Tests/SystemAccessibilityTests.swift` (contrast → palette, description fallback); `UITests/VoiceFlowUITests.swift` asserts the description card and that no Hear/Stop button exists.
+- VoiceOver test script (Speak → Voice result with the description card): `docs/accessibility.md`.

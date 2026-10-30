@@ -1,7 +1,7 @@
 import Observation
 import SwiftUI
 
-/// Record → upload to /transcribe → text. Shared by every voice control.
+/// Record → upload to /transcribe → text. Used by the idea path (SpeakView) and "Say what to change" (VoiceResultView).
 @MainActor
 @Observable
 final class VoiceCapture {
@@ -84,29 +84,5 @@ struct RecordButton: View {
     .disabled(phase == .transcribing)
     .accessibilityLabel(Text(phase == .recording ? stopLabel : (phase == .transcribing ? "Writing down what you said" : idleLabel)))
     .accessibilityHint(Text(phase == .recording ? "Stops recording and writes down what you said" : "Records your voice"))
-  }
-}
-
-/// Compact mic toggle for text fields and secondary voice actions (48 pt).
-struct MicIconButton: View {
-  let capture: VoiceCapture
-  var label: LocalizedStringKey = "Say it instead of typing"
-  let onText: (String) -> Void
-
-  var body: some View {
-    IconButton(
-      systemName: capture.phase == .recording ? "stop.fill" : "mic.fill",
-      label: capture.phase == .recording ? "Stop recording" : label,
-      hint: capture.phase == .recording ? "Stops and writes down what you said" : "Records your voice and writes it down"
-    ) {
-      Task {
-        if capture.phase == .recording {
-          if let text = await capture.stopAndTranscribe() { onText(text) }
-        } else if capture.phase == .idle {
-          await capture.start()
-        }
-      }
-    }
-    .disabled(capture.phase == .transcribing)
   }
 }

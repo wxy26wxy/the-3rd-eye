@@ -31,3 +31,6 @@
 
 ## 2026-10-30 · production · live price in the product summary (147b9a7)
 - https://the-3rd-comuhhw6q-xinyao-wangs-projects.vercel.app → https://the-3rd-eye.vercel.app. Adds `priceCents`/`description`/`mockupUrl` to the product summary on `GET /artworks` and keeps a published price on approve when the client omits it (T087). Rollback target: https://the-3rd-7cskup1jd-xinyao-wangs-projects.vercel.app.
+
+## 2026-10-30 · production · rate limiting + demo docs (8e350f9)
+- https://the-3rd-835bbkwxt-xinyao-wangs-projects.vercel.app → https://the-3rd-eye.vercel.app. Adds in-app per-IP rate limits (login code 10/min, note form 30/min, model routes 20/min; signed client IP across the BFF) and the demo script / README refresh. Rollback target: https://the-3rd-comuhhw6q-xinyao-wangs-projects.vercel.app.

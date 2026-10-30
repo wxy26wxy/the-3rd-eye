@@ -91,3 +91,11 @@ Additive; no existing field or path removed.
 8. **Listing agent results are the server's.** `print_ok` = the resolution check and the contrast check, computed by the server (the tools are run server-side when the model skipped them); moderation runs on the final title and description. `ListingDraft.print_ok` and `notes` reflect those results, not the model's claim. Re-running `POST /listings/{id}/run` on a published product does not touch the live listing: the new copy is kept as a pending draft (`listings.draft_copy`) and goes live only through `approve` (which re-checks print and moderation and clears the draft).
 9. **Tote print file.** `POST /products` with `type: "tote"` now returns `printPngUrl` (private, 150 dpi, short side ≥ 1500 px, transparent background kept); `printSvgUrl` stays null for totes.
 10. **Orders store the production share** (`orders.production_share_cents`), computed with the creator and organization shares at order time.
+
+## Studio-issued creator codes (T070, 2026-10-29)
+Additive; no new public route and no change to `POST /auth/code`.
+1. **Where codes come from.** The studio (admin, basic auth) adds a creator on `/admin` → Creators → Add creator, or makes a new code for an existing one. Both are Server Functions behind the admin auth check, not public API. There is no self-sign-up. A new code is a random 10-character code (`web/lib/codes.ts`, same alphabet as the seed); it is shown once on `/admin` and never listed again.
+2. **Sign-in link.** `/create/code?c=<CODE>` only pre-fills the code field (trimmed, uppercased, ≤ 64 characters); the person still taps Sign in, which posts the code as before. Treat the link like a password. The iOS form of the same link is `makerstory://code/<CODE>` (the app does not register the scheme yet).
+3. **Rotating a code** (`/admin` → New code) makes the old code and its link fail with `401 invalid_code`. Tokens already issued (`<id>.<exp>.<sig>`) are not tied to the code and stay valid until they expire (30 days).
+4. **Hidden creators** (`creators.hidden`, for testing): left out of shop grids, `/artists`, the featured artist, "more from this studio", and `/c/<slug>` (not found). A direct product link `/p/<id>` still opens and can be bought, `/t/<token>` keeps working for their orders, and they can sign in and use every creator route.
+

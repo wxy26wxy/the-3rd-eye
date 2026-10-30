@@ -4,7 +4,8 @@
  * rows with `deletedAt` set are never returned.
  */
 import "server-only";
-import { and, desc, eq, gt, isNull, sql, inArray } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, like, or, sql, inArray } from "drizzle-orm";
+import { generateLoginCode, slugLookupPrefix, slugify, uniqueSlug } from "@/lib/codes";
 import { getDb } from "./client";
 import {
   aiCalls, artworks, creators, listings, messages, nfcTokens, orders, products, thankYous,
@@ -49,8 +50,96 @@ export async function isStoryVideoPath(pathname: string): Promise<boolean> {
   return Boolean(row);
 }
 
-export async function listCreators(): Promise<CreatorRow[]> {
-  return db().select().from(creators).where(isNull(creators.deletedAt)).orderBy(creators.isExample, desc(creators.createdAt));
+/** Creators the public shop lists (/artists, the featured artist). Hidden (testing) creators are left out unless asked for. */
+export async function listCreators(opts: { includeHidden?: boolean } = {}): Promise<CreatorRow[]> {
+  const conds = [isNull(creators.deletedAt)];
+  if (!opts.includeHidden) conds.push(eq(creators.hidden, false));
+  return db().select().from(creators).where(and(...conds)).orderBy(creators.isExample, desc(creators.createdAt));
+}
+
+export type AdminCreatorRow = Pick<CreatorRow, "id" | "slug" | "displayName" | "studioName" | "isExample" | "hidden" | "createdAt">
+  & { publishedProducts: number };
+
+/** Admin: every creator (hidden ones too) with their published product count. Never selects the login code. */
+export async function listCreatorsAdmin(): Promise<AdminCreatorRow[]> {
+  const rows = await db().select({
+    id: creators.id, slug: creators.slug, displayName: creators.displayName, studioName: creators.studioName,
+    isExample: creators.isExample, hidden: creators.hidden, createdAt: creators.createdAt,
+    // Written with explicit identifiers: inside a correlated subquery Drizzle renders ${creators.id} as the bare
+    // "id", which Postgres resolves to products.id and the count is always 0.
+    publishedProducts: sql<number>`(select count(*)::int from products p where p.creator_id = creators.id
+      and p.status = 'published' and p.deleted_at is null)`,
+  }).from(creators).where(isNull(creators.deletedAt)).orderBy(desc(creators.createdAt));
+  return rows.map((r) => ({ ...r, publishedProducts: Number(r.publishedProducts ?? 0) }));
+}
+
+/** True for a Postgres unique violation (drizzle wraps driver errors in `cause`). */
+function isUniqueViolation(err: unknown): boolean {
+  for (let e: unknown = err, i = 0; e && i < 4; e = (e as { cause?: unknown }).cause, i++) {
+    if ((e as { code?: string }).code === "23505") return true;
+  }
+  return false;
+}
+
+const CREATE_TRIES = 5;
+
+/**
+ * Studio-issued creator (admin, T070): a unique slug from the display name (-2, -3 … on
+ * collision, soft-deleted rows included because the unique index covers them) and a fresh
+ * login code, retried on a unique violation up to 5 times. Returns the row; the caller shows
+ * `loginCode` once and must not log it.
+ */
+export async function createCreator(input: {
+  displayName: string; studioName?: string | null; mentionDisability?: boolean; hidden?: boolean; createdByTask: string;
+}): Promise<CreatorRow> {
+  const base = slugify(input.displayName);
+  const prefix = slugLookupPrefix(base);
+  const failed: string[] = []; // candidates that hit a unique violation (a race, or a code collision)
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < CREATE_TRIES; attempt++) {
+    const taken = await db().select({ slug: creators.slug }).from(creators)
+      .where(or(eq(creators.slug, base), like(creators.slug, `${prefix}%`)));
+    const slug = uniqueSlug(base, [...taken.map((t) => t.slug), ...failed]);
+    try {
+      const [row] = await db().insert(creators).values({
+        slug,
+        displayName: input.displayName,
+        studioName: input.studioName || null,
+        mentionDisability: input.mentionDisability ?? false,
+        hidden: input.hidden ?? false,
+        loginCode: generateLoginCode(),
+        isExample: false,
+        createdByTask: input.createdByTask,
+      }).returning();
+      return row;
+    } catch (err) {
+      if (!isUniqueViolation(err)) throw err;
+      failed.push(slug);
+      lastErr = err;
+    }
+  }
+  throw new Error("Could not create a unique creator after 5 tries", { cause: lastErr });
+}
+
+/** Admin: replaces the creator's login code (the old code and any sign-in link stop working). Returns the new code. */
+export async function rotateLoginCode(id: string): Promise<string | null> {
+  for (let attempt = 0; attempt < CREATE_TRIES; attempt++) {
+    const code = generateLoginCode();
+    try {
+      const [row] = await db().update(creators).set({ loginCode: code })
+        .where(and(eq(creators.id, id), isNull(creators.deletedAt))).returning({ id: creators.id });
+      return row ? code : null;
+    } catch (err) {
+      if (!isUniqueViolation(err)) throw err;
+    }
+  }
+  throw new Error("Could not rotate the login code after 5 tries");
+}
+
+export async function setCreatorHidden(id: string, hidden: boolean): Promise<boolean> {
+  const [row] = await db().update(creators).set({ hidden })
+    .where(and(eq(creators.id, id), isNull(creators.deletedAt))).returning({ id: creators.id });
+  return Boolean(row);
 }
 
 export type CreatorPatch = Partial<Pick<CreatorRow,
@@ -172,14 +261,20 @@ function shopSelect() {
     .leftJoin(listings, eq(listings.productId, products.id));
 }
 
+/**
+ * Published products for shop grids and "more from this studio". Hidden (testing) creators'
+ * products are left out; `getPublicProduct` (a direct product link) still finds them.
+ */
 export async function listPublishedProducts(filter: { type?: ProductType; madeByVoice?: boolean; creatorId?: string; limit?: number } = {}): Promise<ShopProduct[]> {
-  const conds = [eq(products.status, "published"), isNull(products.deletedAt), isNull(creators.deletedAt), isNull(artworks.deletedAt)];
+  const conds = [eq(products.status, "published"), isNull(products.deletedAt), isNull(creators.deletedAt), isNull(artworks.deletedAt),
+    eq(creators.hidden, false)];
   if (filter.type) conds.push(eq(products.type, filter.type));
   if (filter.creatorId) conds.push(eq(products.creatorId, filter.creatorId));
   if (filter.madeByVoice) conds.push(eq(artworks.source, "text2image"));
   return shopSelect().where(and(...conds)).orderBy(desc(products.createdAt)).limit(filter.limit ?? 100);
 }
 
+/** One published product by id. Hidden creators included on purpose: a direct product link keeps working. */
 export async function getPublicProduct(id: string): Promise<ShopProduct | null> {
   const [row] = await shopSelect()
     .where(and(eq(products.id, id), eq(products.status, "published"), isNull(products.deletedAt),

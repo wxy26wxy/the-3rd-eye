@@ -50,7 +50,8 @@ export function ProductView({ product: p }: { product: ProductDetail }) {
             </div>
             {p.creator.isExample ? <Chip tone="cream">{m.common.example}</Chip> : null}
             {p.creator.storyText ?? p.creator.bioShort ? <p>{p.creator.storyText ?? p.creator.bioShort}</p> : null}
-            <Button href={`/c/${p.creator.slug}`}>{fmt(m.product.seeWork, { name: p.creator.displayName })}</Button>
+            {/* Hidden (testing) creators have no public profile; their product still opens by direct link. */}
+            {p.creator.hidden ? null : <Button href={`/c/${p.creator.slug}`}>{fmt(m.product.seeWork, { name: p.creator.displayName })}</Button>}
           </div>
         </Card>
       </section>

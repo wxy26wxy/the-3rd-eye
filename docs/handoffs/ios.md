@@ -27,7 +27,7 @@ Server: build setting `API_BASE_URL` (Debug and Release default `$(DEPLOYED_SITE
 Without the backend: `python3 scripts/mock_api.py` (port 3999) and build with `API_BASE_URL=http://localhost:3999`. UI tests (voice branch: the confirmation text on the loading screen and the "WHAT THE IMAGE SHOWS" card with the description on Voice result; deep link):
 `xcodebuild test -scheme The3rdEyeUITests -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build/DerivedData API_BASE_URL=http://localhost:3999`
 On a phone: see "Install on your iPhone" above. No entitlements are used.
-UI tests now include `AdjustCutoutUITests` (photo branch). To run the mock on another port, start it with the port and pass both `API_BASE_URL=http://localhost:<port>` and `TEST_RUNNER_MOCK_API_URL=http://localhost:<port>` to `xcodebuild test`.
+UI tests now include `AdjustCutoutUITests` (photo branch). To run the mock on another port (another server may hold 3999 on IPv6, which `localhost` then reaches first and sign-in fails with "That code did not work"), start it with the port and run `TEST_RUNNER_MOCK_API_URL=http://localhost:<port> xcodebuild test … API_BASE_URL=http://localhost:<port>`: the first is an environment variable of the `xcodebuild` process (passed to the test runner as `MOCK_API_URL`), the second a build setting.
 The mock also answers `POST /creators/me/story-video` (logs `audioUrl`, returns a `storyDraft`) and `POST /orders/o1/thank-you`.
 
 ## Layout
@@ -81,7 +81,7 @@ Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s 
 - Announced once (and shown): the clarifying question (SpeakView), the drawing confirmation (loading screen), "Your design is ready! …", "You're live! …", "Video saved!", the story talking points, the drafted story, the AI listing summary and the listing validation error.
 - Kept voice features: "Say it out loud" (SpeakView, starts in voice mode; "Type instead" stays) and "Say what to change" on Voice result.
 - Listing approval is a tap; the thank-you is typed (the `draftThankYou` client call stays in `APIClient` but no screen uses it).
-- Sign out: icon button in the tab-screen header (My designs, Orders, Messages) with a confirmation that also shows the version and server URL.
+- Sign out: icon button in the tab-screen header (My designs, Orders, Messages; identifier `sign-out`) with a confirmation that also shows the version, git sha and server URL (kept there on purpose: testers read them back; `SignOutButton.details`). The confirm button has identifier `sign-out-confirm`; the UI-test helper `signOutConfirm` finds it by that identifier, or by the label "Sign out" on a button that is not the header one, never by position. `UITests/SignOutUITests.swift` checks the message.
 - Tests: `Tests/SystemAccessibilityTests.swift` (contrast → palette, description fallback); `UITests/VoiceFlowUITests.swift` asserts the description card and that no Hear/Stop button exists.
 - VoiceOver test script (Speak → Voice result with the description card): `docs/accessibility.md`.
 

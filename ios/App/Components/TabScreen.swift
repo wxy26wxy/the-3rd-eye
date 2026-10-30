@@ -30,25 +30,34 @@ struct TabScreen<Content: View>: View {
   }
 }
 
-/// Sign out, with the account and build shown in the confirmation. Accessibility
+/// Sign out, with the account and build shown in the confirmation: version, git sha and server
+/// stay there on purpose (testers read them back when reporting a problem; decision T091). Accessibility
 /// settings come from iOS (VoiceOver, Dynamic Type, Increase Contrast, dictation).
 struct SignOutButton: View {
+  /// Accessibility identifiers, so UI tests find the header button and the confirm without
+  /// relying on element order (both are labelled "Sign out").
+  static let buttonID = "sign-out"
+  static let confirmID = "sign-out-confirm"
+
   @Environment(AppState.self) private var app
   @State private var confirming = false
 
   var body: some View {
     IconButton(systemName: "rectangle.portrait.and.arrow.right", label: "Sign out", hint: "Asks before signing you out") { confirming = true }
+      .accessibilityIdentifier(Self.buttonID)
       .confirmationDialog(Text("Sign out?"), isPresented: $confirming, titleVisibility: .visible) {
         Button("Sign out", role: .destructive) { app.signOut() }
+          .accessibilityIdentifier(Self.confirmID)
         Button("Cancel", role: .cancel) {}
       } message: {
-        Text(details)
+        Text(Self.details(name: app.creator?.displayName, version: AppConfig.version, sha: AppConfig.gitSHA,
+                          server: AppConfig.siteURL.absoluteString))
       }
   }
 
-  private var details: String {
-    let (version, sha, server) = (AppConfig.version, AppConfig.gitSHA, AppConfig.siteURL.absoluteString)
-    guard let name = app.creator?.displayName else { return String(localized: "Version \(version) (\(sha)), \(server)") }
+  /// The dialog's message: who is signed in, then version, git sha and server.
+  static func details(name: String?, version: String, sha: String, server: String) -> String {
+    guard let name else { return String(localized: "Version \(version) (\(sha)), \(server)") }
     return String(localized: "Signed in as \(name). Version \(version) (\(sha)), \(server)")
   }
 }

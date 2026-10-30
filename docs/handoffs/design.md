@@ -17,7 +17,7 @@ The user's copy of the file (key `dAdjR5HFtOutFlUZi957Do`, same page and node id
 
 ## Figma intake checklist (next version)
 
-Trigger: the user says "new Figma version" (and the key, if it is a new file). Target: within one hour. Setup: Node 24 (`export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use 24`), `pnpm install --frozen-lockfile`.
+Trigger: the user says "new Figma version" (and the key, if it is a new file). Target: within one hour. Setup: Node 24 (`export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use 24`), `pnpm install --frozen-lockfile`, and `ffmpeg` on PATH for `pnpm assets` (without it the script keeps the committed MP4 and warns).
 
 Budget the Figma calls: a View seat allows very few per month; a Full seat on a paid plan allows many per day. Order calls so the most valuable come first: metadata, then `get_design_context` per changed frame (it returns asset URLs too), then `download_assets` only for what `get_design_context` did not cover. Asset URLs expire after 7 days: download with `curl -L` into a scratch folder right away.
 

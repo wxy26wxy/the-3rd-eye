@@ -78,7 +78,17 @@ function gif(name: string, file: string) {
   mkdirSync(animDir, { recursive: true });
   const from = resolve(src, file);
   const exact = ["-y", "-loglevel", "error", "-i", from, "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:v", "+bitexact"];
-  execFileSync("ffmpeg", [...exact, "-c:v", "libx264", "-threads", "1", "-movflags", "faststart", "-pix_fmt", "yuv420p", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", resolve(animDir, `${name}.mp4`)]);
+  const out = resolve(animDir, `${name}.mp4`);
+  try {
+    execFileSync("ffmpeg", [...exact, "-c:v", "libx264", "-threads", "1", "-movflags", "faststart", "-pix_fmt", "yuv420p", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", out]);
+  } catch (err) {
+    const missing = (err as NodeJS.ErrnoException).code === "ENOENT";
+    if (missing && existsSync(out)) {
+      console.warn(`ffmpeg not found; keeping the committed ${name}.mp4 (install ffmpeg to regenerate it)`);
+      return;
+    }
+    throw new Error(missing ? `ffmpeg is required to build ${name}.mp4 (brew install ffmpeg)` : String(err));
+  }
 }
 
 /** Deletes outputs of earlier runs that no current entry produces. Never touches AppIcon. */

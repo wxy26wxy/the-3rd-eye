@@ -78,7 +78,6 @@ Accessibility settings sheet, helper-mode button, "Hear what the image shows" pl
 | Date | Source | Page | Frames | Result |
 |---|---|---|---|---|
 | 2026-10-30 | Figma file key `vIOMPzc2kjP18BbgduLmc8` (T100) | `0:1` "Exploration 5 · Sky" | `21:4229`, `45:700`, `21:4340`, `21:4390`, `21:4450`, `40:488`, `21:4509`, `21:4554` (390×844; Sticker ready is 390×867) | First Figma intake; replaces the canvas. No Figma variables: tokens v2 read from node styles of `21:4229`, `45:700`, `21:4340`, `21:4509` (the seat's MCP allowance ran out before the other four, which were read from screenshots). 11 assets exported to `design/assets/`, 4 pending at the time (resolved in the next row). Off-token: `#E4F3C8`, `#5FAE57`, `#19583C`, `#C6C6C6`; Figtree on `21:4340`. Procedure and open questions: `docs/handoffs/design.md`. |
-
 | 2026-10-30 | the user's copy, key `dAdjR5HFtOutFlUZi957Do` (T100 fix round 1) | `0:1` | `21:4390`, `21:4450`, `40:488`, `21:4554` read in full | Same node ids as the original. Confirms the tokens; adds `#374151` message text and three illustration shadows (open questions in `docs/design/tokens.md`). Assets: `mascot-magnifier.gif` (the Finding fill is an animated GIF, so there is no separate `sky-1`), `sky.png`, `mascot-front.png`; icons renamed `icon-*`. Only `mascot-wave` stays pending. |
 
 Canvas history (retired): version `1793328546-ac11` (2026-10-29), 27 board files, baseline dry run.

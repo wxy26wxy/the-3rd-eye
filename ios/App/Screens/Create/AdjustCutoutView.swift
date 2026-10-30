@@ -109,6 +109,7 @@ struct AdjustCutoutView: View {
           }
           .buttonStyle(.plain)
           .disabled(work != nil)
+          .opacity(work != nil ? Theme.Opacity.disabled : 1)
           .accessibilityHint(Text("Removes every mark and the box"))
         }
         if let notice {
@@ -198,7 +199,9 @@ struct AdjustCutoutView: View {
   private func photoArea(size: ImageSize) -> some View {
     photoImage
       .aspectRatio(size.w / size.h, contentMode: .fit)
-      .frame(maxWidth: .infinity)
+      // At most `size.photoMaxHeight` tall, so the tools stay near it; the overlay below then has
+      // exactly the picture's size.
+      .frame(maxHeight: Theme.photoMaxHeight)
       // Only the picture is clipped: a mark at the edge stays whole, overhanging the frame.
       .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m))
       .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.card))
@@ -236,6 +239,7 @@ struct AdjustCutoutView: View {
       .accessibilityElement(children: .contain)
       .accessibilityLabel(Text("Your photo"))
       .accessibilityIdentifier("cutout-photo")
+      .frame(maxWidth: .infinity)
   }
 
   @ViewBuilder private var photoImage: some View {
@@ -369,11 +373,12 @@ struct AdjustCutoutView: View {
         .padding(Theme.Space.s)
     }
     .aspectRatio(size.w / size.h, contentMode: .fit)
-    .frame(maxWidth: .infinity)
+    .frame(maxHeight: Theme.photoMaxHeight)
     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m))
     .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.card))
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("cutout-applied")
+    .frame(maxWidth: .infinity)
   }
 
   // MARK: Thumbnails and mode picker
@@ -419,6 +424,7 @@ struct AdjustCutoutView: View {
       }
       .padding(.vertical, Theme.Space.xs)
     }
+    .opacity(work != nil ? Theme.Opacity.disabled : 1)
   }
 
   private var modePicker: some View {
@@ -446,6 +452,7 @@ struct AdjustCutoutView: View {
       }
     }
     .disabled(work != nil)
+    .opacity(work != nil ? Theme.Opacity.disabled : 1)
     .padding(Theme.Space.xs)
     .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt))
     .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.thin))

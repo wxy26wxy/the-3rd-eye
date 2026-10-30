@@ -4,7 +4,7 @@
 `ios/**` (except `ios/App/Theme/Tokens.swift`, generated from `design/tokens.json`).
 
 ## Current task
-T083 · My designs management (see "My designs (T083)" below). Earlier: T082 Adjust cutout screen, T081 system accessibility (see "System accessibility (T081)" and `docs/accessibility.md`), T070 deep link, T060 TestFlight, T051 fix wave, T030 SwiftUI creator app.
+T091 · polish wave from the T081/T082/T083 re-reviews (see "Polish (T091)" below). Earlier: T083 My designs management, T082 Adjust cutout screen, T081 system accessibility (see "System accessibility (T081)" and `docs/accessibility.md`), T070 deep link, T060 TestFlight, T051 fix wave, T030 SwiftUI creator app.
 
 ## Install on your iPhone (deployed site)
 1. On the Mac: `cd ios && xcodegen generate && open The3rdEye.xcodeproj` (needs Xcode and `brew install xcodegen`).
@@ -57,7 +57,7 @@ The mock also answers `POST /creators/me/story-video` (logs `audioUrl`, returns 
 Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s PCM asset), camera-permission flow, interruption handling, the story-draft sheet against the live backend, 401 from the live backend's token expiry.
 
 ## Last updated
-2026-10-30 (T083)
+2026-10-30 (T091)
 
 ## TestFlight (T060)
 - Icon: `pnpm icon` renders `ios/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` from `design/tokens.json` (no alpha, as App Store Connect requires). To use a designer-made icon, replace that PNG.
@@ -108,3 +108,11 @@ Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s 
 - Tests: `Tests/DesignsTests.swift` (badges, list decoding, `continueFrom`, delete, local updates, 422 message; T091: `ContinueRequest`, creation in progress, emptied description, approve refusals); `UITests/DesignsUITests.swift`: `testTilesShowTheirStatus`, `testOpeningADesignShowsItsActions`, `testMakeAnotherStickerAsksFirst`, `testEditListingOnADraftOpensListingDetails`, `testEditListingWithoutKnownPriceNeedsOne`, `testFailedDesignOffersRedoButNotProducts`, `testMakeStickerContinuesTheDraft`, `testDeleteRemovesTheTile`, `testEditListingSendsTheEdits`, `testRedoCutoutReturnsToTheDesign`, and from T091 `testMakeAnotherWithADraftSaysItContinuesTheDraft`, `testEmptiedDescriptionIsCleared`, `testContinueAsksBeforeReplacingACreationInProgress`, `testModerationRefusalIsExplained`, `testPrintCheckRefusalIsExplained`; plus four `AdjustCutoutUITests` (422 with/without Remove marks, Apply then revert cuts again, "Leave this piece out" only on selected pieces, Apply survives a tab switch).
 - Approve refusals (T091): 409 `print_check_failed` and `moderation_failed` from `POST /listings/{id}/approve` are shown in the app's words (`APIError.approveMessage`: "This picture won't print well yet. …", "Some words in the name or description can't go in the shop. …") in Edit listing and Listing details, because the server's message can be a technical note; other errors keep the server's message.
 - Not verified: live backend (approve with edits re-moderation, archived products), a phone, VoiceOver pass of the new screens.
+## Polish (T091)
+- My designs: the "Make another …" confirmation names a reused draft ("Continue the sticker draft"); every continue asks before replacing a creation in progress in the Create tab; Edit listing clears an emptied description with `""`; approve 409 `print_check_failed` / `moderation_failed` in the app's words. Details in "My designs (T083)".
+- Adjust cutout: marks next to marks and on piece labels (one gesture layer; labels take no taps), edge marks not clipped, box drag through a UIKit pan, Retake clears marks; the photo (and the applied cut) is at most `Tokens.Size.photoMaxHeightShare` (0.65, `size.photoMaxHeight` = 65vh) of the screen tall (`Theme.photoMaxHeight`), and the strip, mode control and Clear marks dim to `Theme.Opacity.disabled` while a request runs; `PillButton` uses the same token for its disabled state (was 0.5). Details in "Adjust cutout (T082)".
+- Sign-out: identifiers `sign-out` / `sign-out-confirm`; the dialog keeps version, git sha and server.
+- New UI tests: `AdjustCutoutUITests` `testMarksGoCloseTogetherOnALabelAndAtTheEdge`, `testDraggedBoxIsSent`, `testRemoveAreaOnASelectedPieceWithABox`, `testRetakeClearsMarks`; five in `DesignsUITests` (listed above); `SignOutUITests.testSignOutDialogShowsVersionShaAndServer`. 33 UI tests in all.
+- Not verified: a phone (box drag and dot taps by finger), VoiceOver on the new dialogs, the live backend's 409 messages. The edge-mark test cannot see visual clipping (XCUITest clips element frames to the container); the code clips only the picture.
+- `docs/api.md` "Client assumptions (T083 iOS)" item 3 still says the description is sent only when non-empty; now an emptied prefilled description is sent as `""`. That file is outside iOS ownership; please update it (backend).
+

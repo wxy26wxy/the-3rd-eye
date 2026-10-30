@@ -20,7 +20,7 @@ async function forward(req: NextRequest, ctx: RouteContext<"/create/bff/[...path
   const hasBody = req.method !== "GET" && req.method !== "HEAD";
   const upstream = await fetch(target, {
     method: req.method,
-    headers: forwardHeaders(req, token),
+    headers: forwardHeaders(req, token, target.pathname),
     body: hasBody ? await req.arrayBuffer() : undefined,
     cache: "no-store",
     redirect: "manual",

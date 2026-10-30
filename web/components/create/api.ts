@@ -26,7 +26,12 @@ export type ListingDraft = { title: string; description: string; tags: string[];
 export type AgentStep = { step: number; tool?: string; args?: unknown; result?: unknown; text?: string };
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, message: string) { super(message); }
+  /** Extra fields of the API's error object, e.g. `{ artworkId }` on `422 no_drawing_found`. */
+  constructor(public status: number, public code: string, message: string, public extra: Record<string, unknown> = {}) { super(message); }
+  /** The artwork the failed call made or worked on, when the API names one. */
+  get artworkId(): string | null {
+    return typeof this.extra.artworkId === "string" ? this.extra.artworkId : null;
+  }
 }
 
 const BASE = "/create/bff";
@@ -41,9 +46,13 @@ export async function api<T>(path: string, init: { method?: string; json?: unkno
     throw new ApiError(401, "unauthorized", "Sign in again.");
   }
   if (!res.ok) {
-    let code = "error", message = res.statusText;
-    try { const e = (await res.json()) as { error?: { code?: string; message?: string } }; code = e.error?.code ?? code; message = e.error?.message ?? message; } catch { /* not json */ }
-    throw new ApiError(res.status, code, message);
+    let code = "error", message = res.statusText, details: Record<string, unknown> = {};
+    try {
+      const e = (await res.json()) as { error?: { code?: string; message?: string } & Record<string, unknown> };
+      const { code: c, message: msg, ...rest } = e.error ?? {};
+      code = c ?? code; message = msg ?? message; details = rest;
+    } catch { /* not json */ }
+    throw new ApiError(res.status, code, message, details);
   }
   return (await res.json()) as T;
 }

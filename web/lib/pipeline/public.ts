@@ -4,12 +4,17 @@ import { getOrderIdForToken, insertMessage, tapNfcToken, touchOrder, type Messag
 import { isNfcToken, normalizeNfcToken } from "@/lib/ids";
 import { ApiError } from "@/lib/http";
 import { notifyBuyerMessage } from "@/lib/notify/polling";
-import { ai } from "@/lib/ai/registry";
+import { moderateNote } from "./notes";
 
-/** Rejects unkind or unsafe buyer-written text (422 note_rejected) before it reaches a creator. */
+/** Story-tag note: nothing to send without the note, so the outage hint is "try again in a minute". */
+export const NOTE_UNAVAILABLE = "We could not check your note just now. Please try again in a minute.";
+
+/**
+ * Rejects unkind or unsafe buyer-written text (422 note_rejected) before it reaches a creator;
+ * a moderation outage is 503 moderation_unavailable, never a 500.
+ */
 export async function checkBuyerNote(text: string, task: string, jobId?: string): Promise<void> {
-  const res = await (await ai()).moderator.checkNote(text, { trace: { stage: "moderate", task, jobId } });
-  if (!res.ok) throw new ApiError(422, "note_rejected", "Please keep your note kind and friendly, then try again.");
+  await moderateNote(text, { stage: "moderate", task, jobId }, NOTE_UNAVAILABLE);
 }
 
 export { placeOrder } from "@/lib/payments/staged";

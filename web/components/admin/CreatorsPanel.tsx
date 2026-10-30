@@ -140,7 +140,7 @@ function CodeDetails({ issued, onDone }: { issued: IssuedView; onDone: () => voi
   return (
     <>
       <div className={styles.codeBody}>
-        <QrCode value={issued.signInUrl} label={fmt(c.qrLabel, { name: issued.displayName })} className={styles.codeQr} />
+        <QrCode value={issued.qrUrl} label={fmt(c.qrLabel, { name: issued.displayName })} className={styles.codeQr} />
         <dl className={styles.dl}>
           <dt>{c.codeLabel}</dt>
           <dd><CopyButton value={issued.code} label={c.copyCode} copiedLabel={m.common.copied} /></dd>
@@ -153,6 +153,7 @@ function CodeDetails({ issued, onDone }: { issued: IssuedView; onDone: () => voi
       </div>
       <p className={styles.sub}>{c.onceNote}</p>
       <p className={styles.sub}>{c.sensitive}</p>
+      <p className={styles.sub}>{c.linkNote}</p>
       <Button variant="secondary" arrow={false} onClick={onDone}>{c.dismiss}</Button>
     </>
   );

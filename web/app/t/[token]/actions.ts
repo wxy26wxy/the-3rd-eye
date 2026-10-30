@@ -27,6 +27,7 @@ export async function sendReply(rawToken: string, _prev: NoteState, formData: Fo
     return { ok: true };
   } catch (err) {
     if ((err as { code?: string })?.code === "note_rejected") return { error: m.tag.noteRejected, value: body };
+    if ((err as { code?: string })?.code === "moderation_unavailable") return { error: m.tag.noteUnavailable, value: body };
     console.error("sendReply failed", err);
     return { error: m.tag.noteError, value: body };
   }

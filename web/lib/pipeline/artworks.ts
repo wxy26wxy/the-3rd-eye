@@ -14,6 +14,7 @@ import { alphaToMask, alphaToPng, area, bboxOf, emptyMask, finishMask, maskFromP
 import { insertArtwork, listProductsForArtwork, updateArtwork, type ArtworkRow } from "@/lib/db/queries";
 import { rebuildProductFiles } from "@/lib/pipeline/products";
 import { clientUploadPath, creatorPath, readClientUpload, storage } from "@/lib/storage";
+import { isSourceUpload } from "@/lib/storage/refs";
 import type { SamCandidate } from "@/lib/db/schema";
 import { trackArtwork } from "@/lib/deadline";
 import { ApiError } from "@/lib/http";
@@ -172,8 +173,11 @@ export async function createFromImage(
   const id = randomUUID();
   trackArtwork(id);
   const original = await storage().putPrivate(creatorPath(creatorId, "originals", "png"), png, "image/png");
-  // The private copy (EXIF dropped by the re-encode) is the original from now on; remove the public upload.
-  await storage().delete(uploadPath).catch((err) => console.warn("[artworks] could not delete the public upload:", err instanceof Error ? err.message : err));
+  // The private copy (EXIF dropped by the re-encode) is the original from now on; remove the public upload,
+  // but only when it is the creator's source-picture upload (never a thumb, mockup, video or other own file).
+  if (isSourceUpload(uploadPath, creatorId)) {
+    await storage().delete(uploadPath).catch((err) => console.warn("[artworks] could not delete the public upload:", err instanceof Error ? err.message : err));
+  }
   let artwork = await insertArtwork({
     id, creatorId, source: input.source, originalUrl: original.pathname, shapingTrace: { product: input.product, imageSize }, status: "draft", createdByTask: task,
   });

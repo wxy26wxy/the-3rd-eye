@@ -43,3 +43,20 @@ export function clientUploadPath(ref: string, creatorId: string, publicHost: str
   }
   return pathname;
 }
+
+/**
+ * Upload kinds a client uses for an artwork's source picture (`photo` from the web, `photos` from
+ * iOS, `canvas` for drawings made in the app). Only these are deleted after the private copy.
+ */
+export const SOURCE_UPLOAD_KINDS = ["photo", "photos", "canvas"] as const;
+
+/**
+ * True when `pathname` (already checked by `clientUploadPath`) is the creator's own source-picture
+ * upload, so the server may delete it once the private original is stored. Thumbs, mockups,
+ * cleaned art, avatars, story videos and thank-you media are never deleted by that step.
+ */
+export function isSourceUpload(pathname: string, creatorId: string): boolean {
+  const [root, owner, kind, file, ...rest] = pathname.split("/");
+  return root === "creators" && owner === creatorId && Boolean(file) && rest.length === 0
+    && (SOURCE_UPLOAD_KINDS as readonly string[]).includes(kind ?? "");
+}

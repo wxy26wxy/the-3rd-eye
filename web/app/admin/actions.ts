@@ -10,6 +10,7 @@ import { fmt, m } from "@/components/messages";
 import { siteOrigin } from "@/components/site/origin";
 import { safeErrorText } from "@/lib/log-safe";
 import { appCodeLink } from "@/lib/app-link";
+import { signInLinks } from "@/lib/code-links";
 
 const TASK = "T070";
 const c = m.admin.creators;
@@ -37,19 +38,27 @@ export async function setOrderStatus(_prev: StatusState, formData: FormData): Pr
 }
 
 /** A code just issued, with the links to hand over. Lives only in this response and the admin's page state. */
-export type IssuedView = { at: number; message: string; displayName: string; code: string; signInUrl: string; appUrl: string };
+export type IssuedView = {
+  at: number; message: string; displayName: string; code: string;
+  /** `/create/code#c=CODE`: the link to copy and send (the code never reaches the server or its logs). */
+  signInUrl: string;
+  /** `/create/code?c=CODE`: only inside the QR code, for scanners that drop the `#` part. */
+  qrUrl: string;
+  appUrl: string;
+};
 export type CreatorState = { error?: string; issued?: IssuedView };
 
 const isAdmin = async () => checkAdminAuth((await headers()).get("authorization")) === "ok";
 
 async function issuedView(issued: IssuedCode, template: string): Promise<IssuedView> {
-  const code = encodeURIComponent(issued.code);
+  const links = signInLinks(await siteOrigin(), issued.code);
   return {
     at: Date.now(),
     message: fmt(template, { name: issued.displayName }),
     displayName: issued.displayName,
     code: issued.code,
-    signInUrl: `${await siteOrigin()}/create/code?c=${code}`,
+    signInUrl: links.link,
+    qrUrl: links.qr,
     appUrl: appCodeLink(issued.code),
   };
 }

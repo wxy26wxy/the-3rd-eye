@@ -266,6 +266,7 @@
       "qrLabel": "QR code with the sign-in link for {name}",
       "appLink": "iPhone app link",
       "sensitive": "The link signs in as this creator. Treat it like a password and make a new code if it is shared by mistake.",
+      "linkNote": "Send the link: its code sits after the #, so it never reaches our server or its logs. The QR code uses ?c= instead, because some scanner apps drop the # part. Show the QR in person only.",
       "copyCode": "Copy code",
       "copyLink": "Copy link",
       "dismiss": "Done, hide the code",

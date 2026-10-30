@@ -4,7 +4,7 @@ const rows = [{
   id: "a1", creatorId: "c1", source: "photo", transcript: null, shapedPrompt: null, originalUrl: "o", cleanedUrl: "c", maskUrl: "m",
   cutPathSvg: "M0 0Z", altText: "A frog", spokenDescription: "A frog", differencesFromPrompt: null, genResponseId: null,
   parentArtworkId: null, status: "ready", lastError: null, createdAt: new Date(0),
-  products: [{ id: "p1", type: "sticker", status: "published", title: "Frog sticker" }],
+  products: [{ id: "p1", type: "sticker", status: "published", priceCents: 500, title: "Frog sticker", description: "A frog.", mockupUrl: "https://x/m.png" }],
 }];
 const deleted: string[] = [];
 vi.mock("@/lib/auth", () => ({ requireCreator: () => ({ creatorId: "c1" }) }));
@@ -30,7 +30,7 @@ describe("artwork routes", () => {
   it("GET /artworks carries products per artwork", async () => {
     const res = await list(req(), undefined as never);
     const body = await res.json();
-    expect(body.artworks[0].products).toEqual([{ id: "p1", type: "sticker", status: "published", title: "Frog sticker" }]);
+    expect(body.artworks[0].products).toEqual([{ id: "p1", type: "sticker", status: "published", priceCents: 500, title: "Frog sticker", description: "A frog.", mockupUrl: "https://x/m.png" }]);
     expect(body.artworks[0].id).toBe("a1");
   });
 

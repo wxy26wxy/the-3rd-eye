@@ -199,19 +199,25 @@ export async function softDeleteArtwork(id: string): Promise<void> {
 }
 
 /** A product as shown on a "My designs" tile (status badge). */
-export type ArtworkProductRow = { id: string; type: ProductType; status: ProductRow["status"]; title: string | null };
+export type ArtworkProductRow = {
+  id: string; type: ProductType; status: ProductRow["status"]; priceCents: number; mockupUrl: string | null;
+  title: string | null; description: string | null;
+};
 export type ArtworkWithProducts = ArtworkRow & { products: ArtworkProductRow[] };
 
 /** Groups joined artwork × product rows (artwork order kept, products newest first). */
 export function groupArtworkProducts(
-  rows: { artwork: ArtworkRow; product: (Omit<ArtworkProductRow, "title"> & { createdAt: Date }) | null; title: string | null }[],
+  rows: { artwork: ArtworkRow; product: (Omit<ArtworkProductRow, "title" | "description"> & { createdAt: Date }) | null; title: string | null; description: string | null }[],
 ): ArtworkWithProducts[] {
   const out = new Map<string, ArtworkWithProducts & { _times: number[] }>();
   for (const r of rows) {
     let a = out.get(r.artwork.id);
     if (!a) { a = { ...r.artwork, products: [], _times: [] }; out.set(r.artwork.id, a); }
     if (r.product && !a.products.some((p) => p.id === r.product!.id)) {
-      a.products.push({ id: r.product.id, type: r.product.type, status: r.product.status, title: r.title });
+      a.products.push({
+        id: r.product.id, type: r.product.type, status: r.product.status, priceCents: r.product.priceCents,
+        mockupUrl: r.product.mockupUrl ?? null, title: r.title, description: r.description ?? null,
+      });
       a._times.push(r.product.createdAt.getTime());
     }
   }
@@ -224,8 +230,12 @@ export function groupArtworkProducts(
 export async function listArtworksWithProducts(creatorId: string): Promise<ArtworkWithProducts[]> {
   const rows = await db().select({
     artwork: artworks,
-    product: { id: products.id, type: products.type, status: products.status, createdAt: products.createdAt },
+    product: {
+      id: products.id, type: products.type, status: products.status, priceCents: products.priceCents,
+      mockupUrl: products.mockupUrl, createdAt: products.createdAt,
+    },
     title: listings.title,
+    description: listings.description,
   }).from(artworks)
     .leftJoin(products, and(eq(products.artworkId, artworks.id), isNull(products.deletedAt)))
     .leftJoin(listings, and(eq(listings.productId, products.id), isNull(listings.deletedAt)))

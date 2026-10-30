@@ -26,7 +26,7 @@ export function toArtwork(a: ArtworkRow) {
 
 /** `GET /artworks` item: the artwork plus its products for status badges. */
 export function toArtworkListItem(a: ArtworkWithProducts) {
-  return { ...toArtwork(a), products: a.products.map(({ id, type, status, title }) => ({ id, type, status, title })) };
+  return { ...toArtwork(a), products: a.products.map(({ id, type, status, priceCents, title, description, mockupUrl }) => ({ id, type, status, priceCents, title, description, mockupUrl })) };
 }
 
 export function toArtworkVariant(a: ArtworkRow) {

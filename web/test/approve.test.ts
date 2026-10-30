@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Listing = Record<string, unknown>;
-const state: { listing: Listing | null; published: boolean; moderateCalls: unknown[]; moderateResult: { ok: boolean; reason: string } } = {
-  listing: null, published: false, moderateCalls: [], moderateResult: { ok: true, reason: "" },
+const state: { listing: Listing | null; published: boolean; moderateCalls: unknown[]; moderateResult: { ok: boolean; reason: string }; lastPatch: Listing | null } = {
+  listing: null, published: false, moderateCalls: [], moderateResult: { ok: true, reason: "" }, lastPatch: null,
 };
 vi.mock("@/lib/db/queries", () => ({
   getListing: async () => state.listing,
   upsertListing: async (v: Listing) => { state.listing = { ...state.listing, ...v }; return state.listing; },
-  updateProduct: async (_id: string, patch: Listing) => { state.published = patch.status === "published"; return { id: "p1", ...patch }; },
+  updateProduct: async (_id: string, patch: Listing) => { state.lastPatch = patch; state.published = patch.status === "published"; return { id: "p1", ...patch }; },
   getCreatorById: async () => ({ storyVideoUrl: null }),
   getArtwork: async () => null, insertProduct: async () => null, setListingDraftCopy: async () => undefined,
 }));
@@ -29,6 +29,35 @@ describe("approveListing gates", () => {
     expect(state.published).toBe(true);
     expect(out.storyVideoNeeded).toBe(true);
     expect(state.moderateCalls).toHaveLength(0);
+  });
+
+  it("a draft with no priceCents falls back to the suggestion; a published product keeps its live price", async () => {
+    await approveListing({ ...(product as object), status: "draft" } as never, { approvedVia: "tap" });
+    expect(state.lastPatch?.priceCents).toBe(550);
+    state.listing = { ...base };
+    await approveListing({ ...(product as object), status: "published", priceCents: 900 } as never, { approvedVia: "tap", edits: { title: "Frog" } });
+    expect(state.lastPatch?.priceCents).toBe(900);
+    expect(state.listing?.title).toBe("Frog");
+    expect(state.listing?.description).toBe("A frog.");
+    state.listing = { ...base };
+    await approveListing({ ...(product as object), status: "published", priceCents: 900 } as never, { approvedVia: "tap", edits: { priceCents: 1200 } });
+    expect(state.lastPatch?.priceCents).toBe(1200);
+  });
+
+  it("only priceCents on a published product skips moderation and keeps the text", async () => {
+    await approveListing({ ...(product as object), status: "published", priceCents: 900 } as never, { approvedVia: "tap", edits: { priceCents: 700 } });
+    expect(state.moderateCalls).toHaveLength(0);
+    expect(state.lastPatch?.priceCents).toBe(700);
+    expect(state.listing?.title).toBe("Frog");
+  });
+
+  it("published with a pending draft: omitted fields keep the live text and are re-moderated against it", async () => {
+    state.listing = { ...base, draftCopy: { title: "New frog", description: "New text.", tags: ["x"], priceSuggestionCents: 800, printCheck: { print_ok: true }, moderation: { ok: true, reason: "" } } };
+    await approveListing({ ...(product as object), status: "published", priceCents: 900 } as never, { approvedVia: "tap", edits: { description: "Mine." } });
+    expect(state.listing?.title).toBe("Frog");
+    expect(state.listing?.description).toBe("Mine.");
+    expect(state.lastPatch?.priceCents).toBe(900);
+    expect(state.moderateCalls).toHaveLength(1);
   });
 
   it("409 print_check_failed when the print check failed", async () => {

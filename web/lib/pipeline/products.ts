@@ -174,8 +174,11 @@ export async function approveListing(
   if (printCheck?.print_ok !== true) {
     throw new ApiError(409, "print_check_failed", printCheck?.notes || "This artwork will not print well at this size. Try a larger or clearer picture.");
   }
-  const title = input.edits?.title?.trim() || existing.title;
-  const description = input.edits?.description?.trim() ?? existing.description ?? "";
+  // With an edits object, a field not sent keeps the live text (clients send only what was typed). A plain
+  // approve (no edits) publishes the pending re-run copy. Changed text is moderated again.
+  const base = pending && input.edits && Object.values(input.edits).some((v) => v !== undefined) ? stored : existing;
+  const title = input.edits?.title?.trim() || base.title;
+  const description = input.edits?.description?.trim() ?? base.description ?? "";
   let moderation = existing.moderation as { ok?: boolean; reason?: string } | null;
   const textChanged = title !== existing.title || description !== (existing.description ?? "");
   if (textChanged || moderation?.ok === undefined) {
@@ -188,7 +191,9 @@ export async function approveListing(
     else await upsertListing({ ...stored, productId: product.id, moderation });
     throw new ApiError(409, "moderation_failed", moderation?.reason || "This listing text cannot be published. Please change it.");
   }
-  const price = input.edits?.priceCents ?? existing.priceSuggestionCents ?? product.priceCents;
+  // A published product keeps its live price unless the creator sends one; the agent's suggestion only prices a draft.
+  const price = input.edits?.priceCents
+    ?? (product.status === "published" ? product.priceCents : existing.priceSuggestionCents ?? product.priceCents);
   const listing = await upsertListing({
     ...existing, productId: product.id, title, description, moderation, draftCopy: null,
     approvedAt: new Date(), approvedVia: input.approvedVia, createdByTask: stored.createdByTask ?? task,

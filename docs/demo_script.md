@@ -28,7 +28,7 @@ Shot-by-shot script for the submission video. Narration is plain, first person p
 ### 1. The four problems (0:00-0:20)
 Shot: four cards, one per problem, each held about 4 seconds over a still of a real sticker. No voice-over reading from a script on screen; the cards carry the text.
 
-Narration (about 48 words, 19 s):
+Narration:
 "Most studios can sell an original once, locally. Artists with disabilities are employed at about half the rate of others. Buyers never meet the maker. And people who are blind cannot put their ideas on paper. The 3rd Eye answers all four."
 
 Fallback: none needed (stills).
@@ -44,8 +44,8 @@ Steps and what the viewer sees:
 5. **Voice result: VoiceOver reads the description card.** Hold this for the full sentence: "WHAT THE IMAGE SHOWS, ..." is Muse Spark 1.3's description. Cut to the card as text so deaf viewers get it too.
 6. "Say what to change", say "add a gold crown", the new picture and its new description arrive. "Use this".
 
-Narration:
-"June is blind. She describes her idea out loud. Muse Voice Transcribe writes down what she said. Muse Spark turns it into a drawing prompt, and asks one question if it needs to. Muse Image draws it. Then Muse Spark describes the picture in words, and VoiceOver reads that description to her. She can say what to change, and the picture changes. There is no Meta text-to-speech model, so the reading is done by VoiceOver on her phone."
+Narration (leave about 10 s silent for VoiceOver speech and the generation wait):
+"June is one of our example artists; she is blind. She says her idea out loud. Muse Voice Transcribe writes it down, and Muse Spark turns it into a prompt. Muse Image draws it. Muse Spark then describes the picture, and VoiceOver reads that to her."
 
 Fallback: if the live generation takes more than 40 seconds or fails, cut to `fallback-voice.mov` (the rehearsal take). If the phone microphone fails, use "Type instead" with the keyboard's dictation key and say so in the narration ("she uses dictation here"). With `AI_FIXTURES=1` on a local server the whole flow runs offline with synthetic art, but fixtures are not Meta output; do not use them for the final cut and do not narrate them as models.
 
@@ -77,7 +77,7 @@ Capture: simulator capture of the Orders tab, then the phone for the 10-second v
 
 Steps: Orders tab shows the new order (the list refreshes about every 10 seconds, there is no push notification) > Order detail > thank-you composer > record a 10-second video > send. Mention the story-draft sheet: after the story video, "Here's a story we drafted from your video" offers Use, Edit or Skip.
 
-Narration (about 48 words, 19 s):
+Narration:
 "The creator sees the order arrive and records a short thank-you; Muse Voice Transcribe adds captions. Muse Glimmer, an open-weight model on our own Mac through Ollama, drafts the artist's story from their words. The artist can use it, edit it, or skip it."
 
 Fallback: if Ollama is down, the stage uses Muse Spark 1.3 and the response says `provider: "meta-fallback"`; narrate it honestly ("Spark covers when the Mac is off"). If recording fails, use `fallback-thankyou.mov`.
@@ -99,7 +99,7 @@ Fallback: if the tag does not read, scan the QR code on `/admin` for the same or
 ### 7. What runs where (2:40-3:00)
 Capture: one card listing the models, then the vote ask over the logo.
 
-Narration (about 45 words, 18 s):
+Narration:
 "Muse Voice Transcribe 1.0 hears. Muse Spark 1.3 shapes, describes and writes the listing. Muse Image 1.0 draws. SAM 3.1 cuts. Muse Glimmer drafts stories on our own hardware. We built this from October 27 to November 4. Please vote for The 3rd Eye."
 
 Fallback: none needed.
@@ -109,4 +109,4 @@ Fallback: none needed.
 - Burn in captions for all narration.
 - Do not show a creator code, a bearer token, the admin password or `.env.local`. Blur the URL bar if a sign-in link is visible.
 - Label example creators as fictional in the end card.
-- Narration totals about 250 words; each shot is written to fit its slot at 2.5 words a second. Time a read-through before recording; none has been done yet.
+- Narration totals 276 words (counted with wc -w: 42, 46, 33, 38, 44, 29, 44); each shot is written to fit its slot at 2.5 words a second. Time a read-through before recording; none has been done yet.

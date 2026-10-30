@@ -53,3 +53,11 @@ T020 · public site, admin, and mobile-web creator flow (done on `feat/web-T01x`
 - Not on the web: a designs list with delete / continue (the web flow has none).
 - Fix round 1: navigation and controls locked while a request runs; focus to the result heading after Apply; photo URL refetched after 9 minutes or on load error. The web "unpublished" notice says "Open the product page to fix it" (iOS keeps "Open My designs"). Known limit: a "Remove area" mark is refused by bbox (the server removes the connected piece it lands on), so a mark in empty space inside a lone piece's bbox is refused although the server would keep the piece.
 - Follow-ups: tappable chips on the photo; a zero-pieces box path (needs `artworkId` on the web `ApiError`); keep the applied cut in the draft so a reload after Apply does not fall back to `select`; disabled-opacity and photo max-height tokens.
+
+## T090 fix wave (2026-10-30)
+- Select: the cut saved by Apply cutout lives in the draft (`appliedCutout`) and comes back with its choice after a reload; zero-pieces path (Photo shows "Draw a box around your drawing" after a 422 `no_drawing_found`; Select opens with no pieces in box mode, "Use the whole photo" for keyboards, sends `cleanup { box }`); numbered chips on the photo toggle the piece; "Your cutout is saved" read once (heading only); "Pick a piece…" spoken when marks become unsendable; the unpublished notice no longer points to a product page (see decisions).
+- `components/create/api.ts` `ApiError` keeps the error's extra fields (`details`, `artworkId`).
+- Sign-in: admin card link `/create/code#c=<CODE>`, QR `/create/code?c=<CODE>`; `lib/code-links.ts`; the code page (`CodeField`) fills from either and strips the code from the address bar.
+- Note forms show `moderation_unavailable` (story tag: try again in a minute; checkout: remove the note and try again).
+- Tokens `--opacity-disabled`, `--size-photo-max-height` replace the raw values in `Create.module.css`.
+- Still open: a real place on the web to fix an unpublished product (no designs page); the Select changes were not run against the live backend (they write to the shared database).

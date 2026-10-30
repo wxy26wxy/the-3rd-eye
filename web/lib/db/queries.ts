@@ -65,8 +65,10 @@ export async function listCreatorsAdmin(): Promise<AdminCreatorRow[]> {
   const rows = await db().select({
     id: creators.id, slug: creators.slug, displayName: creators.displayName, studioName: creators.studioName,
     isExample: creators.isExample, hidden: creators.hidden, createdAt: creators.createdAt,
-    publishedProducts: sql<number>`(select count(*)::int from ${products} where ${products.creatorId} = ${creators.id}
-      and ${products.status} = 'published' and ${products.deletedAt} is null)`,
+    // Written with explicit identifiers: inside a correlated subquery Drizzle renders ${creators.id} as the bare
+    // "id", which Postgres resolves to products.id and the count is always 0.
+    publishedProducts: sql<number>`(select count(*)::int from products p where p.creator_id = creators.id
+      and p.status = 'published' and p.deleted_at is null)`,
   }).from(creators).where(isNull(creators.deletedAt)).orderBy(desc(creators.createdAt));
   return rows.map((r) => ({ ...r, publishedProducts: Number(r.publishedProducts ?? 0) }));
 }

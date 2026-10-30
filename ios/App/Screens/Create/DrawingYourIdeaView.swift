@@ -16,7 +16,6 @@ struct DrawingYourIdeaView: View {
       retry: { error = nil; attempt += 1 }
     )
     .task(id: attempt) { await run() }
-    .announces(app.flow.shaped?.spokenConfirmation)
   }
 
   private func run() async {

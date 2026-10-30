@@ -5,6 +5,7 @@ enum Tokens {
   enum Brand {
     static let name = "The 3rd Eye"
     static let wordmark = "THE 3RD EYE"
+    static let scheme = "the3rdeye"
   }
   enum Palette {
     static let ground = Color(red: 0.4000, green: 0.7255, blue: 0.3725)

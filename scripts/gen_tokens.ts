@@ -1,7 +1,7 @@
 /**
  * Generates platform token files from design/tokens.json.
  *   web/app/tokens.css          CSS custom properties (default + high-contrast)
- *   web/lib/brand.ts            brand name and wordmark
+ *   web/lib/brand.ts            brand name, wordmark and app URL scheme
  *   ios/App/Theme/Tokens.swift  Swift constants + Color/Font helpers (incl. Tokens.Brand)
  * Run: pnpm tokens
  */
@@ -50,12 +50,13 @@ mkdirSync(dirname(cssOut), { recursive: true });
 writeFileSync(cssOut, css);
 
 // ---------- Brand (web) ----------
-const brand = tokens.brand as { name: string; wordmark: string };
+const brand = tokens.brand as { name: string; wordmark: string; scheme: string };
 const brandOut = resolve(root, "web/lib/brand.ts");
+mkdirSync(dirname(brandOut), { recursive: true });
 writeFileSync(
   brandOut,
   `// GENERATED from design/tokens.json — do not edit by hand. Run: pnpm tokens\n` +
-    `export const BRAND = { name: ${JSON.stringify(brand.name)}, wordmark: ${JSON.stringify(brand.wordmark)} } as const;\n`,
+    `export const BRAND = { name: ${JSON.stringify(brand.name)}, wordmark: ${JSON.stringify(brand.wordmark)}, scheme: ${JSON.stringify(brand.scheme)} } as const;\n`,
 );
 
 // ---------- Swift ----------
@@ -64,7 +65,7 @@ const hexToSwift = (hex: string) => {
   const r = parseInt(h.slice(0, 2), 16) / 255, g = parseInt(h.slice(2, 4), 16) / 255, b = parseInt(h.slice(4, 6), 16) / 255;
   return `Color(red: ${r.toFixed(4)}, green: ${g.toFixed(4)}, blue: ${b.toFixed(4)})`;
 };
-let swift = `// GENERATED from design/tokens.json — do not edit by hand. Run: pnpm tokens\nimport SwiftUI\n\nenum Tokens {\n  enum Brand {\n    static let name = ${JSON.stringify(brand.name)}\n    static let wordmark = ${JSON.stringify(brand.wordmark)}\n  }\n  enum Palette {\n`;
+let swift = `// GENERATED from design/tokens.json — do not edit by hand. Run: pnpm tokens\nimport SwiftUI\n\nenum Tokens {\n  enum Brand {\n    static let name = ${JSON.stringify(brand.name)}\n    static let wordmark = ${JSON.stringify(brand.wordmark)}\n    static let scheme = ${JSON.stringify(brand.scheme)}\n  }\n  enum Palette {\n`;
 for (const [k, v] of Object.entries<string>(tokens.color)) swift += `    static let ${k} = ${hexToSwift(v)}\n`;
 swift += `  }\n  enum Semantic {\n`;
 for (const [k, v] of Object.entries(tokens.semantic)) swift += `    static let ${k} = ${hexToSwift(deref(v) as string)}\n`;

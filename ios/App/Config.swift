@@ -12,8 +12,8 @@ enum AppConfig {
     return url
   }()
 
-  /// Site root from the `API_BASE_URL` build setting (Debug: http://localhost:3000,
-  /// Release: the deployed site). Override with `xcodebuild ... API_BASE_URL=https://...`.
+  /// Site root from the `API_BASE_URL` build setting (Debug and Release: `$(DEPLOYED_SITE_URL)`,
+  /// the deployed site). Override with `xcodebuild ... API_BASE_URL=http://localhost:3000` (or any https URL).
   static var siteURL: URL {
     siteURL(from: Bundle.main.object(forInfoDictionaryKey: "APIBaseURL") as? String)
   }

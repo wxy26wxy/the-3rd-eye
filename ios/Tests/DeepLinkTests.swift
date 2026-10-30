@@ -44,15 +44,28 @@ final class BrandIdentityTests: XCTestCase {
     XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String, Tokens.Brand.name)
   }
 
-  func testBundleIdentifier() {
-    XCTAssertEqual(Bundle.main.bundleIdentifier, "com.the3rdeye.app")
+  func testBundleIdentifier() throws {
+    // Compared with project.yml, so a developer who changes the id for personal signing keeps a green test.
+    let yml = try String(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("project.yml"), encoding: .utf8)
+    let line = try XCTUnwrap(yml.split(separator: "\n").first { $0.contains("PRODUCT_BUNDLE_IDENTIFIER:") })
+    let id = line.split(separator: ":", maxSplits: 1)[1].trimmingCharacters(in: .whitespaces)
+    XCTAssertEqual(Bundle.main.bundleIdentifier, id)
+  }
+
+  func testPermissionTextsNameTheBrand() {
+    let keys = ["NSCameraUsageDescription", "NSMicrophoneUsageDescription", "NSPhotoLibraryUsageDescription"]
+    for key in keys {
+      let text = Bundle.main.object(forInfoDictionaryKey: key) as? String ?? ""
+      XCTAssertTrue(text.hasPrefix(Tokens.Brand.name + " "), "\(key): \(text)")
+    }
   }
 
   func testRegisteredSchemeIsTheOneDeepLinkParses() throws {
     let types = try XCTUnwrap(Bundle.main.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]])
     let schemes = types.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }
     XCTAssertEqual(schemes, [DeepLink.scheme])
-    XCTAssertEqual(DeepLink.scheme, "the3rdeye")
+    XCTAssertEqual(DeepLink.scheme, Tokens.Brand.scheme)
+    XCTAssertEqual(Tokens.Brand.scheme, "the3rdeye")
   }
 
   func testDeployedSiteComesFromTheBuildSetting() {

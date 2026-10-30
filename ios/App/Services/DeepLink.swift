@@ -5,7 +5,7 @@ import Foundation
 enum DeepLink: Equatable {
   case code(String)
 
-  static let scheme = "the3rdeye"
+  static let scheme = Tokens.Brand.scheme
 
   static func parse(_ url: URL) -> DeepLink? {
     guard url.scheme?.lowercased() == scheme, url.host?.lowercased() == "code" else { return nil }

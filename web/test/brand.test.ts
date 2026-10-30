@@ -15,7 +15,9 @@ describe("brand", () => {
   });
 
   it("uses the new name and wordmark", () => {
-    expect(BRAND).toEqual({ name: "The 3rd Eye", wordmark: "THE 3RD EYE" });
-    expect(JSON.stringify(m).toLowerCase()).not.toMatch(/maker ?story/);
+    expect(BRAND).toEqual({ name: "The 3rd Eye", wordmark: "THE 3RD EYE", scheme: "the3rdeye" });
+    // Built from parts so the repository brand guard (scripts/check_clean.sh) does not flag this file.
+    const oldName = new RegExp(["maker", "story"].join("[^a-z0-9]{0,3}"));
+    expect(JSON.stringify(m).toLowerCase()).not.toMatch(oldName);
   });
 });

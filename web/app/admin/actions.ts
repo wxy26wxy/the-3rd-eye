@@ -9,6 +9,7 @@ import { checkAdminAuth } from "@/lib/admin-auth";
 import { fmt, m } from "@/components/messages";
 import { siteOrigin } from "@/components/site/origin";
 import { safeErrorText } from "@/lib/log-safe";
+import { appCodeLink } from "@/lib/app-link";
 
 const TASK = "T070";
 const c = m.admin.creators;
@@ -49,7 +50,7 @@ async function issuedView(issued: IssuedCode, template: string): Promise<IssuedV
     displayName: issued.displayName,
     code: issued.code,
     signInUrl: `${await siteOrigin()}/create/code?c=${code}`,
-    appUrl: `the3rdeye://code/${code}`,
+    appUrl: appCodeLink(issued.code),
   };
 }
 

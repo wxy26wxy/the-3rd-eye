@@ -97,6 +97,11 @@ enum Tokens {
     static let minTarget: CGFloat = 44
     static let avatar: CGFloat = 40
     static let methodIcon: CGFloat = 56
+    /// Share of the screen height (65vh on the web).
+    static let photoMaxHeight: CGFloat = 0.65
+  }
+  enum Opacity {
+    static let disabled: Double = 0.6
   }
   enum Shadow {
     static let hard = (x: CGFloat(0), y: CGFloat(4), color: Color(red: 0.1176, green: 0.2275, blue: 0.1412))

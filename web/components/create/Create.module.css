@@ -104,7 +104,7 @@
 /* The frame carries the border so the photo box inside has exactly the photo's aspect ratio
    (until max-height clamps it: then the stage is letterboxed left and right). */
 .cutFrame { overflow: hidden; background: var(--surface-alt); border: var(--border-card) solid var(--border); border-radius: var(--radius-m); }
-.cutPhoto { position: relative; width: 100%; max-height: 65vh; }
+.cutPhoto { position: relative; width: 100%; max-height: var(--size-photo-max-height); }
 .cutStage { position: absolute; top: 0; left: 50%; transform: translateX(-50%); height: 100%; max-width: 100%; }
 .cutImg { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; }
 .outline {
@@ -113,14 +113,19 @@
   box-shadow: 0 0 0 var(--border-thin) var(--border);
 }
 .outlineOn { border-style: solid; border-color: var(--selected); background: color-mix(in srgb, var(--selected) 30%, transparent); }
+.chipHit {
+  position: absolute; pointer-events: auto; cursor: pointer;
+  display: grid; place-items: start; min-width: var(--size-min-target); min-height: var(--size-min-target);
+  padding: var(--space-xs);
+}
+.chipOff { cursor: default; }
 .chip {
-  position: absolute; top: var(--space-xs); left: var(--space-xs);
   display: inline-grid; place-items: center; min-width: var(--space-xl); padding: 0 var(--space-xs);
   border-radius: var(--radius-pill); border: var(--border-thin) solid var(--border);
   background: var(--surface); color: var(--text);
   font-size: var(--type-caption-size); font-weight: var(--type-title-m-weight); white-space: nowrap;
 }
-.outlineOn .chip { background: var(--primary); color: var(--primary-text); }
+.chipOn .chip { background: var(--primary); color: var(--primary-text); }
 .drawnBox { position: absolute; pointer-events: none; border: var(--border-card) dashed var(--primary); box-shadow: 0 0 0 var(--border-thin) var(--surface); }
 .tapLayer { position: absolute; inset: 0; cursor: crosshair; }
 .tapLayerBox { touch-action: none; }
@@ -138,7 +143,7 @@
 .markAdd .markDot { background: var(--accent); color: var(--accent-ink); }
 .markRemove .markDot { background: var(--surface); color: var(--danger); border-color: var(--danger); }
 .checker {
-  position: relative; width: 100%; max-height: 65vh; overflow: hidden;
+  position: relative; width: 100%; max-height: var(--size-photo-max-height); overflow: hidden;
   border: var(--border-card) solid var(--border); border-radius: var(--radius-m);
   background: repeating-conic-gradient(var(--surface-alt) 0 25%, var(--surface) 0 50%) 0 0 / var(--space-xl) var(--space-xl);
 }
@@ -155,7 +160,7 @@
 }
 .mode:has(input:checked) { background: var(--primary); color: var(--primary-text); }
 .mode:has(input:focus-visible) { outline: var(--border-card) solid var(--focus-ring); outline-offset: var(--border-thin); }
-.modes:disabled .mode { cursor: default; opacity: 0.6; }
+.modes:disabled .mode { cursor: default; opacity: var(--opacity-disabled); }
 .instruction { font-size: var(--type-body-s-size); line-height: var(--type-body-s-lh); color: var(--text-muted); text-align: center; }
 .tickBox { border-radius: var(--radius-s); display: grid; place-items: center; color: var(--surface-alt); font-size: var(--type-caption-size); }
 .pick:has(input:checked) .tickBox::after { content: "✓"; }
@@ -167,7 +172,7 @@
   background: var(--surface); color: var(--text); font-size: var(--type-caption-size); font-weight: var(--type-title-m-weight);
   cursor: pointer;
 }
-.pieceAction:disabled { cursor: default; opacity: 0.6; }
+.pieceAction:disabled { cursor: default; opacity: var(--opacity-disabled); }
 .textButton {
   justify-self: center; min-height: var(--size-min-target); min-width: var(--size-min-target); padding: 0 var(--space-s);
   background: none; border: 0; color: var(--text); text-decoration: underline; font-size: var(--type-body-size); cursor: pointer;

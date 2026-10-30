@@ -18,13 +18,16 @@ function pct(v: number) { return `${v}%`; }
 
 /**
  * The photo with the pieces outlined (numbered, solid when chosen), the + / − marks and the box.
- * Taps add marks; in box mode a drag draws the box. Pointer only: the same actions are real
- * buttons under each piece (Select), so the tap layer is hidden from assistive tech. Marks are
- * buttons (44 px targets) that delete themselves.
+ * Taps add marks; in box mode a drag draws the box; a tap on a piece's number chooses or drops
+ * that piece (same as its checkbox). Pointer only: the same actions are real controls under
+ * each piece (Select), so the tap layer and the number chips are hidden from assistive tech.
+ * Marks are buttons (44 px targets) that delete themselves.
  */
-export function CutoutPhoto({ src, image, candidates, selectedIds, points, box, mode, disabled, onTap, onBox, onRemoveMark, onImageError }: {
+export function CutoutPhoto({ src, image, candidates, selectedIds, points, box, mode, disabled, onTap, onBox, onRemoveMark, onToggle, onImageError }: {
   src: string; image: ImageSize; candidates: Candidate[]; selectedIds: string[]; points: CutoutPoint[]; box: Box | null;
   mode: TapMode; disabled: boolean; onTap: (p: XY) => void; onBox: (b: Box) => void; onRemoveMark: (index: number) => void;
+  /** A tap on a piece's number: toggles that piece, like its checkbox. */
+  onToggle?: (id: string) => void;
   /** The presigned photo URL expired or failed: the screen fetches a fresh one. */
   onImageError?: () => void;
 }) {
@@ -64,15 +67,13 @@ export function CutoutPhoto({ src, image, candidates, selectedIds, points, box, 
         <div className={styles.cutStage} style={{ aspectRatio: `${image.w} / ${image.h}` }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={src} alt="" className={styles.cutImg} draggable={false} onError={onImageError} />
-          {candidates.map((c, i) => {
+          {candidates.map((c) => {
             const r = percentRect(c.bbox, image);
             if (!r) return null;
             const on = selectedIds.includes(c.id);
             return (
               <span key={c.id} aria-hidden="true" className={[styles.outline, on ? styles.outlineOn : ""].join(" ")}
-                style={{ left: pct(r.left), top: pct(r.top), width: pct(r.width), height: pct(r.height) }}>
-                <span className={styles.chip}>{on ? "✓ " : ""}{i + 1}</span>
-              </span>
+                style={{ left: pct(r.left), top: pct(r.top), width: pct(r.width), height: pct(r.height) }} />
             );
           })}
           {boxRect ? (
@@ -96,6 +97,19 @@ export function CutoutPhoto({ src, image, candidates, selectedIds, points, box, 
           }} />
         ) : null}
         <div className={[styles.cutStage, styles.markLayer].join(" ")} style={{ aspectRatio: `${image.w} / ${image.h}` }}>
+          {candidates.map((c, i) => {
+            const r = percentRect(c.bbox, image);
+            if (!r) return null;
+            const on = selectedIds.includes(c.id);
+            // Above the tap layer, so a tap on the number never also drops a mark (44 px hit area).
+            return (
+              <span key={c.id} aria-hidden="true" className={[styles.chipHit, on ? styles.chipOn : "", disabled ? styles.chipOff : ""].join(" ")}
+                style={{ left: pct(r.left), top: pct(r.top) }}
+                onClick={(e) => { e.stopPropagation(); if (!disabled) onToggle?.(c.id); }}>
+                <span className={styles.chip}>{on ? "✓ " : ""}{i + 1}</span>
+              </span>
+            );
+          })}
           {points.map((pt, i) => {
             const positive = pt.label === "positive";
             return (

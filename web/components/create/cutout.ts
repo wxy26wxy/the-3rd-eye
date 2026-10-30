@@ -136,3 +136,35 @@ export function needsTrimAdvice(err: unknown, sent: CleanupRequest | null | unde
 
 /** How long the presigned `originalUrl` is trusted before it is fetched again (it lives 10 minutes). */
 export const ORIGINAL_URL_TTL_MS = 9 * 60 * 1000;
+
+/** The last cut saved by "Apply cutout", kept in the draft so a reload keeps it (and "Use this" does not cut again). */
+export type AppliedCutout = { artworkId: string; request: CleanupRequest; cleanedUrl: string | null; altText: string | null };
+export type Choice = { selectedIds: string[]; points: CutoutPoint[]; box: Box | null };
+
+/**
+ * The creator's choice after a reload: the saved cut's request when it belongs to this artwork
+ * and names only pieces that still exist; otherwise the first piece (none when SAM found none).
+ */
+export function initialChoice(saved: AppliedCutout | null | undefined, artworkId: string, pieces: readonly { id: string }[]): Choice & { restored: boolean } {
+  const known = new Set(pieces.map((p) => p.id));
+  const ids = saved?.request.candidateIds ?? [];
+  if (saved && saved.artworkId === artworkId && ids.every((id) => known.has(id))) {
+    return { selectedIds: [...ids], points: (saved.request.points ?? []).map((p) => ({ ...p })), box: saved.request.box ? ([...saved.request.box] as Box) : null, restored: true };
+  }
+  return { selectedIds: pieces[0] ? [pieces[0].id] : [], points: [], box: null, restored: false };
+}
+
+/**
+ * `POST /artworks` (photo) answered 422 `no_drawing_found` but kept the artwork: its id, so the
+ * creator can draw a box around the drawing on that photo instead of retaking it. Else null.
+ */
+export function boxRescueArtworkId(err: unknown): string | null {
+  if (typeof err !== "object" || err === null) return null;
+  const e = err as { status?: unknown; code?: unknown; details?: { artworkId?: unknown } };
+  return e.status === 422 && e.code === "no_drawing_found" && typeof e.details?.artworkId === "string" && e.details.artworkId ? e.details.artworkId : null;
+}
+
+/** "Use the whole photo": a box over the entire image (keyboard alternative to dragging one). */
+export function wholeImageBox(image: ImageSize | null | undefined): Box | null {
+  return usableSize(image) ? [0, 0, image.w, image.h] : null;
+}

@@ -160,8 +160,8 @@ export function initialChoice(saved: AppliedCutout | null | undefined, artworkId
  */
 export function boxRescueArtworkId(err: unknown): string | null {
   if (typeof err !== "object" || err === null) return null;
-  const e = err as { status?: unknown; code?: unknown; details?: { artworkId?: unknown } };
-  return e.status === 422 && e.code === "no_drawing_found" && typeof e.details?.artworkId === "string" && e.details.artworkId ? e.details.artworkId : null;
+  const e = err as { status?: unknown; code?: unknown; extra?: { artworkId?: unknown } };
+  return e.status === 422 && e.code === "no_drawing_found" && typeof e.extra?.artworkId === "string" && e.extra.artworkId ? e.extra.artworkId : null;
 }
 
 /** "Use the whole photo": a box over the entire image (keyboard alternative to dragging one). */

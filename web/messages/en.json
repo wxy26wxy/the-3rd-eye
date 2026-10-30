@@ -418,7 +418,7 @@
       "backToPhoto": "Back to photo",
       "cutoutAlt": "Your cutout",
       "failedProducts": "Your cutout is saved. One product could not be rebuilt; try again later.",
-      "unpublishedProducts": "One product went back to draft because the new cutout is too small to print, so it is out of the shop for now. A bigger or clearer cutout lets you publish it again.",
+      "unpublishedProducts": "One product went back to draft because the new cutout is too small to print, so it is out of the shop for now. After a bigger or clearer cutout, publish it again from My designs in the iPhone app.",
       "retake": "Retake",
       "use": "Use this"
     },

@@ -61,3 +61,4 @@ T020 · public site, admin, and mobile-web creator flow (done on `feat/web-T01x`
 - Note forms show `moderation_unavailable` (story tag: try again in a minute; checkout: remove the note and try again).
 - Tokens `--opacity-disabled`, `--size-photo-max-height` replace the raw values in `Create.module.css`.
 - Still open: a real place on the web to fix an unpublished product (no designs page); the Select changes were not run against the live backend (they write to the shared database).
+- T090 fix round 1: chips let the pointer through in box mode; unpublished notice points to My designs in the iPhone app; web `ApiError.extra` (was `details`); Swift token is `Tokens.Size.photoMaxHeightShare`. Deferred: a component or stubbed-BFF browser test of Select (zero pieces, rescue button, chip toggle, single announcement), before v0.6.

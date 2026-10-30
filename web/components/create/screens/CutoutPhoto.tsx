@@ -101,9 +101,10 @@ export function CutoutPhoto({ src, image, candidates, selectedIds, points, box, 
             const r = percentRect(c.bbox, image);
             if (!r) return null;
             const on = selectedIds.includes(c.id);
-            // Above the tap layer, so a tap on the number never also drops a mark (44 px hit area).
+            // Above the tap layer, so a tap on the number never also drops a mark (44 px hit area). In box
+            // mode the chips let the pointer through, so a drag can start at the drawing's corner.
             return (
-              <span key={c.id} aria-hidden="true" className={[styles.chipHit, on ? styles.chipOn : "", disabled ? styles.chipOff : ""].join(" ")}
+              <span key={c.id} aria-hidden="true" className={[styles.chipHit, on ? styles.chipOn : "", disabled ? styles.chipOff : "", mode === "box" ? styles.chipPass : ""].join(" ")}
                 style={{ left: pct(r.left), top: pct(r.top) }}
                 onClick={(e) => { e.stopPropagation(); if (!disabled) onToggle?.(c.id); }}>
                 <span className={styles.chip}>{on ? "✓ " : ""}{i + 1}</span>

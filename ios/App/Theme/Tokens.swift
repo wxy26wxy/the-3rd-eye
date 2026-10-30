@@ -97,8 +97,8 @@ enum Tokens {
     static let minTarget: CGFloat = 44
     static let avatar: CGFloat = 40
     static let methodIcon: CGFloat = 56
-    /// Share of the screen height (65vh on the web).
-    static let photoMaxHeight: CGFloat = 0.65
+    /// Share of the screen height, not points (65vh on the web).
+    static let photoMaxHeightShare: CGFloat = 0.65
   }
   enum Opacity {
     static let disabled: Double = 0.6

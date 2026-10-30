@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Listing = Record<string, unknown>;
-const state: { listing: Listing | null; published: boolean; moderateCalls: unknown[]; moderateResult: { ok: boolean; reason: string }; lastPatch: Listing | null } = {
-  listing: null, published: false, moderateCalls: [], moderateResult: { ok: true, reason: "" }, lastPatch: null,
+const state: { listing: Listing | null; published: boolean; moderateCalls: unknown[]; moderateResult: { ok: boolean; reason: string }; lastPatch: Listing | null; upserts: number; draftWrites: number } = {
+  listing: null, published: false, moderateCalls: [], moderateResult: { ok: true, reason: "" }, lastPatch: null, upserts: 0, draftWrites: 0,
 };
 vi.mock("@/lib/db/queries", () => ({
   getListing: async () => state.listing,
-  upsertListing: async (v: Listing) => { state.listing = { ...state.listing, ...v }; return state.listing; },
+  upsertListing: async (v: Listing) => { state.upserts++; state.listing = { ...state.listing, ...v }; return state.listing; },
   updateProduct: async (_id: string, patch: Listing) => { state.lastPatch = patch; state.published = patch.status === "published"; return { id: "p1", ...patch }; },
   getCreatorById: async () => ({ storyVideoUrl: null }),
-  getArtwork: async () => null, insertProduct: async () => null, setListingDraftCopy: async () => undefined,
+  getArtwork: async () => null, insertProduct: async () => null, setListingDraftCopy: async () => { state.draftWrites++; },
 }));
 vi.mock("@/lib/ai/registry", () => ({
   ai: async () => ({ listingAgent: { moderate: async (text: unknown) => { state.moderateCalls.push(text); return state.moderateResult; } } }),
@@ -89,6 +89,20 @@ describe("approveListing gates", () => {
     expect(state.listing?.printCheck).toEqual({ print_ok: true, notes: "pending check" });
     expect(state.listing?.agentTrace).toEqual([{ step: 1, tool: "pending" }]);
     expect(state.moderateCalls).toHaveLength(0);
+  });
+
+  it("published with a pending draft: edited text failing moderation → 409 and nothing is saved", async () => {
+    const pendingCopy = { title: "New frog", description: "New text.", tags: ["x"], priceSuggestionCents: 800, printCheck: { print_ok: true }, moderation: { ok: true, reason: "" } };
+    state.listing = { ...base, draftCopy: pendingCopy };
+    state.moderateResult = { ok: false, reason: "Not allowed" };
+    state.upserts = 0; state.draftWrites = 0;
+    await expect(approveListing({ ...(product as object), status: "published", priceCents: 900 } as never, { approvedVia: "tap", edits: { title: "bad" } }))
+      .rejects.toMatchObject({ status: 409, code: "moderation_failed" });
+    expect(state.upserts).toBe(0);
+    expect(state.draftWrites).toBe(0);
+    expect(state.listing?.draftCopy).toEqual(pendingCopy);
+    expect(state.listing?.moderation).toEqual({ ok: true, reason: "" });
+    expect(state.published).toBe(false);
   });
 
   it("409 print_check_failed when the print check failed", async () => {

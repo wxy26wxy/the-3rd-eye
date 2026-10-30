@@ -27,10 +27,10 @@ export type AgentStep = { step: number; tool?: string; args?: unknown; result?: 
 
 export class ApiError extends Error {
   /** Extra fields of the API's error object, e.g. `{ artworkId }` on `422 no_drawing_found`. */
-  constructor(public status: number, public code: string, message: string, public details: Record<string, unknown> = {}) { super(message); }
+  constructor(public status: number, public code: string, message: string, public extra: Record<string, unknown> = {}) { super(message); }
   /** The artwork the failed call made or worked on, when the API names one. */
   get artworkId(): string | null {
-    return typeof this.details.artworkId === "string" ? this.details.artworkId : null;
+    return typeof this.extra.artworkId === "string" ? this.extra.artworkId : null;
   }
 }
 

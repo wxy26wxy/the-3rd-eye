@@ -85,8 +85,8 @@ for (const [k, v] of Object.entries(tokens.border)) swift += `    static let ${k
 swift += `  }\n  enum Size {\n`;
 for (const [k, v] of Object.entries(tokens.size)) {
   const vh = typeof v === "string" ? v.match(/^([\d.]+)vh$/) : null;
-  // A viewport-height size becomes a share of the screen height (65vh → 0.65).
-  if (vh) swift += `    /// Share of the screen height (${v} on the web).\n    static let ${k}: CGFloat = ${Number(vh[1]) / 100}\n`;
+  // A viewport-height size becomes a share of the screen height named `<key>Share` (65vh → photoMaxHeightShare = 0.65).
+  if (vh) swift += `    /// Share of the screen height, not points (${v} on the web).\n    static let ${k}Share: CGFloat = ${Number(vh[1]) / 100}\n`;
   else swift += `    static let ${k}: CGFloat = ${v}\n`;
 }
 swift += `  }\n  enum Opacity {\n`;

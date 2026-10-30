@@ -119,6 +119,7 @@
   padding: var(--space-xs);
 }
 .chipOff { cursor: default; }
+.chipPass { pointer-events: none; }
 .chip {
   display: inline-grid; place-items: center; min-width: var(--space-xl); padding: 0 var(--space-xs);
   border-radius: var(--radius-pill); border: var(--border-thin) solid var(--border);

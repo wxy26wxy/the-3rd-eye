@@ -22,8 +22,15 @@ import { loadImageRef, pngRef } from "@/lib/image/ref";
 import { area, bboxOf, emptyMask, maskFromPng, maskSharp, thresholdSegments, type BBox } from "@/lib/image/mask";
 
 const SAM_MAX_SIDE = 2048;
-/** Phrases a photo is searched with (one SAM call each, in parallel): drawings on paper and physical crafts or toys. */
-export const SAM_PHRASES = ["drawing", "object"] as const;
+/**
+ * Phrases a photo is searched with (one SAM call each, in parallel): drawings on paper and
+ * physical crafts, toys and things. Live check 2026-10-29: "object" alone found nothing on a photo
+ * of a knitted bear on a wooden table (nor did "item" or "thing"), while "handmade object" found
+ * the bear (0.91) and both a wallet and a clay figure on a desk (0.81 / 0.75). See docs/decisions.md.
+ */
+export const SAM_PHRASES = ["drawing", "handmade object"] as const;
+/** SAM results scoring under this are dropped, unless nothing scores higher. */
+export const MIN_CANDIDATE_SCORE = 0.1;
 /** Two results overlapping more than this are the same thing; the higher score is kept. */
 export const DEDUPE_IOU = 0.8;
 /** Results covering more than this share of the frame are the background (paper, table) and are dropped. */
@@ -189,7 +196,8 @@ export class MetaSegmenter implements Segmenter {
       if (r.status === "fulfilled") all.push(...r.value);
       else console.warn(`[sam] findCandidates "${SAM_PHRASES[i]}" failed:`, r.reason instanceof Error ? r.reason.message : r.reason);
     });
-    const segs = dedupeSegments(all, { max: opts.max });
+    const confident = all.filter((s) => s.score >= MIN_CANDIDATE_SCORE);
+    const segs = dedupeSegments(confident.length ? confident : all, { max: opts.max });
     return segs.length ? segs : dedupeSegments(await this.fallback(prep), { max: opts.max });
   }
 

@@ -54,7 +54,7 @@ describe("SAM object prompts (live recordings)", () => {
   });
 
   it("findCandidates survives one phrase failing", async () => {
-    const sam = new MetaSegmenter(async (body) => { if (textOf(body) === "object") throw new Error("boom"); return replay(pointEvents); });
+    const sam = new MetaSegmenter(async (body) => { if (textOf(body) === SAM_PHRASES[1]) throw new Error("boom"); return replay(pointEvents); });
     expect(await sam.findCandidates(pngRef(await scene()), trace)).toHaveLength(1);
   });
 

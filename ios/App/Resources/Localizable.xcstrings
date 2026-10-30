@@ -35,7 +35,13 @@
     "A happy frog wearing a crown" : {
 
     },
+    "A second product gets its own listing. To change the one in the shop, use Edit listing." : {
+
+    },
     "Add a name and a price first, or tap Improve with AI." : {
+
+    },
+    "Add a name and a price to list it, or tap Improve with AI." : {
 
     },
     "Add a name first." : {
@@ -176,6 +182,9 @@
     "Deletes this mark" : {
 
     },
+    "Deleting…" : {
+
+    },
     "Describe it, we draw it" : {
 
     },
@@ -233,10 +242,13 @@
     "Edit the tote listing" : {
 
     },
-    "Enter a price like 5.00, or leave it empty." : {
+    "Enter a price between $1.00 and $1,000.00, like 5.00." : {
 
     },
     "Finding your drawings" : {
+
+    },
+    "Finish the listing and put it in the shop" : {
 
     },
     "Go back" : {
@@ -298,6 +310,9 @@
 
     },
     "It's saved in My designs." : {
+
+    },
+    "Keep the name to 80 letters or fewer." : {
 
     },
     "Keeps the design and goes to My designs" : {
@@ -364,6 +379,12 @@
 
     },
     "Make another" : {
+
+    },
+    "Make another sticker" : {
+
+    },
+    "Make another tote" : {
 
     },
     "Make the change" : {
@@ -459,7 +480,7 @@
     "Opens the camera for up to 30 seconds" : {
 
     },
-    "Opens the design. Long press for more." : {
+    "Opens the design. More actions are in the actions list." : {
 
     },
     "Opens the order" : {
@@ -556,9 +577,6 @@
 
     },
     "Retake" : {
-
-    },
-    "Save and list it" : {
 
     },
     "Save changes" : {
@@ -720,7 +738,7 @@
     "Sticker" : {
 
     },
-    "Still cutting it out. Come back in a minute." : {
+    "Still cutting it out. If it stays like this, tap Re-do the cutout." : {
 
     },
     "Still working. This can take a few minutes, so please keep the app open." : {
@@ -802,6 +820,12 @@
 
     },
     "This one didn't work. Re-do the cutout, or delete it." : {
+
+    },
+    "This sticker is already in the shop" : {
+
+    },
+    "This tote is already in the shop" : {
 
     },
     "This video has no sound, so it won't have captions." : {
@@ -938,6 +962,12 @@
 
     },
     "Yes, list it!" : {
+
+    },
+    "You already have this sticker in the shop" : {
+
+    },
+    "You already have this tote in the shop" : {
 
     },
     "You can add up to 10 marks. Tap a mark to remove it." : {

@@ -37,13 +37,16 @@ final class DesignsTests: XCTestCase {
     let json = """
     {"artworks":[{"id":"d1","creatorId":"c1","source":"photo","cleanedUrl":null,"status":"draft","lastError":"boom",
       "createdAt":"2026-10-29T09:00:00.000Z",
-      "products":[{"id":"p1","type":"sticker","status":"published","title":"Bird"},{"id":"p2","type":"tote","status":"draft","title":null}]}]}
+      "products":[{"id":"p1","type":"sticker","status":"published","title":"Bird","priceCents":800,"description":"A bird.","mockupUrl":"https://blob.example/m.png"},{"id":"p2","type":"tote","status":"draft","title":null}]}]}
     """
     let res = try JSONDecoder().decode(ArtworksResponse.self, from: Data(json.utf8))
     let item = try XCTUnwrap(res.artworks.first)
     XCTAssertEqual(item.lastError, "boom")
     XCTAssertEqual(item.products?.map(\.id), ["p1", "p2"])
     XCTAssertTrue(item.products?[0].isPublished == true)
+    XCTAssertEqual(item.products?[0].priceCents, 800)
+    XCTAssertEqual(item.products?[0].description, "A bird.")
+    XCTAssertNil(item.products?[1].priceCents, "older servers send no price")
     XCTAssertTrue(item.products?[0].hasListing == true)
     XCTAssertFalse(item.products?[1].hasListing == true)
     XCTAssertEqual(DesignBadge.of(item), .inShop)
@@ -72,12 +75,21 @@ final class DesignsTests: XCTestCase {
 
   func testContinueFromReusesDraftOfThatType() {
     let app = AppState(api: APIClient(baseURL: base, transport: StubTransport(body: "{}"), token: "t"))
-    let design = artwork(products: [product("p-sticker", .sticker, "published"), product("p-tote", .tote, "draft", title: "Bird Tote")])
+    var draft = product("p-tote", .tote, "draft", title: "Bird Tote")
+    draft.priceCents = 1800
+    draft.description = "A bird on a tote."
+    draft.mockupUrl = "https://blob.example/tote.png"
+    let design = artwork(products: [product("p-sticker", .sticker, "published"), draft])
+    XCTAssertTrue(design.hasPublished(.sticker))
+    XCTAssertFalse(design.hasPublished(.tote))
 
     app.continueFrom(artwork: design, productType: .tote)
     XCTAssertEqual(app.flow.product?.id, "p-tote")
     XCTAssertEqual(app.flow.product?.type, .tote)
+    XCTAssertEqual(app.flow.product?.priceCents, 1800, "Listing details starts from the draft's price")
+    XCTAssertEqual(app.flow.product?.mockupUrl, "https://blob.example/tote.png")
     XCTAssertEqual(app.flow.productTitle, "Bird Tote")
+    XCTAssertEqual(app.flow.productDescription, "A bird on a tote.")
 
     app.continueFrom(artwork: design, productType: .sticker)
     XCTAssertNil(app.flow.product, "a published sticker is not reused; a new one is made")
@@ -107,7 +119,7 @@ final class DesignsTests: XCTestCase {
     let stub = StubTransport(body: "{}")
     stub.queue = [
       (200, #"{"artworks":[{"id":"d1","products":[]}]}"#),
-      (404, #"{"error":{"code":"not_found","message":"Not found"}}"#),
+      (500, #"{"error":{"code":"internal","message":"Server error"}}"#),
     ]
     let store = DesignsStore(api: APIClient(baseURL: base, transport: stub, token: "t"))
     await store.load()
@@ -117,6 +129,18 @@ final class DesignsTests: XCTestCase {
     } catch {
       XCTAssertEqual(store.artworks.map(\.id), ["d1"])
     }
+  }
+
+  func testDeleteOfAnAlreadyDeletedDesignRemovesTheTile() async throws {
+    let stub = StubTransport(body: "{}")
+    stub.queue = [
+      (200, #"{"artworks":[{"id":"d1","products":[]}]}"#),
+      (404, #"{"error":{"code":"not_found","message":"Not found"}}"#),
+    ]
+    let store = DesignsStore(api: APIClient(baseURL: base, transport: stub, token: "t"))
+    await store.load()
+    try await store.delete(id: "d1")
+    XCTAssertTrue(store.artworks.isEmpty, "a 404 means it is already gone")
   }
 
   func testListingSavedAndReplaceKeepProducts() async {

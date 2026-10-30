@@ -193,6 +193,44 @@ final class AdjustCutoutUITests: XCTestCase {
     XCTAssertEqual(point["y"] as? Double, 426.5)
   }
 
+  /// "Leave this piece out" is offered only for a piece that is in the cutout (T082 R4); the
+  /// context menu mirrors the VoiceOver actions, which XCUITest cannot list.
+  func testLeaveOutOnlyOnSelectedPieces() {
+    let app = launchPhotoFlow(code: "TEST-CODE")
+    let piece = app.buttons["Piece 1"]
+    XCTAssertTrue(piece.waitForExistence(timeout: 20))
+    XCTAssertFalse(piece.isSelected)
+    piece.press(forDuration: 1.2)
+    XCTAssertTrue(app.buttons["Box around this piece"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["Leave this piece out"].exists, "not offered for an unselected piece")
+    app.buttons["Add the area around this piece"].tap()
+    piece.tap()
+    XCTAssertTrue(app.buttons["Piece 1"].isSelected)
+    piece.press(forDuration: 1.2)
+    let leaveOut = app.buttons["Leave this piece out"]
+    XCTAssertTrue(leaveOut.waitForExistence(timeout: 5), "offered once selected")
+    leaveOut.tap()
+    XCTAssertFalse(app.buttons["Piece 1"].isSelected, "and it leaves the piece out")
+  }
+
+  /// Switching tabs while Apply runs does not lose the cut the server saves (T082 R2): the mock
+  /// takes 4 s (SLOW…), and the saved cutout is there on return.
+  func testApplySurvivesATabSwitch() throws {
+    let app = launchPhotoFlow(code: "SLOW-CODE")
+    let piece = app.buttons["Piece 1"]
+    XCTAssertTrue(piece.waitForExistence(timeout: 20))
+    piece.tap()
+    let apply = app.buttons["Apply cutout"]
+    if !apply.isHittable { app.swipeUp() }
+    apply.tap()
+    app.tabBars.buttons["My designs"].tap()
+    XCTAssertTrue(app.buttons["Blue bird on a branch, In the shop"].waitForExistence(timeout: 10))
+    sleep(5)
+    app.tabBars.buttons["Create"].tap()
+    XCTAssertTrue(app.buttons["Back to photo"].waitForExistence(timeout: 10), "the applied cut is shown")
+    XCTAssertEqual(try lastBody("cleanup")["candidateIds"] as? [String], ["cand-1"])
+  }
+
   // MARK: Helpers
 
   private func launchPhotoFlow(code: String) -> XCUIApplication {

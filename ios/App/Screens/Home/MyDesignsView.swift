@@ -11,6 +11,12 @@ struct MyDesignsView: View {
 
   private var store: DesignsStore { app.designs }
 
+  /// From the grid only when it would not make a second sticker next to one in the shop
+  /// (the detail screen asks first in that case).
+  private func canMakeSticker(_ artwork: Artwork) -> Bool {
+    artwork.isReadyForProducts && !artwork.hasPublished(.sticker)
+  }
+
   var body: some View {
     TabScreen(title: "My designs") {
       if !store.loaded && store.artworks.isEmpty && store.error == nil {
@@ -23,17 +29,10 @@ struct MyDesignsView: View {
       } else {
         LazyVGrid(columns: columns, spacing: Theme.Space.l) {
           ForEach(store.artworks) { artwork in
-            DesignTile(artwork: artwork) { app.designsPath.append(.detail(artwork.id)) }
-              .contextMenu {
-                if artwork.isReadyForProducts {
-                  Button { app.continueFrom(artwork: artwork, productType: .sticker) } label: {
-                    Label("Make a sticker", systemImage: "seal")
-                  }
-                }
-                Button(role: .destructive) { deleting = artwork } label: {
-                  Label("Delete", systemImage: "trash")
-                }
-              }
+            DesignTile(artwork: artwork,
+                       open: { app.designsPath.append(.detail(artwork.id)) },
+                       makeSticker: canMakeSticker(artwork) ? { app.continueFrom(artwork: artwork, productType: .sticker) } : nil,
+                       delete: { deleting = artwork })
           }
         }
         if let error = store.error { ErrorCard(message: error) }
@@ -52,30 +51,45 @@ struct MyDesignsView: View {
   }
 }
 
-/// One design: picture (or its state when there is none yet) and the status badge.
+/// One design: picture (or its state when there is none yet) and the status badge. Long press and
+/// the VoiceOver actions offer the same things: "Make a sticker" (when allowed) and "Delete".
 private struct DesignTile: View {
   let artwork: Artwork
   let open: () -> Void
+  let makeSticker: (() -> Void)?
+  let delete: () -> Void
   @Environment(\.themeColors) private var colors
 
   var body: some View {
     let badge = DesignBadge.of(artwork)
-    Button(action: open) {
-      VStack(spacing: Theme.Space.xs) {
-        DesignPicture(artwork: artwork, badge: badge)
-        DesignBadgeView(badge: badge)
-      }
-      .padding(Theme.Space.xs)
-      .frame(maxWidth: .infinity, minHeight: Theme.Size.iconButton)
-      .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt))
-      .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.thin))
-      .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.m))
+    // A tap gesture rather than a Button: a Button inside a context menu shows up as two nested
+    // buttons to VoiceOver and XCUITest; this way the tile is exactly one element.
+    VStack(spacing: Theme.Space.xs) {
+      DesignPicture(artwork: artwork, badge: badge)
+      DesignBadgeView(badge: badge)
     }
-    .buttonStyle(.plain)
+    .padding(Theme.Space.xs)
+    .frame(maxWidth: .infinity, minHeight: Theme.Size.iconButton)
+    .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt))
+    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.thin))
+    .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.m))
+    .onTapGesture(perform: open)
+    .contextMenu {
+      if let makeSticker {
+        Button(action: makeSticker) { Label("Make a sticker", systemImage: "seal") }
+      }
+      Button(role: .destructive, action: delete) { Label("Delete", systemImage: "trash") }
+    }
+    // One element per tile, after the context menu so it does not add a second one.
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(Text(verbatim: "\(artwork.altText ?? String(localized: "Design")), \(badge.text)"))
-    .accessibilityHint(Text("Opens the design. Long press for more."))
+    .accessibilityHint(Text("Opens the design. More actions are in the actions list."))
     .accessibilityAddTraits(.isButton)
+    .accessibilityAction(.default, open)
+    .accessibilityActions {
+      if let makeSticker { Button("Make a sticker", action: makeSticker) }
+      Button("Delete", action: delete)
+    }
   }
 }
 

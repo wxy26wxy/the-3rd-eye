@@ -15,7 +15,7 @@ enum DesignBadge: Equatable {
   case inShop
 
   /// A request answers within 270 s on the server; after this the row is not being cut any more.
-  static let cuttingWindow: TimeInterval = 10 * 60
+  static let cuttingWindow: TimeInterval = 5 * 60
 
   static func of(_ artwork: Artwork, now: Date = Date()) -> DesignBadge {
     if artwork.products?.contains(where: \.isPublished) == true { return .inShop }
@@ -69,6 +69,11 @@ extension Artwork {
 
   /// A cut-out exists, so products can be made from it (the server sets `status: ready` with it).
   var isReadyForProducts: Bool { cleanedUrl != nil }
+
+  /// A product of this type is already in the shop ("Make a sticker" would make a second one).
+  func hasPublished(_ type: ProductType) -> Bool {
+    liveProducts.contains { $0.type == type && $0.isPublished }
+  }
 }
 
 /// My designs: the creator's artworks with their products, shared by the grid and the detail screen.
@@ -101,8 +106,13 @@ final class DesignsStore {
   }
 
   /// `DELETE /artworks/{id}`, then the tile goes away (the server keeps it out of later lists).
+  /// A 404 means it is already gone (deleted elsewhere), which is what the creator wanted.
   func delete(id: String) async throws {
-    try await api.deleteArtwork(id: id)
+    do {
+      try await api.deleteArtwork(id: id)
+    } catch APIError.server(404, _, _) {
+      // Already deleted.
+    }
     artworks.removeAll { $0.id == id }
   }
 
@@ -115,11 +125,13 @@ final class DesignsStore {
   }
 
   /// A listing saved from Edit listing: the product is published with its new title.
-  func listingSaved(productId: String, title: String?, status: String?) {
+  func listingSaved(productId: String, title: String?, status: String?, priceCents: Int? = nil, description: String? = nil) {
     for index in artworks.indices {
       guard var products = artworks[index].products, let p = products.firstIndex(where: { $0.id == productId }) else { continue }
       if let title { products[p].title = title }
       if let status { products[p].status = status }
+      if let priceCents { products[p].priceCents = priceCents }
+      if let description { products[p].description = description }
       artworks[index].products = products
     }
   }

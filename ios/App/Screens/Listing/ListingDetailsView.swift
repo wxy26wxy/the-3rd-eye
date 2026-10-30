@@ -37,6 +37,12 @@ struct ListingDetailsView: View {
           Task { await approve(via: "tap") }
         }
         .disabled(approving || title.trimmingCharacters(in: .whitespaces).isEmpty || priceCents <= 0)
+        if !approving && (title.trimmingCharacters(in: .whitespaces).isEmpty || priceCents <= 0) {
+          Text("Add a name and a price to list it, or tap Improve with AI.")
+            .themeFont(.bodyS)
+            .foregroundStyle(colors.textMuted)
+            .multilineTextAlignment(.center)
+        }
         SlowWorkHint(active: approving)
       }
     }
@@ -82,6 +88,7 @@ struct ListingDetailsView: View {
       // A draft reused from My designs: show its listing title, or write one in simple mode.
       fill(from: product)
       if title.isEmpty, let saved = app.flow.productTitle { title = saved }
+      if description.isEmpty, let saved = app.flow.productDescription { description = saved }
       if title.isEmpty, app.flow.productTitle == nil, app.prefs.simpleMode, !autoRan {
         autoRan = true
         await improve()

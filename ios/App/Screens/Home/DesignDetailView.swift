@@ -10,6 +10,9 @@ struct DesignDetailView: View {
   @State private var editing: ArtworkProduct?
   @State private var shopPage: SheetURL?
   @State private var openingRedo = false
+  @State private var removing = false
+  /// "Make another sticker / tote" waiting for its confirmation.
+  @State private var another: ProductType?
   @State private var error: String?
 
   private var artwork: Artwork? { app.designs.artwork(id: artworkId) }
@@ -25,7 +28,9 @@ struct DesignDetailView: View {
           .multilineTextAlignment(.center)
       }
     } actions: {
-      if let artwork { actions(artwork) }
+      if let artwork {
+        actions(artwork).disabled(openingRedo || removing)
+      }
     }
     .sheet(item: $editing) { product in
       EditListingSheet(product: product)
@@ -34,6 +39,25 @@ struct DesignDetailView: View {
       SafariView(url: page.url).ignoresSafeArea()
     }
     .deleteDesignConfirmation(item: $deleting) { artwork in await delete(artwork) }
+    .confirmationDialog(
+      Text(another == .tote ? "This tote is already in the shop" : "This sticker is already in the shop"),
+      isPresented: Binding(get: { another != nil }, set: { if !$0 { another = nil } }),
+      titleVisibility: .visible,
+      presenting: another
+    ) { type in
+      Button(type == .tote ? "Make another tote" : "Make another sticker") {
+        if let artwork { app.continueFrom(artwork: artwork, productType: type) }
+      }
+      Button("Cancel", role: .cancel) {}
+    } message: { _ in
+      Text("A second product gets its own listing. To change the one in the shop, use Edit listing.")
+    }
+    .onDisappear {
+      // Popped back to the grid: the re-cut notice has been seen.
+      if !app.designsPath.contains(.detail(artworkId)), app.designFlow.photoArtwork?.id == artworkId {
+        app.designFlow.cutoutNotice = nil
+      }
+    }
   }
 
   // MARK: Content
@@ -44,6 +68,8 @@ struct DesignDetailView: View {
       DesignPicture(artwork: artwork, badge: badge)
         .frame(maxHeight: ThemeEffects.artworkMaxHeight)
         .frame(maxWidth: .infinity)
+        // Without an image the placeholder only repeats the badge below it.
+        .accessibilityHidden(artwork.displayURL == nil)
       DesignBadgeView(badge: badge)
       if let explanation = explanation(for: badge) {
         Text(explanation)
@@ -66,7 +92,7 @@ struct DesignDetailView: View {
     switch badge {
     case .failed: return "This one didn't work. Re-do the cutout, or delete it."
     case .needsCutout: return "No cutout yet. Tap Re-do the cutout and pick your art."
-    case .cuttingOut: return "Still cutting it out. Come back in a minute."
+    case .cuttingOut: return "Still cutting it out. If it stays like this, tap Re-do the cutout."
     case .draft, .inShop: return nil
     }
   }
@@ -100,36 +126,63 @@ struct DesignDetailView: View {
 
   // MARK: Actions
 
+  /// Shop and listing first (what a creator with a live design most often wants), then new
+  /// products, the cutout, and Delete.
   @ViewBuilder private func actions(_ artwork: Artwork) -> some View {
     let products = artwork.liveProducts
-    if artwork.isReadyForProducts {
-      PillButton("Make a sticker", hint: hasDraft(.sticker, in: artwork) ? "Goes on to your sticker draft" : "Makes a sticker and writes its listing") {
-        app.continueFrom(artwork: artwork, productType: .sticker)
-      }
-      PillButton("Make a tote", hint: hasDraft(.tote, in: artwork) ? "Goes on to your tote draft" : "Puts it on a tote bag and writes its listing") {
-        app.continueFrom(artwork: artwork, productType: .tote)
+    let published = products.filter(\.isPublished)
+    ForEach(published) { product in
+      PillButton(published.count == 1 ? "See it in the shop" : (product.type == .tote ? "See the tote in the shop" : "See the sticker in the shop"),
+                 hint: "Opens the shop page buyers see") {
+        shopPage = SheetURL(url: AppConfig.productPageURL(productId: product.id))
       }
     }
     let listed = products.filter(\.hasListing)
     ForEach(listed) { product in
       PillButton(listed.count == 1 ? "Edit listing" : (product.type == .tote ? "Edit the tote listing" : "Edit the sticker listing"),
-                 hint: "Change the name, description or price", kind: .secondary, showsArrow: false) {
-        editing = product
+                 hint: product.isPublished ? "Change the name, description or price" : "Finish the listing and put it in the shop",
+                 kind: .secondary, showsArrow: false) {
+        editListing(product, of: artwork)
       }
+    }
+    if artwork.isReadyForProducts {
+      makeButton(.sticker, artwork: artwork)
+      makeButton(.tote, artwork: artwork)
     }
     PillButton(openingRedo ? "Opening your photo…" : "Re-do the cutout", hint: "Pick other pieces or change the cutout", kind: .secondary, showsArrow: false) {
       Task { await openRedo(artwork) }
     }
-    .disabled(openingRedo)
-    let published = products.filter(\.isPublished)
-    ForEach(published) { product in
-      PillButton(published.count == 1 ? "See it in the shop" : (product.type == .tote ? "See the tote in the shop" : "See the sticker in the shop"),
-                 hint: "Opens the shop page buyers see", kind: .secondary, showsArrow: false) {
-        shopPage = SheetURL(url: AppConfig.productPageURL(productId: product.id))
+    PillButton(removing ? "Deleting…" : "Delete", hint: "Asks before deleting this design", kind: .secondary, showsArrow: false) {
+      deleting = artwork
+    }
+  }
+
+  /// "Make a sticker", or "Make another sticker" (with a confirmation) when one is already in the shop.
+  @ViewBuilder private func makeButton(_ type: ProductType, artwork: Artwork) -> some View {
+    if artwork.hasPublished(type) {
+      PillButton(type == .tote ? "Make another tote" : "Make another sticker",
+                 hint: type == .tote ? "You already have this tote in the shop" : "You already have this sticker in the shop",
+                 kind: .secondary, showsArrow: false) {
+        another = type
+      }
+    } else if type == .tote {
+      PillButton("Make a tote", hint: hasDraft(.tote, in: artwork) ? "Goes on to your tote draft" : "Puts it on a tote bag and writes its listing") {
+        app.continueFrom(artwork: artwork, productType: .tote)
+      }
+    } else {
+      PillButton("Make a sticker", hint: hasDraft(.sticker, in: artwork) ? "Goes on to your sticker draft" : "Makes a sticker and writes its listing") {
+        app.continueFrom(artwork: artwork, productType: .sticker)
       }
     }
-    PillButton("Delete", hint: "Asks before deleting this design", kind: .secondary, showsArrow: false) {
-      deleting = artwork
+  }
+
+  /// A published listing is edited in the sheet; a draft goes through Listing details, the
+  /// normal way to publish (story video, You're live).
+  private func editListing(_ product: ArtworkProduct, of artwork: Artwork) {
+    if product.isPublished {
+      editing = product
+    } else if let type = product.type {
+      app.continueFrom(artwork: artwork, productType: type)
     }
   }
 
@@ -151,19 +204,22 @@ struct DesignDetailView: View {
       let flow = CreateFlow()
       flow.photoArtwork = detail.artwork
       flow.artwork = detail.artwork
-      flow.candidates = detail.candidates
-      flow.imageSize = size
+      // Like a new photo: a single piece starts selected, so "Use this" without changes cuts nothing.
+      flow.resetCutout(candidates: detail.candidates, imageSize: size)
       flow.productType = artwork.liveProducts.first?.type
       app.designFlow = flow
       if app.designsPath.last == .detail(artworkId) { app.designsPath.append(.redoCutout) }
     } catch {
       if APIError.isCancellation(error) { return }
+      if case APIError.server(404, _, _) = error { Task { await app.designs.load() } }
       self.error = error.localizedDescription
     }
   }
 
   private func delete(_ artwork: Artwork) async {
     error = nil
+    removing = true
+    defer { removing = false }
     do {
       try await app.designs.delete(id: artwork.id)
       UIAccessibility.post(notification: .announcement, argument: String(localized: "Design deleted"))

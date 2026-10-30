@@ -155,8 +155,10 @@ final class AppState {
     next.artwork = artwork
     next.productType = productType
     if let draft = artwork.liveProducts.first(where: { $0.type == productType && !$0.isPublished }) {
-      next.product = Product(id: draft.id, artworkId: artwork.id, type: productType, status: draft.status)
+      next.product = Product(id: draft.id, artworkId: artwork.id, type: productType, mockupUrl: draft.mockupUrl,
+                             priceCents: draft.priceCents, status: draft.status)
       next.productTitle = draft.title
+      next.productDescription = draft.description
     }
     flow = next
     createPath = [.listingDetails]
@@ -207,6 +209,8 @@ final class CreateFlow {
   var product: Product?
   /// Listing title of a reused draft product (`continueFrom`), shown in Listing details.
   var productTitle: String?
+  /// Listing description of that draft, when the server sent it.
+  var productDescription: String?
   var approval: ApproveListingResponse?
   /// The picked story video was longer than 30 s and only its start was kept.
   var storyVideoTrimmed = false

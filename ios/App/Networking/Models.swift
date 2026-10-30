@@ -170,6 +170,10 @@ struct ArtworkProduct: Codable, Identifiable, Equatable, Hashable {
   var status: String?
   /// The listing title, or null before the listing agent ran.
   var title: String?
+  /// Live price, listing description and mockup (T087 backend; absent from older servers).
+  var priceCents: Int?
+  var description: String?
+  var mockupUrl: String?
 
   var isPublished: Bool { status == "published" }
   var isArchived: Bool { status == "archived" }

@@ -128,3 +128,11 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Dry run against canvas version `1793328546-ac11`: no earlier id was recorded, so it is the baseline. Colours, type sizes and grain match `design/tokens.json` except 4 illustration colours without a token (listed in the handoff).
 - Verify: read the two docs; `bash scripts/check_clean.sh` passes; `git diff main --stat` shows only the three doc files.
 - Gap: there is no automated no-raw-values lint on web or iOS; the checklist uses grep commands until one is added.
+
+### T080 · backend · feat/backend-T080 · cut-out quality + adjust API
+- Contract first: `docs/api.md` T080 clarifications (commit c8bbc73). Cleanup takes `candidateIds` (union, no model call), labelled `points` and a `box` (one SAM object); `GET`/`DELETE /artworks/{id}`; `imageSize`; `products` on `GET /artworks`.
+- Cut-outs: `finishMask` fills holes, closes gaps, drops specks (not combined pieces), soft anti-aliased alpha; the original is upscaled before the cut, never the RGBA cut. Photos are searched with `"drawing"` and `"handmade object"` (merged by IoU, frame-filling results dropped, ≤ 6).
+- Live: SAM box and positive/negative point prompts verified and recorded (`web/test/fixtures/segment/probe-{box,points}-events.json`); `"object"` found nothing on a knitted-bear photo, so the second phrase is `"handmade object"` (bear, wallet and clay figure cut cleanly). Joined artwork/product query checked read-only against Neon.
+- Cleanup on an artwork with products rebuilds their print files and mockups. Delete archives products (out of the shop; orders and `/t` unaffected).
+- Verify (from repo root): `pnpm --filter web test` (unit, no keys), `pnpm --filter web lint`, `pnpm --filter web build`; opt-in live checks in `web/test/live/`.
+- Unfinished: no end-to-end HTTP run of cleanup/delete against the deployed site (would write to the shared database); clients (T082 web, T084 iOS) still to adopt the API.

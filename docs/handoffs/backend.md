@@ -39,3 +39,12 @@ No creator has a story video yet (`storyVideoNeeded: true` on approve).
 - Smoke data: June's old tote archived; June's new tote `0cdb58d5-…` published via the API smoke; Leo's tote repaired by the seed. Smoke order "T050 Smoke Buyer", tag `1KYK3YV8CVXS`, has a thank-you (text, image, captioned video) and a two-way thread.
 - Open: Vercel firewall rate limits (docs/risks.md); iOS must send `audioUrl` (in progress on its branch) and sign in with the new codes; old iOS tokens are rejected (sign in again).
 
+
+## T080 cut-out quality + adjust API (2026-10-29)
+Contract: `docs/api.md` → "Clarifications (T080 backend)". What the clients build against:
+- **Adjust:** `POST /artworks/{id}/cleanup { candidateIds?, points?: {x,y,label:"positive"|"negative"}[], box?: [x0,y0,x1,y1] }` → `Artwork`. Combine pieces = `candidateIds` (no model call). Tap to add/remove = labelled `points`. Drag a box = `box`. Coordinates are pixels of the stored original (`imageSize` from `POST /artworks` photo response and `GET /artworks/{id}`).
+- **Reopen / re-do:** `GET /artworks/{id}` → `{ artwork, candidates, imageSize, originalUrl }` (`originalUrl` presigned for 10 minutes).
+- **Manage:** `GET /artworks` items carry `products: [{ id, type, status, title }]`; `DELETE /artworks/{id}` → `{ id, deleted: true, archivedProductIds }` (products archived, orders and story tags keep working).
+- **Tile state rule** (no endless spinner): see clarification 5.
+- **Pipeline:** `finishMask` (`lib/image/mask.ts`) runs on every cut; `Segmenter.findCandidates` (new interface method; `SAM_PHRASES` in `lib/ai/meta/sam.ts`); `rebuildProductFiles(productId)` in `lib/pipeline/products.ts`; queries `listArtworksWithProducts`, `listProductsForArtwork`, `deleteArtworkArchivingProducts` (artwork/product area of `queries.ts`). No schema change (`imageSize` lives in `shaping_trace`).
+- **Live checks (opt-in, skipped by default):** `LIVE_SAM=1 LIVE_PHOTOS=a.jpg,b.png pnpm exec dotenv -e .env.local -- vitest run test/live` (SAM on photos, writes cut-outs to `LIVE_OUT`); `LIVE_DB=1 … vitest run test/live/artwork-queries.live.test.ts` (read-only).

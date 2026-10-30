@@ -42,6 +42,14 @@ Status of request shapes: all live-verified on 2026-10-28 except where the table
 - **Next 16**: malformed percent-encoding in a `/media/...` path is rejected by Next's router (500) before the handler runs; the handler itself never decodes twice and maps `URIError` to 400. A `proxy.ts` rule could turn this into 400 if needed.
 - **Next 16**: route handlers wrapped in a try/catch must rethrow Next's control-flow errors (they carry a string `digest`), or GET routes that read headers break prerender bail-out. Scripts that import server modules run with `tsx --conditions=react-server` so `server-only` resolves to its empty export.
 
+## Live findings (backend, T080, 2026-10-29): SAM object prompts and photos of objects
+- **Box and point prompts work** with the same request shape as phrases: one user message `[input_image, input_text]`, where `input_text` is the `buildObjectPrompt` output instead of a phrase. Probe image 320×256 (black disc r=50 at (90,128), grey square 200..280 × 88..168):
+  - box: `input_text` = `<0f>1<|box;x1=30;y1=68;x2=149;y2=187;w=320;h=256|>` → 200, ≈1.9 s, output `<0f>1<|box;x1=39;y1=77;x2=140;y2=179;w=320;h=256;c=0.977|><|mask;x=0;y=0;c=0.977;data=103,102,…|>`; parsed: one box record and one mask record, `objectId "1"`, `identity "image:*:1"`, bounds `{39,77,141,180}` (the disc), confidence 0.977.
+  - points: `<0f>1<|point;x=240;y=128;w=320;h=256|>-<|point;x=90;y=128;w=320;h=256|>` (positive on the square, negative on the disc; a negative point is prefixed with `-`) → 200, ≈1.0 s, one object with bounds `{200,88,280,168}` (the square only), confidence 0.977.
+  - Same event sequence as phrase requests (this time `response.output_text.done` was present). The object id in the response is the id we sent. Recordings: `web/test/fixtures/segment/probe-box-events.json`, `probe-points-events.json` (used by `web/test/sam-prompts.test.ts`).
+- **Phrases for photos of objects.** On a generated phone-style photo of a knitted bear on a wooden table, `"drawing"`, `"object"`, `"item"` and `"thing"` returned no SAM result at all (the threshold fallback then returned the dark table); `"toy"` (0.93) and `"handmade object"` (0.91) returned the bear. On a photo of a wallet and a clay figure on a white desk, `"object"` found both (0.69 / 0.68), `"handmade object"` found both (0.81 / 0.75), `"drawing"` returned low-score shapes (0.30, 0.05, 0.01). So `SAM_PHRASES = ["drawing", "handmade object"]`, results under 0.1 are dropped when anything scores higher. Cut-outs of the bear, wallet and figure with `finishMask` had no holes and soft edges (opt-in check `web/test/live/sam-photo.live.test.ts`).
+- **Mask finishing** (`finishMask` in `lib/image/mask.ts`): at ≤ 2048 px (request scale), each part → fill holes → drop pieces < 0.5 % of its main blob; union of parts; close 2 px; fill holes; blur σ 0.6 and **linear** resize to the cut size → 8-bit alpha. The original (opaque) is upscaled with lanczos before the cut when the cut's short side is under 900 px (≤ ×2); the RGBA cut is never resampled. The stored `maskUrl` PNG is that soft alpha (white = inside).
+
 ## Verification status
 | Module | Status |
 |---|---|
@@ -49,7 +57,7 @@ Status of request shapes: all live-verified on 2026-10-28 except where the table
 | `lib/ai/meta/shape-prompt.ts` (Spark) | verified 2026-10-28 (clear and ambiguous ideas) |
 | `lib/ai/meta/image.ts` generate / refine / compose (Muse Image) | verified 2026-10-28 |
 | `lib/ai/meta/describe.ts` (Spark vision) | verified 2026-10-28 |
-| `lib/ai/meta/sam.ts` findAll (SAM 3.1 + parser) | verified 2026-10-28; `segment` with box/points prompts UNVERIFIED (format from `buildObjectPrompt`) |
+| `lib/ai/meta/sam.ts` findAll (SAM 3.1 + parser) | verified 2026-10-28; `segment` with a box and with positive + negative points verified 2026-10-29 (T080, recordings in `web/test/fixtures/segment/probe-{box,points}-events.json`); `findCandidates` (two phrases) checked live on two object photos 2026-10-29 |
 | `lib/image/sticker.ts` (moved from `lib/ai/meta/`, pure image math) | unit-tested; print files produced for the seeded stickers; tote print PNG since T050 |
 | `lib/ai/meta/mockup.ts` | verified 2026-10-28 (sticker and tote mockups in the seed) |
 | `lib/ai/meta/listing-agent.ts` + tools | verified 2026-10-28; loop cap and forced final unit-tested |

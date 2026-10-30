@@ -194,3 +194,7 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Added `docs/demo_script.md` (3:00 beat sheet, shot list, creator choice by name, narration, model on screen, a fallback per live step). Rewrote `README.md` (product, the four problems, real vs staged, model map with ids, run, test, accessibility, open-weight stage, build dates). Added VoiceOver test scripts for iOS Adjust cutout, iOS My designs and the web Select screen to `docs/accessibility.md`. Filled `docs/handoffs/growth.md` (footage list, submission-form draft).
 - Verify: read the four files; `bash scripts/check_clean.sh` passes; `git diff main --stat` shows docs only.
 - Unfinished: scripts not run with VoiceOver on a device; the founder's phone footage; submission-form placeholders (links, team).
+### T094 · backend · feat/backend-T094 · In-app rate limiting
+- Per-IP sliding-window limits in `proxy.ts` (`lib/rate-limit.ts`): auth code 10 / min, public POSTs 30 / min, model routes 20 / min; 429 with `Retry-After`. Per instance, not global; `RATE_LIMIT_DISABLED=1` turns it off. Docs: risks, architecture, backend handoff.
+- Verify: `pnpm exec vitest run test/rate-limit.test.ts` (8 tests).
+- Unfinished: `POST /uploads` not limited; Firewall rules when the plan allows.

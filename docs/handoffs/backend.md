@@ -57,3 +57,10 @@ Contract: `docs/api.md` → "Clarifications (T080 backend)". What the clients bu
 - **Live checks (opt-in, skipped by default):** `LIVE_SAM=1 LIVE_PHOTOS=a.jpg,b.png pnpm exec dotenv -e .env.local -- vitest run test/live` (SAM on photos, writes cut-outs to `LIVE_OUT`); `LIVE_DB=1 … vitest run test/live/artwork-queries.live.test.ts` (read-only).
 
 T087: `ArtworkProduct` now has `priceCents`, `description`, `mockupUrl`. Clients prefill the edit form from them; an empty price on a published product keeps the live price server-side.
+
+## T094 in-app rate limiting (2026-10-30)
+- `proxy.ts` now also matches only the limited paths (`/api/v1/auth/code`, `/api/v1/public/*`, the model routes, `/t/*`) and returns 429 (`Retry-After`, `{ error: { code: "rate_limited" } }`) per IP: auth code 10 / min, public POSTs 30 / min, model routes 20 / min. Numbers and route patterns: `lib/rate-limit.ts`.
+- Per function instance only (in-memory); not a global limit. Clients: treat 429 as "wait `Retry-After` seconds".
+- Set `RATE_LIMIT_DISABLED=1` for local runs that hammer these routes (set by hand; ignored when `VERCEL_ENV=production`; the iOS mock API does not pass through the proxy).
+- Not covered: `POST /uploads`; add a group in `lib/rate-limit.ts` if wanted. Unknown IP is let through (logged once).
+- Review fix round 1: BFF calls are counted once on the real client IP and forwarded with a signed `x-the3rdeye-client-ip`; deferred: 429 as a page for the sign-in form and note form (minors 7, 8), eviction scan cost (10), proxy-reset and route-level tests (11).

@@ -46,12 +46,17 @@ struct AdjustCutoutView: View {
 
   private enum Work { case apply, use }
 
+  /// Where the screen was opened: the Create flow (new photo, or a redo from Design ready), or
+  /// "Re-do the cutout" on a saved design (works on `AppState.designFlow`, comes back to the detail).
+  enum Origin { case create, designs }
+
+  var origin: Origin = .create
+
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
   @Environment(\.dynamicTypeSize) private var dynamicTypeSize
   @State private var mode: Mode = .add
   @State private var work: Work?
-  @State private var task: Task<Void, Never>?
   @State private var error: String?
   @State private var notice: String?
   @State private var applied: Applied?
@@ -59,9 +64,9 @@ struct AdjustCutoutView: View {
   @State private var dragStart: CGPoint?
   @State private var dragEnd: CGPoint?
   @State private var originalURL: URL?
-  @State private var detailFailed = false
-  /// What was picked when a redo opened, so "Use this" without changes just goes back.
-  @State private var openedWith: CleanupRequest??
+  /// The pieces and marks of the cut the server has now: what was picked when a redo opened,
+  /// then whatever "Apply cutout" saved. "Use this" with exactly that goes on without a call.
+  @State private var savedRequest: CleanupRequest??
 
   var body: some View {
     FlowScreen(title: "Pick your art", subtitle: subtitle, step: isRedo ? nil : (2, 3), showsBack: work == nil) {
@@ -72,7 +77,7 @@ struct AdjustCutoutView: View {
           } else {
             photoArea(size: size)
           }
-        } else if app.flow.photoArtwork != nil, error == nil {
+        } else if flow.photoArtwork != nil, error == nil {
           ProgressView().tint(colors.text).frame(minHeight: Theme.Size.record)
         }
         if let applied, applied.request == currentRequest {
@@ -123,7 +128,7 @@ struct AdjustCutoutView: View {
       SlowWorkHint(active: work != nil)
       if !isRedo {
         PillButton("Retake", hint: "Takes a new photo", kind: .secondary, showsArrow: false) {
-          app.replaceTop(with: .camera(app.flow.photoSource))
+          app.replaceTop(with: .camera(flow.photoSource))
         }
         .disabled(work != nil)
       }
@@ -131,41 +136,42 @@ struct AdjustCutoutView: View {
     .navigationBarBackButtonHidden(work != nil)
     .task { await loadDetailIfNeeded() }
     .onAppear {
-      if openedWith == nil { openedWith = .some(isRedo ? currentRequest : nil) }
+      if savedRequest == nil { savedRequest = .some(isRedo ? currentRequest : nil) }
     }
-    .onDisappear {
-      task?.cancel()
-      task = nil
-    }
+    // A running request is not cancelled when the screen disappears (another tab, for instance):
+    // the server saves the cut anyway, so the flow must still receive it. Back is hidden meanwhile.
   }
 
   // MARK: State
 
-  private var candidates: [Candidate] { app.flow.candidates }
+  /// The creation this screen edits.
+  private var flow: CreateFlow { origin == .designs ? app.designFlow : app.flow }
+
+  private var candidates: [Candidate] { flow.candidates }
 
   private var selected: [Candidate] {
-    candidates.filter { app.flow.selectedCandidateIds.contains($0.id) }
+    candidates.filter { flow.selectedCandidateIds.contains($0.id) }
   }
 
-  private var hasMarks: Bool { !app.flow.points.isEmpty || app.flow.box != nil }
+  private var hasMarks: Bool { !flow.points.isEmpty || flow.box != nil }
 
-  /// Opened from Design ready ("Adjust cutout"): "Use this" goes back there.
-  private var isRedo: Bool { app.createPath.dropLast().last == .designReady }
+  /// Opened from Design ready ("Adjust cutout") or My designs: "Use this" goes back there.
+  private var isRedo: Bool { origin == .designs || app.createPath.dropLast().last == .designReady }
 
   /// The server's size; falls back to the photo's pixels for an answer without a usable `imageSize`.
   private var imageSize: ImageSize? {
-    if let size = app.flow.imageSize, size.isUsable { return size }
-    guard let photo = app.flow.photo else { return nil }
+    if let size = flow.imageSize, size.isUsable { return size }
+    guard let photo = flow.photo else { return nil }
     let size = ImageSize(w: photo.size.width * photo.scale, h: photo.size.height * photo.scale)
     return size.isUsable ? size : nil
   }
 
   private var currentRequest: CleanupRequest? {
-    CutoutRequest.make(selected: selected, points: app.flow.points, box: app.flow.box)
+    CutoutRequest.make(selected: selected, points: flow.points, box: flow.box)
   }
 
   private var currentAction: CutoutRequest.Action? {
-    CutoutRequest.action(selected: selected, points: app.flow.points, box: app.flow.box, productsMayExist: isRedo)
+    CutoutRequest.action(selected: selected, points: flow.points, box: flow.box, productsMayExist: isRedo)
   }
 
   /// The saved cut, while it still matches what is picked and the creator has not gone back to the photo.
@@ -198,13 +204,13 @@ struct AdjustCutoutView: View {
                 outline(rect: rect, selected: isSelected(candidate))
               }
             }
-            if let box = app.flow.box, let rect = CutoutGeometry.viewRect(box: box, shownIn: frame, image: size) {
+            if let box = flow.box, let rect = CutoutGeometry.viewRect(box: box, shownIn: frame, image: size) {
               boxOutline(rect: rect)
             }
             if let start = dragStart, let end = dragEnd {
               boxOutline(rect: CGRect(x: min(start.x, end.x), y: min(start.y, end.y), width: abs(end.x - start.x), height: abs(end.y - start.y)))
             }
-            ForEach(Array(app.flow.points.enumerated()), id: \.offset) { index, point in
+            ForEach(Array(flow.points.enumerated()), id: \.offset) { index, point in
               mark(point, index: index)
                 .position(CutoutGeometry.viewPoint(x: point.x, y: point.y, shownIn: frame, image: size))
             }
@@ -226,7 +232,7 @@ struct AdjustCutoutView: View {
   }
 
   @ViewBuilder private var photoImage: some View {
-    if let photo = app.flow.photo {
+    if let photo = flow.photo {
       Image(uiImage: photo).resizable().scaledToFit()
     } else {
       RemoteImage(url: originalURL, altText: String(localized: "Your photo"))
@@ -376,7 +382,9 @@ struct AdjustCutoutView: View {
           .accessibilityAddTraits(on ? .isSelected : [])
           .accessibilityAction(named: Text("Box around this piece")) { boxAround(candidate) }
           .accessibilityAction(named: Text("Add the area around this piece")) { addAreaAround(candidate) }
-          .accessibilityAction(named: Text("Leave this piece out")) { leaveOut(candidate) }
+          .accessibilityActions {
+            if on { Button("Leave this piece out") { leaveOut(candidate) } }
+          }
           .contextMenu {
             Button("Box around this piece") { boxAround(candidate) }
             Button("Add the area around this piece") { addAreaAround(candidate) }
@@ -421,15 +429,15 @@ struct AdjustCutoutView: View {
   // MARK: Editing
 
   private func isSelected(_ candidate: Candidate) -> Bool {
-    app.flow.selectedCandidateIds.contains(candidate.id)
+    flow.selectedCandidateIds.contains(candidate.id)
   }
 
   /// VoiceOver reads the new selected state itself, so nothing is announced here.
   private func toggle(_ candidate: Candidate) {
     guard work == nil else { return }
-    var ids = Set(app.flow.selectedCandidateIds)
+    var ids = Set(flow.selectedCandidateIds)
     if ids.contains(candidate.id) { ids.remove(candidate.id) } else { ids.insert(candidate.id) }
-    app.flow.selectedCandidateIds = candidates.map(\.id).filter(ids.contains)
+    flow.selectedCandidateIds = candidates.map(\.id).filter(ids.contains)
   }
 
   private func boxAround(_ candidate: Candidate) {
@@ -450,95 +458,95 @@ struct AdjustCutoutView: View {
 
   private func setBox(_ box: [Double]) {
     guard work == nil else { return }
-    app.flow.box = box
+    flow.box = box
     notice = nil
     UIAccessibility.post(notification: .announcement, argument: String(localized: "Box drawn"))
   }
 
   private func addMark(_ point: CutoutPoint) {
     guard work == nil else { return }
-    guard app.flow.points.count < CutoutRequest.maxPoints else {
+    guard flow.points.count < CutoutRequest.maxPoints else {
       notice = String(localized: "You can add up to 10 marks. Tap a mark to remove it.")
       return
     }
-    let points = app.flow.points + [point]
-    if point.label == .negative, CutoutRequest.leavesNothing(selected: selected, points: points, box: app.flow.box) {
+    let points = flow.points + [point]
+    if point.label == .negative, CutoutRequest.leavesNothing(selected: selected, points: points, box: flow.box) {
       notice = CleanupResult.removeAdvice
       UIAccessibility.post(notification: .announcement, argument: CleanupResult.removeAdvice)
       return
     }
     notice = nil
-    app.flow.points = points
+    flow.points = points
     UIAccessibility.post(notification: .announcement, argument: String(localized: "Mark added"))
   }
 
   private func removeMark(at index: Int) {
-    guard work == nil, app.flow.points.indices.contains(index) else { return }
-    app.flow.points.remove(at: index)
+    guard work == nil, flow.points.indices.contains(index) else { return }
+    flow.points.remove(at: index)
     notice = nil
     UIAccessibility.post(notification: .announcement, argument: String(localized: "Mark removed"))
   }
 
   private func clearMarks() {
     guard work == nil else { return }
-    app.flow.points = []
-    app.flow.box = nil
+    flow.points = []
+    flow.box = nil
     notice = nil
   }
 
   // MARK: Requests
 
-  /// Runs one request at a time; the handle is cancelled when the screen goes away.
+  /// Runs one request at a time. It keeps running if the screen goes away (see `body`).
   private func start(_ kind: Work, _ operation: @escaping @MainActor () async -> Void) {
     guard work == nil else { return }
     work = kind
     error = nil
-    task = Task { @MainActor in
+    Task { @MainActor in
       await operation()
       work = nil
-      task = nil
     }
   }
 
   /// Without the local photo or a usable size (a redo after the photo is gone), fetch the artwork.
   private func loadDetailIfNeeded() async {
-    guard let artwork = app.flow.photoArtwork, app.flow.photo == nil || imageSize == nil || app.flow.imageSize == nil else { return }
+    let flow = flow
+    guard let artwork = flow.photoArtwork, flow.photo == nil || imageSize == nil || flow.imageSize == nil else { return }
     do {
       let detail = try await app.api.artworkDetail(id: artwork.id)
-      if app.flow.candidates.isEmpty { app.flow.candidates = detail.candidates }
-      if let size = detail.imageSize, size.isUsable { app.flow.imageSize = size }
+      if flow.candidates.isEmpty { flow.candidates = detail.candidates }
+      if let size = detail.imageSize, size.isUsable { flow.imageSize = size }
       originalURL = detail.originalUrl.flatMap(URL.init(string:))
     } catch {
       if APIError.isCancellation(error) { return }
-      if app.flow.photo == nil || imageSize == nil { self.error = error.localizedDescription }
+      if flow.photo == nil || imageSize == nil { self.error = error.localizedDescription }
     }
   }
 
   /// "Apply cutout": the server saves the cut (and rebuilds products made from it), so the flow's
   /// artwork follows it right away.
   private func apply() async {
-    guard let request = currentRequest, let artwork = app.flow.photoArtwork else { return }
+    let flow = flow
+    guard let request = currentRequest, let artwork = flow.photoArtwork else { return }
     do {
       let result = try await app.api.cleanup(artworkId: artwork.id, request)
-      record(result)
+      record(result, in: flow)
+      savedRequest = .some(request)
       applied = Applied(request: request, result: result)
       showingApplied = true
       notice = result.productNotice
       UIAccessibility.post(notification: .announcement, argument: String(localized: "Your cutout is saved. Here it is."))
     } catch {
-      show(error)
+      show(error, for: request)
     }
   }
 
   private func useThis() async {
-    guard let action = currentAction, let artwork = app.flow.photoArtwork else { return }
+    let flow = flow
+    guard let action = currentAction, let artwork = flow.photoArtwork else { return }
     let redo = isRedo
     let request = currentRequest
-    if let applied, applied.request == request {
-      leave(redo: redo)
-      return
-    }
-    if redo, case .some(let opened) = openedWith, opened == request {
+    // The server already has this exact cut (opened with it, or Apply saved it): just go on.
+    if case .some(let saved) = savedRequest, saved == request {
       leave(redo: redo)
       return
     }
@@ -550,34 +558,39 @@ struct AdjustCutoutView: View {
       case .cleanup(let body):
         result = try await app.api.cleanup(artworkId: artwork.id, body)
       }
-      record(result)
+      record(result, in: flow)
+      savedRequest = .some(request)
       leave(redo: redo)
     } catch {
-      show(error)
+      show(error, for: request)
     }
   }
 
-  private func record(_ result: CleanupResult) {
-    app.flow.artwork = result.artwork
-    app.flow.cutoutNotice = result.productNotice
+  /// Written to the flow the request started with, even if the screen or tab changed meanwhile.
+  private func record(_ result: CleanupResult, in flow: CreateFlow) {
+    flow.artwork = result.artwork
+    flow.cutoutNotice = result.productNotice
+    if origin == .designs { app.designs.replace(result.artwork) }
   }
 
-  private func show(_ error: Error) {
-    if APIError.isCancellation(error) { return }
-    if case APIError.server(422, _, _) = error {
-      self.error = CleanupResult.removeAdvice
-    } else {
-      self.error = error.localizedDescription
-    }
+  private func show(_ error: Error, for request: CleanupRequest?) {
+    if let message = CleanupResult.errorMessage(for: error, request: request) { self.error = message }
   }
 
   /// Goes on only if this screen is still on top (the creator may have left while it ran).
   private func leave(redo: Bool) {
-    guard app.createPath.last == .adjustCutout else { return }
-    if redo {
-      app.createPath.removeLast()
-    } else {
-      app.push(.designReady)
+    switch origin {
+    case .designs:
+      guard app.designsPath.last == .redoCutout else { return }
+      app.designsPath.removeLast()
+      Task { await app.designs.load() }
+    case .create:
+      guard app.createPath.last == .adjustCutout else { return }
+      if redo {
+        app.createPath.removeLast()
+      } else {
+        app.push(.designReady)
+      }
     }
   }
 }

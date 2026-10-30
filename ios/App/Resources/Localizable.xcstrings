@@ -38,6 +38,9 @@
     "Add a name and a price first, or tap Improve with AI." : {
 
     },
+    "Add a name first." : {
+
+    },
     "Add a photo" : {
 
     },
@@ -72,6 +75,9 @@
 
     },
     "Artwork" : {
+
+    },
+    "Asks before deleting this design" : {
 
     },
     "Asks before signing you out" : {
@@ -122,6 +128,9 @@
     "Change it" : {
 
     },
+    "Change the name, description or price" : {
+
+    },
     "Change the words before saving" : {
 
     },
@@ -152,6 +161,18 @@
     "Cutting it out…" : {
 
     },
+    "Cutting out…" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Delete design" : {
+
+    },
+    "Delete this design?" : {
+
+    },
     "Deletes this mark" : {
 
     },
@@ -164,6 +185,12 @@
     "Design" : {
 
     },
+    "Design deleted" : {
+
+    },
+    "Didn't work" : {
+
+    },
     "Die-cut around your art" : {
 
     },
@@ -171,6 +198,9 @@
 
     },
     "Done" : {
+
+    },
+    "Draft" : {
 
     },
     "Drafted story: %@" : {
@@ -194,10 +224,28 @@
     "Edit it" : {
 
     },
+    "Edit listing" : {
+
+    },
+    "Edit the sticker listing" : {
+
+    },
+    "Edit the tote listing" : {
+
+    },
+    "Enter a price like 5.00, or leave it empty." : {
+
+    },
     "Finding your drawings" : {
 
     },
     "Go back" : {
+
+    },
+    "Goes on to your sticker draft" : {
+
+    },
+    "Goes on to your tote draft" : {
 
     },
     "Goes to the previous screen" : {
@@ -240,13 +288,22 @@
     "In Settings, tap %@, then turn on Camera." : {
 
     },
+    "In the shop" : {
+
+    },
     "It comes from what you said. Use it, change it, or skip it." : {
+
+    },
+    "It leaves My designs, and its products leave the shop. Orders already placed keep working." : {
 
     },
     "It's saved in My designs." : {
 
     },
     "Keeps the design and goes to My designs" : {
+
+    },
+    "Keeps the listing as it is" : {
 
     },
     "Keeps this picture for your product" : {
@@ -256,6 +313,9 @@
 
     },
     "Lay your drawing flat in good light. It's fine if there are a few on the page." : {
+
+    },
+    "Leave empty to keep it" : {
 
     },
     "Leave this piece out" : {
@@ -282,6 +342,9 @@
     "Listing it…" : {
 
     },
+    "Listing saved" : {
+
+    },
     "Loading order" : {
 
     },
@@ -294,6 +357,12 @@
     "Looking for every drawing on the page. This takes a few seconds." : {
 
     },
+    "Make a sticker" : {
+
+    },
+    "Make a tote" : {
+
+    },
     "Make another" : {
 
     },
@@ -301,6 +370,9 @@
 
     },
     "Make the frog green" : {
+
+    },
+    "Makes a sticker and writes its listing" : {
 
     },
     "Makes the product and writes the listing" : {
@@ -336,7 +408,13 @@
     "Name" : {
 
     },
+    "Needs a cutout" : {
+
+    },
     "Next" : {
+
+    },
+    "No cutout yet. Tap Re-do the cutout and pick your art." : {
 
     },
     "No designs yet. Make one in Create." : {
@@ -375,13 +453,22 @@
     "Open the camera" : {
 
     },
+    "Opening your photo…" : {
+
+    },
     "Opens the camera for up to 30 seconds" : {
+
+    },
+    "Opens the design. Long press for more." : {
 
     },
     "Opens the order" : {
 
     },
     "Opens the Settings app so you can turn on the camera" : {
+
+    },
+    "Opens the shop page buyers see" : {
 
     },
     "Opens this way of making art" : {
@@ -429,10 +516,16 @@
     "Puts it in the shop" : {
 
     },
+    "Puts it on a tote bag and writes its listing" : {
+
+    },
     "Putting your art on a tote bag. This can take up to a minute." : {
 
     },
     "QUESTION" : {
+
+    },
+    "Re-do the cutout" : {
 
     },
     "Record a short video, about 30 seconds. Buyers see it when they tap the story tag. You only do this once." : {
@@ -463,6 +556,12 @@
 
     },
     "Retake" : {
+
+    },
+    "Save and list it" : {
+
+    },
+    "Save changes" : {
 
     },
     "Save my story" : {
@@ -496,6 +595,15 @@
 
     },
     "Say what to change" : {
+
+    },
+    "See it in the shop" : {
+
+    },
+    "See the sticker in the shop" : {
+
+    },
+    "See the tote in the shop" : {
 
     },
     "See what buyers see" : {
@@ -612,6 +720,9 @@
     "Sticker" : {
 
     },
+    "Still cutting it out. Come back in a minute." : {
+
+    },
     "Still working. This can take a few minutes, so please keep the app open." : {
 
     },
@@ -681,7 +792,16 @@
     "Thinking…" : {
 
     },
+    "This design has no photo to cut out again." : {
+
+    },
+    "This design is no longer in My designs." : {
+
+    },
     "This device has no camera, so you can pick a picture instead." : {
+
+    },
+    "This one didn't work. Re-do the cutout, or delete it." : {
 
     },
     "This video has no sound, so it won't have captions." : {
@@ -709,6 +829,9 @@
 
     },
     "Type your idea" : {
+
+    },
+    "Updates the listing in the shop" : {
 
     },
     "Upload a picture" : {
@@ -853,6 +976,9 @@
     "Your art on a cotton bag" : {
 
     },
+    "Your changes are checked again before they go live." : {
+
+    },
     "Your code" : {
 
     },
@@ -863,6 +989,9 @@
 
     },
     "Your cutout is saved. One product could not be rebuilt; try again later." : {
+
+    },
+    "Your design" : {
 
     },
     "Your design is ready!" : {

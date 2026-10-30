@@ -5,6 +5,7 @@
  * screens can wait for hydration instead of flashing "missing" states.
  */
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import type { ImageSize } from "./cutout";
 import { api, type AgentStep, type ArtworkVariant, type Candidate, type Creator, type ListingDraft, type Product, type ProductType, type ShapeResult } from "./api";
 
 export type Draft = {
@@ -17,6 +18,10 @@ export type Draft = {
   artworkId?: string;
   photoArtworkId?: string;
   candidates?: Candidate[];
+  /** Pixels of the stored original for `photoArtworkId` (the space of `Candidate.bbox`). */
+  imageSize?: ImageSize | null;
+  /** Product trouble reported by the last cleanup, shown on Ready. */
+  cutoutNotice?: string;
   productRecord?: Product;
   listing?: ListingDraft;
   trace?: AgentStep[];

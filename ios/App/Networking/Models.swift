@@ -161,10 +161,36 @@ typealias ArtworkVariant = Artwork
 
 struct Candidate: Codable, Identifiable, Equatable, Hashable {
   let id: String
-  /// [x0, y0, x1, y1] in pixels of the original photo.
+  /// [x0, y0, x1, y1] in pixels of the stored original (see `ImageSize`).
   var bbox: [Double]
   var score: Double?
   var thumbUrl: String?
+}
+
+/// Pixel size of the stored original: the coordinate space of `bbox`, cleanup `points` and `box`.
+/// Not the size of the photo the app uploaded (the server may upscale it).
+struct ImageSize: Codable, Equatable, Hashable {
+  let w: Double
+  let h: Double
+
+  /// The server can answer 0 × 0 when it could not read the original; such a size is not used.
+  var isUsable: Bool { w > 0 && h > 0 }
+}
+
+/// A mark on the photo for `POST /artworks/{id}/cleanup`, in `ImageSize` pixels.
+struct CutoutPoint: Codable, Equatable, Hashable {
+  enum Label: String, Codable { case positive, negative }
+  let x: Double
+  let y: Double
+  let label: Label
+}
+
+/// `POST /artworks/{id}/cleanup` body; nil keys are left out (at least one must be set).
+struct CleanupRequest: Encodable, Equatable, Hashable {
+  var candidateIds: [String]?
+  var points: [CutoutPoint]?
+  /// [x0, y0, x1, y1] in `ImageSize` pixels.
+  var box: [Double]?
 }
 
 struct Product: Codable, Identifiable, Equatable, Hashable {
@@ -320,7 +346,38 @@ struct PhotoArtworkRequest: Encodable {
 }
 
 struct ArtworkVariantsResponse: Decodable { let artworks: [ArtworkVariant] }
-struct PhotoArtworkResponse: Decodable { let artwork: Artwork; let candidates: [Candidate] }
+struct PhotoArtworkResponse: Decodable { let artwork: Artwork; let candidates: [Candidate]; var imageSize: ImageSize? }
+/// `POST /artworks/{id}/cleanup` answer: the `Artwork` plus `details` about products already made
+/// from it: `failedProductIds` could not be rebuilt, `unpublishedProductIds` went back to draft
+/// (the new cut-out is too small to print).
+struct CleanupResult: Decodable, Equatable {
+  let artwork: Artwork
+  var failedProductIds: [String] = []
+  var unpublishedProductIds: [String] = []
+
+  private struct Details: Decodable {
+    var failedProductIds: [String]?
+    var unpublishedProductIds: [String]?
+  }
+  private enum Keys: String, CodingKey { case details }
+
+  init(artwork: Artwork, failedProductIds: [String] = [], unpublishedProductIds: [String] = []) {
+    self.artwork = artwork
+    self.failedProductIds = failedProductIds
+    self.unpublishedProductIds = unpublishedProductIds
+  }
+
+  init(from decoder: Decoder) throws {
+    artwork = try Artwork(from: decoder)
+    let c = try decoder.container(keyedBy: Keys.self)
+    let details = try? c.decodeIfPresent(Details.self, forKey: .details)
+    failedProductIds = details?.failedProductIds ?? []
+    unpublishedProductIds = details?.unpublishedProductIds ?? []
+  }
+}
+
+/// `GET /artworks/{id}`; `originalUrl` is presigned for 10 minutes (do not store it).
+struct ArtworkDetailResponse: Decodable { let artwork: Artwork; let candidates: [Candidate]; var imageSize: ImageSize?; var originalUrl: String? }
 struct SelectCandidateRequest: Encodable { let candidateId: String }
 struct RefineRequest: Encodable { let instruction: String }
 struct RefineResponse: Decodable { let artwork: ArtworkVariant }

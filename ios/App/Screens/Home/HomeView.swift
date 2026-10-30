@@ -53,7 +53,7 @@ private struct CreateDestination: View {
     case .chooseMethod: ChooseMethodView()
     case .camera(let source): CameraView(source: source)
     case .findingDrawings: FindingDrawingsView()
-    case .tapToSelect: TapToSelectView()
+    case .adjustCutout: AdjustCutoutView()
     case .speak: SpeakView()
     case .drawingYourIdea: DrawingYourIdeaView()
     case .voiceResult: VoiceResultView()

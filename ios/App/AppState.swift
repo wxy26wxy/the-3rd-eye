@@ -8,7 +8,8 @@ enum CreateRoute: Hashable {
   case chooseMethod
   case camera(PhotoSource)
   case findingDrawings
-  case tapToSelect
+  /// Pick one or more candidates and refine the cut-out (also opened from Design ready to redo it).
+  case adjustCutout
   case speak
   case drawingYourIdea
   case voiceResult
@@ -155,6 +156,14 @@ final class CreateFlow {
   var photoSource: PhotoSource = .camera
   var photoArtwork: Artwork?
   var candidates: [Candidate] = []
+  /// Size of the stored original (`POST /artworks` / `GET /artworks/{id}`); cut-out coordinates use it.
+  var imageSize: ImageSize?
+  /// Adjust cutout: chosen candidates (in candidate order), marks and box, kept for a redo.
+  var selectedCandidateIds: [String] = []
+  var points: [CutoutPoint] = []
+  var box: [Double]?
+  /// Shown on Design ready after a re-cut that could not rebuild an existing product.
+  var cutoutNotice: String?
   var transcript = ""
   var answers: [String] = []
   var shaped: ShapePromptResponse?
@@ -166,6 +175,16 @@ final class CreateFlow {
   var approval: ApproveListingResponse?
   /// The picked story video was longer than 30 s and only its start was kept.
   var storyVideoTrimmed = false
+
+  /// Starts the cut-out state for a new photo answer.
+  func resetCutout(candidates: [Candidate], imageSize: ImageSize?) {
+    self.candidates = candidates
+    self.imageSize = imageSize
+    selectedCandidateIds = candidates.count == 1 ? candidates.map(\.id) : []
+    points = []
+    box = nil
+    cutoutNotice = nil
+  }
 
   var currentVariant: ArtworkVariant? {
     variants.indices.contains(selectedVariant) ? variants[selectedVariant] : nil

@@ -59,27 +59,6 @@ final class VoiceFlowUITests: XCTestCase {
 
   // MARK: Helpers
 
-  /// Signs out if a previous test left the app signed in, then signs in with `code`.
-  private func signIn(_ app: XCUIApplication, code: String) {
-    let start = app.buttons["Start creating"]
-    if !start.waitForExistence(timeout: 5) {
-      app.tabBars.buttons["My designs"].tap()
-      let signOut = app.buttons["Sign out"].firstMatch
-      XCTAssertTrue(signOut.waitForExistence(timeout: 5))
-      signOut.tap()
-      let confirm = app.sheets.buttons["Sign out"].exists ? app.sheets.buttons["Sign out"] : app.buttons.matching(identifier: "Sign out").element(boundBy: 1)
-      XCTAssertTrue(confirm.waitForExistence(timeout: 5))
-      confirm.tap()
-      XCTAssertTrue(start.waitForExistence(timeout: 5))
-    }
-    start.tap()
-    let field = app.textFields["Sign-in code"]
-    XCTAssertTrue(field.waitForExistence(timeout: 5))
-    field.tap()
-    field.typeText(code)
-    app.buttons["Sign in"].tap()
-  }
-
   private func describeIdea(_ app: XCUIApplication) {
     let voice = app.buttons["Say it out loud, Describe it, we draw it"]
     XCTAssertTrue(voice.waitForExistence(timeout: 5))

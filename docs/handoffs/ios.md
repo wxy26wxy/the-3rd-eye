@@ -4,7 +4,7 @@
 `ios/**` (except `ios/App/Theme/Tokens.swift`, generated from `design/tokens.json`).
 
 ## Current task
-T081 · remove duplicated voice/speech UI and rely on iOS system accessibility (see "System accessibility (T081)" below and `docs/accessibility.md`). Earlier: T070 deep link, T060 TestFlight, T051 fix wave, T030 SwiftUI creator app.
+T082 · Adjust cutout screen (see "Adjust cutout (T082)" below). Earlier: T081 system accessibility (see "System accessibility (T081)" and `docs/accessibility.md`), T070 deep link, T060 TestFlight, T051 fix wave, T030 SwiftUI creator app.
 
 ## Install on your iPhone (deployed site)
 1. On the Mac: `cd ios && xcodegen generate && open The3rdEye.xcodeproj` (needs Xcode and `brew install xcodegen`).
@@ -27,6 +27,7 @@ Server: build setting `API_BASE_URL` (Debug and Release default `$(DEPLOYED_SITE
 Without the backend: `python3 scripts/mock_api.py` (port 3999) and build with `API_BASE_URL=http://localhost:3999`. UI tests (voice branch: the confirmation text on the loading screen and the "WHAT THE IMAGE SHOWS" card with the description on Voice result; deep link):
 `xcodebuild test -scheme The3rdEyeUITests -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build/DerivedData API_BASE_URL=http://localhost:3999`
 On a phone: see "Install on your iPhone" above. No entitlements are used.
+UI tests now include `AdjustCutoutUITests` (photo branch). To run the mock on another port, start it with the port and pass both `API_BASE_URL=http://localhost:<port>` and `TEST_RUNNER_MOCK_API_URL=http://localhost:<port>` to `xcodebuild test`.
 The mock also answers `POST /creators/me/story-video` (logs `audioUrl`, returns a `storyDraft`) and `POST /orders/o1/thank-you`.
 
 ## Layout
@@ -56,7 +57,7 @@ The mock also answers `POST /creators/me/story-video` (logs `audioUrl`, returns 
 Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s PCM asset), camera-permission flow, interruption handling, the story-draft sheet against the live backend, 401 from the live backend's token expiry.
 
 ## Last updated
-2026-10-29 (T081)
+2026-10-29 (T082)
 
 ## TestFlight (T060)
 - Icon: `pnpm icon` renders `ios/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` from `design/tokens.json` (no alpha, as App Store Connect requires). To use a designer-made icon, replace that PNG.
@@ -88,3 +89,14 @@ Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s 
 - Names: project/target/scheme `The3rdEye`, tests `The3rdEyeTests`, UI tests `The3rdEyeUITests`, bundle id `com.the3rdeye.app`, scheme `the3rdeye://code/<CODE>`. The brand string comes from `Tokens.Brand` (generated from `design/tokens.json`); do not type it in views.
 - The production site is `DEPLOYED_SITE_URL` in `project.yml`, the only place iOS names it. `xcrun simctl openurl booted the3rdeye://code/TEST1234` pre-fills the code screen while signed out.
 - Branches started before the rename: use `@testable import The3rdEye` and the new scheme names in test commands; the app entry point is now `App/The3rdEyeApp.swift`.
+## Adjust cutout (T082)
+- `App/Screens/Create/AdjustCutoutView.swift` (route `.adjustCutout`, replaces Tap to select). Pieces are toggled by numbered chips on the photo or the thumbnail strip. VoiceOver sees only the strip (checkbox: label "Piece n", trait selected, "Not selected" value when off); the chips are hidden from it so each piece is read once. Mode control "Add area / Remove area / Draw a box": "Add area" taps add positive marks, "Remove area" taps add negative marks, which drop the whole chosen piece they land on (server rule); to trim one piece, draw a box around what should stay. A negative mark that would leave nothing (it lands on the only chosen piece, no box, no positive mark) is refused with that advice, and a cleanup answered 422 shows the same advice. Tap a mark to delete it (≤ 10); a drag draws the box; "Clear marks" removes both.
+- VoiceOver / Switch Control path: each piece in the strip has the actions "Box around this piece" (box = its bbox), "Add the area around this piece" (positive mark at the bbox centre) and "Leave this piece out"; the same actions are in its context menu (long press), which the UI test uses because XCUITest cannot run VoiceOver custom actions. The mode buttons and the instruction tell VoiceOver users to use those actions.
+- **"Apply cutout" is a commit, not a throwaway preview:** `cleanup` saves the new cut on the server (and rebuilds, possibly unpublishes, products made from the artwork). On success the app sets `flow.artwork` and `flow.cutoutNotice` at once and shows the cut on a `Checkerboard` with "Back to photo" / "Show the cutout". "Use this" then just goes on (no second call unless the pieces or marks changed). In redo mode "Use this" with nothing changed goes straight back, and a single piece is sent as `cleanup {candidateIds: [id]}` (not `select`) so product notices arrive.
+- While a request runs, Back, Retake, the chips, the marks, the mode control and Clear marks are disabled; the request's `Task` is cancelled when the screen disappears, and the screen navigates only if `.adjustCutout` is still the top of `createPath` (redo is captured when the request starts).
+- Coordinates: `CutoutGeometry` maps view ↔ `imageSize` pixels (`fitRect` inside the photo frame, clamped); a 0 × 0 `imageSize` is ignored. State lives in `CreateFlow` (`imageSize`, `selectedCandidateIds`, `points`, `box`; `resetCutout` on each new photo answer selects the only piece when there is one).
+- Redo: Design ready shows "Adjust cutout" when `flow.photoArtwork` is the shown artwork; the screen then has no step pill and no Retake, and "Use this" pops back. Without a local photo or `imageSize` it loads `GET /artworks/{id}` and shows `originalUrl` (an error if that fails).
+- Cleanup `details`: `failedProductIds` → "Your cutout is saved. One product could not be rebuilt; try again later."; `unpublishedProductIds` → "One product went back to draft because the new cutout is too small to print. Open My designs to fix it." (`CleanupResult.productNotice`, shown on the screen and on Design ready). Chosen `candidateIds` are sent with every points/box edit.
+- Debug-only hooks (`App/Services/UITestHooks.swift`, `AppConfig.blobAPIURL`): launch environment `UITEST_PHOTO=1` uses a generated 600 × 800 photo on the photo screen; `MOCK_BLOB_API=<mock>/blob/` sends blob uploads to the mock. Release ignores both.
+- Mock: photo `POST /artworks` answers `p1` with `cand-1`, `cand-2` and `imageSize` 1200 × 1600. Sign-in code prefixes: `ONE…` one piece already cut (auto-skip), `NOCUT…` every cleanup → 422, `DETAILS…` cleanup `details` with one failed and one unpublished product. `cleanup` checks the contract rules (1–6 known ids, 1–10 points, label enum, ordered box, at least one key, a positive point without box or ids) and answers 400 otherwise. Also `POST /artworks/p1/select`, `GET /artworks/p1`, `POST /uploads`, `PUT /blob/`; `GET /__mock/last/<cleanup|select|artworks>` returns the last body sent.
+- Not verified: live backend, a phone, a VoiceOver pass of this screen, box drag inside the scroll view on a device.

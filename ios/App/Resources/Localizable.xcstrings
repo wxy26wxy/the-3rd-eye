@@ -44,10 +44,28 @@
     "Add a video" : {
 
     },
+    "Add area" : {
+
+    },
+    "Add the area around this piece" : {
+
+    },
+    "Added area, mark %lld" : {
+
+    },
     "Adds a picture from your library" : {
 
     },
+    "Adds it to the cutout" : {
+
+    },
+    "Adjust cutout" : {
+
+    },
     "Answer out loud" : {
+
+    },
+    "Apply cutout" : {
 
     },
     "Approve and list it" : {
@@ -62,7 +80,16 @@
     "Back" : {
 
     },
+    "Back to photo" : {
+
+    },
     "Bought by %@" : {
+
+    },
+    "Box around this piece" : {
+
+    },
+    "Box drawn" : {
 
     },
     "Buyer said: %@" : {
@@ -116,13 +143,16 @@
     "Choose how to make your art" : {
 
     },
+    "Clear marks" : {
+
+    },
     "Create" : {
 
     },
-    "Cuts out the drawing you picked" : {
+    "Cutting it out…" : {
 
     },
-    "Cutting it out…" : {
+    "Deletes this mark" : {
 
     },
     "Describe it, we draw it" : {
@@ -146,10 +176,13 @@
     "Drafted story: %@" : {
 
     },
-    "Draw it, or say it out loud" : {
+    "Drag a box around the whole drawing." : {
 
     },
-    "Drawing %lld" : {
+    "Draw a box" : {
+
+    },
+    "Draw it, or say it out loud" : {
 
     },
     "Drawing your idea" : {
@@ -225,6 +258,18 @@
     "Lay your drawing flat in good light. It's fine if there are a few on the page." : {
 
     },
+    "Leave this piece out" : {
+
+    },
+    "Leaves it out of the cutout" : {
+
+    },
+    "Left out" : {
+
+    },
+    "Left out, mark %lld" : {
+
+    },
     "Listening" : {
 
     },
@@ -267,6 +312,12 @@
     "Making your sticker. This can take up to a minute." : {
 
     },
+    "Mark added" : {
+
+    },
+    "Mark removed" : {
+
+    },
     "Mention my disability" : {
 
     },
@@ -303,10 +354,16 @@
     "Not now" : {
 
     },
+    "Not selected" : {
+
+    },
     "Note from the buyer: %@" : {
 
     },
     "Off means your story never says it. You can change this later." : {
+
+    },
+    "One product went back to draft because the new cutout is too small to print. Open My designs to fix it." : {
 
     },
     "One quick question" : {
@@ -351,6 +408,15 @@
     "Pick one. You can make the other next time." : {
 
     },
+    "Pick other pieces or change the cutout" : {
+
+    },
+    "Pick your art" : {
+
+    },
+    "Piece %lld" : {
+
+    },
     "Please sign in again with your code." : {
 
     },
@@ -384,6 +450,12 @@
     "Records your voice" : {
 
     },
+    "Remove area" : {
+
+    },
+    "Removes every mark and the box" : {
+
+    },
     "Repeats the last step" : {
 
     },
@@ -399,7 +471,13 @@
     "Saves it as the story buyers read" : {
 
     },
+    "Saves this cutout to your design and shows it" : {
+
+    },
     "Saves your changes as your story" : {
+
+    },
+    "Saving the cutout…" : {
 
     },
     "Saving your video…" : {
@@ -421,12 +499,6 @@
 
     },
     "See what buyers see" : {
-
-    },
-    "Selected" : {
-
-    },
-    "Selects this drawing" : {
 
     },
     "Selects this product" : {
@@ -453,7 +525,16 @@
     "Sent with a picture or video." : {
 
     },
+    "Show the cutout" : {
+
+    },
+    "Shows the saved cutout on its own" : {
+
+    },
     "Shows your live product" : {
+
+    },
+    "Shows your photo with the marks again" : {
 
     },
     "Sign in" : {
@@ -555,10 +636,13 @@
     "Takes a photo of your drawing" : {
 
     },
+    "Tap a piece to leave it out of the cutout. To trim one piece, draw a box around what should stay." : {
+
+    },
     "Tap the big button and talk. Your words will show up here." : {
 
     },
-    "Tap your drawing" : {
+    "Tap the photo where the cutout should include more. Tap a mark again to remove it." : {
 
     },
     "Tell buyers your story" : {
@@ -589,6 +673,9 @@
 
     },
     "The photo is missing. Go back and take it again." : {
+
+    },
+    "Then tap or drag on the photo. With VoiceOver, use the actions on each piece in the list." : {
 
     },
     "Thinking…" : {
@@ -639,6 +726,9 @@
     "Use this story" : {
 
     },
+    "Uses this cutout and goes on" : {
+
+    },
     "Version %@ (%@), %@" : {
       "localizations" : {
         "en" : {
@@ -655,13 +745,16 @@
     "Video saved!" : {
 
     },
-    "We couldn't find a drawing. Try another photo." : {
+    "We couldn't find a drawing. Draw a box around it or tap on it." : {
 
     },
     "We filled in your code from the link. Tap Sign in." : {
 
     },
-    "We found %lld drawings. Tap the one to use." : {
+    "We found %lld pieces. Pick one, or several to combine them." : {
+
+    },
+    "We found one piece. Change the cutout with the tools below." : {
 
     },
     "We kept the first 15 seconds of your video." : {
@@ -697,6 +790,9 @@
     "Why do you make art?" : {
 
     },
+    "With VoiceOver, use the actions on each piece in the list instead." : {
+
+    },
     "Working" : {
 
     },
@@ -719,6 +815,9 @@
 
     },
     "Yes, list it!" : {
+
+    },
+    "You can add up to 10 marks. Tap a mark to remove it." : {
 
     },
     "You earn %@" : {
@@ -755,6 +854,15 @@
 
     },
     "Your code" : {
+
+    },
+    "Your cutout" : {
+
+    },
+    "Your cutout is saved. Here it is." : {
+
+    },
+    "Your cutout is saved. One product could not be rebuilt; try again later." : {
 
     },
     "Your design is ready!" : {

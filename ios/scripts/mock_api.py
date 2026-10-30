@@ -4,6 +4,10 @@
 Usage: python3 ios/scripts/mock_api.py [port]   (default 3999)
 Build the app against it: xcodebuild ... API_BASE_URL=http://localhost:3999
 Shapes follow docs/api.md. Images point at a 1x1 PNG served here.
+Photo flow: launch the app with UITEST_PHOTO=1 and MOCK_BLOB_API=<base>/blob/ (UI tests do);
+POST /artworks {source: photo} answers 2 candidates and imageSize 1200x1600 (sign-in code ONE...: 1).
+Sign-in NOCUT... makes cleanup answer 422, DETAILS... gives cleanup non-empty details.
+GET /__mock/last/<cleanup|select|artworks> returns the last body the app sent there.
 """
 import json
 import sys
@@ -61,9 +65,108 @@ def thank_you(body):
             "videoUrl": body.get("videoUrl"), "createdAt": "2026-10-29T10:00:00Z"}
 
 
+# Photo flow (T082). The app's UI-test photo is 600 x 800; the stored original is "upscaled" x2.
+IMAGE_SIZE = {"w": 1200, "h": 1600}
+CANDIDATES = [
+    {"id": "cand-1", "bbox": [100, 160, 500, 693], "score": 0.92, "thumbUrl": f"{BASE}/img.png"},
+    {"id": "cand-2", "bbox": [660, 896, 1060, 1429], "score": 0.88, "thumbUrl": f"{BASE}/img.png"},
+]
+# Last request body per route, read back by UI tests through GET /__mock/last/<name>.
+LAST = {}
+# A sign-in code starting with ONE makes photo answers carry a single, already cut-out candidate.
+# NOCUT… makes every cleanup answer 422; DETAILS… makes it carry non-empty details.
+MODE = {"single": False, "fail": False, "details": False}
+CUTS = {"n": 0}
+
+
+def photo_artwork(cleaned=None, alt=None):
+    return {
+        "id": "p1", "creatorId": "c-test", "source": "photo", "transcript": None, "shapedPrompt": None,
+        "originalUrl": f"{BASE}/img.png", "cleanedUrl": cleaned, "maskUrl": None, "cutPathSvg": None,
+        "altText": alt, "spokenDescription": None, "differencesFromPrompt": None, "genResponseId": None,
+        "parentArtworkId": None, "status": "ready" if cleaned else "draft", "createdAt": "2026-10-29T10:00:00Z",
+    }
+
+
+def create_artwork(body):
+    if body.get("source") in ("photo", "canvas"):
+        LAST["artworks"] = body
+        if MODE["single"]:
+            return {"artwork": photo_artwork(f"{BASE}/img.png?cut=0", "Cut-out of piece 1"),
+                    "candidates": CANDIDATES[:1], "imageSize": IMAGE_SIZE}
+        return {"artwork": photo_artwork(), "candidates": CANDIDATES, "imageSize": IMAGE_SIZE}
+    time.sleep(2)
+    return {"artworks": [artwork(i + 1) for i in range(int(body.get("n") or 1))]}
+
+
+def select(body):
+    LAST["select"] = body
+    return photo_artwork(f"{BASE}/img.png?select={body.get('candidateId')}", f"Cut-out of {body.get('candidateId')}")
+
+
+class MockError(Exception):
+    def __init__(self, status, code, message):
+        super().__init__(message)
+        self.status, self.code, self.message = status, code, message
+
+
+def check_cleanup(body):
+    """The CleanupBody rules of docs/api.md (T080 §2); the server answers 400 like this."""
+    bad = MockError(400, "invalid_request", "cleanup body does not match the contract")
+    if not any(k in body for k in ("candidateIds", "points", "box")) or set(body) - {"candidateIds", "points", "box"}:
+        raise bad
+    ids = body.get("candidateIds")
+    if ids is not None:
+        if not isinstance(ids, list) or not 1 <= len(ids) <= 6:
+            raise bad
+        if any(i not in {c["id"] for c in CANDIDATES} for i in ids):
+            raise MockError(400, "invalid_candidate", "unknown candidate id")
+    points = body.get("points")
+    if points is not None:
+        if not isinstance(points, list) or not 1 <= len(points) <= 10:
+            raise bad
+        for p in points:
+            if not isinstance(p.get("x"), (int, float)) or not isinstance(p.get("y"), (int, float)) \
+                    or p.get("label", "positive") not in ("positive", "negative"):
+                raise bad
+        if "box" not in body and ids is None and not any(p.get("label", "positive") == "positive" for p in points):
+            raise bad
+    box = body.get("box")
+    if box is not None and (not isinstance(box, list) or len(box) != 4 or not (box[0] < box[2] and box[1] < box[3])):
+        raise bad
+
+
+def cleanup(body):
+    LAST["cleanup"] = body
+    print(f"mock_api: cleanup {json.dumps(body)}", file=sys.stderr, flush=True)
+    check_cleanup(body)
+    if MODE["fail"]:
+        raise MockError(422, "no_drawing_found", "Nothing was left in the cutout.")
+    CUTS["n"] += 1
+    details = {"failedProductIds": [], "unpublishedProductIds": []}
+    if MODE["details"]:
+        details = {"failedProductIds": ["pr1"], "unpublishedProductIds": ["pr2"]}
+    return {**photo_artwork(f"{BASE}/img.png?cut={CUTS['n']}", "Cut-out preview"), "details": details}
+
+
+def artwork_detail(_body):
+    cands = CANDIDATES[:1] if MODE["single"] else CANDIDATES
+    return {"artwork": photo_artwork(), "candidates": cands, "imageSize": IMAGE_SIZE, "originalUrl": f"{BASE}/img.png"}
+
+
+def blob_put(_body, query=""):
+    pathname = query.split("pathname=", 1)[1].split("&")[0] if "pathname=" in query else "upload.bin"
+    return {"url": f"{BASE}/img.png", "downloadUrl": f"{BASE}/img.png", "pathname": pathname, "contentType": "image/jpeg"}
+
+
 def sign_in(body):
     # A code starting with MULTI signs in with simpleMode off, so the app asks for 3 pictures.
     multi = str(body.get("code", "")).upper().startswith("MULTI")
+    code = str(body.get("code", "")).upper()
+    MODE["single"] = code.startswith("ONE")
+    MODE["fail"] = code.startswith("NOCUT")
+    MODE["details"] = code.startswith("DETAILS")
+    LAST.clear()
     creator = {**CREATOR, "accessPrefs": {**CREATOR["accessPrefs"], "simpleMode": not multi}}
     return {"token": "c-test.mock", "creator": creator}
 
@@ -80,7 +183,12 @@ ROUTES = {
         "prompt": "A cheerful green frog wearing a gold crown", "style_notes": "",
         "clarifying_question": None,
         "spoken_confirmation": "A happy frog with a gold crown. Drawing it now."},
-    ("POST", "/api/v1/artworks"): lambda b: (time.sleep(2), {"artworks": [artwork(i + 1) for i in range(int(b.get("n") or 1))]})[1],
+    ("POST", "/api/v1/artworks"): create_artwork,
+    ("POST", "/api/v1/artworks/p1/select"): select,
+    ("POST", "/api/v1/artworks/p1/cleanup"): cleanup,
+    ("GET", "/api/v1/artworks/p1"): artwork_detail,
+    # Blob client upload: token event, then the PUT the app sends to MOCK_BLOB_API (= BASE/blob/).
+    ("POST", "/api/v1/uploads"): lambda b: {"clientToken": "vercel_blob_client_mockstore_token"},
     ("GET", "/api/v1/artworks"): lambda b: {"artworks": [artwork(1)]},
     ("GET", "/api/v1/orders"): lambda b: {"orders": [], "unread": 0},
 }
@@ -96,11 +204,15 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _handle(self, method):
-        path = self.path.split("?")[0]
+        path, _, query = self.path.partition("?")
         length = int(self.headers.get("Content-Length") or 0)
         raw = self.rfile.read(length) if length else b""
         if path == "/img.png":
             return self._send(200, PNG, "image/png")
+        if method == "PUT" and path == "/blob/":
+            return self._send(200, blob_put(None, query))
+        if method == "GET" and path.startswith("/__mock/last/"):
+            return self._send(200, LAST.get(path.rsplit("/", 1)[1]) or {})
         fn = ROUTES.get((method, path))
         if not fn:
             return self._send(404, {"error": {"code": "not_found", "message": f"mock has no {method} {path}"}})
@@ -108,7 +220,10 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(raw) if raw else {}
         except ValueError:
             body = {}
-        self._send(200, fn(body))
+        try:
+            self._send(200, fn(body))
+        except MockError as e:
+            self._send(e.status, {"error": {"code": e.code, "message": e.message}})
 
     def do_GET(self):
         self._handle("GET")

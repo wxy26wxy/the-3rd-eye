@@ -50,6 +50,9 @@ enum ThemeEffects {
   static let artworkMaxHeight: CGFloat = Tokens.Size.record * 4
   /// Tint inside a selected candidate box on the photo.
   static let selectionFillOpacity: Double = 0.35
+  /// Checkerboard squares behind a cut-out preview: `border` at this opacity on `surface`
+  /// (visible in high contrast too, where surface and surfaceAlt are the same).
+  static let checkerOpacity: Double = 0.12
   /// Story video recording limit in seconds.
   static let storyVideoSeconds: Double = 30
   /// Thank-you video recording limit in seconds.

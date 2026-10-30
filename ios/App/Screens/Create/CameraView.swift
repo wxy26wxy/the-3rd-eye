@@ -61,6 +61,13 @@ struct CameraView: View {
       }
     }
     .onAppear {
+      #if DEBUG
+      if UITestHooks.usesTestPhoto, app.flow.photo == nil {
+        let photo = UITestHooks.testPhoto(colors: colors)
+        Task { @MainActor in use(photo) }
+        return
+      }
+      #endif
       if source == .camera && MediaPicker.cameraAvailable && app.prefs.simpleMode && app.flow.photo == nil {
         Task { await openCamera() }
       }
@@ -79,7 +86,7 @@ struct CameraView: View {
     app.flow.photo = ImageTools.normalized(image)
     app.flow.photoSource = source
     app.flow.photoArtwork = nil
-    app.flow.candidates = []
+    app.flow.resetCutout(candidates: [], imageSize: nil)
     app.replaceTop(with: .findingDrawings)
   }
 }

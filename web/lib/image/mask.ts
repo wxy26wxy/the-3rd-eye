@@ -207,3 +207,99 @@ export async function thresholdSegments(png: Buffer, maxParts = 6): Promise<{ ma
       return { mask, bbox: p.bbox, score: Math.min(1, p.area / (ink.width * ink.height)) };
     });
 }
+
+// ---------- mask finishing (T080) ----------
+
+/** 8-bit alpha (0 = outside, 255 = inside, values between = anti-aliased edge). */
+export type AlphaMask = { width: number; height: number; alpha: Uint8Array };
+
+/** Erosion by ~`radius` px: the dilation of the background, inverted. */
+export async function erode(mask: Mask, radius: number): Promise<Mask> {
+  const inv = { ...mask, data: mask.data.map((v) => (v ? 0 : 1)) };
+  const grown = await dilate(inv, radius);
+  return { ...mask, data: grown.data.map((v) => (v ? 0 : 1)) };
+}
+
+/** Pixel-wise OR of same-sized masks. */
+export function unionMasks(masks: Mask[]): Mask {
+  if (!masks.length) throw new Error("No masks to combine");
+  const { width, height } = masks[0];
+  const out = emptyMask(width, height);
+  for (const m of masks) {
+    if (m.width !== width || m.height !== height) throw new Error("Masks differ in size");
+    for (let i = 0; i < out.data.length; i++) out.data[i] |= m.data[i];
+  }
+  return out;
+}
+
+/** Intersection over union of two same-sized masks (0 when both are empty). */
+export function iou(a: Mask, b: Mask): number {
+  let inter = 0, uni = 0;
+  for (let i = 0; i < a.data.length; i++) {
+    const x = a.data[i], y = b.data[i];
+    if (x && y) inter++;
+    if (x || y) uni++;
+  }
+  return uni ? inter / uni : 0;
+}
+
+/** Drops connected pieces smaller than `minFraction` of the largest piece. */
+export function dropIslands(mask: Mask, minFraction = 0.005): Mask {
+  const { labels, parts } = components(mask);
+  if (parts.length <= 1) return mask;
+  const largest = parts.reduce((m, p) => Math.max(m, p.area), 0);
+  const keep = new Set(parts.filter((p) => p.area >= largest * minFraction).map((p) => p.label));
+  const out = emptyMask(mask.width, mask.height);
+  for (let i = 0; i < labels.length; i++) out.data[i] = keep.has(labels[i]) ? 1 : 0;
+  return out;
+}
+
+/** Nearest-neighbour resize of a binary mask. */
+export async function resizeMask(mask: Mask, width: number, height: number): Promise<Mask> {
+  if (mask.width === width && mask.height === height) return mask;
+  const g = await greyRaw(maskSharp(mask).resize(width, height, { kernel: "nearest", fit: "fill" }));
+  return fromGrey(g.data, g.width, g.height, 127);
+}
+
+/** Longest side the finishing steps run at (the SAM request size, so the close radius is in request pixels). */
+export const FINISH_MAX_SIDE = 2048;
+/** Morphological close radius at the working scale (bridges hairline gaps between SAM pieces). */
+export const CLOSE_RADIUS_PX = 2;
+/** Pieces smaller than this fraction of a part's main blob are dropped. */
+export const MIN_ISLAND_FRACTION = 0.005;
+
+/**
+ * Turns segmentation masks into a clean, anti-aliased alpha at `target` size.
+ * Each part (one per chosen candidate or SAM object): fill holes, drop specks under 0.5 % of its
+ * main blob. Then union the parts (so every combined piece is kept), close ≈ 2 px at request
+ * scale, fill holes again, and resize with a linear kernel after a light blur so the edge is a
+ * soft 0–255 ramp instead of a staircase. Swappable: the pipeline only depends on the signature.
+ */
+export async function finishMask(parts: Mask | Mask[], target: { width: number; height: number }): Promise<AlphaMask> {
+  const list = Array.isArray(parts) ? parts : [parts];
+  if (!list.length) throw new Error("No masks to finish");
+  const { width, height } = list[0];
+  const scale = Math.min(1, FINISH_MAX_SIDE / Math.max(width, height));
+  const w = Math.max(1, Math.round(width * scale)), h = Math.max(1, Math.round(height * scale));
+  const cleaned = await Promise.all(list.map(async (p) => dropIslands(fillHoles(await resizeMask(p, w, h)), MIN_ISLAND_FRACTION)));
+  let m = unionMasks(cleaned);
+  m = fillHoles(await erode(await dilate(m, CLOSE_RADIUS_PX), CLOSE_RADIUS_PX));
+  const { data, info } = await maskSharp(m).blur(0.6)
+    .resize(target.width, target.height, { kernel: "linear", fit: "fill" })
+    .raw().toBuffer({ resolveWithObject: true });
+  const alpha = new Uint8Array(info.width * info.height);
+  for (let i = 0; i < alpha.length; i++) alpha[i] = data[i * info.channels];
+  return { width: info.width, height: info.height, alpha };
+}
+
+/** Binary view of an alpha (inside = alpha ≥ 128). */
+export function alphaToMask(a: AlphaMask, threshold = 127): Mask {
+  const data = new Uint8Array(a.width * a.height);
+  for (let i = 0; i < data.length; i++) data[i] = a.alpha[i] > threshold ? 1 : 0;
+  return { width: a.width, height: a.height, data };
+}
+
+/** Greyscale PNG of an alpha (white = inside). `maskFromPng` reads it back as a binary mask. */
+export async function alphaToPng(a: AlphaMask): Promise<Buffer> {
+  return sharp(Buffer.from(a.alpha), { raw: { width: a.width, height: a.height, channels: 1 } }).png().toBuffer();
+}

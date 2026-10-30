@@ -188,7 +188,9 @@ export async function approveListing(
     else await upsertListing({ ...stored, productId: product.id, moderation });
     throw new ApiError(409, "moderation_failed", moderation?.reason || "This listing text cannot be published. Please change it.");
   }
-  const price = input.edits?.priceCents ?? existing.priceSuggestionCents ?? product.priceCents;
+  // A published product keeps its live price unless the creator sends one; the agent's suggestion only prices a draft.
+  const price = input.edits?.priceCents
+    ?? (product.status === "published" ? product.priceCents : existing.priceSuggestionCents ?? product.priceCents);
   const listing = await upsertListing({
     ...existing, productId: product.id, title, description, moderation, draftCopy: null,
     approvedAt: new Date(), approvedVia: input.approvedVia, createdByTask: stored.createdByTask ?? task,

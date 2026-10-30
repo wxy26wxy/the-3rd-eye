@@ -47,7 +47,7 @@ describe.skipIf(!live)("live SAM on photos of objects", () => {
         const raw = await sam.findAll(pngRef(png), phrase, { trace: { stage: "segment", task: "T080-live" } });
         console.log(`photo ${n} "${phrase}"`, raw.map((s) => ({ bbox: s.bbox, score: Math.round(s.score * 100) / 100, cover: Math.round((area(s.mask) / (width * height)) * 1000) / 1000 })));
       }
-      const segs = await sam.findCandidates(pngRef(png), { trace: { stage: "segment", task: "T080-live" } });
+      const segs = (await sam.findCandidates(pngRef(png), { trace: { stage: "segment", task: "T080-live" } })).segments;
       console.log(`photo ${n} candidates:`, segs.map((s) => ({ bbox: s.bbox, score: Math.round(s.score * 100) / 100 })));
       expect(segs.length).toBeGreaterThan(0);
       for (const [i, s] of segs.entries()) {

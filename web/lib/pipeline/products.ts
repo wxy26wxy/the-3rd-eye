@@ -59,12 +59,13 @@ export async function rebuildProductFiles(productId: string, task = "T080"): Pro
     checkResolution({ productType: product.type, width: meta.width ?? 0, height: meta.height ?? 0 }),
     await measureContrast(files.cleanedPng),
   );
-  await setListingPrintCheck(product.id, check);
   const unpublished = product.status === "published" && !check.print_ok;
   if (unpublished) console.warn(`[products] ${product.id} moved back to draft after a re-cut: ${check.notes}`);
   const updated = await updateProduct(product.id, {
     mockupUrl: files.mockupUrl, printPngUrl: files.printPngUrl, printSvgUrl: files.printSvgUrl, ...(unpublished ? { status: "draft" as const } : {}),
   });
+  // Product first (new files + status), then the check that describes them.
+  await setListingPrintCheck(product.id, check);
   return { product: updated, printOk: check.print_ok, unpublished };
 }
 

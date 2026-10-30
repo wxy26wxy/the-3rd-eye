@@ -13,7 +13,7 @@ import {
   buildObjectPrompt, decodeMaskToRaster, decodeMaskToSVGPath, parseImageStream, recordsOfKind,
   type SegmentationMaskRecord,
 } from "@meta-sam/parser";
-import type { ImageRef, Mask, Segment, SegmentHint, Segmenter, Trace } from "../types";
+import type { CandidateSearch, ImageRef, Mask, Segment, SegmentHint, Segmenter, Trace } from "../types";
 import { traced } from "../trace";
 import { CALL_TIMEOUT_MS, MODELS, metaClient } from "./client";
 import { callSignal } from "@/lib/deadline";
@@ -57,10 +57,10 @@ const bboxContains = (a: BBox, b: BBox) => a[0] <= b[0] && a[1] <= b[1] && a[2] 
 /**
  * Merges results from several phrases: drops frame-filling ones, sorts by score, drops any that
  * overlaps an already kept one by IoU > `iouMax`, drops a "container" (covers more than 40 % of
- * the frame and its box contains another result's box: the sheet of paper or the table around a
- * drawing), caps at `max`.
+ * the frame, its box contains another result's box AND it scores lower than that result: the
+ * sheet of paper or the table around a drawing; a confident close-up of a toy is kept), caps at `max`.
  */
-export function dedupeSegments(segs: Segment[], opts: { max?: number; iouMax?: number; maxCoverage?: number } = {}): Segment[] {
+export function dedupeSegmentsInfo(segs: Segment[], opts: { max?: number; iouMax?: number; maxCoverage?: number } = {}): CandidateSearch {
   const max = opts.max ?? MAX_CANDIDATES, iouMax = opts.iouMax ?? DEDUPE_IOU, maxCoverage = opts.maxCoverage ?? MAX_FRAME_COVERAGE;
   const sized = segs.map((s) => ({ s, a: area(s.mask) }))
     .filter(({ s, a }) => a > 0 && a <= s.mask.width * s.mask.height * maxCoverage)
@@ -71,8 +71,13 @@ export function dedupeSegments(segs: Segment[], opts: { max?: number; iouMax?: n
   }
   const frame = (k: (typeof kept)[number]) => k.s.mask.width * k.s.mask.height;
   const isContainer = (k: (typeof kept)[number]) =>
-    k.a > frame(k) * MAX_CONTAINER_COVERAGE && kept.some((o) => o !== k && bboxContains(k.s.bbox, o.s.bbox));
-  return kept.filter((k) => !isContainer(k)).slice(0, max).map((k) => k.s);
+    k.a > frame(k) * MAX_CONTAINER_COVERAGE && kept.some((o) => o !== k && o.s.score > k.s.score && bboxContains(k.s.bbox, o.s.bbox));
+  const rest = kept.filter((k) => !isContainer(k));
+  return { segments: rest.slice(0, max).map((k) => k.s), droppedContainer: rest.length < kept.length };
+}
+
+export function dedupeSegments(segs: Segment[], opts: { max?: number; iouMax?: number; maxCoverage?: number } = {}): Segment[] {
+  return dedupeSegmentsInfo(segs, opts).segments;
 }
 
 type StreamEvent = { type: string; [k: string]: unknown };
@@ -198,7 +203,7 @@ export class MetaSegmenter implements Segmenter {
     return segs.length ? segs : this.fallback(prep);
   }
 
-  async findCandidates(image: ImageRef, opts: { trace: Trace; max?: number }): Promise<Segment[]> {
+  async findCandidates(image: ImageRef, opts: { trace: Trace; max?: number }): Promise<CandidateSearch> {
     const prep = await this.prepare(image);
     const runs = await Promise.allSettled(SAM_PHRASES.map((p) => this.run(prep, p, opts.trace)));
     const all: Segment[] = [];
@@ -207,8 +212,8 @@ export class MetaSegmenter implements Segmenter {
       else console.warn(`[sam] findCandidates "${SAM_PHRASES[i]}" failed:`, r.reason instanceof Error ? r.reason.message : r.reason);
     });
     const confident = all.filter((s) => s.score >= MIN_CANDIDATE_SCORE);
-    const segs = dedupeSegments(confident.length ? confident : all, { max: opts.max });
-    return segs.length ? segs : dedupeSegments(await this.fallback(prep), { max: opts.max });
+    const found = dedupeSegmentsInfo(confident.length ? confident : all, { max: opts.max });
+    return found.segments.length ? found : dedupeSegmentsInfo(await this.fallback(prep), { max: opts.max });
   }
 
   async segment(image: ImageRef, hint: SegmentHint, opts: { trace: Trace }): Promise<Segment | null> {

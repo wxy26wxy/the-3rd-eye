@@ -42,25 +42,25 @@ describe("SAM object prompts (live recordings)", () => {
     const phrases: string[] = [];
     // both phrases "find" the disc (same recording) → one candidate
     const sam = new MetaSegmenter(async (body) => { phrases.push(textOf(body)); return replay(boxEvents); });
-    const out = await sam.findCandidates(pngRef(await scene()), trace);
+    const out = (await sam.findCandidates(pngRef(await scene()), trace)).segments;
     expect(phrases.sort()).toEqual([...SAM_PHRASES].sort());
     expect(out).toHaveLength(1);
   });
 
   it("findCandidates keeps distinct objects found by different phrases", async () => {
     const sam = new MetaSegmenter(async (body) => replay(textOf(body) === "drawing" ? boxEvents : pointEvents));
-    const out = await sam.findCandidates(pngRef(await scene()), trace);
+    const out = (await sam.findCandidates(pngRef(await scene()), trace)).segments;
     expect(out.map((s) => s.bbox).sort((a, b) => a[0] - b[0])).toEqual([[39, 77, 141, 180], [200, 88, 280, 168]]);
   });
 
   it("findCandidates survives one phrase failing", async () => {
     const sam = new MetaSegmenter(async (body) => { if (textOf(body) === SAM_PHRASES[1]) throw new Error("boom"); return replay(pointEvents); });
-    expect(await sam.findCandidates(pngRef(await scene()), trace)).toHaveLength(1);
+    expect((await sam.findCandidates(pngRef(await scene()), trace)).segments).toHaveLength(1);
   });
 
   it("pickByHint (fallback) skips segments under a negative point", async () => {
     const sam = new MetaSegmenter(async () => replay(pointEvents));
-    const segs = await sam.findCandidates(pngRef(await scene()), trace);
+    const segs = (await sam.findCandidates(pngRef(await scene()), trace)).segments;
     const disc = await new MetaSegmenter(async () => replay(boxEvents)).segment(pngRef(await scene()), { box: [30, 68, 150, 188] }, trace);
     const both = [disc!, ...segs];
     expect(pickByHint(both, { points: [{ x: 90, y: 128, label: "negative" }, { x: 240, y: 128 }] })?.bbox).toEqual([200, 88, 280, 168]);

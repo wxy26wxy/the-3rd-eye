@@ -8,7 +8,7 @@ const files = new Map<string, Buffer>();
 const rows = new Map<string, Record<string, unknown>>();
 const state = {
   updates: [] as Record<string, unknown>[], segmentCalls: [] as unknown[], rebuilt: [] as string[],
-  products: [] as { id: string }[], failRebuild: new Set<string>(), unpublish: new Set<string>(), described: 0,
+  products: [] as { id: string }[], droppedContainer: false, failRebuild: new Set<string>(), unpublish: new Set<string>(), described: 0,
   candidatesResult: [] as { mask: Mask; bbox: [number, number, number, number]; score: number; svgPath: string }[],
   segmentResult: null as null | { mask: Mask; bbox: [number, number, number, number]; score: number; svgPath: string },
 };
@@ -44,7 +44,7 @@ vi.mock("@/lib/ai/registry", () => ({
   ai: async () => ({
     segmenter: {
       segment: async (_img: unknown, hint: unknown) => { state.segmentCalls.push(hint); return state.segmentResult; },
-      findCandidates: async () => state.candidatesResult,
+      findCandidates: async () => ({ segments: state.candidatesResult, droppedContainer: state.droppedContainer }),
     },
     describer: { describe: async () => (state.described++, { alt_text: "Art", spoken: "Art", dominant_colors: [], subject: "art", differences_from_prompt: "" }) },
   }),
@@ -76,7 +76,7 @@ async function setup() {
 describe("cleanupArtwork", () => {
   beforeEach(() => {
     state.updates = []; state.segmentCalls = []; state.rebuilt = []; state.products = []; state.segmentResult = null;
-    state.failRebuild = new Set(); state.unpublish = new Set(); state.described = 0; state.candidatesResult = [];
+    state.failRebuild = new Set(); state.unpublish = new Set(); state.described = 0; state.candidatesResult = []; state.droppedContainer = false;
   });
 
   it("candidateIds → union of the stored candidate masks, no SAM call", async () => {
@@ -145,6 +145,11 @@ describe("cleanupArtwork", () => {
     expect((artwork as unknown as { cleanedUrl?: string }).cleanedUrl).toBeUndefined();
     state.candidatesResult = [{ mask: big(200, 200, 400, 400), bbox: [200, 200, 400, 400], score: 0.9, svgPath: "" }];
     await createFromImage("c1", { source: "photo", imageUrl: "upload.png", product: "sticker" });
+    expect(state.described).toBe(1);
+    // one small candidate left after a container was dropped → the picker, not an auto-select
+    state.droppedContainer = true;
+    const again = await createFromImage("c1", { source: "photo", imageUrl: "upload.png", product: "sticker" });
+    expect(again.candidates).toHaveLength(1);
     expect(state.described).toBe(1);
   });
 

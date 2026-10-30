@@ -17,7 +17,7 @@ import { checkResolution } from "./meta/tools/check-resolution";
 import { suggestPrice } from "./meta/tools/suggest-price";
 import { normalizeListing } from "./meta/tools/finalize-listing";
 import { cuesToVtt, estimateCues } from "./meta/captions";
-import { dedupeSegments, pickByHint } from "./meta/sam";
+import { dedupeSegmentsInfo, pickByHint } from "./meta/sam";
 
 function fx<T>(stage: string, key: unknown, make: () => Promise<T> | T): Promise<T> {
   return traced(stage, "fixture", "fixture", key, async () => make());
@@ -62,7 +62,7 @@ export function fixtureRegistry(): Registry {
       findAll: (image, phrase, opts) => traced("segment", "fixture", "threshold", { phrase }, async () =>
         (await thresholdSegments(await loadImageRef(image))).map((s): Segment => ({ ...s, svgPath: "" })), opts.trace),
       findCandidates: (image, opts) => traced("segment", "fixture", "threshold", { candidates: true }, async () =>
-        dedupeSegments((await thresholdSegments(await loadImageRef(image))).map((s): Segment => ({ ...s, svgPath: "" })), { max: opts.max }), opts.trace),
+        dedupeSegmentsInfo((await thresholdSegments(await loadImageRef(image))).map((s): Segment => ({ ...s, svgPath: "" })), { max: opts.max }), opts.trace),
       segment: (image, hint, opts) => traced("segment", "fixture", "threshold", hint, async () =>
         pickByHint((await thresholdSegments(await loadImageRef(image))).map((s): Segment => ({ ...s, svgPath: "" })), hint), opts.trace),
     },

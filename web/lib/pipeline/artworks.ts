@@ -177,7 +177,7 @@ export async function createFromImage(
   let artwork = await insertArtwork({
     id, creatorId, source: input.source, originalUrl: original.pathname, shapingTrace: { product: input.product, imageSize }, status: "draft", createdByTask: task,
   });
-  const segs = await (await ai()).segmenter.findCandidates(pngRef(png), { trace: traceFor(id, task, "segment"), max: MAX_CANDIDATES });
+  const { segments: segs, droppedContainer } = await (await ai()).segmenter.findCandidates(pngRef(png), { trace: traceFor(id, task, "segment"), max: MAX_CANDIDATES });
   const ts = Math.min(1, THUMB_SOURCE_SIDE / Math.max(imageSize.w, imageSize.h));
   const small = { width: Math.max(1, Math.round(imageSize.w * ts)), height: Math.max(1, Math.round(imageSize.h * ts)) };
   const smallPng = ts < 1 ? await sharp(png).resize(small.width, small.height, { fit: "fill" }).png().toBuffer() : png;
@@ -195,8 +195,9 @@ export async function createFromImage(
     await updateArtwork(id, { lastError: "no_drawing_found" });
     throw new ApiError(422, "no_drawing_found", "We could not find a drawing or object in that picture. Try a photo with it on a plain background, filling most of the frame, in good light.", { artworkId: id });
   }
-  // Auto-select a single candidate, unless it covers most of the frame (likely the paper or the table): then show the picker.
-  if (candidates.length === 1 && area(segs[0].mask) <= imageSize.w * imageSize.h * AUTO_SELECT_MAX_COVERAGE) {
+  // Auto-select a single candidate, unless it covers most of the frame (likely the paper or the table) or a
+  // surrounding result was dropped as the paper/table (the one left may be a sub-part): then show the picker.
+  if (candidates.length === 1 && !droppedContainer && area(segs[0].mask) <= imageSize.w * imageSize.h * AUTO_SELECT_MAX_COVERAGE) {
     artwork = await selectCandidate(artwork, candidates[0].id, task);
   }
   return { artwork, candidates, imageSize };

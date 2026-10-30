@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import sharp from "sharp";
 import type { Mask, Segment } from "@/lib/ai/types";
 import { alphaToMask, area, emptyMask, erode, finishMask, iou, removePiecesAt, unionMasks } from "@/lib/image/mask";
-import { dedupeSegments, objectBox, pickByHint } from "@/lib/ai/meta/sam";
+import { dedupeSegments, dedupeSegmentsInfo, objectBox, pickByHint } from "@/lib/ai/meta/sam";
 import { removeBackground } from "@/lib/image/sticker";
 
 /** Mask from a predicate over (x, y). */
@@ -109,12 +109,18 @@ describe("dedupeSegments (two SAM phrases)", () => {
   });
 
   it("drops a container (the paper around a drawing) covering > 40 % of the frame", () => {
-    const paper = seg(shape(200, 200, (x, y) => x >= 20 && x < 180 && y >= 20 && y < 180), 0.6); // 64 % of the frame
-    const drawing = seg(shape(200, 200, disc(100, 100, 30)), 0.5);
-    expect(dedupeSegments([paper, drawing])).toEqual([drawing]);
+    const paper = seg(shape(200, 200, (x, y) => x >= 20 && x < 180 && y >= 20 && y < 180), 0.45); // 64 % of the frame
+    const drawing = seg(shape(200, 200, disc(100, 100, 30)), 0.9);
+    expect(dedupeSegmentsInfo([paper, drawing])).toEqual({ segments: [drawing], droppedContainer: true });
     const bigToy = seg(shape(200, 200, disc(100, 100, 75)), 0.9); // 44 %, contains nothing → kept
     const other = seg(shape(200, 200, disc(190, 190, 8)), 0.5);
     expect(dedupeSegments([bigToy, other])).toEqual([bigToy, other]);
+  });
+
+  it("keeps a confident close-up (toy) that contains a lower-scoring sub-part", () => {
+    const toy = seg(shape(200, 200, disc(100, 100, 80)), 0.92); // 50 % of the frame
+    const head = seg(shape(200, 200, disc(100, 60, 20)), 0.7);
+    expect(dedupeSegmentsInfo([toy, head])).toEqual({ segments: [toy, head], droppedContainer: false });
   });
 });
 

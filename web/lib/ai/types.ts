@@ -30,13 +30,15 @@ export type Segment = { mask: Mask; svgPath: string; bbox: [number, number, numb
 export type SegmentPoint = { x: number; y: number; label?: "positive" | "negative" };
 /** Pixel coordinates of the image passed in; `box` is half-open [x0, y0, x1, y1). */
 export type SegmentHint = { phrase?: string; points?: SegmentPoint[]; box?: [number, number, number, number] };
+/** `droppedContainer`: a paper/table-like result around another one was removed, so the caller should let the creator choose. */
+export type CandidateSearch = { segments: Segment[]; droppedContainer: boolean };
 export interface Segmenter {
   findAll(image: ImageRef, phrase: string, opts: { trace: Trace }): Promise<Segment[]>;
   /**
    * Every drawing or physical object in a photo: several phrases, overlapping results merged,
    * frame-filling results (the paper, the table) dropped, best first, at most `max`.
    */
-  findCandidates(image: ImageRef, opts: { trace: Trace; max?: number }): Promise<Segment[]>;
+  findCandidates(image: ImageRef, opts: { trace: Trace; max?: number }): Promise<CandidateSearch>;
   segment(image: ImageRef, hint: SegmentHint, opts: { trace: Trace }): Promise<Segment | null>;
 }
 

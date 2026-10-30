@@ -22,12 +22,20 @@ enum CreateRoute: Hashable {
 
 enum PhotoSource: Hashable { case camera, library }
 
+/// Pushed screens of the My designs tab.
+enum DesignRoute: Hashable {
+  case detail(String)
+  /// Adjust cutout for a saved design (`AppState.designFlow`); "Use this" comes back to the detail.
+  case redoCutout
+}
+
 /// Session, preferences and navigation shared by every screen.
 @MainActor
 @Observable
 final class AppState {
   let api: APIClient
   let orders: OrdersStore
+  let designs: DesignsStore
   var creator: Creator?
   private(set) var isSignedIn: Bool
   /// The server ended the session (token expired); the code screen says so.
@@ -37,6 +45,10 @@ final class AppState {
   var selectedTab: HomeTab = .create
   var createPath: [CreateRoute] = []
   var flow = CreateFlow()
+  var designsPath: [DesignRoute] = []
+  /// Re-do the cutout from My designs works on its own flow, so a creation in progress in the
+  /// Create tab is left alone.
+  var designFlow = CreateFlow()
 
   var prefs: AccessPrefs {
     didSet { Self.savePrefs(prefs) }
@@ -46,6 +58,7 @@ final class AppState {
     self.api = api
     self.isSignedIn = api.isSignedIn
     self.orders = OrdersStore(api: api)
+    self.designs = DesignsStore(api: api)
     self.prefs = Self.loadPrefs()
     api.onUnauthorized = { [weak self] in
       Task { @MainActor in self?.sessionDidExpire() }
@@ -82,6 +95,9 @@ final class AppState {
   func signOut() {
     pendingCode = nil
     orders.reset()
+    designs.reset()
+    designsPath = []
+    designFlow = CreateFlow()
     api.signOut()
     creator = nil
     isSignedIn = false
@@ -132,6 +148,21 @@ final class AppState {
 
   func popToRoot() { createPath = [] }
 
+  /// "Make a sticker / Make a tote" on a saved design: a new creation from that artwork, straight
+  /// to Listing details. A draft product of that type is reused instead of making another one.
+  func continueFrom(artwork: Artwork, productType: ProductType) {
+    let next = CreateFlow()
+    next.artwork = artwork
+    next.productType = productType
+    if let draft = artwork.liveProducts.first(where: { $0.type == productType && !$0.isPublished }) {
+      next.product = Product(id: draft.id, artworkId: artwork.id, type: productType, status: draft.status)
+      next.productTitle = draft.title
+    }
+    flow = next
+    createPath = [.listingDetails]
+    selectedTab = .create
+  }
+
   // MARK: Persistence
 
   private static let prefsKey = "accessPrefs"
@@ -172,6 +203,8 @@ final class CreateFlow {
   /// The artwork the creator accepted ("Use this").
   var artwork: Artwork?
   var product: Product?
+  /// Listing title of a reused draft product (`continueFrom`), shown in Listing details.
+  var productTitle: String?
   var approval: ApproveListingResponse?
   /// The picked story video was longer than 30 s and only its start was kept.
   var storyVideoTrimmed = false

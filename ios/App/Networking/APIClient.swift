@@ -176,6 +176,12 @@ final class APIClient: @unchecked Sendable {
     return res.artworks
   }
 
+  /// Soft delete: the artwork leaves `GET /artworks`, its products are archived (leave the shop).
+  @discardableResult
+  func deleteArtwork(id: String) async throws -> DeleteArtworkResponse {
+    try await send(request("DELETE", "artworks/\(id)"))
+  }
+
   // MARK: Products and listings
 
   func createProduct(artworkId: String, type: ProductType) async throws -> Product {

@@ -1,0 +1,132 @@
+import Foundation
+import Observation
+import SwiftUI
+
+/// The status shown on a My designs tile and its detail screen (docs/api.md, T080 clarification 5).
+enum DesignBadge: Equatable {
+  /// No cut-out yet, no error, made in the last few minutes: the only state with a spinner.
+  case cuttingOut
+  /// No cut-out, no error, older than that: a photo whose piece was never picked.
+  case needsCutout
+  /// `lastError` set and no cut-out.
+  case failed
+  case draft
+  /// At least one product is published.
+  case inShop
+
+  /// A request answers within 270 s on the server; after this the row is not being cut any more.
+  static let cuttingWindow: TimeInterval = 10 * 60
+
+  static func of(_ artwork: Artwork, now: Date = Date()) -> DesignBadge {
+    if artwork.products?.contains(where: \.isPublished) == true { return .inShop }
+    guard artwork.cleanedUrl == nil else { return .draft }
+    if artwork.lastError != nil { return .failed }
+    if let created = parseDate(artwork.createdAt), now.timeIntervalSince(created) < cuttingWindow { return .cuttingOut }
+    return .needsCutout
+  }
+
+  var title: LocalizedStringKey {
+    switch self {
+    case .cuttingOut: return "Cutting out…"
+    case .needsCutout: return "Needs a cutout"
+    case .failed: return "Didn't work"
+    case .draft: return "Draft"
+    case .inShop: return "In the shop"
+    }
+  }
+
+  var text: String {
+    switch self {
+    case .cuttingOut: return String(localized: "Cutting out…")
+    case .needsCutout: return String(localized: "Needs a cutout")
+    case .failed: return String(localized: "Didn't work")
+    case .draft: return String(localized: "Draft")
+    case .inShop: return String(localized: "In the shop")
+    }
+  }
+
+  var symbol: String {
+    switch self {
+    case .cuttingOut: return "hourglass"
+    case .needsCutout: return "scissors"
+    case .failed: return "exclamationmark.triangle.fill"
+    case .draft: return "pencil"
+    case .inShop: return "bag.fill"
+    }
+  }
+
+  private static func parseDate(_ raw: String?) -> Date? {
+    guard let raw else { return nil }
+    let withFraction = ISO8601DateFormatter()
+    withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return withFraction.date(from: raw) ?? ISO8601DateFormatter().date(from: raw)
+  }
+}
+
+extension Artwork {
+  /// Products that are still live (archived ones left the shop with a deleted artwork).
+  var liveProducts: [ArtworkProduct] { (products ?? []).filter { !$0.isArchived } }
+
+  /// A cut-out exists, so products can be made from it (the server sets `status: ready` with it).
+  var isReadyForProducts: Bool { cleanedUrl != nil }
+}
+
+/// My designs: the creator's artworks with their products, shared by the grid and the detail screen.
+@MainActor
+@Observable
+final class DesignsStore {
+  private let api: APIClient
+  private(set) var artworks: [Artwork] = []
+  private(set) var loading = false
+  private(set) var loaded = false
+  var error: String?
+
+  init(api: APIClient) {
+    self.api = api
+  }
+
+  func artwork(id: String) -> Artwork? { artworks.first { $0.id == id } }
+
+  func load() async {
+    loading = true
+    defer { loading = false }
+    do {
+      artworks = try await api.myArtworks()
+      loaded = true
+      error = nil
+    } catch {
+      if APIError.isCancellation(error) { return }
+      self.error = error.localizedDescription
+    }
+  }
+
+  /// `DELETE /artworks/{id}`, then the tile goes away (the server keeps it out of later lists).
+  func delete(id: String) async throws {
+    try await api.deleteArtwork(id: id)
+    artworks.removeAll { $0.id == id }
+  }
+
+  /// A new cut-out from Re-do the cutout: keeps the products the list already knows.
+  func replace(_ artwork: Artwork) {
+    guard let index = artworks.firstIndex(where: { $0.id == artwork.id }) else { return }
+    var updated = artwork
+    if updated.products == nil { updated.products = artworks[index].products }
+    artworks[index] = updated
+  }
+
+  /// A listing saved from Edit listing: the product is published with its new title.
+  func listingSaved(productId: String, title: String?, status: String?) {
+    for index in artworks.indices {
+      guard var products = artworks[index].products, let p = products.firstIndex(where: { $0.id == productId }) else { continue }
+      if let title { products[p].title = title }
+      if let status { products[p].status = status }
+      artworks[index].products = products
+    }
+  }
+
+  func reset() {
+    artworks = []
+    loaded = false
+    error = nil
+  }
+}

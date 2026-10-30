@@ -78,7 +78,16 @@ struct ListingDetailsView: View {
   }
 
   private func createProductIfNeeded() async {
-    guard app.flow.product == nil else { fill(from: app.flow.product); return }
+    if let product = app.flow.product {
+      // A draft reused from My designs: show its listing title, or write one in simple mode.
+      fill(from: product)
+      if title.isEmpty, let saved = app.flow.productTitle { title = saved }
+      if title.isEmpty, app.flow.productTitle == nil, app.prefs.simpleMode, !autoRan {
+        autoRan = true
+        await improve()
+      }
+      return
+    }
     guard let artwork = app.flow.artwork, let type = app.flow.productType else {
       error = String(localized: "The design is missing. Go back and pick it again.")
       return

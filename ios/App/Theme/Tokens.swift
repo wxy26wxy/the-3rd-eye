@@ -2,6 +2,10 @@
 import SwiftUI
 
 enum Tokens {
+  enum Brand {
+    static let name = "The 3rd Eye"
+    static let wordmark = "THE 3RD EYE"
+  }
   enum Palette {
     static let ground = Color(red: 0.4000, green: 0.7255, blue: 0.3725)
     static let ink = Color(red: 0.1176, green: 0.2275, blue: 0.1412)

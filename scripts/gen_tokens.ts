@@ -1,7 +1,8 @@
 /**
  * Generates platform token files from design/tokens.json.
  *   web/app/tokens.css          CSS custom properties (default + high-contrast)
- *   ios/App/Theme/Tokens.swift  Swift constants + Color/Font helpers
+ *   web/lib/brand.ts            brand name and wordmark
+ *   ios/App/Theme/Tokens.swift  Swift constants + Color/Font helpers (incl. Tokens.Brand)
  * Run: pnpm tokens
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -48,13 +49,22 @@ const cssOut = resolve(root, "web/app/tokens.css");
 mkdirSync(dirname(cssOut), { recursive: true });
 writeFileSync(cssOut, css);
 
+// ---------- Brand (web) ----------
+const brand = tokens.brand as { name: string; wordmark: string };
+const brandOut = resolve(root, "web/lib/brand.ts");
+writeFileSync(
+  brandOut,
+  `// GENERATED from design/tokens.json — do not edit by hand. Run: pnpm tokens\n` +
+    `export const BRAND = { name: ${JSON.stringify(brand.name)}, wordmark: ${JSON.stringify(brand.wordmark)} } as const;\n`,
+);
+
 // ---------- Swift ----------
 const hexToSwift = (hex: string) => {
   const h = hex.replace("#", "");
   const r = parseInt(h.slice(0, 2), 16) / 255, g = parseInt(h.slice(2, 4), 16) / 255, b = parseInt(h.slice(4, 6), 16) / 255;
   return `Color(red: ${r.toFixed(4)}, green: ${g.toFixed(4)}, blue: ${b.toFixed(4)})`;
 };
-let swift = `// GENERATED from design/tokens.json — do not edit by hand. Run: pnpm tokens\nimport SwiftUI\n\nenum Tokens {\n  enum Palette {\n`;
+let swift = `// GENERATED from design/tokens.json — do not edit by hand. Run: pnpm tokens\nimport SwiftUI\n\nenum Tokens {\n  enum Brand {\n    static let name = ${JSON.stringify(brand.name)}\n    static let wordmark = ${JSON.stringify(brand.wordmark)}\n  }\n  enum Palette {\n`;
 for (const [k, v] of Object.entries<string>(tokens.color)) swift += `    static let ${k} = ${hexToSwift(v)}\n`;
 swift += `  }\n  enum Semantic {\n`;
 for (const [k, v] of Object.entries(tokens.semantic)) swift += `    static let ${k} = ${hexToSwift(deref(v) as string)}\n`;
@@ -76,4 +86,4 @@ swift += `  }\n  static let displayTilt: Double = ${parseFloat(tokens.font.displ
 const swiftOut = resolve(root, "ios/App/Theme/Tokens.swift");
 mkdirSync(dirname(swiftOut), { recursive: true });
 writeFileSync(swiftOut, swift);
-console.log("tokens: wrote", cssOut, "and", swiftOut);
+console.log("tokens: wrote", cssOut, brandOut, "and", swiftOut);

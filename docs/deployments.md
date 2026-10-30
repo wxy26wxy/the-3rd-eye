@@ -28,3 +28,6 @@
 ## 2026-10-30 · production · v0.4 + web cutout parity (c285533)
 - https://the-3rd-7cskup1jd-xinyao-wangs-projects.vercel.app → https://the-3rd-eye.vercel.app. Adds the web Select-screen cutout adjuster (T084) on top of v0.4 (rename, T080 pipeline). Rollback target: https://the-3rd-nmm800mm8-xinyao-wangs-projects.vercel.app.
 - Approved by: the founder (plan approval). TestFlight 0.4.0 (1) of The 3rd Eye still pending on the Apple account sign-in.
+
+## 2026-10-30 · production · live price in the product summary (147b9a7)
+- https://the-3rd-comuhhw6q-xinyao-wangs-projects.vercel.app → https://the-3rd-eye.vercel.app. Adds `priceCents`/`description`/`mockupUrl` to the product summary on `GET /artworks` and keeps a published price on approve when the client omits it (T087). Rollback target: https://the-3rd-7cskup1jd-xinyao-wangs-projects.vercel.app.

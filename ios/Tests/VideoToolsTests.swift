@@ -1,6 +1,6 @@
 import AVFoundation
 import XCTest
-@testable import MakerStory
+@testable import The3rdEye
 
 final class VideoToolsTests: XCTestCase {
   /// Writes `seconds` of a 440 Hz tone as 44.1 kHz stereo 16-bit PCM (a phone video's

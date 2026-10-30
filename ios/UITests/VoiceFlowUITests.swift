@@ -3,7 +3,7 @@ import XCTest
 /// Drives the voice branch against ios/scripts/mock_api.py and checks that Voice result
 /// shows the image description as text ("WHAT THE IMAGE SHOWS"); there is no in-app speech.
 /// Run: python3 scripts/mock_api.py & then
-/// xcodebuild test -scheme MakerStoryUITests -destination '...' API_BASE_URL=http://localhost:3999
+/// xcodebuild test -scheme The3rdEyeUITests -destination '...' API_BASE_URL=http://localhost:3999
 final class VoiceFlowUITests: XCTestCase {
   override func setUp() {
     continueAfterFailure = false

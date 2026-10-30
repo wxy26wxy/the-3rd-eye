@@ -3,6 +3,8 @@
  * (which can be POSTed to directly and must verify auth themselves). Any username is accepted;
  * the password must equal ADMIN_PASSWORD. No Node-only APIs, so it runs in Proxy too.
  */
+import { BRAND } from "./brand";
+
 export type AdminAuthResult = "ok" | "unauthorized" | "disabled";
 
 /** Constant-time string comparison (length is not secret here). */
@@ -26,4 +28,4 @@ export function checkAdminAuth(authorization: string | null | undefined, passwor
   }
 }
 
-export const ADMIN_REALM = 'Basic realm="maker story admin", charset="UTF-8"';
+export const ADMIN_REALM = `Basic realm="${BRAND.name} admin", charset="UTF-8"`;

@@ -41,7 +41,7 @@ struct CameraDeniedCard: View {
         } icon: {
           Image(systemName: "camera.fill").foregroundStyle(colors.text).accessibilityHidden(true)
         }
-        Text("In Settings, tap maker story, then turn on Camera.")
+        Text("In Settings, tap \(Tokens.Brand.name), then turn on Camera.")
           .themeFont(.bodyS)
           .foregroundStyle(colors.textMuted)
         PillButton("Open Settings", hint: "Opens the Settings app so you can turn on the camera", showsArrow: false) {

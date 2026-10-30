@@ -1,4 +1,4 @@
-# maker story — brief
+# The 3rd Eye — brief
 
 Our app helps artists with disabilities turn their art into products people want to buy. Artists who draw snap a photo, and Meta's Segment Anything Model (SAM 3.1) cuts out the artwork. Artists who can't draw, like people who are blind, describe their idea out loud. Muse Spark shapes the description into an image prompt, Muse Image generates the art, and Muse Spark then writes a description of the result that the phone reads back to them so they can refine it. The art becomes stickers and tote bags, and each one ships with an NFC story tag that plays a short video of the artist talking about their work.
 

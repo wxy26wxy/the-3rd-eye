@@ -55,7 +55,7 @@ final class AppState {
 
   // MARK: Session
 
-  /// Opened from a link such as makerstory://code/ABCD. Ignored while signed in.
+  /// Opened from a link such as the3rdeye://code/ABCD. Ignored while signed in.
   func open(_ url: URL) {
     guard case .code(let code)? = DeepLink.parse(url), !isSignedIn else { return }
     pendingCode = code

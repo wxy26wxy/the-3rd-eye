@@ -2,7 +2,7 @@ import ImageIO
 import UIKit
 import UniformTypeIdentifiers
 import XCTest
-@testable import MakerStory
+@testable import The3rdEye
 
 final class ImageToolsTests: XCTestCase {
   /// A camera-like JPEG carrying GPS, EXIF and TIFF metadata.

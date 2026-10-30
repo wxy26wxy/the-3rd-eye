@@ -1,6 +1,6 @@
 {
   "common": {
-    "brand": "maker story",
+    "brand": "{brand}",
     "skipToContent": "Skip to content",
     "back": "Back",
     "next": "Next",
@@ -28,7 +28,7 @@
   },
   "nav": {
     "label": "Main",
-    "home": "maker story home",
+    "home": "{brand} home",
     "shop": "Shop",
     "artists": "Artists",
     "howItWorks": "How it works",
@@ -45,7 +45,7 @@
     "createLink": "Artists: start creating"
   },
   "shop": {
-    "metaTitle": "maker story · art with a story you can hold",
+    "metaTitle": "{brand} · art with a story you can hold",
     "metaDescription": "Stickers and tote bags made from original art. Every piece comes with a story tag. Tap it to meet the artist.",
     "heroEyebrow": "Art with",
     "heroTitle": "A story you can hold.",
@@ -161,7 +161,7 @@
   "studios": {
     "metaTitle": "For studios",
     "title": "For studios",
-    "intro": "Art studios for people with disabilities often sell only originals, and only locally. maker story turns each artwork into products you can sell again and again.",
+    "intro": "Art studios for people with disabilities often sell only originals, and only locally. {brand} turns each artwork into products you can sell again and again.",
     "point1": "No inventory. We print when someone orders.",
     "point2": "Artists approve every listing themselves, by voice or by tap.",
     "point3": "Every sale shows the artist's share. The default split is 50% artist, 30% studio, 20% production.",
@@ -171,7 +171,7 @@
   "a11y": {
     "metaTitle": "Accessibility",
     "title": "Accessibility",
-    "intro": "maker story is built for artists with disabilities first. Here is what the app does today.",
+    "intro": "{brand} is built for artists with disabilities first. Here is what the app does today.",
     "voiceFirst": "Voice first: every creation step can be done by speaking, with a typing option on every screen.",
     "spoken": "Spoken descriptions: after an image is made, a written description is read aloud on your device, so you know what it shows.",
     "captions": "Captions: every story video has captions.",
@@ -456,9 +456,9 @@
     }
   },
   "mascot": {
-    "listening": "Tag, the maker story mascot, listening with a microphone",
-    "cheering": "Tag, the maker story mascot, cheering",
-    "waving": "Tag, the maker story mascot, waving hello"
+    "listening": "Tag, the {brand} mascot, listening with a microphone",
+    "cheering": "Tag, the {brand} mascot, cheering",
+    "waving": "Tag, the {brand} mascot, waving hello"
   },
   "notFound": {
     "title": "Oops, nothing here.",

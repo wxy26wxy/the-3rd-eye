@@ -1,4 +1,4 @@
-# maker story
+# The 3rd Eye
 
 Artists with disabilities turn their art into stickers and tote bags that ship with an NFC story tag. Buyers tap the tag to meet the artist.
 

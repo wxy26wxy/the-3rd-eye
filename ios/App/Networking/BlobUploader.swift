@@ -31,7 +31,7 @@ struct BlobUploader {
 
   enum Access: String { case `public`, `private` }
 
-  private static let log = Logger(subsystem: "com.makerstory.app", category: "upload")
+  private static let log = Logger(subsystem: "com.the3rdeye.app", category: "upload")
 
   struct Result: Decodable, Equatable {
     let url: String

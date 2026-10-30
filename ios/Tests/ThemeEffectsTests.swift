@@ -1,5 +1,5 @@
 import XCTest
-@testable import MakerStory
+@testable import The3rdEye
 
 /// ThemeEffects mirrors design/tokens.json values the token generator does not emit yet.
 final class ThemeEffectsTests: XCTestCase {

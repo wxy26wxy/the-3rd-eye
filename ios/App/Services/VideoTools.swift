@@ -24,7 +24,7 @@ enum VideoTools {
   /// Small allowance so a 30.2 s camera clip is not trimmed.
   static let lengthTolerance: Double = 0.5
 
-  private static let log = Logger(subsystem: "com.makerstory.app", category: "video")
+  private static let log = Logger(subsystem: "com.the3rdeye.app", category: "video")
 
   static func duration(of url: URL) async throws -> Double {
     let seconds = try await AVURLAsset(url: url).load(.duration).seconds
@@ -172,7 +172,7 @@ struct VideoUpload {
 
   let api: APIClient
   var uploader: BlobUploader { BlobUploader(api: api) }
-  private static let log = Logger(subsystem: "com.makerstory.app", category: "video")
+  private static let log = Logger(subsystem: "com.the3rdeye.app", category: "video")
 
   func upload(_ picked: URL, creatorId: String, kind: BlobUploader.Kind, maxSeconds: Double) async throws -> Result {
     let (video, trimmed) = try await VideoTools.capped(picked, maxSeconds: maxSeconds)

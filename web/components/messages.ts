@@ -1,7 +1,18 @@
 /** User-facing copy. All strings live in messages/en.json, keyed by screen. */
 import en from "@/messages/en.json";
+import { BRAND } from "@/lib/brand";
 
-export const m = en;
+/** Fills the `{brand}` placeholder in every string; the name comes from design/tokens.json. */
+function withBrand<T>(value: T): T {
+  if (typeof value === "string") return value.replaceAll("{brand}", BRAND.name) as T;
+  if (Array.isArray(value)) return value.map(withBrand) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, withBrand(v)])) as T;
+  }
+  return value;
+}
+
+export const m = withBrand(en);
 export type Messages = typeof en;
 
 /** Replace {name} placeholders. Unknown keys are left as-is so missing data is visible. */

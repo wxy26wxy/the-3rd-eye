@@ -1,5 +1,5 @@
 {
-  "name": "maker-story",
+  "name": "the-3rd-eye",
   "private": true,
   "scripts": {
     "dev": "pnpm --filter web dev",

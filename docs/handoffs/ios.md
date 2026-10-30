@@ -7,10 +7,10 @@
 T081 · remove duplicated voice/speech UI and rely on iOS system accessibility (see "System accessibility (T081)" below and `docs/accessibility.md`). Earlier: T070 deep link, T060 TestFlight, T051 fix wave, T030 SwiftUI creator app.
 
 ## Install on your iPhone (deployed site)
-1. On the Mac: `cd ios && xcodegen generate && open MakerStory.xcodeproj` (needs Xcode and `brew install xcodegen`).
+1. On the Mac: `cd ios && xcodegen generate && open The3rdEye.xcodeproj` (needs Xcode and `brew install xcodegen`).
 2. Plug in the iPhone (unlock it, tap "Trust"). On the phone turn on Settings → Privacy & Security → Developer Mode if asked, and restart it.
-3. In Xcode select the **MakerStory** target → **Signing & Capabilities** → Team: your Apple ID ("Personal Team"; add it under Xcode → Settings → Accounts if missing). If the bundle id `com.makerstory.app` is taken, change it to something unique like `com.<yourname>.makerstory`.
-4. Pick **Product → Scheme → Edit Scheme… → Run → Build Configuration: Release**, so the app talks to `https://maker-story-three.vercel.app` (Debug also talks to the deployed site since the 2026-10-29 decision; switch it to `http://localhost:3000` by hand only for a local server). To use another deployment, set Build Settings → User-Defined → `API_BASE_URL` (Release) to its https URL.
+3. In Xcode select the **The3rdEye** target → **Signing & Capabilities** → Team: your Apple ID ("Personal Team"; add it under Xcode → Settings → Accounts if missing). If the bundle id `com.the3rdeye.app` is taken, change `PRODUCT_BUNDLE_IDENTIFIER` in `ios/project.yml` to something unique like `com.<yourname>.the3rdeye` (`BrandIdentityTests.testBundleIdentifier` compares the built bundle id with `project.yml`, so it keeps passing).
+4. Pick **Product → Scheme → Edit Scheme… → Run → Build Configuration: Release**, so the app talks to the deployed site, `DEPLOYED_SITE_URL` in `ios/project.yml` (Debug also talks to the deployed site since the 2026-10-29 decision; switch it to `http://localhost:3000` by hand only for a local server). To use another deployment, set Build Settings → User-Defined → `API_BASE_URL` (Release) to its https URL.
 5. Choose the phone as the run destination and press **Run**. First time only: on the phone open Settings → General → VPN & Device Management → your Apple ID → Trust, then open the app.
 6. In the app: on My designs, Orders or Messages, the sign-out button (top right) shows the version and server URL in its confirmation; tap Cancel to stay signed in. Sign in with your creator code (codes are issued per creator and are not in the repo). Allow camera and microphone when asked; if you said no, the app shows an "Open Settings" button.
 7. Check on the phone: record a story video (captions need the soundtrack, which the app now sends), accept or edit the drafted story, send a thank-you with a short video. Free provisioning expires after 7 days; press Run again to renew.
@@ -19,13 +19,13 @@ T081 · remove duplicated voice/speech UI and rely on iOS system accessibility (
 ```
 cd ios
 xcodegen generate
-xcodebuild -scheme MakerStory -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build/DerivedData build
-xcodebuild test -scheme MakerStory -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build/DerivedData
-xcrun simctl boot "iPhone 17"; xcrun simctl install booted build/DerivedData/Build/Products/Debug-iphonesimulator/MakerStory.app; xcrun simctl launch booted com.makerstory.app
+xcodebuild -scheme The3rdEye -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build/DerivedData build
+xcodebuild test -scheme The3rdEye -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build/DerivedData
+xcrun simctl boot "iPhone 17"; xcrun simctl install booted build/DerivedData/Build/Products/Debug-iphonesimulator/The3rdEye.app; xcrun simctl launch booted com.the3rdeye.app
 ```
-Server: build setting `API_BASE_URL` (Debug default `http://localhost:3000`, Release default `https://maker-story-three.vercel.app`; empty or invalid falls back to the deployed site), e.g. `xcodebuild ... API_BASE_URL=https://<deployment> build`. Only `localhost` has an ATS exception; any deployed server must be https. On a physical phone `localhost` is the phone itself, so point it at the deployment.
+Server: build setting `API_BASE_URL` (Debug and Release default `$(DEPLOYED_SITE_URL)`, the production site set once in `project.yml`; `http://localhost:3000` only by override; empty or invalid falls back to it through Info.plist `DeployedSiteURL`), e.g. `xcodebuild ... API_BASE_URL=https://<deployment> build`. Only `localhost` has an ATS exception; any deployed server must be https. On a physical phone `localhost` is the phone itself, so point it at the deployment.
 Without the backend: `python3 scripts/mock_api.py` (port 3999) and build with `API_BASE_URL=http://localhost:3999`. UI tests (voice branch: the confirmation text on the loading screen and the "WHAT THE IMAGE SHOWS" card with the description on Voice result; deep link):
-`xcodebuild test -scheme MakerStoryUITests -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build/DerivedData API_BASE_URL=http://localhost:3999`
+`xcodebuild test -scheme The3rdEyeUITests -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build/DerivedData API_BASE_URL=http://localhost:3999`
 On a phone: see "Install on your iPhone" above. No entitlements are used.
 The mock also answers `POST /creators/me/story-video` (logs `audioUrl`, returns a `storyDraft`) and `POST /orders/o1/thank-you`.
 
@@ -35,7 +35,7 @@ The mock also answers `POST /creators/me/story-video` (logs `audioUrl`, returns 
 - `App/Services/` — `VideoTools` (length cap by passthrough trim; soundtrack → 16 kHz mono WAV via `AVAssetReader`) and `VideoUpload` (video + WAV upload, used by story and thank-you), `AudioRecorder` (16 kHz mono PCM WAV, ≤ 60 s; used only by `SpeakView` and "Say what to change"), `Poller`, `OrdersStore` (10 s polling, unread badge), `Money` (share), `ImageTools`, `DeepLink`. No text-to-speech.
 - `App/Components/` — `SlowWorkHint` (after 30 s on long calls), `CameraAccess`/`CameraDeniedCard` (permission check, Settings link), `FlowScreen`, `TabScreen` (header with `SignOutButton`), `LoadingScreen` (announces the "I HEARD" text and the detail together), `VoiceCapture`/`RecordButton` (only `SpeakView` and `VoiceResultView`), `LabeledTextField` (no mic; keyboard dictation), `View.announces(_:)` (VoiceOver announcement on appear and on change; the text must also be on screen), `RemoteImage`, `ErrorCard`, `MediaPicker`, `SafariView`.
 - `App/Screens/` — one view per file, named after the design boards.
-- Copy: `App/Resources/Localizable.xcstrings` (refresh with `xcodebuild -exportLocalizations -project MakerStory.xcodeproj -localizationPath /tmp/loc -exportLanguage en`).
+- Copy: `App/Resources/Localizable.xcstrings` (refresh with `xcodebuild -exportLocalizations -project The3rdEye.xcodeproj -localizationPath /tmp/loc -exportLanguage en`).
 
 ## Interface exposed to others
 - Calls exactly the routes and field names in `docs/api.md`. Upload pathnames: `creators/<creatorId>/{photos|story-video|thank-you-images|thank-you-videos|audio}/<uuid>.<ext>`; the token request carries `clientPayload` `{"kind": "<folder>"}`.
@@ -60,16 +60,16 @@ Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s 
 
 ## TestFlight (T060)
 - Icon: `pnpm icon` renders `ios/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` from `design/tokens.json` (no alpha, as App Store Connect requires). To use a designer-made icon, replace that PNG.
-- Settings in `ios/project.yml`: `DEVELOPMENT_TEAM` (the Apple Developer Program team), `MARKETING_VERSION` (0.3.0), `CURRENT_PROJECT_VERSION` (build number; `ios/scripts/bump_build.sh` increments it, every upload needs a new one). `Info.plist` sets `ITSAppUsesNonExemptEncryption` to false (HTTPS only) so builds skip the export-compliance question.
+- Settings in `ios/project.yml`: `DEVELOPMENT_TEAM` (the Apple Developer Program team), `MARKETING_VERSION` (0.4.0 from T085), `CURRENT_PROJECT_VERSION` (build number; `ios/scripts/bump_build.sh` increments it, every upload needs a new one). `Info.plist` sets `ITSAppUsesNonExemptEncryption` to false (HTTPS only) so builds skip the export-compliance question.
 - Release builds talk to the production site (`API_BASE_URL` in `project.yml`); TestFlight installs are Release.
-- Upload: `bash ios/scripts/testflight.sh` (bumps the build number, `xcodegen generate`, archives with `-allowProvisioningUpdates`, exports with `ios/ExportOptions.plist` using `method app-store-connect`, `destination upload`). Xcode must be signed in with the team's Apple ID (Xcode → Settings → Accounts), or export `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_PATH` for an App Store Connect API key kept outside the repo.
-- First time only: create the app record in App Store Connect (My Apps → + → New App → iOS, bundle id `com.makerstory.app`, SKU `maker-story`).
+- Upload: the first upload of the renamed app (record "The 3rd Eye", build 0.4.0 (1)) runs `bash ios/scripts/testflight.sh --no-bump`, because `project.yml` already says build 1; later uploads run `bash ios/scripts/testflight.sh` (bumps the build number, `xcodegen generate`, archives with `-allowProvisioningUpdates`, exports with `ios/ExportOptions.plist` using `method app-store-connect`, `destination upload`). Xcode must be signed in with the team's Apple ID (Xcode → Settings → Accounts), or export `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_PATH` for an App Store Connect API key kept outside the repo.
+- First time only: create the app record in App Store Connect (My Apps → + → New App → iOS, bundle id `com.the3rdeye.app`, SKU `the-3rd-eye`).
 - Testers: App Store Connect → TestFlight. Internal testers are team members (add the person under Users and Access first); they get the build minutes after processing. External testers use a group with a public link; the first build goes through Beta App Review (about a day). Give each tester one creator code privately; never put codes in the test notes.
 - Log every upload in `docs/deployments.md` (version, build, git sha, who was invited).
 
 ## Deep link (T070)
-- `makerstory://code/<CODE>` (scheme registered in `Info.plist` `CFBundleURLTypes`) is parsed by `App/Services/DeepLink.swift`; `AppState.open(_:)` stores it as `pendingCode` while signed out, `RootView` pushes the code screen, and `CodeEntryView` fills the field once and shows "We filled in your code from the link. Tap Sign in." (no auto-submit). Ignored while signed in.
-- The web task T070 shows this link on the `/admin` one-time code card next to the web link (merged separately). iOS shows the system "Open in maker story?" prompt first.
+- `the3rdeye://code/<CODE>` (scheme registered in `Info.plist` `CFBundleURLTypes`) is parsed by `App/Services/DeepLink.swift`; `AppState.open(_:)` stores it as `pendingCode` while signed out, `RootView` pushes the code screen, and `CodeEntryView` fills the field once and shows "We filled in your code from the link. Tap Sign in." (no auto-submit). Ignored while signed in.
+- The web task T070 shows this link on the `/admin` one-time code card next to the web link (merged separately). iOS shows the system "Open in The 3rd Eye?" prompt first.
 - Tests: `Tests/DeepLinkTests.swift` (parse, cleanup, length cap, pending only while signed out) and `UITests/DeepLinkUITests.swift` (opens the link against `scripts/mock_api.py`, accepts the Springboard prompt, checks the prefilled field).
 - Universal links (https) would need an apple-app-site-association file on the site; not done.
 
@@ -83,3 +83,8 @@ Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s 
 - Sign out: icon button in the tab-screen header (My designs, Orders, Messages) with a confirmation that also shows the version and server URL.
 - Tests: `Tests/SystemAccessibilityTests.swift` (contrast → palette, description fallback); `UITests/VoiceFlowUITests.swift` asserts the description card and that no Hear/Stop button exists.
 - VoiceOver test script (Speak → Voice result with the description card): `docs/accessibility.md`.
+
+## Rename (T085)
+- Names: project/target/scheme `The3rdEye`, tests `The3rdEyeTests`, UI tests `The3rdEyeUITests`, bundle id `com.the3rdeye.app`, scheme `the3rdeye://code/<CODE>`. The brand string comes from `Tokens.Brand` (generated from `design/tokens.json`); do not type it in views.
+- The production site is `DEPLOYED_SITE_URL` in `project.yml`, the only place iOS names it. `xcrun simctl openurl booted the3rdeye://code/TEST1234` pre-fills the code screen while signed out.
+- Branches started before the rename: use `@testable import The3rdEye` and the new scheme names in test commands; the app entry point is now `App/The3rdEyeApp.swift`.

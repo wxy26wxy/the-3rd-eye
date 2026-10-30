@@ -1,11 +1,11 @@
 import Foundation
 
-/// Links the app understands. `makerstory://code/<CODE>` pre-fills the sign-in code
+/// Links the app understands. `the3rdeye://code/<CODE>` pre-fills the sign-in code
 /// (the studio shares it from /admin); the person still taps Sign in.
 enum DeepLink: Equatable {
   case code(String)
 
-  static let scheme = "makerstory"
+  static let scheme = Tokens.Brand.scheme
 
   static func parse(_ url: URL) -> DeepLink? {
     guard url.scheme?.lowercased() == scheme, url.host?.lowercased() == "code" else { return nil }

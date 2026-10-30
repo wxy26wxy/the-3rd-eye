@@ -3,7 +3,7 @@ import Security
 
 /// Minimal generic-password Keychain store for the session token.
 enum Keychain {
-  private static let service = "com.makerstory.app.session"
+  private static let service = "com.the3rdeye.app"
 
   static func save(_ value: String, account: String) {
     let base: [String: Any] = [

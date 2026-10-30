@@ -1,6 +1,6 @@
 # Screens · web
 
-Board names follow the design canvas (Direction A, green and playful), baseline version `1793328546-ac11`. From the rename (T085) the wordmark on every board reads "THE 3RD EYE" instead of "maker story" (logo board, welcome and story headers, Web-Green nav, hero and footer); the canvas still shows the old name until the next version, and the code follows the rename, not the board. Every screen uses tokens from `web/app/tokens.css` through the primitives in `web/components/ui/*`; copy is in `web/messages/en.json`.
+Board names follow the design canvas (Direction A, green and playful), baseline version `1793328546-ac11`. From the rename (T085) the wordmark on every board reads "THE 3RD EYE" instead of the old name (logo board, welcome and story headers, Web-Green nav, hero and footer); the canvas still shows the old name until the next version, and the code follows the rename, not the board. Every screen uses tokens from `web/app/tokens.css` through the primitives in `web/components/ui/*`; copy is in `web/messages/en.json`.
 
 ## Public site
 
@@ -58,7 +58,7 @@ Accessibility settings sheet, helper-mode button, "Hear what the image shows" pl
 
 | Canvas version | Date | Boards | Result |
 |---|---|---|---|
-| `1793328546-ac11` | 2026-10-29 | 27 board files (9 prototype, 15 E4 creator flow, Logo, Mascot, Web-Green) | Baseline (dry run). 4 colours without a token: `#FBF4DF`, `#3C4A3D`, `#CFE0A0`, `#56705A`. All other colours, font sizes and the grain match `design/tokens.json`. Wordmark still "maker story". Procedure: `docs/handoffs/design.md`. |
+| `1793328546-ac11` | 2026-10-29 | 27 board files (9 prototype, 15 E4 creator flow, Logo, Mascot, Web-Green) | Baseline (dry run). 4 colours without a token: `#FBF4DF`, `#3C4A3D`, `#CFE0A0`, `#56705A`. All other colours, font sizes and the grain match `design/tokens.json`. Wordmark still the old name. Procedure: `docs/handoffs/design.md`. |
 
 ## Accessibility deviations from the design
 

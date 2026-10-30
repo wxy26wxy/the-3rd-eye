@@ -13,7 +13,7 @@ if [[ "${1:-}" != "--no-bump" ]]; then bash scripts/bump_build.sh; fi
 build=$(grep -E '^[[:space:]]*CURRENT_PROJECT_VERSION:' project.yml | head -1 | sed -E 's/.*"([0-9]+)".*/\1/')
 version=$(grep -E '^[[:space:]]*MARKETING_VERSION:' project.yml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
 [[ "$build" =~ ^[0-9]+$ && -n "$version" ]] || { echo "testflight: cannot read version/build from project.yml" >&2; exit 1; }
-echo "maker story ${version} (${build}) → TestFlight"
+echo "The 3rd Eye ${version} (${build}) → TestFlight"
 xcodegen generate >/dev/null
 auth=()
 if [[ -n "${APP_STORE_CONNECT_KEY_PATH:-}" ]]; then
@@ -23,8 +23,8 @@ if [[ -n "${APP_STORE_CONNECT_KEY_PATH:-}" ]]; then
 fi
 mkdir -p build
 log="build/testflight-${build}.log"
-archive="build/MakerStory-${version}-${build}.xcarchive"
-xcodebuild -scheme MakerStory -configuration Release \
+archive="build/The3rdEye-${version}-${build}.xcarchive"
+xcodebuild -scheme The3rdEye -configuration Release \
   -destination 'generic/platform=iOS' \
   -archivePath "$archive" -allowProvisioningUpdates ${auth[@]+"${auth[@]}"} archive \
   > "$log" 2>&1 || { tail -20 "$log"; echo "archive failed; see $log" >&2; exit 1; }

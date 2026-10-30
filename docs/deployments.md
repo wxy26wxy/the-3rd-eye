@@ -37,3 +37,7 @@
 
 ## 2026-10-30 · production · review fix wave (9531526)
 - https://the-3rd-9mxe9dflc-xinyao-wangs-projects.vercel.app → https://the-3rd-eye.vercel.app. T090: scoped public-original delete, 503 on moderation outage, tags-aware moderation reuse, captions-route test, live row on draft edits, Select-screen follow-ups (persisted cutout, zero-pieces box, tappable labels, tokens), fragment sign-in link, a11y nits. Rollback target: https://the-3rd-835bbkwxt-xinyao-wangs-projects.vercel.app.
+
+## 2026-10-30 · TestFlight · The 3rd Eye 0.4.0 (1)
+- First build of the new App Store Connect record (bundle `com.the3rdeye.app`). Archived from main at v0.5 (b0277f5) with `xcodebuild archive` (`-project The3rdEye.xcodeproj`); uploaded by the founder from Xcode Organizer because the command-line export could not see the Apple sign-in ("Failed to Use Accounts"). Points at https://the-3rd-eye.vercel.app. Rollback: expire the build in App Store Connect; the old "maker story" app's 0.3.0 (1) still works against the kept alias.
+- Next: add the tester to the internal group once the build shows "Ready to Test"; later uploads via `bash ios/scripts/testflight.sh` (bumps to build 2) once the account issue is solved or an App Store Connect API key is in place.

@@ -1,7 +1,7 @@
 import XCTest
 
-/// Drives the voice branch against ios/scripts/mock_api.py and checks that the
-/// description is being spoken when Voice result appears after the loading screen.
+/// Drives the voice branch against ios/scripts/mock_api.py and checks that Voice result
+/// shows the image description as text ("WHAT THE IMAGE SHOWS"); there is no in-app speech.
 /// Run: python3 scripts/mock_api.py & then
 /// xcodebuild test -scheme MakerStoryUITests -destination '...' API_BASE_URL=http://localhost:3999
 final class VoiceFlowUITests: XCTestCase {
@@ -9,7 +9,7 @@ final class VoiceFlowUITests: XCTestCase {
     continueAfterFailure = false
   }
 
-  func testDescriptionIsSpokenAfterDrawing() {
+  func testDescriptionIsShownAfterDrawing() {
     let app = XCUIApplication()
     app.launch()
 
@@ -43,17 +43,17 @@ final class VoiceFlowUITests: XCTestCase {
     // Loading screen shows the spoken confirmation as text.
     XCTAssertTrue(app.staticTexts["A happy frog with a gold crown. Drawing it now."].waitForExistence(timeout: 10))
 
-    // Voice result: the hear button reads "Stop" while the description is playing,
-    // i.e. leaving the loading screen did not cancel the arrival speech.
+    // Voice result: the description card shows the spoken description as text.
     XCTAssertTrue(app.staticTexts["YOU SAID"].waitForExistence(timeout: 15))
-    XCTAssertTrue(app.buttons["Stop"].waitForExistence(timeout: 3), "description should be speaking on arrival")
+    // The card is one VoiceOver element: heading and description read together.
+    let card = app.descendants(matching: .any).matching(NSPredicate(
+      format: "label CONTAINS %@ AND label CONTAINS %@", "WHAT THE IMAGE SHOWS", "A smiling green frog sits in the middle.")).firstMatch
+    XCTAssertTrue(card.waitForExistence(timeout: 3), "description card shows the spoken description")
+    XCTAssertFalse(app.buttons["Hear what the image shows"].exists)
+    XCTAssertFalse(app.buttons["Stop"].exists)
     let shot = XCTAttachment(screenshot: app.screenshot())
     shot.name = "voice-result"
     shot.lifetime = .keepAlways
     add(shot)
-
-    // Stopping mid-sentence must not freeze the app (regression: stopSpeaking deadlock).
-    app.buttons["Stop"].tap()
-    XCTAssertTrue(app.buttons["Hear what the image shows"].waitForExistence(timeout: 3))
   }
 }

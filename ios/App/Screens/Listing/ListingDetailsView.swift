@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Board "Listing details": name, price, You earn per sale; AI prefill; approve by tap or "yes".
+/// Board "Listing details": name, price, You earn per sale; AI prefill; approve by tap.
 struct ListingDetailsView: View {
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
@@ -11,8 +11,6 @@ struct ListingDetailsView: View {
   @State private var improving = false
   @State private var approving = false
   @State private var autoRan = false
-  @State private var capture: VoiceCapture?
-  @State private var heard: String?
   @State private var error: String?
 
   private var priceCents: Int { Money.cents(from: priceText) ?? 0 }
@@ -40,25 +38,9 @@ struct ListingDetailsView: View {
         }
         .disabled(approving || title.trimmingCharacters(in: .whitespaces).isEmpty || priceCents <= 0)
         SlowWorkHint(active: approving)
-        if let capture {
-          HStack(spacing: Theme.Space.m) {
-            RecordButton(phase: capture.phase, idleLabel: "Say yes to approve") {
-              Task { await voiceApprove(capture) }
-            }
-            Text(capture.phase == .recording ? "Listening… say \"yes\"" : "Or say \"yes\" to list it")
-              .themeFont(.body)
-              .foregroundStyle(colors.text)
-              .accessibilityHidden(true)
-          }
-          if let heard {
-            Text("I heard: \"\(heard)\". Say \"yes\" to list it.").themeFont(.bodyS).foregroundStyle(colors.textMuted)
-          }
-        }
       }
     }
     .task { await createProductIfNeeded() }
-    .onAppear { if capture == nil { capture = VoiceCapture(api: app.api) } }
-    .onDisappear { capture?.cancel() }
   }
 
   private var form: some View {
@@ -78,9 +60,9 @@ struct ListingDetailsView: View {
       .accessibilityHint(Text("Writes a name, description and price for you to check"))
       SlowWorkHint(active: improving)
 
-      VoiceTextField(label: "Name", text: $title, prompt: "Happy Frog Sticker")
-      VoiceTextField(label: "Description", text: $description, prompt: "A few words about it", axis: .vertical)
-      VoiceTextField(label: "Price in dollars", text: $priceText, prompt: "5.00", keyboard: .decimalPad)
+      LabeledTextField(label: "Name", text: $title, prompt: "Happy Frog Sticker")
+      LabeledTextField(label: "Description", text: $description, prompt: "A few words about it", axis: .vertical)
+      LabeledTextField(label: "Price in dollars", text: $priceText, prompt: "5.00", keyboard: .decimalPad)
 
       Card(selected: true) {
         HStack {
@@ -133,27 +115,10 @@ struct ListingDetailsView: View {
       title = res.listing.title
       description = res.listing.description ?? description
       if let cents = res.listing.priceCents { priceText = String(format: "%.2f", Double(cents) / 100) }
-      app.speech.speak(String(localized: "I wrote a listing called \(title), for \(Money.format(cents: priceCents)). You earn \(Money.format(cents: earnCents)) per sale. Say yes to list it."))
+      // The fields show all of this; VoiceOver hears the summary without visiting each one.
+      UIAccessibility.post(notification: .announcement, argument: String(localized: "I wrote a listing called \(title), for \(Money.format(cents: priceCents)). You earn \(Money.format(cents: earnCents)) per sale. Check it, then tap Approve and list it."))
     } catch {
       self.error = error.localizedDescription
-    }
-  }
-
-  private func voiceApprove(_ capture: VoiceCapture) async {
-    switch capture.phase {
-    case .idle:
-      app.speech.stop()
-      heard = nil
-      await capture.start()
-    case .recording:
-      guard let text = await capture.stopAndTranscribe() else { return }
-      if VoiceIntent.isYes(text) {
-        await approve(via: "voice")
-      } else {
-        heard = text
-      }
-    case .transcribing:
-      break
     }
   }
 
@@ -162,7 +127,7 @@ struct ListingDetailsView: View {
     guard !title.trimmingCharacters(in: .whitespaces).isEmpty, priceCents > 0 else {
       let message = String(localized: "Add a name and a price first, or tap Improve with AI.")
       error = message
-      app.speech.speak(message, force: true)
+      UIAccessibility.post(notification: .announcement, argument: message)
       return
     }
     approving = true

@@ -18,6 +18,6 @@ struct VideoSavedView: View {
     } actions: {
       PillButton("Next", hint: "Shows your live product") { app.push(.youreLive) }
     }
-    .onAppear { app.speech.speak(String(localized: "Video saved!")) }
+    .announces(String(localized: "Video saved!"))
   }
 }

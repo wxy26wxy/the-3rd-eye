@@ -25,15 +25,6 @@
     "A happy frog wearing a crown" : {
 
     },
-    "Accessibility" : {
-
-    },
-    "Accessibility and account settings" : {
-
-    },
-    "Account" : {
-
-    },
     "Add a name and a price first, or tap Improve with AI." : {
 
     },
@@ -55,13 +46,10 @@
     "Artwork" : {
 
     },
+    "Asks before signing you out" : {
+
+    },
     "Back" : {
-
-    },
-    "Bigger words everywhere" : {
-
-    },
-    "Black and white with bold colors" : {
 
     },
     "Bought by %@" : {
@@ -86,6 +74,9 @@
 
     },
     "Can't reach maker story. Check your connection and try again." : {
+
+    },
+    "Cancel" : {
 
     },
     "Change" : {
@@ -160,12 +151,6 @@
     "Edit it" : {
 
     },
-    "Extra tips for someone helping" : {
-
-    },
-    "Fewer steps and choices" : {
-
-    },
     "Finding your drawings" : {
 
     },
@@ -178,27 +163,6 @@
     "Happy Frog Sticker" : {
 
     },
-    "Hear it again" : {
-
-    },
-    "Hear the questions" : {
-
-    },
-    "Hear what the image shows" : {
-
-    },
-    "Helper mode" : {
-
-    },
-    "Helper mode is on. A friend can help you, and the app shows extra tips." : {
-
-    },
-    "Helper mode, off" : {
-
-    },
-    "Helper mode, on" : {
-
-    },
     "Here's a story we drafted from your video" : {
 
     },
@@ -206,9 +170,6 @@
 
     },
     "Hide the keyboard box" : {
-
-    },
-    "High contrast" : {
 
     },
     "How do you want to make it?" : {
@@ -220,15 +181,12 @@
     "I HEARD" : {
 
     },
-    "I heard: \"%@\". Say \"yes\" to list it." : {
-
-    },
-    "I wrote a listing called %@, for %@. You earn %@ per sale. Say yes to list it." : {
+    "I wrote a listing called %@, for %@. You earn %@ per sale. Check it, then tap Approve and list it." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "I wrote a listing called %1$@, for %2$@. You earn %3$@ per sale. Say yes to list it."
+            "value" : "I wrote a listing called %1$@, for %2$@. You earn %3$@ per sale. Check it, then tap Approve and list it."
           }
         }
       }
@@ -254,9 +212,6 @@
     "Keeps your story as it is" : {
 
     },
-    "Large text" : {
-
-    },
     "Lay your drawing flat in good light. It's fine if there are a few on the page." : {
 
     },
@@ -264,9 +219,6 @@
 
     },
     "LISTENING" : {
-
-    },
-    "Listening… say \"yes\"" : {
 
     },
     "Listing details" : {
@@ -377,9 +329,6 @@
     "Opens your product page" : {
 
     },
-    "Or say \"yes\" to list it" : {
-
-    },
     "Order" : {
 
     },
@@ -423,18 +372,6 @@
     "QUESTION" : {
 
     },
-    "Read it to me" : {
-
-    },
-    "Read picture descriptions out loud" : {
-
-    },
-    "Reads a description of the picture out loud" : {
-
-    },
-    "Reads the description out loud" : {
-
-    },
     "Record a short video, about 30 seconds. Buyers see it when they tap the story tag. You only do this once." : {
 
     },
@@ -448,9 +385,6 @@
 
     },
     "Records your voice" : {
-
-    },
-    "Records your voice and writes it down" : {
 
     },
     "Repeats the last step" : {
@@ -477,13 +411,7 @@
     "Saving…" : {
 
     },
-    "Say it instead of typing" : {
-
-    },
     "Say it out loud" : {
-
-    },
-    "Say it, and I'll write it down for you." : {
 
     },
     "Say thank you" : {
@@ -493,12 +421,6 @@
 
     },
     "Say what to change" : {
-
-    },
-    "Say yes to approve" : {
-
-    },
-    "Say your thank-you" : {
 
     },
     "See what buyers see" : {
@@ -534,12 +456,6 @@
     "Sent with a picture or video." : {
 
     },
-    "Server" : {
-
-    },
-    "Settings" : {
-
-    },
     "Shows your live product" : {
 
     },
@@ -552,16 +468,16 @@
     "Sign out" : {
 
     },
+    "Sign out?" : {
+
+    },
     "Sign-in code" : {
 
     },
-    "Signed in as" : {
+    "Signed in as %@." : {
 
     },
     "Signing in…" : {
-
-    },
-    "Simple mode" : {
 
     },
     "Skip" : {
@@ -576,16 +492,10 @@
     "Something went wrong. Please try again." : {
 
     },
-    "Speak descriptions" : {
-
-    },
     "Start creating" : {
 
     },
     "Start talking" : {
-
-    },
-    "Start with the microphone instead of the keyboard" : {
 
     },
     "Starts a new design" : {
@@ -621,12 +531,6 @@
 
     },
     "Stop" : {
-
-    },
-    "Stop recording" : {
-
-    },
-    "Stops and writes down what you said" : {
 
     },
     "Stops recording and writes down what you said" : {
@@ -698,9 +602,6 @@
     "Turn your art into things people buy." : {
 
     },
-    "Turns on extra tips for someone helping the artist" : {
-
-    },
     "Turns your words into a picture" : {
 
     },
@@ -731,8 +632,15 @@
     "Use this story" : {
 
     },
-    "Version" : {
-
+    "Version %@ (%@), %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Version %1$@ (%2$@), %3$@"
+          }
+        }
+      }
     },
     "Video added" : {
 
@@ -740,10 +648,10 @@
     "Video saved!" : {
 
     },
-    "Voice first" : {
+    "We couldn't find a drawing. Try another photo." : {
 
     },
-    "We couldn't find a drawing. Try another photo." : {
+    "We filled in your code from the link. Tap Sign in." : {
 
     },
     "We found %lld drawings. Tap the one to use." : {
@@ -768,6 +676,9 @@
 
     },
     "WHAT SHOULD I CHANGE?" : {
+
+    },
+    "WHAT THE IMAGE SHOWS" : {
 
     },
     "When buyers send you a note, it shows up here." : {
@@ -795,9 +706,6 @@
 
     },
     "Writing down what you said…" : {
-
-    },
-    "Writing it down…" : {
 
     },
     "Writing your listing…" : {
@@ -861,6 +769,9 @@
 
     },
     "Your photo" : {
+
+    },
+    "Your picture" : {
 
     },
     "Your product" : {

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// First listing only: three talking points read aloud, then a ≤ 30 s selfie video.
+/// First listing only: three talking points, then a ≤ 30 s selfie video.
 struct StoryVideoView: View {
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
@@ -34,12 +34,6 @@ struct StoryVideoView: View {
           }
           .accessibilityElement(children: .combine)
         }
-        Button("Hear the questions") { speakPrompts(force: true) }
-          .themeFont(.body)
-          .foregroundStyle(colors.text)
-          .underline()
-          .frame(minHeight: Theme.Size.minTarget)
-
         Toggle(isOn: $mentionDisability) {
           VStack(alignment: .leading, spacing: Theme.Space.xs) {
             Text("Mention my disability").themeFont(.titleM).foregroundStyle(colors.text)
@@ -85,8 +79,8 @@ struct StoryVideoView: View {
     }
     .task {
       if let fetched = try? await app.api.storyPrompts(), fetched.count == 3 { prompts = fetched }
-      speakPrompts(force: false)
     }
+    .announces(prompts.joined(separator: " … "))
   }
 
   /// Leaves the draft sheet (Use, Edit + Save, Skip, or swipe down) for "Video saved!".
@@ -102,10 +96,6 @@ struct StoryVideoView: View {
     guard draft != nil else { return }
     draft = nil
     app.push(.videoSaved)
-  }
-
-  private func speakPrompts(force: Bool) {
-    app.speech.speak(prompts.joined(separator: " … "), force: force)
   }
 
   private func upload(_ url: URL) async {

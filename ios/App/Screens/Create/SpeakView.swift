@@ -68,10 +68,8 @@ struct SpeakView: View {
       }
       .disabled(busy || app.flow.transcript.trimmingCharacters(in: .whitespaces).isEmpty || capture?.phase != .idle)
     }
-    .onAppear {
-      if capture == nil { capture = VoiceCapture(api: app.api) }
-      typing = !app.prefs.voiceFirst
-    }
+    .onAppear { if capture == nil { capture = VoiceCapture(api: app.api) } }
+    .announces(question)
     .onDisappear { capture?.cancel() }
   }
 
@@ -112,20 +110,14 @@ struct SpeakView: View {
       VStack(alignment: .leading, spacing: Theme.Space.s) {
         Text("QUESTION").themeFont(.eyebrow).foregroundStyle(colors.accentInk)
         Text(text).themeFont(.titleM).foregroundStyle(colors.accentInk)
-        Button("Hear it again") { app.speech.speak(text, force: true) }
-          .themeFont(.body)
-          .foregroundStyle(colors.accentInk)
-          .underline()
-          .frame(minHeight: Theme.Size.minTarget)
       }
     }
-    .accessibilityElement(children: .contain)
+    .accessibilityElement(children: .combine)
   }
 
   private func toggleRecording(_ capture: VoiceCapture) async {
     switch capture.phase {
     case .idle:
-      app.speech.stop()
       await capture.start()
     case .recording:
       guard let text = await capture.stopAndTranscribe() else { return }
@@ -152,12 +144,11 @@ struct SpeakView: View {
         product: product)
       app.flow.shaped = res
       if let q = res.clarifyingQuestion, !q.isEmpty, app.flow.answers.count < 2 {
-        question = q
-        app.speech.speak(q, force: true)
+        question = q  // shown in the question card and announced to VoiceOver
         return
       }
       question = nil
-      // DrawingYourIdeaView speaks and shows the confirmation.
+      // DrawingYourIdeaView shows and announces the confirmation.
       app.push(.drawingYourIdea)
     } catch {
       self.error = error.localizedDescription

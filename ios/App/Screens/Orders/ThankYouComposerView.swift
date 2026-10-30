@@ -1,16 +1,13 @@
 import PhotosUI
 import SwiftUI
 
-/// Thank-you for a buyer: say it (Muse Voice Transcribe → drafted text), add a photo or a short video.
+/// Thank-you for a buyer: typed (or the keyboard's dictation), plus a photo or a short video.
 struct ThankYouComposerView: View {
   let orderId: String
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
   @Environment(\.dismiss) private var dismiss
   @State private var text = ""
-  @State private var transcript: String?
-  @State private var capture: VoiceCapture?
-  @State private var drafting = false
   @State private var photoItem: PhotosPickerItem?
   @State private var photo: UIImage?
   @State private var imageUrl: String?
@@ -27,18 +24,7 @@ struct ThankYouComposerView: View {
   var body: some View {
     FlowScreen(title: "Say thank you", subtitle: "The buyer sees this when they tap the story tag.") {
       VStack(alignment: .leading, spacing: Theme.Space.l) {
-        if let capture {
-          HStack(spacing: Theme.Space.m) {
-            RecordButton(phase: capture.phase, idleLabel: "Say your thank-you") {
-              Task { await toggle(capture) }
-            }
-            Text(drafting ? "Writing it down…" : "Say it, and I'll write it down for you.")
-              .themeFont(.body)
-              .foregroundStyle(colors.text)
-          }
-          if let message = capture.error { ErrorCard(message: message) }
-        }
-        VoiceTextField(label: "Your message", text: $text, prompt: "Thank you so much for buying my art!", axis: .vertical)
+        LabeledTextField(label: "Your message", text: $text, prompt: "Thank you so much for buying my art!", axis: .vertical)
 
         if let photo {
           Image(uiImage: photo)
@@ -87,9 +73,6 @@ struct ThankYouComposerView: View {
       .disabled(sending || uploading || (text.isEmpty && imageUrl == nil && videoPathname == nil))
       SlowWorkHint(active: sending || uploading)
     }
-    .onAppear { if capture == nil { capture = VoiceCapture(api: app.api) } }
-    .onDisappear { capture?.cancel() }
-    .stopsSpeechOnDisappear()
     .onChange(of: photoItem) { _, item in
       guard let item else { return }
       Task { await uploadPhoto(item) }
@@ -115,27 +98,6 @@ struct ThankYouComposerView: View {
     if app.creator == nil { await app.refreshCreator() }
     guard let id = app.creator?.id else { throw APIError.unauthorized }
     return id
-  }
-
-  private func toggle(_ capture: VoiceCapture) async {
-    switch capture.phase {
-    case .idle:
-      await capture.start()
-    case .recording:
-      guard let spoken = await capture.stopAndTranscribe() else { return }
-      transcript = spoken
-      drafting = true
-      defer { drafting = false }
-      do {
-        text = try await app.api.draftThankYou(orderId: orderId, transcript: spoken).draftText
-        app.speech.speak(text)
-      } catch {
-        // The drafting model is optional; keep the creator's own words.
-        text = spoken
-      }
-    case .transcribing:
-      break
-    }
   }
 
   private func uploadPhoto(_ item: PhotosPickerItem) async {
@@ -171,7 +133,7 @@ struct ThankYouComposerView: View {
     defer { sending = false }
     do {
       _ = try await app.api.sendThankYou(orderId: orderId, ThankYouRequest(
-        text: text.isEmpty ? nil : text, imageUrl: imageUrl, videoUrl: videoPathname, audioUrl: audioPathname, transcript: transcript))
+        text: text.isEmpty ? nil : text, imageUrl: imageUrl, videoUrl: videoPathname, audioUrl: audioPathname, transcript: nil))
       await app.orders.refresh()
       dismiss()
     } catch {

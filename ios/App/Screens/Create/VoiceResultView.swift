@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Board "Voice result": YOU SAID card, variants, spoken description, Change it / Use this.
+/// Board "Voice result": YOU SAID card, variants, WHAT THE IMAGE SHOWS card, Change it / Use this.
 struct VoiceResultView: View {
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
@@ -36,7 +36,7 @@ struct VoiceResultView: View {
           artwork(variant).frame(maxHeight: ThemeEffects.artworkMaxHeight)
         }
 
-        hearButton
+        if let text = currentDescription { descriptionCard(text) }
 
         if let diff = app.flow.currentVariant?.differencesFromPrompt, !diff.isEmpty {
           Text("Different from what you said: \(diff)")
@@ -60,11 +60,8 @@ struct VoiceResultView: View {
         }
       }
     }
-    .onAppear {
-      if capture == nil { capture = VoiceCapture(api: app.api) }
-      speakCurrent(force: false)
-    }
-    .onChange(of: app.flow.selectedVariant) { speakCurrent(force: false) }
+    .onAppear { if capture == nil { capture = VoiceCapture(api: app.api) } }
+    .announces(currentDescription)
     .onDisappear { capture?.cancel() }
   }
 
@@ -73,39 +70,37 @@ struct VoiceResultView: View {
       .padding(Theme.Space.s)
       .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt))
       .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.card))
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel(Text(variant.altText ?? String(localized: "Your picture")))
+      .accessibilityAddTraits(.isImage)
   }
 
-  private var hearButton: some View {
-    Button {
-      if app.speech.isSpeaking { app.speech.stop() } else { speakCurrent(force: true) }
-    } label: {
-      HStack(spacing: Theme.Space.m) {
-        Image(systemName: app.speech.isSpeaking ? "stop.fill" : "play.fill")
-          .font(TextRole.titleM.font)
-          .foregroundStyle(colors.accentInk)
-          .frame(width: Theme.Size.iconButton, height: Theme.Size.iconButton)
-          .background(Circle().fill(colors.accent))
-          .overlay(Circle().stroke(colors.border, lineWidth: Theme.Border.thin))
-        Text(app.speech.isSpeaking ? "Stop" : "Hear what the image shows")
-          .themeFont(.titleM)
-          .foregroundStyle(colors.text)
-        Spacer(minLength: 0)
+  /// Visible for creators who can't hear and for everyone else; VoiceOver hears it on arrival.
+  private func descriptionCard(_ text: String) -> some View {
+    Card {
+      VStack(alignment: .leading, spacing: Theme.Space.xs) {
+        Text("WHAT THE IMAGE SHOWS").themeFont(.eyebrow).foregroundStyle(colors.textMuted)
+        Text(text).themeFont(.bodyL).foregroundStyle(colors.text)
       }
-      .padding(Theme.Space.xs)
-      .frame(minHeight: Theme.Size.cta)
-      .background(Capsule().fill(colors.surfaceAlt))
-      .overlay(Capsule().stroke(colors.border, lineWidth: Theme.Border.thin))
+      .frame(maxWidth: .infinity, alignment: .leading)
     }
-    .buttonStyle(.plain)
-    .accessibilityLabel(Text(app.speech.isSpeaking ? "Stop" : "Hear what the image shows"))
-    .accessibilityHint(Text("Reads a description of the picture out loud"))
+    .accessibilityElement(children: .combine)
+  }
+
+  private var currentDescription: String? { app.flow.currentVariant.flatMap(Self.description(of:)) }
+
+  /// The spoken description when there is one, else the alt text.
+  static func description(of variant: ArtworkVariant) -> String? {
+    [variant.spokenDescription, variant.altText]
+      .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+      .first { !$0.isEmpty }
   }
 
   private var changePanel: some View {
     Card {
       VStack(alignment: .leading, spacing: Theme.Space.m) {
         Text("WHAT SHOULD I CHANGE?").themeFont(.eyebrow).foregroundStyle(colors.textMuted)
-        VoiceTextField(label: "Change", text: $instruction, prompt: "Make the frog green", axis: .vertical)
+        LabeledTextField(label: "Change", text: $instruction, prompt: "Make the frog green", axis: .vertical)
         if let capture {
           HStack {
             Spacer()
@@ -117,7 +112,6 @@ struct VoiceResultView: View {
                     await refine()
                   }
                 } else {
-                  app.speech.stop()
                   await capture.start()
                 }
               }
@@ -134,11 +128,6 @@ struct VoiceResultView: View {
     }
   }
 
-  private func speakCurrent(force: Bool) {
-    guard let variant = app.flow.currentVariant else { return }
-    app.speech.speak(variant.spokenDescription ?? variant.altText ?? "", force: force)
-  }
-
   private func refine() async {
     guard let current = app.flow.currentVariant, !instruction.isEmpty else { return }
     busy = true
@@ -151,7 +140,6 @@ struct VoiceResultView: View {
       app.flow.selectedVariant = index
       instruction = ""
       changing = false
-      speakCurrent(force: true)
     } catch {
       self.error = error.localizedDescription
     }

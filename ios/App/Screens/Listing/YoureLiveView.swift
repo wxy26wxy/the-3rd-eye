@@ -29,6 +29,6 @@ struct YoureLiveView: View {
       }
     }
     .sheet(item: $preview) { SafariView(url: $0.url).ignoresSafeArea() }
-    .onAppear { app.speech.speak(String(localized: "You're live! Your art is in the shop.")) }
+    .announces(String(localized: "You're live! Your art is in the shop."))
   }
 }

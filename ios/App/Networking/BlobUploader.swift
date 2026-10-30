@@ -11,7 +11,7 @@ import os
 struct BlobUploader {
   /// Matches BLOB_API_VERSION in @vercel/blob 2.8.2 (the brief's "7" is older).
   static let apiVersion = "13"
-  static let blobAPI = URL(string: "https://vercel.com/api/blob/")!
+  static var blobAPI: URL { AppConfig.blobAPIURL }
 
   enum Kind: String {
     case photo = "photos"

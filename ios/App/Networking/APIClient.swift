@@ -155,6 +155,17 @@ final class APIClient: @unchecked Sendable {
     try await post("artworks/\(artworkId)/select", SelectCandidateRequest(candidateId: candidateId), timeout: Self.longTimeout)
   }
 
+  /// Cut-out from a union of candidates and/or points and a box (docs/api.md, clarification 2).
+  /// Allows 300 s: products already made from the artwork are rebuilt in the same request.
+  func cleanup(artworkId: String, _ body: CleanupRequest) async throws -> CleanupResult {
+    try await post("artworks/\(artworkId)/cleanup", body, timeout: Self.longTimeout)
+  }
+
+  /// One artwork with its candidates, `imageSize` and a short-lived `originalUrl`.
+  func artworkDetail(id: String) async throws -> ArtworkDetailResponse {
+    try await get("artworks/\(id)")
+  }
+
   func refine(artworkId: String, instruction: String) async throws -> ArtworkVariant {
     let res: RefineResponse = try await post("artworks/\(artworkId)/refine", RefineRequest(instruction: instruction), timeout: Self.longTimeout)
     return res.artwork

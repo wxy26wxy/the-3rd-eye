@@ -28,12 +28,12 @@ struct FindingDrawingsView: View {
       let uploaded = try await BlobUploader(api: app.api).upload(data, creatorId: creatorId, kind: .photo, contentType: "image/jpeg", fileExtension: "jpg")
       let res = try await app.api.artworkFromPhoto(imageUrl: uploaded.url, product: product)
       app.flow.photoArtwork = res.artwork
-      app.flow.candidates = res.candidates
+      app.flow.resetCutout(candidates: res.candidates, imageSize: res.imageSize)
       if res.candidates.count <= 1, res.artwork.cleanedUrl != nil {
         app.flow.artwork = res.artwork
         app.replaceTop(with: .designReady)
       } else {
-        app.replaceTop(with: .tapToSelect)
+        app.replaceTop(with: .adjustCutout)
       }
     } catch is CancellationError {
       return

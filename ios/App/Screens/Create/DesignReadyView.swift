@@ -12,6 +12,24 @@ struct DesignReadyView: View {
         if let artwork = app.flow.artwork {
           RemoteImage(url: artwork.displayURL, altText: artwork.altText)
             .frame(maxHeight: ThemeEffects.artworkMaxHeight)
+          if app.flow.photoArtwork?.id == artwork.id {
+            Button { app.push(.adjustCutout) } label: {
+              Text("Adjust cutout")
+                .themeFont(.titleM)
+                .underline()
+                .foregroundStyle(colors.text)
+                .frame(minWidth: Theme.Size.iconButton, minHeight: Theme.Size.iconButton)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(Text("Pick other pieces or change the cutout"))
+          }
+        }
+        if let notice = app.flow.cutoutNotice {
+          Text(notice)
+            .themeFont(.body)
+            .foregroundStyle(colors.text)
+            .multilineTextAlignment(.center)
         }
         Text("Put it up for sale now?")
           .themeFont(.titleL)

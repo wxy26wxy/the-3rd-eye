@@ -19,6 +19,17 @@ enum AppConfig {
 
   static var apiURL: URL { siteURL.appendingPathComponent("api/v1") }
 
+  static let vercelBlobAPI = URL(string: "https://vercel.com/api/blob/")!
+
+  /// Blob store API. Debug builds take `MOCK_BLOB_API` from the launch environment
+  /// (UI tests point it at scripts/mock_api.py); Release always uses Vercel.
+  static var blobAPIURL: URL {
+    #if DEBUG
+    if let raw = ProcessInfo.processInfo.environment["MOCK_BLOB_API"], let url = URL(string: raw) { return url }
+    #endif
+    return vercelBlobAPI
+  }
+
   static var gitSHA: String {
     Bundle.main.object(forInfoDictionaryKey: "GitSHA") as? String ?? "dev"
   }

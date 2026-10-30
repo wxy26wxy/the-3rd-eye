@@ -1,6 +1,33 @@
 # Screens · web
 
-Board names follow the design canvas (Direction A, green and playful), baseline version `1793328546-ac11`. From the rename (T085) the wordmark on every board reads "THE 3RD EYE" instead of the old name (logo board, welcome and story headers, Web-Green nav, hero and footer); the canvas still shows the old name until the next version, and the code follows the rename, not the board. Every screen uses tokens from `web/app/tokens.css` through the primitives in `web/components/ui/*`; copy is in `web/messages/en.json`.
+Since T100 (2026-10-30) the design source is **the Figma file (key `vIOMPzc2kjP18BbgduLmc8`)**, page `0:1` "Exploration 5 · Sky" (direction "Sky · Inter on white"). The node table below maps every Figma board to its screen. The tables after it still name the old canvas boards ("Direction A"): they describe the components as built today, until T102 (web) and T103 (iOS) re-skin them to Sky. Every screen uses tokens from `web/app/tokens.css` through the primitives in `web/components/ui/*`; images come from `web/lib/assets.ts`; copy is in `web/messages/en.json`.
+
+## Figma node table (Sky)
+
+Status: **designed** = a board exists in the Figma file; **generated** = drawn by the design agent in the duplicated file (T101), waiting for the user's review; **pending** = no board yet. iOS views are in `ios/App/Screens/`.
+
+| Figma node | Board | Screen | Web route | iOS view | Status |
+|---|---|---|---|---|---|
+| `21:4229` | Welcome · Cloud studio | Welcome (full-bleed sky photo, white text, white pill CTA, "I already have an account") | `/create` | `Onboarding/WelcomeView` | designed |
+| `45:700` | Pick sticker or tote · Cloud studio | Choose product (two cards, radio, "Next") | `/create/product` | `Create/PickProductView` | designed |
+| `21:4340` | Choose how to make it · Cloud studio | Choose method (photo / upload / say it, "NO DRAWING SKILL NEEDED") | `/create/method` | `Create/ChooseMethodView` | designed |
+| `21:4390` | Finding drawings · Cloud studio | Finding your drawings (dreamscape, "This takes a few seconds...") | `/create/select` (loading) | `Create/FindingDrawingsView` | designed (styles read from screenshot only) |
+| `21:4450` | Tap to select · Cloud studio | Tap the one you want ("Retake" / "Use this") | `/create/select` | `Create/AdjustCutoutView` (pick step) | designed (screenshot only) |
+| `40:488` | Tap to select · Cloud studio (second frame, title "You can adjust the cut out") | Adjust cutout | `/create/select` (adjust) | `Create/AdjustCutoutView` | designed (screenshot only; adjust tools not drawn) |
+| `21:4509` | Sticker ready · Cloud studio | Your sticker is ready! + "Put it up for sale now?" | `/create/ready` | `Create/DesignReadyView` | designed |
+| `21:4554` | You're live · Cloud studio | You're live! ("Make another", "See what buyers see") | `/create/live` | `Listing/YoureLiveView` | designed (screenshot only) |
+| — | — | Sign in with code | `/create/code` | `Onboarding/CodeEntryView` | pending |
+| — | — | Speak / Type instead / clarifying question | `/create/speak` | `Create/SpeakView` | pending |
+| — | — | Drawing your idea | `/create/drawing` | `Create/DrawingYourIdeaView` | pending |
+| — | — | Voice result (variants, Change it / Use this) | `/create/result` | `Create/VoiceResultView` | pending |
+| — | — | Take / upload a photo | `/create/photo` | `Create/CameraView` | pending |
+| — | — | Listing details (Improve with AI, trace) | `/create/listing` | `Listing/ListingDetailsView` | pending |
+| — | — | Story video, Video saved | `/create/story-video` | `Listing/StoryVideoView`, `VideoSavedView` | pending |
+| — | — | Home, My designs (status badges), Design detail, Messages, Orders | — | `Home/*`, `Orders/*` | pending |
+| — | — | Admin · Creators panel with one-time code card | `/admin` | — | pending |
+| — | — | Public site (shop, product, artists, story tag, static pages) | `/`, `/p/[id]`, `/artists`, `/c/[slug]`, `/t/[token]`, … | — | pending (T101 generates Sky web boards) |
+
+Frame 1 on Welcome (`36:422`) is the white logo mark; on every other board the mark is "Union" (`45:712`, `36:469`, `36:471`, `36:473`, `40:500`, `36:475`, `36:477`), 40×35 at the top left, exported as `design/assets/logo-mark.svg`.
 
 ## Public site
 
@@ -40,27 +67,24 @@ Shared frame: `components/create/CreateScreen` (back button, step pill, display 
 
 ## Screens with no board yet
 
-Built (or being built this week) from existing tokens and primitives. Mark them "no board yet" in reviews; they get a row above when the designer draws them.
-
-| Screen | Where | One line |
-|---|---|---|
-| Adjust cutout | creator flow, after photo | Combine candidate drawings, add or remove area points, drag a box, preview the result. Replaces "Tap to select" (`/create/select`, board 4c). |
-| Design detail | My designs, one design | Make a sticker or tote from it, edit the listing, re-do the cutout, see it in the shop, delete. |
-| My designs status badges | My designs list | "Cutting out...", "Didn't work", "Draft", "In the shop". |
-| Admin · Creators panel | `/admin` | Creator list with a one-time code card (QR and link). |
-| Code prefill hint | web `/create/code?c=` | A hint line on the sign-in screen when the code arrives pre-filled from a link. |
+Replaced by the "pending" rows of the Figma node table above (T100). Adjust cutout now has a board (`40:488`); Design detail, My designs badges, the admin Creators panel and the code prefill hint are still pending.
 
 ## Removed elements (iOS, T081)
 
 Accessibility settings sheet, helper-mode button, "Hear what the image shows" play bar, per-field mic icons. Voice remains only on "Say it out loud" and "Say what to change". The canvas still draws the helper-mode button (E4 Welcome) and a "Your helper can hold the phone" line (E4 Method); web keeps the "Hear the question again" button on the clarifying question.
 
-## Canvas intake log
+## Figma intake log
 
-| Canvas version | Date | Boards | Result |
-|---|---|---|---|
-| `1793328546-ac11` | 2026-10-29 | 27 board files (9 prototype, 15 E4 creator flow, Logo, Mascot, Web-Green) | Baseline (dry run). 4 colours without a token: `#FBF4DF`, `#3C4A3D`, `#CFE0A0`, `#56705A`. All other colours, font sizes and the grain match `design/tokens.json`. Wordmark still the old name. Procedure: `docs/handoffs/design.md`. |
+| Date | Source | Page | Frames | Result |
+|---|---|---|---|---|
+| 2026-10-30 | Figma file key `vIOMPzc2kjP18BbgduLmc8` (T100) | `0:1` "Exploration 5 · Sky" | `21:4229`, `45:700`, `21:4340`, `21:4390`, `21:4450`, `40:488`, `21:4509`, `21:4554` (390×844; Sticker ready is 390×867) | First Figma intake; replaces the canvas. No Figma variables: tokens v2 read from node styles of `21:4229`, `45:700`, `21:4340`, `21:4509` (the seat's MCP allowance ran out before the other four, which were read from screenshots). 11 assets exported to `design/assets/`, 4 pending (`sky-1`, `sky-2`, `mascot-magnifier`, `mascot-wave`). Off-token: `#E4F3C8`, `#5FAE57`, `#19583C`, `#C6C6C6`; Figtree on `21:4340`. Procedure and open questions: `docs/handoffs/design.md`. |
+
+Canvas history (retired): version `1793328546-ac11` (2026-10-29), 27 board files, baseline dry run.
 
 ## Accessibility deviations from the design
+
+These describe the Direction A components still on screen until T102/T103. The Sky flags for the designer are in `docs/accessibility.md` ("Designer flags (Sky)").
+
 
 - **Display headlines on green**: cream fill on `ground` is about 1.9:1. The 2 px ink stroke and 5 px ink shadow carry the letterforms, and every display headline is also real text. On cream surfaces display text uses ink fill instead of cream (`tone="onCream"`).
 - **Nav links on phones** are cream pills on green instead of bare text, so each is a 44 px target with readable contrast; the desktop nav keeps the bare-text style.

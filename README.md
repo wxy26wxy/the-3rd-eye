@@ -16,13 +16,13 @@ This is our entry for the Meta Global AI Developer Hackathon (Startups track, "B
 Real:
 - Every Meta model call in the model map below, on the deployed site and in the iOS app.
 - The creator flows (voice, photo, Adjust cutout, listing, story video, thank-you), the shop, the story-tag page, the buyer-to-creator note thread, and the admin pages for print files.
-- Print files (PNG and die-cut SVG) that we printed and cut for a physical sticker.
+- Print files (PNG and die-cut SVG), generated for every order and downloadable from `/admin`.
 
 Staged or limited:
 - **Payments.** Buy creates the order and takes no payment (`PAYMENTS_MODE=staged`).
 - **Creators.** The example artists in the shop are fictional and labelled as such. Real creators sign in with a code issued from `/admin`; this is development-grade sign-in, not production auth.
 - **Notifications.** The iOS app checks for new orders and messages about every 10 seconds. There are no push notifications.
-- **NFC.** The iOS app does not write tags. We write each tag once with a separate writer app; the QR code on `/admin` opens the same page.
+- **Physical sticker and NFC tag.** Printing, cutting and writing a tag are planned for the physical test on Oct 30; method: a standard NFC writer app. The iOS app does not write tags. The QR code on `/admin` opens the same story page.
 - **Fulfilment.** We print and ship by hand from the admin page.
 - **Open-weight stage.** Muse Glimmer runs on our development Mac, so it is only available while that Mac is serving (see below).
 - **Not yet verified on a phone:** captions from a camera video on a real iPhone, and a VoiceOver pass over the Adjust cutout and My designs screens. See `docs/risks.md` and `docs/accessibility.md`.
@@ -36,9 +36,8 @@ Staged or limited:
 | Generate and refine artwork; product mockups | Muse Image 1.0 | `muse-image-1.0` |
 | Find and cut out drawings and handmade objects; combine, add or remove areas; die-cut outline | SAM 3.1 | `sam-3.1` |
 | Draft the artist's story from their own words (open weights) | Muse Glimmer 30B via Ollama | `muse-glimmer` |
-| Development tooling | Muse Code | not part of the runtime |
 
-Every model call is recorded in the `ai_calls` table and can be read at `/admin/trace`.
+Muse Code is not used in this project so far. Every model call is recorded in the `ai_calls` table and can be read at `/admin/trace`.
 
 ## Open-weight stage
 
@@ -49,7 +48,7 @@ After a story video is captioned, Muse Glimmer drafts the artist's shop story. T
 - **iOS uses the system's features instead of copying them:** the keyboard's dictation key for speaking instead of typing, VoiceOver for hearing descriptions and messages, Dynamic Type for text size, Increase Contrast for the high-contrast palette.
 - **There is no Meta text-to-speech model.** Muse Spark writes the description, both apps show it as text, and VoiceOver reads it on iOS. On the web a "Read aloud" button uses the browser's `speechSynthesis`.
 - Everything the app tells the person (questions, confirmations, errors, results) is visible text as well as an announcement.
-- Hand-run VoiceOver test scripts for each creator screen are in `docs/accessibility.md`.
+- Hand-run VoiceOver test scripts for each creator screen are in `docs/accessibility.md`; they have not yet been run on a device.
 
 ## Repository
 

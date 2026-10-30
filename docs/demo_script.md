@@ -3,13 +3,14 @@
 Shot-by-shot script for the submission video. Narration is plain, first person plural, and is meant to be read at a calm pace (about 2.5 words a second). Every live step has a fallback so a failed take never blocks the cut.
 
 ## Before recording
-- **Production site:** https://the-3rd-eye.vercel.app. Phone app: TestFlight build 0.4.0 of The 3rd Eye (or the simulator, see each shot).
+- **Production site:** https://the-3rd-eye.vercel.app. Phone app: TestFlight build 0.4.0 of The 3rd Eye once it is uploaded; until then a local build on the phone or the simulator.
+- **Sign-in is done before every take**, so no code or sign-in screen is on camera.
 - **Creator codes:** open `web/.creator-codes.local` on the dev Mac. Never type a code on camera; paste it before the take starts or use the app link from `/admin`.
-  - **June Park** (voice flow, the blind-creator story): shots 2 and 3.
-  - **Leo** (drawing and photo flow, the Adjust-cutout shot): shot 4. Use a tester creator for rehearsals so the demo creators' data stays clean.
+  - **June Park** (voice flow): shot 2. June is one of our fictional example artists; say so in the narration and on the end card.
+  - **Leo** (drawing and photo flow, the Adjust-cutout shot): shot 3. Use a tester creator for rehearsals so the demo creators' data stays clean.
 - **Mac:** Ollama running with `muse-glimmer`, the app pointed at the Mac only for the story-draft shot. On Vercel the same stage falls back to Muse Spark 1.3.
 - **Phone:** VoiceOver on, Settings > Accessibility > VoiceOver > Speech volume up, Do Not Disturb on, screen recording ready (Control Centre). Over-the-shoulder camera on a tripod for the three phone shots.
-- **Props:** one stitched toy (or a wallet), one printed die-cut sticker with an NFC tag already written to `/t/<token>` of a test order, a second phone to play the buyer.
+- **Props:** one stitched toy (or a wallet), one printed die-cut sticker with an NFC tag written to `/t/<token>` of a test order (to do: print, cut and write it at the physical test on Oct 30; method: a standard NFC writer app), a second phone to play the buyer.
 - **Pre-recorded safety takes:** record each live step once in rehearsal and keep the clip, named `fallback-<shot>.mov`.
 
 ## Beat sheet
@@ -22,18 +23,18 @@ Shot-by-shot script for the submission video. Narration is plain, first person p
 | 1:15-1:40 | 4. A buyer finds it | Screen recording of the shop (phone-sized browser) | none (shop) |
 | 1:40-2:05 | 5. The creator says thank you | Simulator capture, then phone | Muse Voice Transcribe 1.0, Muse Glimmer (Ollama) |
 | 2:05-2:40 | 6. The sticker, the tap, the reply | Over the shoulder, then screen recording | Muse Voice Transcribe 1.0 (captions) |
-| 2:40-3:00 | 7. What runs where | Model-map card | all of them |
+| 2:40-3:00 | 7. What runs where | Model-map card | all of them except Muse Code, which we have not used |
 
 ### 1. The four problems (0:00-0:20)
 Shot: four cards, one per problem, each held about 4 seconds over a still of a real sticker. No voice-over reading from a script on screen; the cards carry the text.
 
-Narration:
-"Most studios that support artists with disabilities can sell an original once, locally. Then it is gone. Artists with disabilities are employed at about half the rate of other people. Buyers never meet the person who made what they buy. And people who are blind have visual ideas but cannot put them on paper. The 3rd Eye is our answer to all four."
+Narration (about 48 words, 19 s):
+"Most studios can sell an original once, locally. Artists with disabilities are employed at about half the rate of others. Buyers never meet the maker. And people who are blind cannot put their ideas on paper. The 3rd Eye answers all four."
 
 Fallback: none needed (stills).
 
 ### 2. Describe it out loud, VoiceOver on (0:20-0:55)
-Creator: **June Park**. Capture: phone over the shoulder for the first 5 seconds (June's hand, VoiceOver on), then the phone's screen recording.
+Creator: **June Park** (signed in beforehand). Capture: phone over the shoulder for the first 5 seconds (June's hand, VoiceOver on), then the phone's screen recording.
 
 Steps and what the viewer sees:
 1. Create tab > Sticker > "Say it out loud". VoiceOver reads "Start talking".
@@ -49,7 +50,7 @@ Narration:
 Fallback: if the live generation takes more than 40 seconds or fails, cut to `fallback-voice.mov` (the rehearsal take). If the phone microphone fails, use "Type instead" with the keyboard's dictation key and say so in the narration ("she uses dictation here"). With `AI_FIXTURES=1` on a local server the whole flow runs offline with synthetic art, but fixtures are not Meta output; do not use them for the final cut and do not narrate them as models.
 
 ### 3. Photograph a toy, adjust the cutout (0:55-1:15)
-Creator: **Leo**. Capture: simulator capture (the simulator uses a photo from the library) or the phone. Show the toy on the table for 2 seconds first.
+Creator: **Leo** (signed in beforehand). Capture: simulator capture (the simulator uses a photo from the library) or the phone. Show the toy on the table for 2 seconds first.
 
 Steps:
 1. Create > Sticker > Take a photo. SAM 3.1 finds pieces: the toy comes back as 2 or 3 numbered pieces.
@@ -76,8 +77,8 @@ Capture: simulator capture of the Orders tab, then the phone for the 10-second v
 
 Steps: Orders tab shows the new order (the list refreshes about every 10 seconds, there is no push notification) > Order detail > thank-you composer > record a 10-second video > send. Mention the story-draft sheet: after the story video, "Here's a story we drafted from your video" offers Use, Edit or Skip.
 
-Narration:
-"The creator sees the order arrive and records a short thank-you. Muse Voice Transcribe adds captions. For the artist's story, Muse Glimmer, an open-weight model, runs on our own Mac through Ollama and drafts the text from the artist's own words. The artist chooses to use it, edit it, or skip it."
+Narration (about 48 words, 19 s):
+"The creator sees the order arrive and records a short thank-you; Muse Voice Transcribe adds captions. Muse Glimmer, an open-weight model on our own Mac through Ollama, drafts the artist's story from their words. The artist can use it, edit it, or skip it."
 
 Fallback: if Ollama is down, the stage uses Muse Spark 1.3 and the response says `provider: "meta-fallback"`; narrate it honestly ("Spark covers when the Mac is off"). If recording fails, use `fallback-thankyou.mov`.
 
@@ -85,7 +86,7 @@ Fallback: if Ollama is down, the stage uses Muse Spark 1.3 and the response says
 Capture: over the shoulder for the print and tap; screen recordings for the page and the creator app.
 
 Steps:
-1. Show the printed die-cut sticker (print PNG and die SVG came from `/admin`). Show the NFC tag on the back.
+1. Show the printed die-cut sticker (print PNG and die SVG downloaded from `/admin`). Show the NFC tag on the back. The physical sticker and tag are planned for the physical test on Oct 30 (method: a standard NFC writer app); until they exist, use the QR route in the fallback and do not narrate a tap.
 2. **Tap the sticker with the buyer phone.** `/t/<token>` opens: the artist's captioned video, the thank-you, the note box.
 3. Buyer types a reply and sends it.
 4. **Switch to the creator app, Messages tab: the reply arrives** (within about 10 seconds of polling). Show it.
@@ -93,13 +94,13 @@ Steps:
 Narration:
 "The sticker carries an NFC tag. The buyer taps it and meets the artist, with captions. The buyer writes back, and the reply shows up in the creator's app."
 
-Fallback: if the tag does not read, scan the QR code on `/admin` for the same order (the tag page is the same URL). If the reply is slow, cut to `fallback-reply.mov`. The iOS app does not write tags; the tag is written once with a separate writer app beforehand.
+Fallback: if the tag does not read, scan the QR code on `/admin` for the same order (the tag page is the same URL). If the reply is slow, cut to `fallback-reply.mov`. The iOS app does not write tags; the planned method is a standard NFC writer app.
 
 ### 7. What runs where (2:40-3:00)
 Capture: one card listing the models, then the vote ask over the logo.
 
-Narration:
-"Muse Voice Transcribe 1.0 hears. Muse Spark 1.3 shapes, describes and writes the listing. Muse Image 1.0 draws. SAM 3.1 cuts. Muse Glimmer drafts stories on our own hardware, and Muse Code helped us build it. We built this from October 27 to November 4. Please vote for The 3rd Eye."
+Narration (about 45 words, 18 s):
+"Muse Voice Transcribe 1.0 hears. Muse Spark 1.3 shapes, describes and writes the listing. Muse Image 1.0 draws. SAM 3.1 cuts. Muse Glimmer drafts stories on our own hardware. We built this from October 27 to November 4. Please vote for The 3rd Eye."
 
 Fallback: none needed.
 
@@ -108,4 +109,4 @@ Fallback: none needed.
 - Burn in captions for all narration.
 - Do not show a creator code, a bearer token, the admin password or `.env.local`. Blur the URL bar if a sign-in link is visible.
 - Label example creators as fictional in the end card.
-- Total narration is about 330 words; time a read-through before recording.
+- Narration totals about 250 words; each shot is written to fit its slot at 2.5 words a second. Time a read-through before recording; none has been done yet.

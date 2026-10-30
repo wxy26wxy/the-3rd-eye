@@ -80,6 +80,7 @@ final class AppState {
     if let serverPrefs = creator.accessPrefs { prefs = serverPrefs }
     isSignedIn = true
     sessionExpired = false
+    pendingCode = nil
     selectedTab = .create
   }
 
@@ -91,6 +92,7 @@ final class AppState {
   }
 
   func signOut() {
+    pendingCode = nil
     orders.reset()
     api.signOut()
     creator = nil

@@ -22,12 +22,15 @@ struct RootView: View {
     .dynamicTypeSize(app.prefs.largeText ? DynamicTypeSize.xxxLarge ... .accessibility5 : DynamicTypeSize.xSmall ... .accessibility5)
     .tint(app.themeColors.primary)
     .task { await app.refreshCreator() }
-    .onChange(of: app.pendingCode) { _, code in
-      if code != nil, !app.isSignedIn, onboarding.isEmpty { onboarding = [.code] }
-    }
+    .onChange(of: app.pendingCode) { _, _ in openCodeScreenIfPending() }
+    .onAppear(perform: openCodeScreenIfPending)  // a link delivered before this view existed
     .onChange(of: app.isSignedIn) { _, signedIn in
       // After an expired session, open straight on the code screen.
       onboarding = !signedIn && app.sessionExpired ? [.code] : []
     }
+  }
+
+  private func openCodeScreenIfPending() {
+    if app.pendingCode != nil, !app.isSignedIn, onboarding.isEmpty { onboarding = [.code] }
   }
 }

@@ -121,4 +121,4 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 
 ### T070 · ios · feat/ios-T070 · `makerstory://code/<CODE>` deep link
 - The app registers the `makerstory` URL scheme; a code link opens the code screen with the code filled in (signed-out only; no auto-submit; VoiceOver announcement). See `docs/handoffs/ios.md` → Deep link.
-- Verify (from `ios/`): `xcodebuild test -scheme MakerStory …` → 61 tests; `python3 scripts/mock_api.py &` then `xcodebuild test -scheme MakerStoryUITests … -only-testing:MakerStoryUITests/DeepLinkUITests API_BASE_URL=http://localhost:3999` → passes; manual: `xcrun simctl openurl booted makerstory://code/ABC123` → prompt → code screen.
+- Verify (from `ios/`): `xcodebuild test -scheme MakerStory …` → 62 tests; `python3 scripts/mock_api.py &` then `xcodebuild test -scheme MakerStoryUITests … -only-testing:MakerStoryUITests/DeepLinkUITests API_BASE_URL=http://localhost:3999` → passes; manual: `xcrun simctl openurl booted makerstory://code/ABC123` → prompt → code screen.

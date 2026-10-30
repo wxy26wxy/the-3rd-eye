@@ -14,10 +14,24 @@ final class DeepLinkTests: XCTestCase {
     XCTAssertNil(DeepLink.parse(URL(string: "makerstory://code/" + String(repeating: "A", count: 65))!))
   }
 
+  @MainActor private func app(token: String?) -> AppState {
+    AppState(api: APIClient(baseURL: URL(string: "http://localhost:3000/api/v1")!, transport: StubTransport(status: 200, body: "{}"), token: token))
+  }
+
   @MainActor
-  func testPendingCodeOnlyWhileSignedOut() {
-    let app = AppState(api: APIClient(baseURL: URL(string: "http://localhost:3000/api/v1")!, transport: StubTransport(status: 200, body: "{}"), token: nil))
-    app.open(URL(string: "makerstory://code/ABC123")!)
-    XCTAssertEqual(app.pendingCode, "ABC123")
+  func testPendingCodeWhileSignedOutAndClearedOnSignOut() {
+    let state = app(token: nil)
+    state.open(URL(string: "makerstory://code/ABC123")!)
+    XCTAssertEqual(state.pendingCode, "ABC123")
+    state.signOut()
+    XCTAssertNil(state.pendingCode)
+  }
+
+  @MainActor
+  func testLinkIgnoredWhileSignedIn() {
+    let state = app(token: "t0k")
+    XCTAssertTrue(state.isSignedIn)
+    state.open(URL(string: "makerstory://code/ABC123")!)
+    XCTAssertNil(state.pendingCode)
   }
 }

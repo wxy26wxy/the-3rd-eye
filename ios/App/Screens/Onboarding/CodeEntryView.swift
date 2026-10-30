@@ -34,6 +34,7 @@ struct CodeEntryView: View {
           .autocorrectionDisabled()
           .onAppear(perform: takePendingCode)
           .onChange(of: app.pendingCode) { _, _ in takePendingCode() }
+          .onChange(of: code) { _, _ in if prefilled, cleaned.isEmpty { prefilled = false } }
         if let error { ErrorCard(message: error) }
       }
     } actions: {

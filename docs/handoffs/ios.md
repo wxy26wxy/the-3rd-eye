@@ -69,6 +69,6 @@ Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s 
 
 ## Deep link (T070)
 - `makerstory://code/<CODE>` (scheme registered in `Info.plist` `CFBundleURLTypes`) is parsed by `App/Services/DeepLink.swift`; `AppState.open(_:)` stores it as `pendingCode` while signed out, `RootView` pushes the code screen, and `CodeEntryView` fills the field once and shows "We filled in your code from the link. Tap Sign in." (no auto-submit). Ignored while signed in.
-- `/admin` shows this link on the one-time code card next to the web link. iOS shows the system "Open in maker story?" prompt first.
+- The web task T070 shows this link on the `/admin` one-time code card next to the web link (merged separately). iOS shows the system "Open in maker story?" prompt first.
 - Tests: `Tests/DeepLinkTests.swift` (parse, cleanup, length cap, pending only while signed out) and `UITests/DeepLinkUITests.swift` (opens the link against `scripts/mock_api.py`, accepts the Springboard prompt, checks the prefilled field).
 - Universal links (https) would need an apple-app-site-association file on the site; not done.

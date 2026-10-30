@@ -25,14 +25,6 @@ final class ShareAndHelpersTests: XCTestCase {
     XCTAssertNil(Money.cents(from: "five"))
   }
 
-  func testVoiceYes() {
-    XCTAssertTrue(VoiceIntent.isYes("Yes!"))
-    XCTAssertTrue(VoiceIntent.isYes("yeah list it"))
-    XCTAssertFalse(VoiceIntent.isYes("no"))
-    XCTAssertFalse(VoiceIntent.isYes("don't list it yet"))
-    XCTAssertFalse(VoiceIntent.isYes("hmm"))
-  }
-
   func testBlobStoreIdFromClientToken() {
     XCTAssertEqual(BlobUploader.storeId(fromClientToken: "vercel_blob_client_store123_payload"), "store123")
     XCTAssertEqual(BlobUploader.storeId(fromClientToken: "bad"), "")

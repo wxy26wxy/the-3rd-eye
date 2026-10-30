@@ -16,9 +16,6 @@ struct DrawingYourIdeaView: View {
       retry: { error = nil; attempt += 1 }
     )
     .task(id: attempt) { await run() }
-    .onAppear {
-      if let confirmation = app.flow.shaped?.spokenConfirmation { app.speech.speak(confirmation) }
-    }
   }
 
   private func run() async {

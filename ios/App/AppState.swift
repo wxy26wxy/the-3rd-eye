@@ -26,7 +26,6 @@ enum PhotoSource: Hashable { case camera, library }
 @Observable
 final class AppState {
   let api: APIClient
-  let speech = Speech()
   let orders: OrdersStore
   var creator: Creator?
   private(set) var isSignedIn: Bool
@@ -34,22 +33,12 @@ final class AppState {
   private(set) var sessionExpired = false
   /// A sign-in code that arrived through a link; the code screen takes it once.
   var pendingCode: String?
-  var selectedTab: HomeTab = .create {
-    didSet { if selectedTab != oldValue { speech.stop() } }
-  }
-  /// Any route change stops speech before the next screen's onAppear can start
-  /// its own (onDisappear of the old screen runs after that, so it can't be used).
-  var createPath: [CreateRoute] = [] {
-    // NavigationStack writes the same path back after a transition; only a real change stops speech.
-    didSet { if createPath != oldValue { speech.stop() } }
-  }
+  var selectedTab: HomeTab = .create
+  var createPath: [CreateRoute] = []
   var flow = CreateFlow()
 
   var prefs: AccessPrefs {
-    didSet {
-      speech.speakDescriptions = prefs.speakDescriptions
-      Self.savePrefs(prefs)
-    }
+    didSet { Self.savePrefs(prefs) }
   }
 
   init(api: APIClient = APIClient()) {
@@ -57,14 +46,12 @@ final class AppState {
     self.isSignedIn = api.isSignedIn
     self.orders = OrdersStore(api: api)
     self.prefs = Self.loadPrefs()
-    speech.speakDescriptions = prefs.speakDescriptions
     api.onUnauthorized = { [weak self] in
       Task { @MainActor in self?.sessionDidExpire() }
     }
   }
 
   var split: Split { creator?.split ?? .default }
-  var themeColors: ThemeColors { prefs.highContrast ? .highContrast : .standard }
 
   // MARK: Session
 
@@ -112,24 +99,14 @@ final class AppState {
     }
   }
 
-  /// Saves preferences locally and on the server (best effort).
-  func pushPrefs() async {
-    guard isSignedIn else { return }
-    if let updated = try? await api.updateMe(UpdateCreatorRequest(accessPrefs: prefs)) {
-      creator = updated
-    }
-  }
-
   // MARK: App lifecycle
 
-  /// Background: stop talking and polling. Foreground: resume polling, drop a stale speaking state.
+  /// Background: stop polling. Foreground: resume it.
   func scenePhaseChanged(_ phase: ScenePhase) {
     switch phase {
     case .background:
-      speech.stop()
       orders.stop()
     case .active:
-      speech.resync()
       if isSignedIn { orders.start() }
     default:
       break
@@ -139,7 +116,6 @@ final class AppState {
   // MARK: Flow
 
   func startNewCreation() {
-    speech.stop()
     flow = CreateFlow()
     createPath = []
     selectedTab = .create

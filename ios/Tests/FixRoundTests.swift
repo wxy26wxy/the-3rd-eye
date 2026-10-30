@@ -5,25 +5,12 @@ import XCTest
 final class FixRoundTests: XCTestCase {
   private let base = URL(string: "http://localhost:3000/api/v1")!
 
-  func testRouteChangeStopsSpeechButArrivalSpeechSurvives() {
+  func testReplaceTopSwapsTheLoadingScreen() {
     let app = AppState(api: APIClient(baseURL: base, transport: StubTransport(body: "{}"), token: nil))
-    app.speech.speak("leaving screen", force: true)
-    XCTAssertTrue(app.speech.isSpeaking)
     app.push(.speak)
-    XCTAssertFalse(app.speech.isSpeaking, "pushing stops the old screen's speech")
-    // The new screen's onAppear runs after the path change and may speak.
-    app.speech.speak("arriving screen", force: true)
-    XCTAssertTrue(app.speech.isSpeaking)
-    app.speech.stop()
-  }
-
-  func testReplaceTopStopsSpeech() {
-    let app = AppState(api: APIClient(baseURL: base, transport: StubTransport(body: "{}"), token: nil))
     app.push(.drawingYourIdea)
-    app.speech.speak("drawing it now", force: true)
     app.replaceTop(with: .voiceResult)
-    XCTAssertFalse(app.speech.isSpeaking)
-    XCTAssertEqual(app.createPath, [.voiceResult])
+    XCTAssertEqual(app.createPath, [.speak, .voiceResult], "Back from Voice result skips the loading screen")
   }
 
   func testOrdersResetClearsPreviousAccount() {
@@ -63,15 +50,6 @@ final class FixRoundTests: XCTestCase {
       XCTAssertEqual(blob.requests.count, 1)
       XCTAssertEqual(blob.requests[0].value(forHTTPHeaderField: "x-vercel-blob-access"), "public")
     }
-  }
-
-  func testSamePathWriteBackDoesNotStopSpeech() {
-    let app = AppState(api: APIClient(baseURL: base, transport: StubTransport(body: "{}"), token: nil))
-    app.push(.drawingYourIdea)
-    app.speech.speak("arrival speech", force: true)
-    app.createPath = [.drawingYourIdea]  // what NavigationStack does after a transition
-    XCTAssertTrue(app.speech.isSpeaking)
-    app.speech.stop()
   }
 
   func testTranscriberSendsWav() async throws {

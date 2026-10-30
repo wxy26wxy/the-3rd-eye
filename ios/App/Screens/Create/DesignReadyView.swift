@@ -28,6 +28,6 @@ struct DesignReadyView: View {
         app.selectedTab = .designs
       }
     }
-    .onAppear { app.speech.speak(String(localized: "Your design is ready! Put it up for sale now?")) }
+    .announces(String(localized: "Your design is ready! Put it up for sale now?"))
   }
 }

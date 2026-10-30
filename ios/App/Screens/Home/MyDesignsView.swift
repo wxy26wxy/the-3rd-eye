@@ -21,17 +21,14 @@ struct MyDesignsView: View {
       } else {
         LazyVGrid(columns: columns, spacing: Theme.Space.l) {
           ForEach(artworks) { artwork in
-            Button {
-              app.speech.speak(artwork.spokenDescription ?? artwork.altText ?? "", force: true)
-            } label: {
-              RemoteImage(url: artwork.displayURL, altText: artwork.altText)
-                .padding(Theme.Space.xs)
-                .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt))
-                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.thin))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(Text(artwork.altText ?? String(localized: "Design")))
-            .accessibilityHint(Text("Reads the description out loud"))
+            // Tapping a tile does nothing yet; a detail screen comes later.
+            RemoteImage(url: artwork.displayURL, altText: artwork.altText)
+              .padding(Theme.Space.xs)
+              .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt))
+              .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.thin))
+              .accessibilityElement(children: .ignore)
+              .accessibilityLabel(Text(artwork.altText ?? String(localized: "Design")))
+              .accessibilityAddTraits(.isImage)
           }
         }
       }

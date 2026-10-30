@@ -73,7 +73,7 @@ struct OrderDetailView: View {
       ForEach(messages) { message in
         MessageBubble(message: message)
       }
-      VoiceTextField(label: "Reply", text: $reply, prompt: "Write a reply", axis: .vertical, appendsVoice: true)
+      LabeledTextField(label: "Reply", text: $reply, prompt: "Write a reply", axis: .vertical)
       PillButton(sending ? "Sending…" : "Send", hint: "Sends your reply to the buyer") {
         Task { await send() }
       }

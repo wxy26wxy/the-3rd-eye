@@ -22,9 +22,11 @@ function pct(v: number) { return `${v}%`; }
  * buttons under each piece (Select), so the tap layer is hidden from assistive tech. Marks are
  * buttons (44 px targets) that delete themselves.
  */
-export function CutoutPhoto({ src, image, candidates, selectedIds, points, box, mode, disabled, onTap, onBox, onRemoveMark }: {
+export function CutoutPhoto({ src, image, candidates, selectedIds, points, box, mode, disabled, onTap, onBox, onRemoveMark, onImageError }: {
   src: string; image: ImageSize; candidates: Candidate[]; selectedIds: string[]; points: CutoutPoint[]; box: Box | null;
   mode: TapMode; disabled: boolean; onTap: (p: XY) => void; onBox: (b: Box) => void; onRemoveMark: (index: number) => void;
+  /** The presigned photo URL expired or failed: the screen fetches a fresh one. */
+  onImageError?: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ a: XY; b: XY } | null>(null);
@@ -61,7 +63,7 @@ export function CutoutPhoto({ src, image, candidates, selectedIds, points, box, 
       <div ref={ref} className={styles.cutPhoto} style={{ aspectRatio: `${image.w} / ${image.h}` }} role="group" aria-label={m.create.select.photoLabel}>
         <div className={styles.cutStage} style={{ aspectRatio: `${image.w} / ${image.h}` }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt="" className={styles.cutImg} draggable={false} />
+          <img src={src} alt="" className={styles.cutImg} draggable={false} onError={onImageError} />
           {candidates.map((c, i) => {
             const r = percentRect(c.bbox, image);
             if (!r) return null;

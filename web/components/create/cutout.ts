@@ -124,3 +124,15 @@ export function productNotice(details: CleanupDetails | null | undefined, copy: 
   if (details?.unpublishedProductIds?.length) lines.push(copy.unpublished);
   return lines.length ? lines.join(" ") : null;
 }
+
+/**
+ * A cleanup answered 422 ("nothing left to cut") after "Remove area" marks were sent: show the
+ * trim advice instead of the server's reason. Any other failure keeps its own message.
+ */
+export function needsTrimAdvice(err: unknown, sent: CleanupRequest | null | undefined): boolean {
+  const status = typeof err === "object" && err !== null ? (err as { status?: unknown }).status : undefined;
+  return status === 422 && !!sent?.points?.some((p) => p.label === "negative");
+}
+
+/** How long the presigned `originalUrl` is trusted before it is fetched again (it lives 10 minutes). */
+export const ORIGINAL_URL_TTL_MS = 9 * 60 * 1000;

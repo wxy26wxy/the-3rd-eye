@@ -153,7 +153,6 @@
   padding: var(--space-xs); border-radius: var(--radius-s); background: var(--surface); text-align: center;
   font-size: var(--type-caption-size); font-weight: var(--type-title-m-weight); cursor: pointer;
 }
-.mode input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .mode:has(input:checked) { background: var(--primary); color: var(--primary-text); }
 .mode:has(input:focus-visible) { outline: var(--border-card) solid var(--focus-ring); outline-offset: var(--border-thin); }
 .modes:disabled .mode { cursor: default; opacity: 0.6; }
@@ -173,3 +172,8 @@
   justify-self: center; min-height: var(--size-min-target); min-width: var(--size-min-target); padding: 0 var(--space-s);
   background: none; border: 0; color: var(--text); text-decoration: underline; font-size: var(--type-body-size); cursor: pointer;
 }
+.resultHeading { font-size: var(--type-title-m-size); font-weight: var(--type-title-m-weight); text-align: center; }
+.resultHeading:focus-visible, .errorSpot:focus-visible { outline: var(--border-card) solid var(--focus-ring); outline-offset: var(--border-thin); border-radius: var(--radius-s); }
+.notice { font-size: var(--type-body-size); text-align: center; }
+.errorSpot { display: grid; gap: var(--space-m); }
+.errorSpot:empty { display: none; }

@@ -397,6 +397,7 @@
       "markRemoved": "Left out, mark {n}. Remove this mark",
       "maxMarks": "You can add up to 10 marks. Tap a mark to remove it.",
       "clearMarks": "Clear marks",
+      "needPiece": "Pick a piece, draw a box or add an area first. Remove area only leaves out pieces you picked.",
       "announceMark": "Mark added",
       "announceUnmark": "Mark removed",
       "announceBox": "Box drawn",
@@ -408,7 +409,7 @@
       "backToPhoto": "Back to photo",
       "cutoutAlt": "Your cutout",
       "failedProducts": "Your cutout is saved. One product could not be rebuilt; try again later.",
-      "unpublishedProducts": "One product went back to draft because the new cutout is too small to print. Open My designs to fix it.",
+      "unpublishedProducts": "One product went back to draft because the new cutout is too small to print. Open the product page to fix it.",
       "retake": "Retake",
       "use": "Use this"
     },

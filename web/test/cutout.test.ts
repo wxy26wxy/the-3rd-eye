@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   boxAround, centrePoint, chooseAction, fitRect, imageBox, imagePoint, leavesNothing, makeRequest,
-  percentRect, productNotice, sameRequest, type CutoutPoint,
+  needsTrimAdvice, percentRect, productNotice, sameRequest, type CutoutPoint,
 } from "@/components/create/cutout";
 
 const IMG = { w: 1200, h: 1600 };
@@ -125,5 +125,17 @@ describe("productNotice", () => {
   it("one line per kind of trouble", () => {
     expect(productNotice({ failedProductIds: ["p"], unpublishedProductIds: [] }, copy)).toBe("F.");
     expect(productNotice({ failedProductIds: ["p"], unpublishedProductIds: ["q"] }, copy)).toBe("F. U.");
+  });
+});
+
+describe("needsTrimAdvice", () => {
+  const withNeg = makeRequest(["a"], [neg(10, 10)], null);
+  const withPos = makeRequest(["a"], [pos(10, 10)], null);
+  it("only for a 422 after Remove-area marks", () => {
+    expect(needsTrimAdvice({ status: 422 }, withNeg)).toBe(true);
+    expect(needsTrimAdvice({ status: 422 }, withPos)).toBe(false);
+    expect(needsTrimAdvice({ status: 422 }, null)).toBe(false);
+    expect(needsTrimAdvice({ status: 504 }, withNeg)).toBe(false);
+    expect(needsTrimAdvice(new Error("x"), withNeg)).toBe(false);
   });
 });

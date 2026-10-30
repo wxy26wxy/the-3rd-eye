@@ -26,7 +26,7 @@ export type ShopFilter = "all" | "sticker" | "tote" | "voice";
 export type PublicCreator = Pick<
   CreatorRow,
   | "id" | "slug" | "displayName" | "studioName" | "avatarUrl" | "bioShort" | "storyText"
-  | "storyVideoUrl" | "storyVideoVtt" | "mentionDisability" | "split" | "isExample"
+  | "storyVideoUrl" | "storyVideoVtt" | "mentionDisability" | "split" | "isExample" | "hidden"
 >;
 export type CreatorSummary = Pick<
   PublicCreator, "id" | "slug" | "displayName" | "studioName" | "avatarUrl" | "split" | "isExample" | "bioShort"
@@ -123,7 +123,7 @@ function toPublicCreator(c: q.CreatorRow): PublicCreator {
   return {
     id: c.id, slug: c.slug, displayName: c.displayName, studioName: c.studioName, avatarUrl: c.avatarUrl,
     bioShort: c.bioShort, storyText: c.storyText, storyVideoUrl: c.storyVideoUrl, storyVideoVtt: c.storyVideoVtt,
-    mentionDisability: c.mentionDisability, split: c.split, isExample: c.isExample,
+    mentionDisability: c.mentionDisability, split: c.split, isExample: c.isExample, hidden: c.hidden,
   };
 }
 

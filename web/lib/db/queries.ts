@@ -5,7 +5,7 @@
  */
 import "server-only";
 import { and, desc, eq, gt, isNull, like, or, sql, inArray } from "drizzle-orm";
-import { generateLoginCode, slugify, uniqueSlug } from "@/lib/codes";
+import { generateLoginCode, slugLookupPrefix, slugify, uniqueSlug } from "@/lib/codes";
 import { getDb } from "./client";
 import {
   aiCalls, artworks, creators, listings, messages, nfcTokens, orders, products, thankYous,
@@ -91,13 +91,16 @@ export async function createCreator(input: {
   displayName: string; studioName?: string | null; mentionDisability?: boolean; hidden?: boolean; createdByTask: string;
 }): Promise<CreatorRow> {
   const base = slugify(input.displayName);
+  const prefix = slugLookupPrefix(base);
+  const failed: string[] = []; // candidates that hit a unique violation (a race, or a code collision)
   let lastErr: unknown;
   for (let attempt = 0; attempt < CREATE_TRIES; attempt++) {
     const taken = await db().select({ slug: creators.slug }).from(creators)
-      .where(or(eq(creators.slug, base), like(creators.slug, `${base}-%`)));
+      .where(or(eq(creators.slug, base), like(creators.slug, `${prefix}%`)));
+    const slug = uniqueSlug(base, [...taken.map((t) => t.slug), ...failed]);
     try {
       const [row] = await db().insert(creators).values({
-        slug: uniqueSlug(base, taken.map((t) => t.slug)),
+        slug,
         displayName: input.displayName,
         studioName: input.studioName || null,
         mentionDisability: input.mentionDisability ?? false,
@@ -109,6 +112,7 @@ export async function createCreator(input: {
       return row;
     } catch (err) {
       if (!isUniqueViolation(err)) throw err;
+      failed.push(slug);
       lastErr = err;
     }
   }

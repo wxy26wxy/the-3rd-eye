@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CODE_ALPHABET, CODE_LENGTH, generateLoginCode, readCodePrefill, slugify, uniqueSlug } from "./codes";
+import { CODE_ALPHABET, CODE_LENGTH, generateLoginCode, readCodePrefill, slugLookupPrefix, slugify, uniqueSlug } from "./codes";
 
 describe("generateLoginCode", () => {
   it("is 10 characters from the alphabet without look-alikes", () => {
@@ -46,6 +46,23 @@ describe("uniqueSlug", () => {
     const base = "x".repeat(40);
     const s = uniqueSlug(base, [base]);
     expect(s).toBe(`${"x".repeat(38)}-2`);
+  });
+});
+
+describe("slugLookupPrefix (40-character names)", () => {
+  it("matches every slug uniqueSlug derives, so the third long name gets -3", () => {
+    const base = slugify("Bartholomew Alexander Fitzgerald-Montgomery the Third of Riverbend");
+    expect(base).toHaveLength(40);
+    const second = uniqueSlug(base, [base]);
+    expect(second).toBe(`${base.slice(0, 38)}-2`);
+    const prefix = slugLookupPrefix(base);
+    const many = [base, second];
+    for (let n = 3; n <= 120; n++) many.push(uniqueSlug(base, many)); // up to -120
+    for (const s of many) expect(s.startsWith(prefix)).toBe(true);
+    expect(many.at(-1)).toBe(`${base.slice(0, 36)}-120`);
+    // What the database lookup returns for the third add: both earlier slugs.
+    const third = uniqueSlug(base, [base, second]);
+    expect(third).toBe(`${base.slice(0, 38)}-3`);
   });
 });
 

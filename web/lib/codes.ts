@@ -23,6 +23,14 @@ export function slugify(name: string): string {
 }
 
 /**
+ * Prefix that every slug `uniqueSlug(base, …)` can produce starts with (the base is cut to fit
+ * `-N`), so a `LIKE prefix%` lookup finds all earlier `-2`, `-3` … even for 40-character bases.
+ */
+export function slugLookupPrefix(base: string): string {
+  return base.slice(0, SLUG_MAX - 6).replace(/-+$/g, "");
+}
+
+/**
  * First free slug for `base`: `base`, then `base-2`, `base-3` … (the base is shortened so the
  * result stays within 40 characters). `taken` holds every slug already in use.
  */

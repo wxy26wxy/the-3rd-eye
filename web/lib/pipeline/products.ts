@@ -6,14 +6,15 @@ import type { AgentStep, ListingDraft, Moderation, Trace } from "@/lib/ai/types"
 import { checkResolution, measureContrast, printCheckFrom, type ContrastCheck, type ResolutionCheck } from "@/lib/products/checks";
 import { productSpec, type ProductKind } from "@/lib/products/registry";
 import {
-  getCreatorById, getListing, insertProduct, setListingDraftCopy, updateProduct, upsertListing,
+  getArtwork, getCreatorById, getListing, getProduct, insertProduct, setListingDraftCopy, updateProduct, upsertListing,
   type ArtworkRow, type ListingRow, type ProductRow,
 } from "@/lib/db/queries";
 import { creatorPath, storage } from "@/lib/storage";
 import { ApiError } from "@/lib/http";
 import { ensureDpi } from "@/lib/image/sticker";
 
-export async function createProduct(artwork: ArtworkRow, type: ProductKind, task = "T010"): Promise<ProductRow> {
+/** Builds and stores a product's print PNG (+ die-cut SVG) and mockup from the artwork's cleaned PNG. */
+async function buildProductFiles(artwork: ArtworkRow, type: ProductKind, task: string) {
   if (!artwork.cleanedUrl) throw new Error("Choose and clean up the artwork first");
   const spec = productSpec(type);
   const cleanedPng = await storage().read(artwork.cleanedUrl);
@@ -26,11 +27,30 @@ export async function createProduct(artwork: ArtworkRow, type: ProductKind, task
     built.printSvg ? storage().putPrivate(creatorPath(cid, "print", "svg"), built.printSvg, "image/svg+xml") : null,
     storage().putPublic(creatorPath(cid, "mockups", "png"), built.mockupPng, "image/png"),
   ]);
-  const mid = Math.round((spec.priceRange.min + spec.priceRange.max) / 2 / 50) * 50;
+  return { mockupUrl: mockup.url, printPngUrl: png.pathname, printSvgUrl: svg?.pathname ?? null, spec };
+}
+
+export async function createProduct(artwork: ArtworkRow, type: ProductKind, task = "T010"): Promise<ProductRow> {
+  const files = await buildProductFiles(artwork, type, task);
+  const mid = Math.round((files.spec.priceRange.min + files.spec.priceRange.max) / 2 / 50) * 50;
   return insertProduct({
-    artworkId: artwork.id, creatorId: cid, type, mockupUrl: mockup.url,
-    printPngUrl: png.pathname, printSvgUrl: svg?.pathname ?? null, priceCents: mid, status: "draft", createdByTask: task,
+    artworkId: artwork.id, creatorId: artwork.creatorId, type, mockupUrl: files.mockupUrl,
+    printPngUrl: files.printPngUrl, printSvgUrl: files.printSvgUrl, priceCents: mid, status: "draft", createdByTask: task,
   });
+}
+
+/**
+ * After the artwork was cut out again: rebuilds the product's print file(s) and mockup from the
+ * new cleaned PNG so the shop image, print file and mockup agree. Id, status, price and listing
+ * copy are unchanged (a published product shows the new image right away).
+ */
+export async function rebuildProductFiles(productId: string, task = "T080"): Promise<ProductRow> {
+  const product = await getProduct(productId);
+  if (!product) throw new Error("Unknown product");
+  const artwork = await getArtwork(product.artworkId);
+  if (!artwork) throw new Error("Product has no artwork");
+  const files = await buildProductFiles(artwork, product.type, task);
+  return updateProduct(product.id, { mockupUrl: files.mockupUrl, printPngUrl: files.printPngUrl, printSvgUrl: files.printSvgUrl });
 }
 
 /** Builds and stores the print file(s) for a product that has none (products made before T050). */

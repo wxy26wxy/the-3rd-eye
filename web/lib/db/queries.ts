@@ -4,7 +4,7 @@
  * rows with `deletedAt` set are never returned.
  */
 import "server-only";
-import { and, desc, eq, gt, isNull, sql, inArray } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, ne, sql, inArray } from "drizzle-orm";
 import { getDb } from "./client";
 import {
   aiCalls, artworks, creators, listings, messages, nfcTokens, orders, products, thankYous,
@@ -107,6 +107,62 @@ export async function markArtworksFailed(ids: string[], message: string): Promis
 
 export async function softDeleteArtwork(id: string): Promise<void> {
   await db().update(artworks).set({ deletedAt: new Date() }).where(eq(artworks.id, id));
+}
+
+/** A product as shown on a "My designs" tile (status badge). */
+export type ArtworkProductRow = { id: string; type: ProductType; status: ProductRow["status"]; title: string | null };
+export type ArtworkWithProducts = ArtworkRow & { products: ArtworkProductRow[] };
+
+/** Groups joined artwork × product rows (artwork order kept, products newest first). */
+export function groupArtworkProducts(
+  rows: { artwork: ArtworkRow; product: (Omit<ArtworkProductRow, "title"> & { createdAt: Date }) | null; title: string | null }[],
+): ArtworkWithProducts[] {
+  const out = new Map<string, ArtworkWithProducts & { _times: number[] }>();
+  for (const r of rows) {
+    let a = out.get(r.artwork.id);
+    if (!a) { a = { ...r.artwork, products: [], _times: [] }; out.set(r.artwork.id, a); }
+    if (r.product && !a.products.some((p) => p.id === r.product!.id)) {
+      a.products.push({ id: r.product.id, type: r.product.type, status: r.product.status, title: r.title });
+      a._times.push(r.product.createdAt.getTime());
+    }
+  }
+  return [...out.values()].map(({ _times, products, ...a }) => ({
+    ...a, products: products.map((p, i) => ({ p, t: _times[i] })).sort((x, y) => y.t - x.t).map((x) => x.p),
+  }));
+}
+
+/** The creator's artworks (newest first), each with its products and their listing titles: one joined query. */
+export async function listArtworksWithProducts(creatorId: string): Promise<ArtworkWithProducts[]> {
+  const rows = await db().select({
+    artwork: artworks,
+    product: { id: products.id, type: products.type, status: products.status, createdAt: products.createdAt },
+    title: listings.title,
+  }).from(artworks)
+    .leftJoin(products, and(eq(products.artworkId, artworks.id), isNull(products.deletedAt)))
+    .leftJoin(listings, and(eq(listings.productId, products.id), isNull(listings.deletedAt)))
+    .where(and(eq(artworks.creatorId, creatorId), isNull(artworks.deletedAt)))
+    .orderBy(desc(artworks.createdAt));
+  return groupArtworkProducts(rows);
+}
+
+/** Live (not deleted, not archived) products made from an artwork. */
+export async function listProductsForArtwork(artworkId: string): Promise<ProductRow[]> {
+  return db().select().from(products)
+    .where(and(eq(products.artworkId, artworkId), isNull(products.deletedAt), ne(products.status, "archived")))
+    .orderBy(desc(products.createdAt));
+}
+
+/**
+ * Soft-deletes an artwork and archives its products (they leave the shop; orders and story tags
+ * keep rendering). One neon-http batch = one transaction. Returns the archived product ids.
+ */
+export async function deleteArtworkArchivingProducts(id: string): Promise<string[]> {
+  const [archived] = await db().batch([
+    db().update(products).set({ status: "archived" })
+      .where(and(eq(products.artworkId, id), isNull(products.deletedAt), ne(products.status, "archived"))).returning({ id: products.id }),
+    db().update(artworks).set({ deletedAt: new Date() }).where(eq(artworks.id, id)),
+  ]);
+  return archived.map((r) => r.id);
 }
 
 // ---------- products and listings ----------

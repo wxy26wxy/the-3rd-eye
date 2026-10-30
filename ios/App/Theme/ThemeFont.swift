@@ -42,13 +42,32 @@ enum TextRole {
     }
   }
 
-  /// Inter weight for the role in tokens.json `type.<role>.weight` (variable font axis).
-  private var weight: Font.Weight {
+  /// Inter weight for the role: `type.<role>.weight` in tokens.json (Tokens.TypeWeight), on the variable font axis.
+  var weight: Font.Weight {
     switch self {
-    case .displayXL, .displayL, .displayM, .caption: return .medium
-    case .titleL, .titleM: return .semibold
-    case .eyebrow, .step: return .heavy
-    default: return .regular
+    case .displayXL: return Self.fontWeight(Tokens.TypeWeight.displayXL)
+    case .displayL: return Self.fontWeight(Tokens.TypeWeight.displayL)
+    case .displayM: return Self.fontWeight(Tokens.TypeWeight.displayM)
+    case .titleL: return Self.fontWeight(Tokens.TypeWeight.titleL)
+    case .titleM: return Self.fontWeight(Tokens.TypeWeight.titleM)
+    case .bodyL: return Self.fontWeight(Tokens.TypeWeight.bodyL)
+    case .body: return Self.fontWeight(Tokens.TypeWeight.body)
+    case .bodyS: return Self.fontWeight(Tokens.TypeWeight.bodyS)
+    case .caption: return Self.fontWeight(Tokens.TypeWeight.caption)
+    case .eyebrow, .step: return Self.fontWeight(Tokens.TypeWeight.eyebrow)
+    }
+  }
+
+  /// CSS weight number → SwiftUI weight.
+  static func fontWeight(_ css: Int) -> Font.Weight {
+    switch css {
+    case ..<350: return .light
+    case ..<450: return .regular
+    case ..<550: return .medium
+    case ..<650: return .semibold
+    case ..<750: return .bold
+    case ..<850: return .heavy
+    default: return .black
     }
   }
 

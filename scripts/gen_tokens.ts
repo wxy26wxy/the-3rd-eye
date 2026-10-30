@@ -69,7 +69,8 @@ writeFileSync(
 );
 
 // ---------- Assets (web) ----------
-// tokens.assets maps a logical name to a file in design/assets/ (copied by `pnpm assets`). Pending
+// tokens.assets maps a logical name to a file in design/assets/ (copied by `pnpm assets`). On iOS the
+// name is the imageset name, or for a GIF the base name of its MP4 in Resources/Animations. Pending
 // entries (not exported from the Figma file yet) are left out so no code can reference a missing file.
 type AssetEntry = { file: string; node: string; template?: boolean; pending?: boolean };
 const assets = Object.entries<AssetEntry>(tokens.assets ?? {}).filter(([, a]) => !a.pending);
@@ -107,6 +108,9 @@ for (const [k, v] of Object.entries<string>(tokens.highContrast)) swift += `    
 const iosFont = (f: { family: string; ios?: string }, fallback: string) => f.ios ?? fallback;
 swift += `  }\n  enum FontName {\n    static let display = "${iosFont(tokens.font.display, tokens.font.display.family.replace(/ /g, "") + "-Regular")}"\n    static let body = "${iosFont(tokens.font.body, tokens.font.body.family)}"\n  }\n  enum TypeScale {\n`;
 for (const [k, v] of Object.entries<any>(tokens.type)) swift += `    static let ${k}: CGFloat = ${v.size}\n`;
+// type.<role>.weight as the CSS number (400 regular … 800 extra bold); ThemeFont maps it to Font.Weight.
+swift += `  }\n  enum TypeWeight {\n`;
+for (const [k, v] of Object.entries<any>(tokens.type)) swift += `    static let ${k} = ${v.weight ?? 400}\n`;
 swift += `  }\n  enum Space {\n`;
 for (const [k, v] of Object.entries(tokens.space)) swift += `    static let ${k}: CGFloat = ${v}\n`;
 swift += `  }\n  enum Radius {\n`;

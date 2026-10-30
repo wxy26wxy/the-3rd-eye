@@ -65,8 +65,20 @@ enum Tokens {
     static let bodyL: CGFloat = 16
     static let body: CGFloat = 15
     static let bodyS: CGFloat = 13
-    static let caption: CGFloat = 12
+    static let caption: CGFloat = 13
     static let eyebrow: CGFloat = 11
+  }
+  enum TypeWeight {
+    static let displayXL = 500
+    static let displayL = 500
+    static let displayM = 500
+    static let titleL = 600
+    static let titleM = 600
+    static let bodyL = 400
+    static let body = 400
+    static let bodyS = 400
+    static let caption = 500
+    static let eyebrow = 800
   }
   enum Space {
     static let xs: CGFloat = 6
@@ -128,13 +140,16 @@ enum Tokens {
     static let welcomeBg = "welcome-bg"
     static let mascotBook = "mascot-book"
     static let mascotOutline = "mascot-outline"
+    static let mascotFront = "mascot-front"
+    static let mascotMagnifier = "mascot-magnifier"
+    static let sky = "sky"
     static let tote = "tote"
-    static let iconCamera = "camera"
-    static let iconImage = "image"
-    static let iconMic = "mic"
-    static let iconChevronRight = "chevron-right"
-    static let iconCheck = "check"
-    static let iconArrow = "arrow"
+    static let iconCamera = "icon-camera"
+    static let iconImage = "icon-image"
+    static let iconMic = "icon-mic"
+    static let iconChevronRight = "icon-chevron-right"
+    static let iconCheck = "icon-check"
+    static let iconArrow = "icon-arrow"
   }
   static let displayTilt: Double = 0
   static let grainOpacity: Double = 0

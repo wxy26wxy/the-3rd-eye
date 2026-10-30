@@ -47,12 +47,31 @@ final class ThemeEffectsTests: XCTestCase {
     XCTAssertNotNil(UIFont(name: Tokens.FontName.display, size: 48))
   }
 
-  /// Every non-pending asset in tokens.json has an imageset in the app bundle (pnpm assets).
-  func testAssetsAreBundled() {
-    for name in [Tokens.Asset.logoMark, Tokens.Asset.welcomeBg, Tokens.Asset.mascotBook, Tokens.Asset.mascotOutline,
-                 Tokens.Asset.tote, Tokens.Asset.iconCamera, Tokens.Asset.iconImage, Tokens.Asset.iconMic,
-                 Tokens.Asset.iconChevronRight, Tokens.Asset.iconCheck, Tokens.Asset.iconArrow] {
-      XCTAssertNotNil(UIImage(named: name), name)  // tests run hosted in the app, so the main bundle is the app
+  /// Every non-pending asset in tokens.json is in the app bundle (pnpm assets): an imageset, or for a GIF
+  /// its MP4 in Resources/Animations. Tests run hosted in the app, so the main bundle is the app.
+  func testAssetsAreBundled() throws {
+    let assets = try XCTUnwrap(try tokens()["assets"] as? [String: [String: Any]])
+    XCTAssertFalse(assets.isEmpty)
+    for (key, entry) in assets where (entry["pending"] as? Bool) != true {
+      let file = try XCTUnwrap(entry["file"] as? String, key)
+      let name = (file as NSString).deletingPathExtension
+      if (file as NSString).pathExtension.lowercased() == "gif" {
+        XCTAssertNotNil(Bundle.main.url(forResource: name, withExtension: "mp4"), "\(key): \(name).mp4")
+      } else {
+        XCTAssertNotNil(UIImage(named: name), "\(key): \(name)")
+      }
+    }
+  }
+
+  /// ThemeFont weights follow type.<role>.weight in tokens.json.
+  func testTypeWeightsMatchTokens() throws {
+    let t = try tokens()
+    let roles: [(TextRole, String)] = [(.displayXL, "displayXL"), (.displayL, "displayL"), (.displayM, "displayM"),
+                                       (.titleL, "titleL"), (.titleM, "titleM"), (.bodyL, "bodyL"), (.body, "body"),
+                                       (.bodyS, "bodyS"), (.caption, "caption"), (.eyebrow, "eyebrow")]
+    for (role, key) in roles {
+      let css = Int(try number(t, "type", key, "weight"))
+      XCTAssertEqual(role.weight, TextRole.fontWeight(css), key)
     }
   }
 }

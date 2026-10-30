@@ -11,6 +11,7 @@ const state = {
   products: [] as { id: string }[], droppedContainer: false, failRebuild: new Set<string>(), unpublish: new Set<string>(), described: 0,
   candidatesResult: [] as { mask: Mask; bbox: [number, number, number, number]; score: number; svgPath: string }[],
   segmentResult: null as null | { mask: Mask; bbox: [number, number, number, number]; score: number; svgPath: string },
+  uploadPath: "creators/c1/photo/u.jpg", deleted: [] as string[],
 };
 let n = 0;
 vi.mock("@/lib/storage", () => ({
@@ -18,10 +19,10 @@ vi.mock("@/lib/storage", () => ({
     read: async (p: string) => { const b = files.get(p); if (!b) throw new Error(`missing ${p}`); return b; },
     putPublic: async (p: string, data: Buffer) => { files.set(p, data); return { pathname: p, url: p }; },
     putPrivate: async (p: string, data: Buffer) => { files.set(p, data); return { pathname: p, url: p }; },
-    delete: async () => undefined,
+    delete: async (p: string) => { state.deleted.push(p); },
   }),
   creatorPath: (_c: string, kind: string, ext: string) => `creators/c1/${kind}/${++n}.${ext}`,
-  clientUploadPath: () => "upload.png", readClientUpload: async () => files.get("orig.png")!,
+  clientUploadPath: () => state.uploadPath, readClientUpload: async () => files.get("orig.png")!,
 }));
 vi.mock("@/lib/db/queries", () => ({
   updateArtwork: async (id: string, patch: Record<string, unknown>) => {
@@ -77,6 +78,7 @@ describe("cleanupArtwork", () => {
   beforeEach(() => {
     state.updates = []; state.segmentCalls = []; state.rebuilt = []; state.products = []; state.segmentResult = null;
     state.failRebuild = new Set(); state.unpublish = new Set(); state.described = 0; state.candidatesResult = []; state.droppedContainer = false;
+    state.uploadPath = "creators/c1/photo/u.jpg"; state.deleted = [];
   });
 
   it("candidateIds → union of the stored candidate masks, no SAM call", async () => {
@@ -151,6 +153,22 @@ describe("cleanupArtwork", () => {
     const again = await createFromImage("c1", { source: "photo", imageUrl: "upload.png", product: "sticker" });
     expect(again.candidates).toHaveLength(1);
     expect(state.described).toBe(1);
+  });
+
+  it("deletes the public upload only when it is a source-picture upload", async () => {
+    await setup();
+    state.candidatesResult = [];
+    for (const p of ["creators/c1/photo/u.jpg", "creators/c1/photos/u.jpg", "creators/c1/canvas/u.png"]) {
+      state.uploadPath = p;
+      await createFromImage("c1", { source: "photo", imageUrl: p, product: "sticker" }).catch(() => undefined);
+    }
+    expect(state.deleted).toEqual(["creators/c1/photo/u.jpg", "creators/c1/photos/u.jpg", "creators/c1/canvas/u.png"]);
+    state.deleted = [];
+    for (const p of ["creators/c1/thumbs/t.png", "creators/c1/mockups/m.png", "creators/c1/story-video/v.mp4", "creators/c1/avatar/a.jpg"]) {
+      state.uploadPath = p;
+      await createFromImage("c1", { source: "photo", imageUrl: p, product: "sticker" }).catch(() => undefined);
+    }
+    expect(state.deleted).toEqual([]);
   });
 
   it("unknown candidate → 400 invalid_candidate; nothing found → 422", async () => {

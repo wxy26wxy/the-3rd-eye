@@ -92,7 +92,8 @@
     "buyStaged": "Demo checkout: no payment is taken yet.",
     "buyError": "We could not place your order. Please try again.",
     "nameRequired": "Please tell us your name.",
-    "noteRejected": "Please keep your note kind and friendly, then try again."
+    "noteRejected": "Please keep your note kind and friendly, then try again.",
+    "noteUnavailable": "We could not check your note just now. Remove the note and try again, or try again in a minute."
   },
   "success": {
     "metaTitle": "Order placed",
@@ -146,7 +147,8 @@
     "threadEmpty": "No notes yet. Send the first one below.",
     "fromYou": "You",
     "fromCreator": "{name}",
-    "noteRejected": "Please keep your note kind and friendly, then try again."
+    "noteRejected": "Please keep your note kind and friendly, then try again.",
+    "noteUnavailable": "We could not check your note just now. Please try again in a minute."
   },
   "how": {
     "metaTitle": "How it works",

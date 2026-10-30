@@ -138,13 +138,24 @@ export async function runListingAgent(product: ProductRow, artwork: ArtworkRow, 
   return { listing, trace, row };
 }
 
-/** Reuses the agent's moderate_content result only when it checked exactly the final text; otherwise moderates again. */
+/** Same tags, ignoring order, surrounding spaces and duplicates. */
+function sameTags(a: unknown, b: string[]): boolean {
+  if (!Array.isArray(a)) return b.length === 0;
+  const norm = (xs: unknown[]) => [...new Set(xs.map((x) => String(x).trim()))].sort().join("\n");
+  return norm(a) === norm(b);
+}
+
+/**
+ * Reuses the agent's moderate_content result only when it checked exactly the final title,
+ * description AND tags; otherwise moderates again.
+ */
 async function moderateFinal(
   trace: Step[], final: ListingDraft, agent: Awaited<ReturnType<typeof ai>>["listingAgent"], modTrace: Trace,
 ): Promise<Moderation | null> {
   const last = [...trace].reverse().find((s) => s.tool === "moderate_content");
-  const args = (last?.args ?? {}) as { title?: string; description?: string };
-  if (last && isCheck(last.result) && args.title?.trim() === final.title && (args.description ?? "").trim() === final.description) {
+  const args = (last?.args ?? {}) as { title?: string; description?: string; tags?: unknown };
+  if (last && isCheck(last.result) && args.title?.trim() === final.title && (args.description ?? "").trim() === final.description
+    && sameTags(args.tags, final.tags ?? [])) {
     return last.result as Moderation;
   }
   if (!agent.moderate) return null;

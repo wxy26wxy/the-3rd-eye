@@ -160,6 +160,8 @@ final class AppState {
     }
     flow = next
     createPath = [.listingDetails]
+    // Coming back to My designs later shows the grid (with fresh badges), not this detail.
+    designsPath = []
     selectedTab = .create
   }
 

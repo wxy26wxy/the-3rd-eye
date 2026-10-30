@@ -55,6 +55,7 @@ final class DesignsTests: XCTestCase {
     let app = AppState(api: APIClient(baseURL: base, transport: StubTransport(body: "{}"), token: "t"))
     app.selectedTab = .designs
     app.createPath = [.chooseMethod, .speak]
+    app.designsPath = [.detail("d1")]
     let old = app.flow
     let design = artwork(products: [product("p-tote", .tote, "published")])
 
@@ -62,6 +63,7 @@ final class DesignsTests: XCTestCase {
 
     XCTAssertEqual(app.selectedTab, .create)
     XCTAssertEqual(app.createPath, [.listingDetails])
+    XCTAssertTrue(app.designsPath.isEmpty, "My designs shows the grid when the creator comes back")
     XCTAssertFalse(app.flow === old, "a new creation")
     XCTAssertEqual(app.flow.artwork?.id, "d1")
     XCTAssertEqual(app.flow.productType, .sticker)

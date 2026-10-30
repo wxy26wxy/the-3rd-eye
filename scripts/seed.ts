@@ -62,8 +62,6 @@ const CREATORS: Seed[] = [
   },
 ];
 
-const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O, 1/I/L
-
 async function loadCodes(file: string): Promise<Map<string, string>> {
   const { readFile } = await import("node:fs/promises");
   const codes = new Map<string, string>();
@@ -78,12 +76,11 @@ async function loadCodes(file: string): Promise<Map<string, string>> {
 
 async function main() {
   const path = await import("node:path");
-  const { randomInt } = await import("node:crypto");
+  const { generateLoginCode } = await import("@/lib/codes"); // alphabet without 0/O, 1/I/L
   const { writeFile } = await import("node:fs/promises");
   const codesFile = path.resolve(process.cwd().endsWith("/web") ? "." : "web", ".creator-codes.local");
   const codes = await loadCodes(codesFile);
-  const randomCode = () => Array.from({ length: 10 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join("");
-  for (const c of CREATORS) if (!codes.has(c.slug)) codes.set(c.slug, randomCode());
+  for (const c of CREATORS) if (!codes.has(c.slug)) codes.set(c.slug, generateLoginCode());
   await writeFile(codesFile, `# Creator login codes for this database (written by scripts/seed.ts; never commit)\n${[...codes].map(([k, v]) => `${k}=${v}`).join("\n")}\n`, { mode: 0o600 });
   console.log(`seed: login codes written to ${codesFile}`);
 

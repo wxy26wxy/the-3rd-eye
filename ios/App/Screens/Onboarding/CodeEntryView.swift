@@ -7,6 +7,7 @@ struct CodeEntryView: View {
   @State private var code = ""
   @State private var busy = false
   @State private var error: String?
+  @State private var prefilled = false
 
   var body: some View {
     FlowScreen(title: "Your code", subtitle: "Your studio gave you a short code. Type it or say it.") {
@@ -21,9 +22,19 @@ struct CodeEntryView: View {
             UIAccessibility.post(notification: .announcement, argument: String(localized: "You were signed out to keep your studio safe. Type your code to keep going."))
           }
         }
+        if prefilled {
+          Card {
+            Text("We filled in your code from the link. Tap Sign in.")
+              .themeFont(.body)
+              .foregroundStyle(colors.text)
+          }
+        }
         VoiceTextField(label: "Sign-in code", text: $code, prompt: "Type your code here", keyboard: .asciiCapable)
           .textInputAutocapitalization(.characters)
           .autocorrectionDisabled()
+          .onAppear(perform: takePendingCode)
+          .onChange(of: app.pendingCode) { _, _ in takePendingCode() }
+          .onChange(of: code) { _, _ in if prefilled, cleaned.isEmpty { prefilled = false } }
         if let error { ErrorCard(message: error) }
       }
     } actions: {
@@ -32,6 +43,15 @@ struct CodeEntryView: View {
       }
       .disabled(busy || cleaned.isEmpty)
     }
+  }
+
+  /// A code that arrived through a link is used once, then cleared.
+  private func takePendingCode() {
+    guard let pending = app.pendingCode else { return }
+    code = pending
+    prefilled = true
+    app.pendingCode = nil
+    UIAccessibility.post(notification: .announcement, argument: String(localized: "We filled in your code from the link. Tap Sign in."))
   }
 
   /// Spoken codes arrive with spaces and punctuation; keep letters, digits and dashes.

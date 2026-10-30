@@ -9,6 +9,7 @@ struct MakerStoryApp: App {
     WindowGroup {
       RootView()
         .environment(app)
+        .onOpenURL { url in app.open(url) }
     }
     .onChange(of: scenePhase) { _, phase in app.scenePhaseChanged(phase) }
   }

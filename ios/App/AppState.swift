@@ -32,6 +32,8 @@ final class AppState {
   private(set) var isSignedIn: Bool
   /// The server ended the session (token expired); the code screen says so.
   private(set) var sessionExpired = false
+  /// A sign-in code that arrived through a link; the code screen takes it once.
+  var pendingCode: String?
   var selectedTab: HomeTab = .create {
     didSet { if selectedTab != oldValue { speech.stop() } }
   }
@@ -66,12 +68,19 @@ final class AppState {
 
   // MARK: Session
 
+  /// Opened from a link such as makerstory://code/ABCD. Ignored while signed in.
+  func open(_ url: URL) {
+    guard case .code(let code)? = DeepLink.parse(url), !isSignedIn else { return }
+    pendingCode = code
+  }
+
   func signIn(code: String) async throws {
     let creator = try await api.signIn(code: code)
     self.creator = creator
     if let serverPrefs = creator.accessPrefs { prefs = serverPrefs }
     isSignedIn = true
     sessionExpired = false
+    pendingCode = nil
     selectedTab = .create
   }
 
@@ -83,6 +92,7 @@ final class AppState {
   }
 
   func signOut() {
+    pendingCode = nil
     orders.reset()
     api.signOut()
     creator = nil

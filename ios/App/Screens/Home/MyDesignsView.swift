@@ -9,7 +9,12 @@ struct MyDesignsView: View {
   /// "Make a sticker" waiting for a confirmation (the Create tab has a creation in progress).
   @State private var pending: ContinueRequest?
 
-  private let columns = [GridItem(.adaptive(minimum: ThemeEffects.gridMinimum), spacing: Theme.Space.l)]
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+  /// Two columns (board `2015:880`); one at accessibility text sizes so the badges fit.
+  private var columns: [GridItem] {
+    Array(repeating: GridItem(.flexible(), spacing: Theme.Space.s), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2)
+  }
 
   private var store: DesignsStore { app.designs }
 
@@ -22,14 +27,22 @@ struct MyDesignsView: View {
   var body: some View {
     TabScreen(title: "My designs") {
       if !store.loaded && store.artworks.isEmpty && store.error == nil {
-        ProgressView().tint(colors.text).frame(maxWidth: .infinity).accessibilityLabel(Text("Loading your designs"))
+        // Board `2015:1058`: the spinner with the words under it.
+        VStack(spacing: Theme.Space.l) {
+          ProgressView().controlSize(.large).tint(colors.text)
+          Text("Loading your designs").themeFont(.body).foregroundStyle(colors.textMuted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, Theme.Space.section)
+        .accessibilityElement(children: .combine)
       } else if let error = store.error, store.artworks.isEmpty {
         ErrorCard(message: error) { Task { await store.load() } }
       } else if store.artworks.isEmpty {
+        SkyCard(pose: .front)
         Text("No designs yet. Make one in Create.").themeFont(.bodyL).foregroundStyle(colors.text)
         PillButton("Start creating") { app.startNewCreation() }
       } else {
-        LazyVGrid(columns: columns, spacing: Theme.Space.l) {
+        LazyVGrid(columns: columns, spacing: Theme.Space.s) {
           ForEach(store.artworks) { artwork in
             DesignTile(artwork: artwork,
                        open: { app.designsPath.append(.detail(artwork.id)) },
@@ -67,15 +80,21 @@ private struct DesignTile: View {
     let badge = DesignBadge.of(artwork)
     // A tap gesture rather than a Button: a Button inside a context menu shows up as two nested
     // buttons to VoiceOver and XCUITest; this way the tile is exactly one element.
-    VStack(spacing: Theme.Space.xs) {
+    // Figma `Design tile`: white card, the picture on a grey square, the badge under it.
+    let shape = RoundedRectangle(cornerRadius: Theme.Radius.m + 4, style: .continuous)
+    VStack(spacing: Theme.Space.s) {
       DesignPicture(artwork: artwork, badge: badge)
+        .padding(Theme.Space.s)
+        .frame(maxWidth: .infinity)
+        .aspectRatio(1, contentMode: .fit)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous).fill(colors.surfaceAlt))
       DesignBadgeView(badge: badge)
     }
-    .padding(Theme.Space.xs)
+    .padding(Theme.Space.s)
     .frame(maxWidth: .infinity, minHeight: Theme.Size.iconButton)
-    .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt))
-    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.thin))
-    .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.m))
+    .background(shape.fill(colors.surface))
+    .overlay(shape.stroke(colors.border, lineWidth: Theme.Border.thin))
+    .contentShape(shape)
     .onTapGesture(perform: open)
     .contextMenu {
       if let makeSticker {
@@ -107,7 +126,7 @@ struct DesignPicture: View {
       RemoteImage(url: url, altText: artwork.altText)
     } else {
       ZStack {
-        RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surface)
+        RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt)
         if badge == .cuttingOut {
           ProgressView().tint(colors.text)
         } else {
@@ -127,18 +146,20 @@ struct DesignBadgeView: View {
   @Environment(\.themeColors) private var colors
 
   var body: some View {
-    let strong = badge == .inShop
-    let warning = badge == .failed
+    // Figma `Status badge`: In the shop = green with deep-green words, Didn't work = ink with white
+    // words, the others white with a border. Each has its glyph, so colour is never the only cue.
+    let green = badge == .inShop
+    let ink = badge == .failed
     Label {
       Text(badge.title).themeFont(.caption)
     } icon: {
       Image(systemName: badge.symbol).accessibilityHidden(true)
     }
-    .foregroundStyle(strong ? colors.primaryText : (warning ? colors.danger : colors.text))
+    .foregroundStyle(green ? colors.accentInk : (ink ? colors.primaryText : colors.text))
     .padding(.horizontal, Theme.Space.s)
     .padding(.vertical, Theme.Space.xs)
-    .background(Capsule().fill(strong ? colors.primary : colors.surface))
-    .overlay(Capsule().stroke(warning ? colors.danger : colors.border, lineWidth: Theme.Border.thin))
+    .background(Capsule().fill(green ? colors.accent : (ink ? colors.primary : colors.surface)))
+    .overlay(Capsule().stroke(green ? colors.accentBorder : (ink ? colors.primary : colors.border), lineWidth: Theme.Border.thin))
     .accessibilityElement(children: .combine)
   }
 }

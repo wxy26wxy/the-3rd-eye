@@ -17,7 +17,14 @@ struct OrderDetailView: View {
           thankYouSection(detail)
           messagesSection(detail.messages ?? [])
         } else if error == nil {
-          ProgressView().tint(colors.text).frame(maxWidth: .infinity).accessibilityLabel(Text("Loading order"))
+          // Board `2028:3337`: the spinner with the words under it.
+          VStack(spacing: Theme.Space.l) {
+            ProgressView().controlSize(.large).tint(colors.text)
+            Text("Loading order").themeFont(.body).foregroundStyle(colors.textMuted)
+          }
+          .frame(maxWidth: .infinity)
+          .padding(.top, Theme.Space.section)
+          .accessibilityElement(children: .combine)
         }
         if let error { ErrorCard(message: error) { Task { await load() } } }
       }
@@ -29,8 +36,9 @@ struct OrderDetailView: View {
     Card {
       VStack(alignment: .leading, spacing: Theme.Space.s) {
         RemoteImage(url: order.mockupUrl.flatMap(URL.init(string:)), altText: order.productTitle)
-          .frame(maxHeight: ThemeEffects.mockupMaxHeight)
-          .frame(maxWidth: .infinity)
+          .padding(Theme.Space.l)
+          .frame(maxWidth: .infinity, maxHeight: ThemeEffects.mockupMaxHeight)
+          .background(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous).fill(colors.surfaceAlt))
         if let title = order.productTitle {
           Text(verbatim: title).themeFont(.titleL).foregroundStyle(colors.text)
         }
@@ -68,7 +76,7 @@ struct OrderDetailView: View {
     VStack(alignment: .leading, spacing: Theme.Space.m) {
       Text("MESSAGES").themeFont(.eyebrow).foregroundStyle(colors.textMuted)
       if messages.isEmpty {
-        Text("No messages yet.").themeFont(.bodyS).foregroundStyle(colors.textMuted)
+        Text("No messages yet.").themeFont(.body).foregroundStyle(colors.textMuted)
       }
       ForEach(messages) { message in
         MessageBubble(message: message)
@@ -115,10 +123,10 @@ private struct MessageBubble: View {
     HStack {
       if mine { Spacer(minLength: Theme.Space.section) }
       Text(message.body)
-        .themeFont(.bodyS)
+        .themeFont(.body)
         .foregroundStyle(mine ? colors.primaryText : colors.text)
         .padding(Theme.Space.m)
-        .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(mine ? colors.primary : colors.surfaceAlt))
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(mine ? colors.primary : colors.surface))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.thin))
       if !mine { Spacer(minLength: Theme.Space.section) }
     }

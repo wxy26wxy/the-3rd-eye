@@ -47,11 +47,11 @@ enum DesignBadge: Equatable {
 
   var symbol: String {
     switch self {
-    case .cuttingOut: return "hourglass"
+    case .cuttingOut: return "arrow.triangle.2.circlepath"
     case .needsCutout: return "scissors"
-    case .failed: return "exclamationmark.triangle.fill"
+    case .failed: return "exclamationmark.triangle"
     case .draft: return "pencil"
-    case .inShop: return "bag.fill"
+    case .inShop: return "checkmark"
     }
   }
 

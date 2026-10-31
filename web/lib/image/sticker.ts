@@ -1,7 +1,8 @@
 /**
  * Sticker print pipeline (pure image math, no model calls):
- * mask → offsetMask (~3 mm white border at 300 dpi, holes filled) → potrace outline with one
- * outer contour per island (pieces that touch after the offset share one) → print PNG (white
+ * mask → cutMask (~3 mm white border at 300 dpi, closed by 1 mm so two cut lines are never
+ * closer than about 1 mm, holes filled) → potrace outline with one outer contour per island
+ * (pieces that touch after the offset share one) → print PNG (white
  * border + 1.5 mm bleed, 300 dpi metadata) + die-cut SVG.
  */
 import "server-only";
@@ -9,13 +10,15 @@ import sharp from "sharp";
 import { Potrace } from "potrace";
 import type { Mask } from "@/lib/ai/types";
 import {
-  alphaToMask, bboxOf, cropMask, dilate, fillHoles, maskFromAlpha, maskSharp, maskToGrey, padMask,
+  alphaToMask, bboxOf, cropMask, dilate, erode, fillHoles, maskFromAlpha, maskSharp, maskToGrey, padMask,
   type AlphaMask, type BBox,
 } from "@/lib/image/mask";
 
 export const PRINT_DPI = 300;
 export const BORDER_MM = 3;
 export const BLEED_MM = 1.5;
+/** Closing radius on the cut mask: gaps between cut lines narrower than about this are filled (die-cut safety). */
+export const CUT_CLOSE_MM = 1;
 export const MIN_SHORT_SIDE = 900;
 
 export const mmToPx = (mm: number, dpi = PRINT_DPI) => Math.round((mm / 25.4) * dpi);
@@ -23,6 +26,17 @@ export const mmToPx = (mm: number, dpi = PRINT_DPI) => Math.round((mm / 25.4) * 
 /** Grows the mask by `px` (blur + threshold) and fills holes, so the result is a solid silhouette. */
 export async function offsetMask(mask: Mask, px: number): Promise<Mask> {
   return fillHoles(await dilate(mask, px));
+}
+
+/**
+ * The die-cut silhouette: grow by `borderPx + closePx`, shrink back by `closePx`, fill holes. The
+ * border is unchanged; a sliver between two pieces narrower than the closing is filled, so the two
+ * cut lines either merge or stay at least about `closePx` apart (a thinner sliver would tear).
+ * The canvas needs `borderPx + closePx` of padding around the art.
+ */
+export async function cutMask(mask: Mask, borderPx: number, closePx: number): Promise<Mask> {
+  if (closePx < 1) return offsetMask(mask, borderPx);
+  return fillHoles(await erode(await dilate(mask, borderPx + closePx), closePx));
 }
 
 /**
@@ -106,11 +120,12 @@ export async function composeSticker(artPng: Buffer, opts: { borderMm?: number; 
   if (!bboxOf(mask)) throw new Error("Artwork has no visible pixels");
   const borderPx = mmToPx(opts.borderMm ?? BORDER_MM);
   const bleedPx = mmToPx(opts.bleedMm ?? BLEED_MM);
-  const pad = borderPx + bleedPx + 4;
+  const closePx = mmToPx(CUT_CLOSE_MM);
+  const pad = Math.max(borderPx + bleedPx, borderPx + closePx) + 4;
 
   const padded = padMask(mask, pad);
-  // Every island keeps its own border; islands within 2 × border of each other merge into one.
-  const cut = await offsetMask(padded, borderPx);
+  // Every island keeps its own border; islands under about 78 px (6.5 mm) apart merge into one; separate lines stay ≥ 2 mm apart.
+  const cut = await cutMask(padded, borderPx, closePx);
   const bleed = await dilate(cut, bleedPx);
   const { width, height } = cut;
 
@@ -146,8 +161,9 @@ export async function previewCutPath(cleanedPng: Buffer): Promise<string> {
   // upscales by `k` (ensureDpi), so preview and print merge the same pieces.
   const k = printUpscale(mask.width, mask.height);
   const borderPx = Math.max(4, Math.round(mmToPx(BORDER_MM) / k));
-  const pad = borderPx + 2;
-  const cut = await offsetMask(padMask(mask, pad), borderPx);
+  const closePx = Math.round(mmToPx(CUT_CLOSE_MM) / k);
+  const pad = borderPx + closePx + 2;
+  const cut = await cutMask(padMask(mask, pad), borderPx, closePx);
   return normalizePath(await traceOutline(cut), mask.width, mask.height, pad);
 }
 

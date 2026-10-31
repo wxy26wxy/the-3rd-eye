@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
-import { BLEED_MM, BORDER_MM, composeSticker, ensureDpi, mmToPx, normalizePath, offsetMask, previewCutPath, removeBackground, traceOutline } from "@/lib/image/sticker";
-import { bboxOf, emptyMask, maskFromAlpha, padMask } from "@/lib/image/mask";
+import { BLEED_MM, BORDER_MM, CUT_CLOSE_MM, composeSticker, cutMask, ensureDpi, mmToPx, normalizePath, offsetMask, previewCutPath, removeBackground, traceOutline } from "@/lib/image/sticker";
+import { bboxOf, components, emptyMask, maskFromAlpha, padMask } from "@/lib/image/mask";
 import type { Mask } from "@/lib/ai/types";
 
 function disc(width: number, height: number, cx: number, cy: number, r: number, into?: Mask): Mask {
@@ -124,7 +124,7 @@ describe("sticker pipeline", () => {
         const dir = edge === 50 || edge === 750 ? -1 : 1;
         expect(at(toPx(edge) + dir * Math.round(border / 2), toPx(300))).toEqual([255, 255, 255, 255]);
       }
-      // Midway between the pieces (300 px apart, far more than 2 × border): transparent.
+      // Midway between the pieces (300 px apart, far more than the ~78 px merge gap): transparent.
       expect(at(toPx(600), toPx(300))[3]).toBe(0);
       // Each contour sits around its own piece: the path spans both discs horizontally.
       const xs = (files.cutPath.match(/-?\d+(\.\d+)?/g) ?? []).map(Number).filter((_, i) => i % 2 === 0);
@@ -135,8 +135,8 @@ describe("sticker pipeline", () => {
       expect(meta.width).toBe(1800 + 2 * pad);
     });
 
-    it("pieces closer than 2 × border share one contour", async () => {
-      const gap = Math.round(mmToPx(BORDER_MM) / 1.5); // under 2 × border once upscaled 1.5×
+    it("pieces close together (35 px apart in print) share one contour", async () => {
+      const gap = Math.round(mmToPx(BORDER_MM) / 1.5); // 35 px in print once upscaled 1.5×, well under the ~78 px merge gap
       const files = await composeSticker(await separatedArt(gap));
       expect(subpaths(files.cutPath)).toBe(1);
     });
@@ -145,6 +145,25 @@ describe("sticker pipeline", () => {
       const art = await twoBars(w, h, gap);
       const [preview, files] = await Promise.all([previewCutPath(art), composeSticker(art)]);
       expect(subpaths(preview)).toBe(subpaths(files.cutPath));
+    });
+
+    it("two cut lines are never closer than 1 mm: a thinner sliver is closed (review M2, fixture c = 60 px gap)", async () => {
+      const border = mmToPx(BORDER_MM), close = mmToPx(CUT_CLOSE_MM);
+      for (const gap of [56, 60, 70, 76, 80, 84, 96]) {
+        // Two 250 × 200 bars at print scale, `gap` px apart.
+        const W = 800, m = emptyMask(W, 400), x1 = 100, bw = 250;
+        for (let y = 100; y < 300; y++) for (let x = 0; x < W; x++) if ((x >= x1 && x < x1 + bw) || (x >= x1 + bw + gap && x < x1 + 2 * bw + gap)) m.data[y * W + x] = 1;
+        const cut = await cutMask(m, border, close);
+        const row = cut.data.subarray(200 * W, 201 * W);
+        let a = x1 + bw - 1, b = x1 + bw + gap;
+        while (a < b && row[a + 1]) a++;
+        while (b > a && row[b - 1]) b--;
+        const between = b - a - 1; // background run between the two cut lines on the centre row
+        const merged = components(cut).parts.length === 1;
+        expect(merged || between >= close, `gap ${gap}: ${between} px between cut lines`).toBe(true);
+      }
+      const files = await composeSticker(await twoBars(3000, 1500, 60));
+      expect(subpaths(files.cutPath)).toBe(1);
     });
 
     it("the preview path wraps every piece and stays inside the artwork's square (no clipped box)", async () => {
@@ -157,8 +176,9 @@ describe("sticker pipeline", () => {
       };
       // 1200 px wide → 100 units; discs span x 50–450 and 750–1050 (≈ 4.2–37.5 and 62.5–87.5).
       const [a, b] = parts.map(xRange).sort((p, q) => p[0] - q[0]);
-      expect(a[0]).toBeGreaterThan(1); expect(a[1]).toBeLessThan(41);
-      expect(b[0]).toBeGreaterThan(59); expect(b[1]).toBeLessThan(91);
+      // Bounds include Bézier control points, which sit a little outside the line itself.
+      expect(a[0]).toBeGreaterThan(-1); expect(a[1]).toBeLessThan(42);
+      expect(b[0]).toBeGreaterThan(58); expect(b[1]).toBeLessThan(92);
     });
   });
 });

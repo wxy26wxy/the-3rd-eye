@@ -4,7 +4,7 @@
 `ios/**` (except `ios/App/Theme/Tokens.swift`, generated from `design/tokens.json`).
 
 ## Current task
-T103 · Sky re-skin of the theme layer and shared components (see "Sky components (T103)" below). Before: T091 · polish wave from the T081/T082/T083 re-reviews (see "Polish (T091)" below). Earlier: T083 My designs management, T082 Adjust cutout screen, T081 system accessibility (see "System accessibility (T081)" and `docs/accessibility.md`), T070 deep link, T060 TestFlight, T051 fix wave, T030 SwiftUI creator app.
+T104 · Screens to the Sky boards (see "Screens to the boards (T104)" below). Before: T103 · Sky re-skin of the theme layer and shared components (see "Sky components (T103)" below). Before: T091 · polish wave from the T081/T082/T083 re-reviews (see "Polish (T091)" below). Earlier: T083 My designs management, T082 Adjust cutout screen, T081 system accessibility (see "System accessibility (T081)" and `docs/accessibility.md`), T070 deep link, T060 TestFlight, T051 fix wave, T030 SwiftUI creator app.
 
 ## Install on your iPhone (deployed site)
 1. On the Mac: `cd ios && xcodegen generate && open The3rdEye.xcodeproj` (needs Xcode and `brew install xcodegen`).
@@ -58,7 +58,7 @@ The mock also answers `POST /creators/me/story-video` (logs `audioUrl`, returns 
 Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s PCM asset), camera-permission flow, interruption handling, the story-draft sheet against the live backend, 401 from the live backend's token expiry.
 
 ## Last updated
-2026-10-30 (T103)
+2026-10-31 (T104)
 
 ## TestFlight (T060)
 - Icon: `pnpm icon` renders `ios/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` from `design/tokens.json` (no alpha, as App Store Connect requires). To use a designer-made icon, replace that PNG.
@@ -137,3 +137,17 @@ Every screen reads these; screens never draw their own buttons, cards or headlin
 1. The design owner adds the file to `design/assets/` and an entry to `design/tokens.json` `assets` (`template: true` for single-colour icons), then from the repo root (Node 24) `pnpm tokens && pnpm assets`: PNG/SVG land in `ios/App/Assets.xcassets/<name>.imageset/` and `Tokens.Asset.<name>` is generated; a GIF becomes `ios/App/Resources/Animations/<name>.mp4` (needs `ffmpeg`).
 2. In code: `Image(Tokens.Asset.<name>)` (`.renderingMode(.template)` + a token colour for icons; `.resizable().scaledToFit()` for photos), or `LoopingVideo(resource: Tokens.Asset.<name>)` for an MP4, with a still image when `accessibilityReduceMotion` is on. Decorative images get `.accessibilityHidden(true)`; meaningful ones a label.
 3. `ThemeEffectsTests.testAssetsAreBundled` checks every non-pending asset is in the app; run `xcodegen generate` so a new folder under `Resources/` is picked up.
+
+
+## Screens to the boards (T104)
+Boards: the Figma copy (key `dAdjR5HFtOutFlUZi957Do`), node ids in `docs/design/screens.md`.
+- Welcome (`21:4229`): white headline "Your art, on things people love." and line on the sky photo with a top scrim (`color.scrim`), white Start creating pill and "I already have an account" (both open the code screen) in the on-photo action bar, which is now a scrim fading in (no blur). VoiceOver hears the app name first. At accessibility text sizes or with Increase Contrast the words sit on a `color.scrim` panel instead (ink 55 %, darker with Increase Contrast).
+- Pick (`45:700`): two 302 pt `ProductOption` cards side by side (mascot sticker / tote photo with the soft shadow, radio top right, name + description); stacked at accessibility sizes. Copy "What do you want to make?" / "You can make the other one later." / "Die-cut, waterproof" / "Natural canvas".
+- Choose (`21:4340`): three `MethodRow`s, Take a photo green as on the board, eyebrow "NO DRAWING SKILL NEEDED", board descriptions.
+- Finding (`21:4390`): `LoadingScreen(cardAspect: tallSkyCardAspect, showsSpinner: false)`, "This takes a few seconds…".
+- Adjust cutout (`21:4450`, `2013:408`, `2013:618`): photo on the green Photo card, selected piece = 2 pt ink outline + ink check badge, other pieces dashed, number labels, marks = ink dots with their number (left-out marks red with a minus), 80 pt piece chips with check badge, 64 pt segmented tools, 15 pt instruction, message line under the photo ("Got piece 1! Tap another piece to add it too." — the board's "Tap the flower to switch" does not match combining pieces). Use this stays the only pinned action (T103 decision).
+- Design ready (`21:4509`): centred "Your sticker is ready!" (tote: "Your tote bag is ready!"), the artwork on a white `StickerCard` (mascot sticker when there is no picture URL), Adjust cutout link, "Put it up for sale now?" (21 pt) + line naming the shop.
+- You're live (`21:4554`): centred title, `SkyCard` with the mascot left and the listed product on a turned `StickerCard`, "<listing title> is in the shop." and the story-tag line.
+- B1 boards: field labels are 13 pt Medium ink captions over white fields (`LabeledTextField`); `RecordButton` shows its word under it (Start talking / Stop / Working), deep green with an accent ring while recording, no hard shadow; Drawing your idea and Camera use the sky card with the standing mascot; Voice result shows the picture on a white 28 pt card with page dots under it; Camera off card has Open Settings as a secondary pill and the Settings steps on surfaceAlt; Listing details shows the mockup on a grey card and a larger price in the earn card; Story video puts the disability switch in a card; Video saved uses the sky card.
+- B2: My designs = two-column white tiles (picture on grey), badges per board (In the shop green with a check, Didn't work ink, others white), visible "Loading your designs" / "Loading orders" / "Loading order", sky card on the empty grid. Design detail pins exactly one primary (first live product's "See it in the shop", else "Make a sticker"/"Make a tote") in the bottom bar; the rest follow the content as secondary pills, Delete in the new `PillButtonStyle.Kind.destructive` (danger border and words, trash glyph). Order rows: grey thumbnail, 18 pt title, ink unread circle; message bubbles white / ink.
+- Screenshots for review are taken with an uncommitted UI test that writes PNGs to a folder given by `TEST_RUNNER_SHOTS_DIR`; xcodebuild still hung after the last test on Xcode 27.1 even with `-resultBundlePath` in some runs, so the scratch runner stops it once "Test Suite 'All tests' passed|failed" is printed.

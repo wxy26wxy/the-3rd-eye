@@ -193,5 +193,5 @@
 .errorSpot:empty { display: none; }
 
 /* Product pictures on the Pick cards (glyphs.tsx). */
-.glyph { width: 100%; height: 100%; object-fit: contain; }
-.glyphTote { width: 80%; margin-inline: auto; filter: drop-shadow(var(--shadow-soft)); }
+.glyph { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.glyphTote { padding: var(--space-l); filter: drop-shadow(var(--shadow-soft)); }

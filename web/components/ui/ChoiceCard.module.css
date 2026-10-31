@@ -27,7 +27,7 @@
 .card:has(.input:focus-visible) { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
 .input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
 
-/* Option row icon: 44 px circle, a light tint of the accent (board value #E4F3C8 is not a token; see docs/decisions.md). */
+/* Option row icon: 44 px circle, a light tint of the accent (the board colour is not a token; see docs/decisions.md). */
 .media {
   display: grid;
   place-items: center;
@@ -39,8 +39,9 @@
   color: var(--accent-ink);
   font-size: var(--type-title-l-size);
 }
-.card:has(.input:checked) .media { background: color-mix(in srgb, var(--surface) 70%, var(--accent)); }
+.card:not(.grid .card):has(.input:checked) .media { background: color-mix(in srgb, var(--surface) 70%, var(--accent)); }
 .grid .media {
+  position: relative;
   width: 100%;
   height: auto;
   aspect-ratio: 1;
@@ -48,8 +49,8 @@
   background: transparent;
   font-size: calc(var(--size-method-icon) * 1.4);
 }
-.body { display: grid; gap: var(--space-xs); flex: 1; min-width: 0; }
-.grid .body { text-align: left; }
+.body { display: grid; gap: var(--space-xs); flex: 1; min-width: 0; align-content: center; }
+.grid .body { text-align: left; align-content: start; }
 .title { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: 1.2; color: var(--text); }
 .desc { font-size: var(--type-body-s-size); line-height: var(--type-body-s-lh); color: var(--text-muted); }
 .card:has(.input:checked) .desc { color: var(--accent-ink); }

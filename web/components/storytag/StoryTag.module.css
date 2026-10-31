@@ -5,7 +5,7 @@
 .who { font-weight: var(--type-title-l-weight); font-size: var(--type-title-m-size); }
 .video { width: 100%; }
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-m); }
-.actions > * > *, .actions > button { width: 100%; }
+.actions > :not(button) > *, .actions > button { width: 100%; }
 .sheet { flex: 1; }
 .form { display: grid; gap: var(--space-l); }
 .thanksText { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); white-space: pre-line; }

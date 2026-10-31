@@ -292,7 +292,8 @@
       "promise1": "You can speak, snap a photo, or upload a picture.",
       "promise2": "We read every result out loud, so you always know what it shows.",
       "promise3": "Nothing goes on sale until you say yes.",
-      "cta": "Start creating"
+      "cta": "Start creating",
+      "haveAccount": "I already have an account"
     },
     "code": {
       "title": "Hi there!",
@@ -304,6 +305,7 @@
     },
     "product": {
       "title": "What do you want to make?",
+      "copy": "You can make the other one later.",
       "sticker": "Sticker",
       "stickerCopy": "Die-cut, waterproof, about 3 inches.",
       "tote": "Tote bag",

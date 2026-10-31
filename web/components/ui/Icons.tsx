@@ -20,3 +20,9 @@ export const RefreshIcon = ({ size }: P) => <svg {...base(size)}><path d="M20 11
 export const SparkleIcon = ({ size }: P) => <svg {...base(size)}><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" /></svg>;
 export const VideoIcon = ({ size }: P) => <svg {...base(size)}><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10l5-3v10l-5-3z" /></svg>;
 export const MenuIcon = ({ size }: P) => <svg {...base(size)}><path d="M4 7h16M4 12h16M4 17h16" /></svg>;
+export const PlusIcon = ({ size }: P) => <svg {...base(size)}><path d="M12 5v14M5 12h14" /></svg>;
+export const MinusIcon = ({ size }: P) => <svg {...base(size)}><path d="M5 12h14" /></svg>;
+export const BoxIcon = ({ size }: P) => <svg {...base(size)}><rect x="4" y="4" width="16" height="16" rx="3" strokeDasharray="3 3" /></svg>;
+export const WarningIcon = ({ size }: P) => <svg {...base(size)}><path d="M12 4L2.5 20h19z" /><path d="M12 10v4.5M12 17.5h.01" /></svg>;
+export const CloseIcon = ({ size }: P) => <svg {...base(size)}><path d="M6 6l12 12M18 6L6 18" /></svg>;
+export const ImageIcon = ({ size }: P) => <svg {...base(size)}><rect x="4" y="4" width="16" height="16" rx="3" /><circle cx="9" cy="9.5" r="1.5" /><path d="M20 15l-4.5-4.5L6 20" /></svg>;

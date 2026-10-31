@@ -1,8 +1,7 @@
 "use client";
 import { fmt, m } from "@/components/messages";
 import { Button } from "@/components/ui/Button";
-import { CameraIcon } from "@/components/ui/Icons";
-import { Status } from "@/components/ui/Loading";
+import { ErrorCard } from "./cards";
 import { ApiError } from "./api";
 
 /** What the screen should offer next: retry the same call, retake the photo, fix the form, or nothing special. */
@@ -24,20 +23,19 @@ export function describeError(err: unknown, fallback: string = m.create.errorGen
   return { message: fallback, action: "retry" };
 }
 
-/** The error line plus the next step the error calls for. */
+/**
+ * The error card plus the next step the error calls for, as text actions inside the card
+ * (web creator boards: "Try again" under the message). Screens whose board puts the next step in
+ * the bottom bar (Photo, Drawing) leave the handlers out and render their own actions.
+ */
 export function ErrorNotice({ error, onRetry, retakeHref, onRetake }: {
   error: ScreenError | null; onRetry?: () => void; retakeHref?: string; onRetake?: () => void;
 }) {
   if (!error) return null;
-  return (
-    <>
-      <Status tone="error">{error.message}</Status>
-      {error.action === "retry" && onRetry ? <Button block variant="secondary" arrow={false} onClick={onRetry}>{m.create.errors.retry}</Button> : null}
-      {error.action === "retake" && retakeHref ? (
-        <Button block variant="secondary" arrow={false} icon={<CameraIcon />} href={retakeHref}>{m.create.errors.retake}</Button>
-      ) : error.action === "retake" && onRetake ? (
-        <Button block variant="secondary" arrow={false} icon={<CameraIcon />} onClick={onRetake}>{m.create.errors.retake}</Button>
-      ) : null}
-    </>
-  );
+  const retry = error.action === "retry" && onRetry
+    ? <Button variant="ghost" arrow={false} onClick={onRetry}>{m.create.errors.retry}</Button> : null;
+  const retake = error.action !== "retake" ? null
+    : retakeHref ? <Button variant="ghost" arrow={false} href={retakeHref}>{m.create.errors.retake}</Button>
+    : onRetake ? <Button variant="ghost" arrow={false} onClick={onRetake}>{m.create.errors.retake}</Button> : null;
+  return <ErrorCard actions={retry || retake ? <>{retry}{retake}</> : undefined}>{error.message}</ErrorCard>;
 }

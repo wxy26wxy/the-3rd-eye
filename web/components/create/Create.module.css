@@ -1,4 +1,5 @@
 .main { flex: 1; display: flex; flex-direction: column; }
+/* Screen frame (web creator boards): 20 px top padding, 20 px between blocks, 24 px gutters. */
 .screen {
   flex: 1;
   display: flex;
@@ -8,38 +9,127 @@
   margin-inline: auto;
   min-height: 100dvh;
 }
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  padding: var(--space-xl) var(--space-page) var(--space-xxl);
+}
 .top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-m);
   min-height: var(--size-min-target);
-  padding: var(--space-l) var(--space-page) 0;
 }
-.head { display: grid; gap: var(--space-m); padding: var(--space-xxl) var(--space-page) var(--space-xxl); justify-items: start; }
+.head { display: grid; gap: var(--space-s); justify-items: start; }
+.headCenter { justify-items: center; text-align: center; }
 .titleRow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-m); width: 100%; }
+.headCenter .titleRow { justify-content: center; }
 .mascot { width: calc(var(--size-record) * 1.6); justify-self: center; }
-.body { flex: 1; display: grid; gap: var(--space-xxl); align-content: start; padding: 0 var(--space-page) var(--space-xxl); }
-/* Bottom action bar: stays in view at the bottom of the screen while the body scrolls. */
+.body { flex: 1; display: grid; gap: var(--space-xl); align-content: start; }
+.body > * { min-width: 0; }
+/* Bottom action bar: pinned to the bottom of the screen (white, 1 px top border); the body scrolls under it. */
 .footer {
   position: sticky;
   bottom: 0;
-  margin-top: auto;
   z-index: 2;
-  padding: var(--space-l) var(--space-page) var(--space-xxl);
-  background: var(--bg);
+  padding: var(--space-xxl) var(--space-page) calc(var(--space-l) * 2);
+  background: var(--surface);
+  border-top: var(--border-thin) solid var(--border);
+}
+/* When nothing scrolls under the bar (short screens), this strip covers the bar's top border at its
+   resting place, as on the short boards; once the bar is pinned over content the strip scrolls away. */
+.content:has(+ .footer)::after {
+  content: "";
+  position: relative;
+  z-index: 3;
+  top: calc(var(--space-xxl) + var(--border-thin));
+  height: var(--border-thin);
+  margin: auto calc(var(--space-page) * -1) 0;
+  background: var(--surface);
 }
 .footerInner { display: grid; gap: var(--space-s); }
+.footerHint { font-size: var(--type-body-size); color: var(--text-muted); text-align: center; }
+
+/* Cards (cards.tsx) */
+.infoCard {
+  display: grid; gap: var(--space-xs);
+  padding: var(--space-l) var(--space-l);
+  border: var(--border-thin) solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+}
+.info-green { background: var(--accent); border-color: var(--accent-border); color: var(--accent-ink); }
+.info-alt { background: var(--surface-alt); border-color: var(--surface-alt); }
+.infoText { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); overflow-wrap: anywhere; }
+.infoText > * + * { margin-top: var(--space-xs); }
+.errorCard {
+  display: flex; gap: var(--space-m); align-items: flex-start;
+  padding: var(--space-l) var(--space-l);
+  border: var(--border-card) solid var(--text);
+  border-radius: var(--radius-m);
+  background: var(--surface-alt);
+  color: var(--text);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+.errorIcon { display: inline-flex; flex: none; font-size: var(--size-radio); line-height: 0; }
+.errorBody { display: grid; gap: var(--space-xs); min-width: 0; }
+.errorActions { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-left: calc(var(--space-m) * -1); }
+.errorActions > * { font-weight: var(--type-title-m-weight); }
+.noticeCard {
+  padding: var(--space-l) var(--space-l);
+  border: var(--border-thin) solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  max-width: none;
+}
+.textAction { justify-self: center; }
+
+/* Welcome (board 2026:2865): full-bleed photo, white text on scrim panels. The panels use the ink at
+   55 % (as on the board) rather than color.scrim (35 % black), so 15 px white text keeps 4.5:1 on the
+   light clouds. */
+.welcome {
+  position: relative;
+  isolation: isolate;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-section);
+  min-height: 100dvh;
+  overflow: hidden;
+  color: var(--text-on-dark);
+}
+.welcomeBg { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: center; }
+.welcomeTop, .welcomeBottom {
+  display: grid;
+  width: 100%;
+  max-width: var(--layout-narrow);
+  margin-inline: auto;
+  padding-inline: var(--space-page);
+}
+.welcomeTop { gap: var(--space-l); padding-top: var(--space-xl); }
+.welcomeBottom { gap: var(--space-s); padding-bottom: calc(var(--space-l) * 2); }
+.scrim {
+  display: grid;
+  gap: var(--space-s);
+  padding: var(--space-xl);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--primary) 55%, transparent);
+  color: var(--text-on-dark);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+.promises { gap: var(--space-xs); padding: var(--space-l) var(--space-xl); border-radius: var(--radius-card); list-style: decimal inside; }
+.welcomeLinks { display: flex; justify-content: center; }
+.welcomeLinks a, .welcomeLinks button { color: var(--text-on-dark); font-weight: var(--type-body-weight); }
 
 /* shared pieces */
-.promises { display: grid; gap: var(--space-m); list-style: none; }
-.promise { display: flex; gap: var(--space-m); align-items: flex-start; font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); font-weight: var(--type-body-l-weight); }
-.promiseNum {
-  display: grid; place-items: center; flex: none;
-  width: var(--size-avatar); height: var(--size-avatar);
-  border-radius: var(--radius-pill); background: var(--accent); border: var(--border-thin) solid var(--border);
-  font-family: var(--font-display); font-size: var(--type-title-m-size);
-}
 .listen { display: grid; justify-items: center; gap: var(--space-l); text-align: center; }
 .listenEyebrow { display: inline-flex; align-items: center; gap: var(--space-s); }
 .pulse { width: var(--space-m); height: var(--space-m); border-radius: var(--radius-pill); background: var(--danger); animation: pulse 1s ease-in-out infinite alternate; }
@@ -195,3 +285,4 @@
 /* Product pictures on the Pick cards (glyphs.tsx). */
 .glyph { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .glyphTote { padding: var(--space-l); filter: drop-shadow(var(--shadow-soft)); }
+.form { display: grid; gap: var(--space-xl); }

@@ -15,6 +15,7 @@ export function ChooseProduct() {
       back="/create"
       step={1}
       title={m.create.product.title}
+      lead={m.create.product.copy}
       footer={<Button block disabled={!draft.product} onClick={() => router.push("/create/method")}>{m.common.next}</Button>}
     >
       <ChoiceGroup legend={m.create.product.groupLabel} layout="grid">

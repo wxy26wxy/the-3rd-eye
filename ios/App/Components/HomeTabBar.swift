@@ -13,11 +13,13 @@ struct HomeTabBar: View {
   @Binding var selection: HomeTab
   var ordersBadge: Int = 0
   var messagesBadge: Int = 0
+  /// Tapping the tab that is already selected (the system bar pops that tab to its root).
+  var reselect: (HomeTab) -> Void = { _ in }
   @Environment(\.themeColors) private var colors
 
   var body: some View {
     TabBarHost {
-      HomeTabBarContent(selection: $selection, ordersBadge: ordersBadge, messagesBadge: messagesBadge)
+      HomeTabBarContent(selection: $selection, ordersBadge: ordersBadge, messagesBadge: messagesBadge, reselect: reselect)
         .environment(\.themeColors, colors)
     }
     .frame(height: ThemeEffects.tabHeight + ThemeEffects.tabTopPadding)
@@ -34,6 +36,7 @@ private struct HomeTabBarContent: View {
   @Binding var selection: HomeTab
   var ordersBadge: Int
   var messagesBadge: Int
+  var reselect: (HomeTab) -> Void
   @Environment(\.themeColors) private var colors
 
   var body: some View {
@@ -81,12 +84,16 @@ private struct HomeTabBarContent: View {
     }
     .frame(maxWidth: .infinity, minHeight: ThemeEffects.tabHeight)
     .contentShape(Rectangle())
-    .onTapGesture { selection = tab }
+    .onTapGesture { choose(tab) }
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(Text(label))
     .accessibilityValue(badge > 0 ? Text("\(badge) new") : Text(""))
     .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-    .accessibilityAction { selection = tab }
+    .accessibilityAction { choose(tab) }
+  }
+
+  private func choose(_ tab: HomeTab) {
+    if selection == tab { reselect(tab) } else { selection = tab }
   }
 }
 
@@ -134,11 +141,13 @@ final class HostTabBar: UITabBar {
 
   override func layoutSubviews() {
     super.layoutSubviews()
-    for view in subviews where view !== hosted { view.isHidden = true }
-    bringSubviewToFront(hosted)
+    // Only change what differs, so a layout pass never asks for another one.
+    for view in subviews where view !== hosted && !view.isHidden { view.isHidden = true }
+    if subviews.last !== hosted { bringSubviewToFront(hosted) }
     // UITabBar keeps its own (taller) height around the slot SwiftUI gives it; the Sky bar fills
     // exactly the slot, centred like the bar itself.
-    hosted.frame = bounds.insetBy(dx: 0, dy: max(0, (bounds.height - height) / 2))
+    let frame = bounds.insetBy(dx: 0, dy: max(0, (bounds.height - height) / 2))
+    if hosted.frame != frame { hosted.frame = frame }
   }
 
   override func sizeThatFits(_ size: CGSize) -> CGSize { CGSize(width: size.width, height: height) }

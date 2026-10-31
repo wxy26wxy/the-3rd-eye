@@ -43,17 +43,18 @@ struct PickProductView: View {
   }
 }
 
-/// 56 pt round icon used on choice cards.
+/// 44 pt round icon tile used on choice cards (Sky: deep-green glyph on a white circle).
 struct MethodIcon: View {
   let systemName: String
   @Environment(\.themeColors) private var colors
 
   var body: some View {
     Image(systemName: systemName)
-      .font(TextRole.titleL.font)
-      .foregroundStyle(colors.primaryText)
+      .font(TextRole.titleM.font)
+      .foregroundStyle(colors.accentInk)
       .frame(width: Theme.Size.methodIcon, height: Theme.Size.methodIcon)
-      .background(Circle().fill(colors.primary))
+      .background(Circle().fill(colors.surface))
+      .overlay(Circle().strokeBorder(colors.border, lineWidth: Theme.Border.thin))
       .accessibilityHidden(true)
   }
 }

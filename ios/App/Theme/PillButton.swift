@@ -1,43 +1,53 @@
 import SwiftUI
 
-/// Primary CTA: 60 pt ink capsule, cream label, lime arrow circle, hard shadow.
-/// `.secondary` is the cream outlined variant (56 pt).
+/// Sky actions (Figma `Primary action` / `Secondary action`).
+/// - `.primary`: 56 pt ink pill, white Inter Semi Bold 16 label, a 48 pt ink arrow circle at the right.
+/// - `.onPhoto`: the same pill in white with ink text (Welcome, on the sky photo).
+/// - `.secondary`: 50 pt white pill with a 1 pt border, centred ink label, no arrow.
+/// Disabled = `opacity.disabled`. The arrow is decorative.
 struct PillButtonStyle: ButtonStyle {
-  enum Kind { case primary, secondary }
+  enum Kind { case primary, secondary, onPhoto }
   var kind: Kind = .primary
   var showsArrow: Bool = true
   @Environment(\.themeColors) private var colors
   @Environment(\.isEnabled) private var isEnabled
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   func makeBody(configuration: Configuration) -> some View {
-    let fill = kind == .primary ? colors.primary : colors.surface
-    let label = kind == .primary ? colors.primaryText : colors.text
-    let shadow = kind == .primary ? Theme.Shadow.primary : Theme.Shadow.hard
+    let isSecondary = kind == .secondary
+    let fill: Color = kind == .primary ? colors.primary : colors.surface
+    let label: Color = kind == .primary ? colors.primaryText : colors.text
+    let arrow = showsArrow && !isSecondary
     return HStack(spacing: Theme.Space.m) {
       configuration.label
-        .themeFont(.titleM)
+        .themeFont(isSecondary ? .body : .titleM)
         .foregroundStyle(label)
-        .multilineTextAlignment(.leading)
-        .frame(maxWidth: .infinity, alignment: .leading)
-      if showsArrow {
-        Image(systemName: "arrow.right")
-          .font(TextRole.titleM.font.weight(.heavy))
-          .foregroundStyle(colors.accentInk)
-          .frame(width: Theme.Size.iconButton, height: Theme.Size.iconButton)
-          .background(Circle().fill(colors.accent))
-          .overlay(Circle().stroke(colors.border, lineWidth: Theme.Border.thin))
+        .multilineTextAlignment(isSecondary ? .center : .leading)
+        .fixedSize(horizontal: false, vertical: true)  // wraps at large text sizes instead of truncating
+        .frame(maxWidth: .infinity, alignment: isSecondary ? .center : .leading)
+      if arrow {
+        Image(Tokens.Asset.iconArrow)
+          .renderingMode(.template)
+          .resizable()
+          .scaledToFit()
+          .frame(width: ThemeEffects.ctaGlyph, height: ThemeEffects.ctaGlyph)
+          .foregroundStyle(colors.primaryText)
+          .frame(width: Theme.Size.ctaArrow, height: Theme.Size.ctaArrow)
+          .background(Circle().fill(colors.primary))
           .accessibilityHidden(true)
       }
     }
-    .padding(.leading, Theme.Space.xxl)
-    .padding(.trailing, showsArrow ? Theme.Space.xs : Theme.Space.xxl)
-    .padding(.vertical, Theme.Space.xs)
-    .frame(minHeight: kind == .primary ? Theme.Size.cta : Theme.Size.ctaSecondary)
+    .padding(.leading, isSecondary ? Theme.Space.xxl : ThemeEffects.ctaLeading)
+    .padding(.trailing, arrow ? ThemeEffects.ctaInset : Theme.Space.xxl)
+    .padding(.vertical, ThemeEffects.ctaInset)
+    .frame(maxWidth: .infinity, minHeight: isSecondary ? Theme.Size.ctaSecondary : Theme.Size.cta)
     .background(Capsule().fill(fill))
-    .overlay(Capsule().stroke(colors.border, lineWidth: Theme.Border.card))
-    .hardShadow(shadow, in: Capsule(), pressed: configuration.isPressed && !reduceMotion)
-    .opacity(isEnabled ? 1 : Theme.Opacity.disabled)
+    .overlay {
+      if isSecondary || colors.border == colors.text {
+        Capsule().stroke(colors.border, lineWidth: Theme.Border.thin)
+      }
+    }
+    .compositingGroup()
+    .opacity(isEnabled ? (configuration.isPressed ? ThemeEffects.pressedOpacity : 1) : Theme.Opacity.disabled)
     .contentShape(Capsule())
   }
 }

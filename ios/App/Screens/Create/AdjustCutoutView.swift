@@ -119,25 +119,27 @@ struct AdjustCutoutView: View {
             .multilineTextAlignment(.center)
         }
         if let error { ErrorCard(message: error) }
+        // Only the primary is pinned (T103): the secondary actions follow the tools, so the pinned
+        // bar stays small and the photo and its tools fit above it.
+        PillButton(work == .apply ? "Saving the cutout…" : "Apply cutout", hint: "Saves this cutout to your design and shows it", kind: .secondary, showsArrow: false) {
+          start(.apply) { await apply() }
+        }
+        .disabled(currentRequest == nil || work != nil)
+        if !isRedo {
+          PillButton("Retake", hint: "Takes a new photo", kind: .secondary, showsArrow: false) {
+            let source = flow.photoSource
+            flow.discardPhoto()
+            app.replaceTop(with: .camera(source))
+          }
+          .disabled(work != nil)
+        }
       }
     } actions: {
       PillButton(work == .use ? "Cutting it out…" : "Use this", hint: "Uses this cutout and goes on") {
         start(.use) { await useThis() }
       }
       .disabled(currentAction == nil || work != nil)
-      PillButton(work == .apply ? "Saving the cutout…" : "Apply cutout", hint: "Saves this cutout to your design and shows it", kind: .secondary, showsArrow: false) {
-        start(.apply) { await apply() }
-      }
-      .disabled(currentRequest == nil || work != nil)
       SlowWorkHint(active: work != nil)
-      if !isRedo {
-        PillButton("Retake", hint: "Takes a new photo", kind: .secondary, showsArrow: false) {
-          let source = flow.photoSource
-          flow.discardPhoto()
-          app.replaceTop(with: .camera(source))
-        }
-        .disabled(work != nil)
-      }
     }
     .navigationBarBackButtonHidden(work != nil)
     .task { await loadDetailIfNeeded() }

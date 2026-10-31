@@ -14,6 +14,7 @@ struct ThemeColors {
   var textOnDark: Color
   var textMuted: Color
   var accent: Color
+  var accentBorder: Color
   var accentInk: Color
   var primary: Color
   var primaryText: Color
@@ -22,6 +23,9 @@ struct ThemeColors {
   var selected: Color
   var danger: Color
   var focusRing: Color
+  /// Panel behind white text on a photo (Welcome).
+  var scrim: Color
+  /// Kept for API stability; grain is retired in Sky (`effects.grain.opacity` 0), so GrainOverlay draws nothing.
   var showsGrain: Bool
 
   static let standard = ThemeColors(
@@ -32,6 +36,7 @@ struct ThemeColors {
     textOnDark: Tokens.Semantic.textOnDark,
     textMuted: Tokens.Semantic.textMuted,
     accent: Tokens.Semantic.accent,
+    accentBorder: Tokens.Semantic.accentBorder,
     accentInk: Tokens.Semantic.accentInk,
     primary: Tokens.Semantic.primary,
     primaryText: Tokens.Semantic.primaryText,
@@ -40,6 +45,7 @@ struct ThemeColors {
     selected: Tokens.Semantic.selected,
     danger: Tokens.Semantic.danger,
     focusRing: Tokens.Semantic.focusRing,
+    scrim: Tokens.Semantic.scrim,
     showsGrain: true
   )
 
@@ -49,9 +55,11 @@ struct ThemeColors {
     surface: Tokens.HighContrast.surface,
     surfaceAlt: Tokens.HighContrast.surface,
     text: Tokens.HighContrast.text,
-    textOnDark: Tokens.HighContrast.text,
+    // Text on photos and dark panels stays white with Increase Contrast; the scrim gets darker instead.
+    textOnDark: Tokens.HighContrast.primaryText,
     textMuted: Tokens.HighContrast.text,
     accent: Tokens.HighContrast.accent,
+    accentBorder: Tokens.HighContrast.border,
     accentInk: Tokens.HighContrast.text,
     primary: Tokens.HighContrast.primary,
     primaryText: Tokens.HighContrast.primaryText,
@@ -60,6 +68,7 @@ struct ThemeColors {
     selected: Tokens.HighContrast.accent,
     danger: Tokens.Semantic.danger,
     focusRing: Tokens.HighContrast.border,
+    scrim: Tokens.Palette.ink.opacity(ThemeEffects.highContrastScrimOpacity),
     showsGrain: false
   )
 }

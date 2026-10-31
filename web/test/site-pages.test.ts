@@ -119,6 +119,12 @@ describe("Product page parts (T106, board 2019:2004)", () => {
     expect(html(createElement(DieCut, { artworkUrl: null, cutPathSvg: null, alt: "x" }))).toBe("");
   });
 
+  it("die-cut preview draws every piece of a multi-piece cut (one path, all subpaths)", () => {
+    const d = "M2 30 C2 10, 38 10, 38 30 Z M62 40 C62 20, 88 20, 88 40 Z";
+    const out = html(createElement(DieCut, { artworkUrl: "/a.png", cutPathSvg: d, alt: "Two pieces" }));
+    expect(out).toContain(`d="${d}"`);
+  });
+
   it("avatar: two initials on the accent, decorative", () => {
     expect(initials("Rosa M.")).toBe("RM");
     expect(initials("Leo")).toBe("L");

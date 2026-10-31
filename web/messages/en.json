@@ -12,6 +12,8 @@
     "exampleNote": "Example profile. Real artists appear here once they agree to be featured.",
     "price": "{price}",
     "by": "by {name}",
+    "nameStudio": "{name} · {studio}",
+    "listSeparator": " · ",
     "sticker": "Sticker",
     "tote": "Tote bag",
     "madeByVoice": "Made by voice",

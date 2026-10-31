@@ -28,7 +28,7 @@ export function StoryTagView({ view }: { view: StoryTagData }) {
       <TapOnce token={view.token} onTap={tap} />
       <div className={styles.top}>
         <Eyebrow tone="muted">{m.tag.eyebrow}</Eyebrow>
-        <p className={styles.who}>{c.displayName} · {studio}</p>
+        <p className={styles.who}>{fmt(m.common.nameStudio, { name: c.displayName, studio })}</p>
         <Display as="h1" size="xl">{fmt(m.tag.hi, { name: c.displayName })}</Display>
         {c.isExample ? <div><Chip tone="cream">{m.common.example}</Chip></div> : null}
         <StoryVideo creator={c} tagToken={view.token} className={styles.video} />

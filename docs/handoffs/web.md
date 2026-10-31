@@ -4,7 +4,7 @@
 `web/app/**` except `web/app/api/**`, `web/app/media/**`, `web/app/tokens.css`; `web/components/**`; `web/messages/en.json`; `web/proxy.ts`; `web/public/**` (except `public/ref/`); `web/lib/db/queries.contract.ts` and `web/lib/db/queries.fixtures.ts` (web-side contract and example data); `docs/design/screens.md`.
 
 ## Current task
-T105 · creator flow on the B4 web boards (done on `feat/web-T105`). Next: T106 site pages.
+T106 · site pages and admin on the B3 / B5 web boards (done on `feat/web-T106`).
 
 ## Interface exposed to others
 - **Data contract** `web/lib/db/queries.contract.ts`: the backend's `queries.ts` should export these functions with these signatures: `listShopProducts(filter)`, `getProductDetail(id)`, `listPublicCreators()`, `getFeaturedCreator()`, `getCreatorProfile(slug)`, `getCreatorCaptions(creatorId)`, `getStoryTag(token)`, `getOrderConfirmation(orderId)`, `listAdminOrders()`, `getArtworkTrace(artworkId)` (returns `{ artwork, variants, candidates, calls }`; `variants` are sibling text2image variants plus refine ancestors with `chosen`, `candidates` are SAM candidates), `createOrder(productId, input, {task})`, `recordTap(token, {task})`, `createBuyerMessage(token, body, {task})`, `updateOrderStatus(orderId, status, {task})`. To bind, replace each stub body with a re-export and keep the `connection()` call on reads.
@@ -29,7 +29,7 @@ T105 · creator flow on the B4 web boards (done on `feat/web-T105`). Next: T106 
 - **Backend: `/creators/me` `split`** is used for "You earn per sale"; defaults to 50% if missing.
 
 ## Last updated
-2026-10-31 (T105)
+2026-10-31 (T106)
 
 ## T050 fix wave (2026-10-29)
 - `/t/[token]`: story video → thank-you (`components/storytag/ThankYou.tsx`; media via `/media/<path>?tag=`, captions via `/captions/tag/<token>`) → thread (`Thread.tsx`) → note form (refreshes the thread; moderation rejections shown) → about → more. Empty states for each.
@@ -91,3 +91,11 @@ Every page now draws with the Sky look (Inter, white page, ink, accent green); s
 - **Assets**: `ASSETS.mascotMagnifierVideo` (MP4). `ui/Loading variant="sky"` plays it, `ui/SkyCard` is the static sky card (Photo idle, Live, Drawing error). Never reference the GIF from a page.
 - **Primitive additions**: `Field hintPosition="below"`, `LogoMark tone="white"`, `ButtonFace arrow`, `Loading inline` is left-aligned, icons `Plus`, `Minus`, `Box`, `Warning`, `Close`, `Image`.
 - **Checking states without the backend**: seed `sessionStorage["ms:create"]` with a draft and stub `window.fetch` for `/create/bff/*` in a navigation init script (chrome-devtools `navigate_page` `initScript`); the Blob client upload can be stubbed the same way (`/create/bff/uploads` → a client token, `vercel.com/api/blob` → a blob JSON).
+
+## T106 Site pages and admin on the B3 / B5 boards (2026-10-31)
+- **Layout:** `--layout-max` is the 1280 content column; `Container` adds the gutters (24 px on phones, 80 px from 64rem), so a 1440 page has 80 px sides and wider screens centre the column.
+- **Site frame:** `site/SiteNav` (Web nav: links from 48rem, Menu below) + `site/NavMenu` (Nav drawer as a modal `<dialog>`: the page is inert, Esc closes, Tab wraps, focus to the first link and back to Menu) + `site/SiteFooter` (ink). The story tag (`storytag/Shell`) and `app/not-found.tsx` use the same nav and footer; the skip link stays in `app/layout.tsx`.
+- **Primitive additions:** `Display size="web"` (page titles: 48 px, 72 px from 64rem); `Chip` re-skinned to the board Chip (`lime` = Green, `cream` = Neutral surfaceAlt, no border); `site/Avatar` initials (two letters) and sizes `l` 56 / `xl` 80 / `xxl` 120; `site/CopyButton` shows the copied label; `site/StoryVideo` frame with the poster play circle (`site/VideoPoster`, decorative, native controls stay).
+- **Product card** is one component for Large and Small: a container query under 12.5rem stacks the chips; the title clamps to 2 lines. Grids: `shop/Collection#ProductGrid` (2 per row on phones, 4 from 64rem).
+- **Admin:** header `admin.header` from `lib/brand`; `admin/CodeCard` is the one-time code card (live region always mounted, message + code only); story tag cell shows the path (`/t/<token>`) and copies the full URL.
+- **Assets:** `ASSETS.heroSky` (`design/assets/hero-sky.png`, node `2018:1805`, the board's raw fill, 816 × 1456).

@@ -7,8 +7,6 @@ enum OrderRoute: Hashable {
 
 struct HomeView: View {
   @Environment(AppState.self) private var app
-  @Environment(\.themeColors) private var colors
-
   var body: some View {
     @Bindable var app = app
     TabView(selection: $app.selectedTab) {
@@ -16,33 +14,44 @@ struct HomeView: View {
         PickProductView()
           .navigationDestination(for: CreateRoute.self) { CreateDestination(route: $0) }
       }
-      .tabItem { Label("Create", systemImage: "paintbrush.pointed.fill") }
+      .toolbar(.hidden, for: .tabBar)
+      .safeAreaInset(edge: .bottom, spacing: 0) { tabBar }
       .tag(HomeTab.create)
 
       NavigationStack(path: $app.designsPath) {
         MyDesignsView()
           .navigationDestination(for: DesignRoute.self) { DesignDestination(route: $0) }
       }
-      .tabItem { Label("My designs", systemImage: "square.grid.2x2.fill") }
+      .toolbar(.hidden, for: .tabBar)
+      .safeAreaInset(edge: .bottom, spacing: 0) { tabBar }
       .tag(HomeTab.designs)
 
       NavigationStack {
         OrdersView()
           .navigationDestination(for: OrderRoute.self) { OrderDestination(route: $0) }
       }
-      .tabItem { Label("Orders", systemImage: "shippingbox.fill") }
-      .badge(app.orders.unread)
+      .toolbar(.hidden, for: .tabBar)
+      .safeAreaInset(edge: .bottom, spacing: 0) { tabBar }
       .tag(HomeTab.orders)
 
       NavigationStack {
         MessagesView()
           .navigationDestination(for: OrderRoute.self) { OrderDestination(route: $0) }
       }
-      .tabItem { Label("Messages", systemImage: "bubble.left.and.bubble.right.fill") }
-      .badge(app.orders.orders.reduce(0) { $0 + ($1.unreadMessages ?? 0) })
+      .toolbar(.hidden, for: .tabBar)
+      .safeAreaInset(edge: .bottom, spacing: 0) { tabBar }
       .tag(HomeTab.messages)
     }
     .onAppear { app.orders.start() }
+  }
+
+  /// The Sky tab bar replaces the system one (decision T103). Each tab carries it as a bottom
+  /// inset, so screens (and their bottom actions) end above it on every pushed screen too; the
+  /// TabView underneath keeps each tab's navigation stack and screen state while another is shown.
+  private var tabBar: some View {
+    @Bindable var app = app
+    return HomeTabBar(selection: $app.selectedTab, ordersBadge: app.orders.unread,
+                      messagesBadge: app.orders.orders.reduce(0) { $0 + ($1.unreadMessages ?? 0) })
   }
 }
 

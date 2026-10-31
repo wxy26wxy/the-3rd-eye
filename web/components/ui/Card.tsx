@@ -9,7 +9,7 @@ type Props<T extends ElementType> = {
   className?: string;
 } & Omit<ComponentProps<T>, "as" | "children" | "className">;
 
-/** Cream card: 3 px ink border, card radius, hard ink shadow. */
+/** Sky card: white (`cream` and `white` are the same surface now), `lime` = accent green, `ink` = dark. 28 px radius, 1.5 px border. */
 export function Card<T extends ElementType = "div">({ as, tone = "cream", pad = "m", children, className, ...rest }: Props<T>) {
   const Tag = (as ?? "div") as ElementType;
   return (

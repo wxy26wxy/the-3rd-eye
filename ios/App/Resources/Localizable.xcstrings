@@ -7,6 +7,9 @@
     ", " : {
 
     },
+    "%@ is in the shop." : {
+
+    },
     "%@, picture %lld of %lld" : {
       "localizations" : {
         "en" : {
@@ -113,9 +116,6 @@
     "Buyer said: %@" : {
 
     },
-    "Buyers tap to hear your story" : {
-
-    },
     "Camera access is off, so I can't record a video. You can turn it on, or choose a video you already have." : {
 
     },
@@ -164,6 +164,9 @@
     "Choose how to make your art" : {
 
     },
+    "Choose how you want to bring your drawing into the studio." : {
+
+    },
     "Clear marks" : {
 
     },
@@ -197,7 +200,7 @@
     "Deleting…" : {
 
     },
-    "Describe it, we draw it" : {
+    "Describe it, we draw it for you" : {
 
     },
     "Description" : {
@@ -212,7 +215,7 @@
     "Didn't work" : {
 
     },
-    "Die-cut around your art" : {
+    "Die-cut, waterproof" : {
 
     },
     "Different from what you said: %@" : {
@@ -233,7 +236,7 @@
     "Draw a box" : {
 
     },
-    "Draw it, or say it out loud" : {
+    "Draw it or say it. We make the sticker or tote." : {
 
     },
     "Drawing your idea" : {
@@ -263,7 +266,7 @@
     "Enter a price between $1.00 and $1,000.00, like 5.00." : {
 
     },
-    "Finding your drawings" : {
+    "Finding your drawings…" : {
 
     },
     "Finish the listing and put it in the shop" : {
@@ -281,6 +284,12 @@
     "Goes to the previous screen" : {
 
     },
+    "Got %lld pieces. They are cut out together." : {
+
+    },
+    "Got piece %lld! Tap another piece to add it too." : {
+
+    },
     "Happy Frog Sticker" : {
 
     },
@@ -294,6 +303,9 @@
 
     },
     "How do you want to make it?" : {
+
+    },
+    "I already have an account" : {
 
     },
     "I didn't catch that. Try again, or type instead." : {
@@ -325,9 +337,6 @@
 
     },
     "It leaves My designs, and its products leave the shop. Orders already placed keep working." : {
-
-    },
-    "It's saved in My designs." : {
 
     },
     "Keep the name to 80 letters or fewer." : {
@@ -387,9 +396,6 @@
     "Loading your designs" : {
 
     },
-    "Looking for every drawing on the page. This takes a few seconds." : {
-
-    },
     "Make a sticker" : {
 
     },
@@ -447,6 +453,9 @@
     "Name" : {
 
     },
+    "Natural canvas" : {
+
+    },
     "Needs a cutout" : {
 
     },
@@ -459,13 +468,13 @@
     "No designs yet. Make one in Create." : {
 
     },
+    "NO DRAWING SKILL NEEDED" : {
+
+    },
     "No messages yet." : {
 
     },
     "No orders yet. We'll check every few seconds and show them here." : {
-
-    },
-    "NO PEN NEEDED!" : {
 
     },
     "Not now" : {
@@ -525,13 +534,13 @@
     "Orders" : {
 
     },
+    "People can buy it on %@. It's also saved in My designs, so you can list it later too." : {
+
+    },
     "Pick a photo of your drawing." : {
 
     },
-    "Pick art from your photos" : {
-
-    },
-    "Pick one. You can make the other next time." : {
+    "Pick one you already have" : {
 
     },
     "Pick other pieces or change the cutout" : {
@@ -690,6 +699,9 @@
     "Sign in" : {
 
     },
+    "Sign in with your studio code" : {
+
+    },
     "Sign in with your studio code to begin" : {
 
     },
@@ -721,7 +733,7 @@
     "Skip for now" : {
 
     },
-    "Snap a drawing on paper" : {
+    "Snap your drawing" : {
 
     },
     "Some words in the name or description can't go in the shop. Change them and try again." : {
@@ -748,16 +760,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Step %1$lld of %2$lld"
-          }
-        }
-      }
-    },
-    "STEP %lld OF %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "STEP %1$lld OF %2$lld"
           }
         }
       }
@@ -790,6 +792,9 @@
 
     },
     "Takes a photo of your drawing" : {
+
+    },
+    "Tap a piece below to pick it." : {
 
     },
     "Tap a piece to leave it out of the cutout. To trim one piece, draw a box around what should stay." : {
@@ -867,6 +872,9 @@
     "This sticker is already in the shop" : {
 
     },
+    "This takes a few seconds…" : {
+
+    },
     "This tote is already in the shop" : {
 
     },
@@ -877,9 +885,6 @@
 
     },
     "Try again" : {
-
-    },
-    "Turn your art into things people buy." : {
 
     },
     "Turns your words into a picture" : {
@@ -949,19 +954,22 @@
     "We kept the first 15 seconds of your video." : {
 
     },
-    "We make stickers and tote bags" : {
+    "We'll ask again the next time you list something" : {
 
     },
-    "We'll ask again the next time you list something" : {
+    "We'll tell you when someone buys it. Every sticker ships with your story tag." : {
+
+    },
+    "We'll tell you when someone buys it. Every tote bag ships with your story tag." : {
 
     },
     "We're adding captions. Every product you sell will play it." : {
 
     },
-    "What are we making?" : {
+    "What do you love to make?" : {
 
     },
-    "What do you love to make?" : {
+    "What do you want to make?" : {
 
     },
     "WHAT SHOULD I CHANGE?" : {
@@ -1018,10 +1026,10 @@
     "You can add up to 10 marks. Tap a mark to remove it." : {
 
     },
-    "You earn %@" : {
+    "You can make the other one later." : {
 
     },
-    "You earn %@ per sale" : {
+    "You earn %@" : {
 
     },
     "You earn per sale" : {
@@ -1042,16 +1050,19 @@
     "You're live!" : {
 
     },
+    "You're live! %@ is in the shop." : {
+
+    },
     "You're live! Your art is in the shop." : {
 
     },
     "Your answer" : {
 
     },
-    "Your art is in the shop. We'll tell you when someone buys it." : {
+    "Your art is in the shop." : {
 
     },
-    "Your art on a cotton bag" : {
+    "Your art, on things people love." : {
 
     },
     "Your changes are checked again before they go live." : {
@@ -1070,12 +1081,6 @@
 
     },
     "Your design" : {
-
-    },
-    "Your design is ready!" : {
-
-    },
-    "Your design is ready! Put it up for sale now?" : {
 
     },
     "Your idea" : {
@@ -1099,6 +1104,12 @@
     "Your product" : {
 
     },
+    "Your sticker is ready!" : {
+
+    },
+    "Your sticker is ready! Put it up for sale now?" : {
+
+    },
     "Your story" : {
 
     },
@@ -1106,6 +1117,12 @@
 
     },
     "YOUR THANK-YOU" : {
+
+    },
+    "Your tote bag is ready!" : {
+
+    },
+    "Your tote bag is ready! Put it up for sale now?" : {
 
     },
     "Your video was longer than 30 seconds, so we kept the first 30." : {

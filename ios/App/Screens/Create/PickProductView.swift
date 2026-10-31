@@ -1,20 +1,25 @@
 import SwiftUI
 
-/// Board "1 Pick sticker or tote".
+/// Board "Pick sticker or tote · Cloud studio" (`45:700`): two product cards side by side (the
+/// mascot sticker and the tote photo), a radio in each, then Next. At accessibility text sizes the
+/// cards stack so their words fit.
 struct PickProductView: View {
   @Environment(AppState.self) private var app
-  @Environment(\.themeColors) private var colors
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var body: some View {
     FlowScreen(
-      title: "What are we making?",
-      subtitle: "Pick one. You can make the other next time.",
+      title: "What do you want to make?",
+      subtitle: "You can make the other one later.",
       step: (1, 3),
       showsBack: false
     ) {
-      VStack(spacing: Theme.Space.l) {
-        product(.sticker, icon: "seal.fill", name: "Sticker", detail: "Die-cut around your art")
-        product(.tote, icon: "bag.fill", name: "Tote bag", detail: "Your art on a cotton bag")
+      let layout = dynamicTypeSize.isAccessibilitySize
+        ? AnyLayout(VStackLayout(spacing: Theme.Space.l))
+        : AnyLayout(HStackLayout(alignment: .top, spacing: Theme.Space.s))
+      layout {
+        product(.sticker, name: "Sticker", detail: "Die-cut, waterproof")
+        product(.tote, name: "Tote bag", detail: "Natural canvas")
       }
     } actions: {
       PillButton("Next", hint: "Choose how to make your art") { app.push(.chooseMethod) }
@@ -22,39 +27,71 @@ struct PickProductView: View {
     }
   }
 
-  private func product(_ type: ProductType, icon: String, name: LocalizedStringKey, detail: LocalizedStringKey) -> some View {
-    let selected = app.flow.productType == type
-    return ChoiceCard(
-      selected: selected,
-      label: Text(name) + Text(", ") + Text(detail),
-      hint: Text("Selects this product")
+  private func product(_ type: ProductType, name: LocalizedStringKey, detail: LocalizedStringKey) -> some View {
+    ProductOption(
+      selected: app.flow.productType == type,
+      name: name,
+      detail: detail,
+      image: type == .sticker ? Tokens.Asset.mascotBook : Tokens.Asset.tote,
+      imageSize: type == .sticker ? ThemeEffects.productSticker : ThemeEffects.productTote,
+      shadowed: type == .tote
     ) {
       app.flow.productType = type
       if app.prefs.simpleMode { app.push(.chooseMethod) }
-    } content: {
-      HStack(spacing: Theme.Space.l) {
-        MethodIcon(systemName: icon)
-        VStack(alignment: .leading, spacing: Theme.Space.xs) {
-          Text(name).themeFont(.titleL).foregroundStyle(colors.text)
-          Text(detail).themeFont(.bodyS).foregroundStyle(colors.textMuted)
-        }
-      }
     }
   }
 }
 
-/// 44 pt round icon tile used on choice cards (Sky: deep-green glyph on a white circle).
-struct MethodIcon: View {
-  let systemName: String
+/// Figma `Product option`: a 302 pt card (green with the deep-green radio when selected, white with
+/// an empty radio when not), the product picture in the middle, name and description at the bottom.
+/// One button for VoiceOver: "name, description", selected trait.
+private struct ProductOption: View {
+  let selected: Bool
+  let name: LocalizedStringKey
+  let detail: LocalizedStringKey
+  let image: String
+  let imageSize: CGSize
+  var shadowed = false
+  let action: () -> Void
   @Environment(\.themeColors) private var colors
 
   var body: some View {
-    Image(systemName: systemName)
-      .font(TextRole.titleM.font)
-      .foregroundStyle(colors.accentInk)
-      .frame(width: Theme.Size.methodIcon, height: Theme.Size.methodIcon)
-      .background(Circle().fill(colors.surface))
-      .overlay(Circle().strokeBorder(colors.border, lineWidth: Theme.Border.thin))
-      .accessibilityHidden(true)
+    let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+    Button(action: action) {
+      VStack(alignment: .leading, spacing: Theme.Space.s) {
+        HStack {
+          Spacer()
+          RadioMark(selected: selected)
+        }
+        Spacer(minLength: 0)
+        Group {
+          if shadowed {
+            Image(image).resizable().scaledToFit().softShadow()
+          } else {
+            Image(image).resizable().scaledToFit()
+          }
+        }
+        .frame(maxWidth: imageSize.width, maxHeight: imageSize.height)
+        .frame(maxWidth: .infinity)
+        .accessibilityHidden(true)
+        Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+          Text(name).themeFont(.titleL).foregroundStyle(colors.text)
+          Text(detail).themeFont(.bodyS).foregroundStyle(colors.accentInk)
+        }
+        .multilineTextAlignment(.leading)
+        .fixedSize(horizontal: false, vertical: true)
+      }
+      .padding(Theme.Space.l)
+      .frame(maxWidth: .infinity, minHeight: ThemeEffects.productCardHeight, alignment: .topLeading)
+      .background(shape.fill(selected ? colors.selected : colors.surface))
+      .overlay(shape.strokeBorder(selected ? colors.accentBorder : colors.border,
+                                  lineWidth: selected ? Theme.Border.card : Theme.Border.thin))
+      .contentShape(shape)
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(Text(name) + Text(", ") + Text(detail))
+    .accessibilityHint(Text("Selects this product"))
+    .accessibilityAddTraits(selected ? .isSelected : [])
   }
 }

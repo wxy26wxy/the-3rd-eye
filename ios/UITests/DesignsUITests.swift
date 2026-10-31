@@ -208,10 +208,10 @@ final class DesignsUITests: XCTestCase {
     self.app = app
     app.launch()
     signIn(app, code: "TEST-CODE")
-    let sticker = app.buttons["Sticker, Die-cut around your art"]
+    let sticker = app.buttons["Sticker, Die-cut, waterproof"]
     XCTAssertTrue(sticker.waitForExistence(timeout: 10))
     sticker.tap()
-    XCTAssertTrue(app.buttons["Upload a picture, Pick art from your photos"].waitForExistence(timeout: 5), "a creation is under way")
+    XCTAssertTrue(app.buttons["Upload a picture, Pick one you already have"].waitForExistence(timeout: 5), "a creation is under way")
     app.tabBars.buttons["My designs"].tap()
     open(app, "Green frog with a gold crown, Draft")
     tap(app, "Make a sticker")

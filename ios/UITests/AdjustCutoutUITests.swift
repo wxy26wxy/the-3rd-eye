@@ -342,10 +342,10 @@ final class AdjustCutoutUITests: XCTestCase {
     app.launchEnvironment["MOCK_BLOB_API"] = mockAPIURL.appendingPathComponent("blob").absoluteString + "/"
     app.launch()
     signIn(app, code: code)
-    let sticker = app.buttons["Sticker, Die-cut around your art"]
+    let sticker = app.buttons["Sticker, Die-cut, waterproof"]
     XCTAssertTrue(sticker.waitForExistence(timeout: 10))
     sticker.tap()
-    let upload = app.buttons["Upload a picture, Pick art from your photos"]
+    let upload = app.buttons["Upload a picture, Pick one you already have"]
     XCTAssertTrue(upload.waitForExistence(timeout: 5))
     upload.tap()
     return app

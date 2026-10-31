@@ -10,14 +10,14 @@ Status: **designed** = a board exists in the Figma file; **generated** = drawn b
 
 | Figma node | Board | Screen | Web route | iOS view | Status |
 |---|---|---|---|---|---|
-| `21:4229` | Welcome · Cloud studio | Welcome (full-bleed sky photo, white text, white pill CTA, "I already have an account") | `/create` | `Onboarding/WelcomeView` | designed |
-| `45:700` | Pick sticker or tote · Cloud studio | Choose product (two cards, radio, "Next") | `/create/product` | `Create/PickProductView` | designed |
-| `21:4340` | Choose how to make it · Cloud studio | Choose method (photo / upload / say it, "NO DRAWING SKILL NEEDED") | `/create/method` | `Create/ChooseMethodView` | designed |
-| `21:4390` | Finding drawings · Cloud studio | Finding your drawings (dreamscape, "This takes a few seconds...") | `/create/select` (loading) | `Create/FindingDrawingsView` | designed |
-| `21:4450` | Tap to select · Cloud studio | Tap the one you want ("Retake" / "Use this") | `/create/select` | `Create/AdjustCutoutView` (pick step) | designed |
-| `40:488` | Tap to select · Cloud studio (second frame, title "You can adjust the cut out") | Adjust cutout | `/create/select` (adjust) | `Create/AdjustCutoutView` | designed (adjust tools not drawn) |
-| `21:4509` | Sticker ready · Cloud studio | Your sticker is ready! + "Put it up for sale now?" | `/create/ready` | `Create/DesignReadyView` | designed |
-| `21:4554` | You're live · Cloud studio | You're live! ("Make another", "See what buyers see") | `/create/live` | `Listing/YoureLiveView` | designed |
+| `21:4229` | Welcome · Cloud studio | Welcome (full-bleed sky photo, white text, white pill CTA, "I already have an account") | `/create` | `Onboarding/WelcomeView` | designed; iOS implemented (T104) |
+| `45:700` | Pick sticker or tote · Cloud studio | Choose product (two cards, radio, "Next") | `/create/product` | `Create/PickProductView` | designed; iOS implemented (T104) |
+| `21:4340` | Choose how to make it · Cloud studio | Choose method (photo / upload / say it, "NO DRAWING SKILL NEEDED") | `/create/method` | `Create/ChooseMethodView` | designed; iOS implemented (T104) |
+| `21:4390` | Finding drawings · Cloud studio | Finding your drawings (dreamscape, "This takes a few seconds...") | `/create/select` (loading) | `Create/FindingDrawingsView` | designed; iOS implemented (T104) |
+| `21:4450` | Tap to select · Cloud studio | Tap the one you want ("Retake" / "Use this") | `/create/select` | `Create/AdjustCutoutView` (pick step) | designed; iOS implemented (T104) |
+| `40:488` | Tap to select · Cloud studio (second frame, title "You can adjust the cut out") | Adjust cutout | `/create/select` (adjust) | `Create/AdjustCutoutView` | designed; iOS implemented (T104) |
+| `21:4509` | Sticker ready · Cloud studio | Your sticker is ready! + "Put it up for sale now?" | `/create/ready` | `Create/DesignReadyView` | designed; iOS implemented (T104) |
+| `21:4554` | You're live · Cloud studio | You're live! ("Make another", "See what buyers see") | `/create/live` | `Listing/YoureLiveView` | designed; iOS implemented (T104) |
 | `2026:2865` | Welcome · Web · Sky | Welcome (sky photo, scrim panels, numbered promises, white pill, Sign out / I already have an account) | `/create` · `Welcome`, `SignOut#WelcomeAccount` | — (web board) | implemented (T105) |
 | `2026:2883` | Sign in with code · Web · Sky | Sign in with code | `/create/code` · `CodeSignIn`, `CodeField` | — (web board) | implemented (T105) |
 | `2026:2905` | Sign in with code · Prefilled · Web · Sky | Sign in, prefilled (hint under the field) | `/create/code?c=` · `CodeField` | — (web board) | implemented (T105) |
@@ -73,6 +73,8 @@ Status: **designed** = a board exists in the Figma file; **generated** = drawn b
 | `2031:4384` | Admin · Orders · Empty · Sky | Grey empty cards | `/admin` | — (web board) | implemented (T106) |
 | `2034:3995` | Admin · AI trace · Sky | Step cards, thumbnails with labels and Chosen, inline Request / Response, Original photo + Mask + Open mask | `/admin/trace/[artworkId]` · `admin/TraceView` | — (web board) | implemented (T106) |
 | `2034:4158` | Admin · AI trace · Missing · Sky | Grey empty card + Back to orders | `admin/TraceView` | — (web board) | implemented (T106) |
+
+iOS (T104): the eight designed boards and the B1 iOS boards (Sign in with code, Speak, Drawing your idea, Voice result, Camera, Adjust cutout `2013:408`/`2013:618`, Listing details, Story video, Video saved) are implemented; details in `docs/handoffs/ios.md` ("Screens to the boards (T104)"). Copy from the designed boards replaced the app's wording: Welcome "Your art, on things people love." / "Draw it or say it. We make the sticker or tote." / "I already have an account"; Pick "What do you want to make?" / "You can make the other one later." / "Die-cut, waterproof" / "Natural canvas"; Choose "Choose how you want to bring your drawing into the studio." / "Snap your drawing" / "Pick one you already have" / "Describe it, we draw it for you" / "NO DRAWING SKILL NEEDED"; Finding "Finding your drawings…" / "This takes a few seconds…"; Ready "Your sticker is ready!" / "People can buy it on The 3rd Eye. It's also saved in My designs, so you can list it later too."; Live "<title> is in the shop." / "We'll tell you when someone buys it. Every sticker ships with your story tag." UI-test labels follow (`Sticker, Die-cut, waterproof`, `Upload a picture, Pick one you already have`, `Say it out loud, Describe it, we draw it for you`).
 
 Frame 1 on Welcome (`36:422`) is the white logo mark; on every other board the mark is "Union" (`45:712`, `36:469`, `36:471`, `36:473`, `40:500`, `36:475`, `36:477`), 40×35 at the top left, exported as `design/assets/logo-mark.svg`.
 

@@ -42,7 +42,7 @@ final class TabBarUITests: XCTestCase {
     }
 
     // Re-tapping the selected tab goes back to its first screen.
-    let sticker = app.buttons["Sticker, Die-cut around your art"]
+    let sticker = app.buttons["Sticker, Die-cut, waterproof"]
     XCTAssertTrue(sticker.waitForExistence(timeout: 5))
     sticker.tap()
     XCTAssertTrue(app.buttons["Back"].waitForExistence(timeout: 5))

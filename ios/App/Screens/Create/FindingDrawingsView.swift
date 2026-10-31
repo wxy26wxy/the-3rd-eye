@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Loading: upload the photo and let SAM find every drawing on it.
+/// Board "Finding drawings · Cloud studio" (`21:4390`): upload the photo and let SAM find every
+/// drawing on it; the tall green card with the searching mascot and one line under it.
 struct FindingDrawingsView: View {
   @Environment(AppState.self) private var app
   @State private var error: String?
@@ -8,11 +9,13 @@ struct FindingDrawingsView: View {
 
   var body: some View {
     LoadingScreen(
-      title: "Finding your drawings",
-      detail: "Looking for every drawing on the page. This takes a few seconds.",
+      title: "Finding your drawings…",
+      detail: "This takes a few seconds…",
       pose: .magnifier,
       error: error,
-      retry: { error = nil; attempt += 1 }
+      retry: { error = nil; attempt += 1 },
+      cardAspect: ThemeEffects.tallSkyCardAspect,
+      showsSpinner: false
     )
     .task(id: attempt) { await run() }
   }

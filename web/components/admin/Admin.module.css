@@ -53,6 +53,8 @@
 .note { color: var(--color-ink-soft); font-size: var(--type-caption-size); font-weight: var(--type-caption-weight); line-height: var(--type-caption-lh); }
 .notes { list-style: none; padding: var(--space-s) var(--space-s); background: var(--surface-alt); border-radius: calc(var(--radius-s) * 2); font-size: var(--type-caption-size); font-weight: var(--type-caption-weight); line-height: var(--type-caption-lh); }
 .statusCell { min-width: 13rem; }
+/* Board 2031:3895: the "Mark {status}" pills stack one per line under the chip. */
+.statusCell .statusForm { flex-direction: column; align-items: flex-start; }
 .productCell { min-width: 15rem; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--type-caption-size); }
 /* Text links with a 44 px hit area; the drawn text is the visible part. */

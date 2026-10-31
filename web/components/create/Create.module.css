@@ -117,8 +117,15 @@
   line-height: var(--type-body-lh);
 }
 .promises { gap: var(--space-xs); padding: var(--space-l) var(--space-xl); border-radius: var(--radius-card); list-style: decimal inside; }
+/* The footer text action sits on the photo: it gets the same ink-55 % scrim as a pill (4.5:1 on the
+   lightest clouds; the board draws it bare, which measured 2.45:1). */
 .welcomeLinks { display: flex; justify-content: center; }
-.welcomeLinks a, .welcomeLinks button { color: var(--text-on-dark); font-weight: var(--type-body-weight); }
+.welcomeLinks a, .welcomeLinks button {
+  color: var(--text-on-dark); font-weight: var(--type-body-weight);
+  padding-inline: var(--space-xl);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--primary) 55%, transparent);
+}
 
 /* shared pieces */
 /* Record button (84 px): ink with a mic; while recording deep green with an accent ring and Stop. */
@@ -203,7 +210,7 @@
   position: relative; display: block; width: calc(var(--size-cta) + var(--size-radio)); aspect-ratio: 1;
   border: var(--border-thin) solid var(--border); border-radius: var(--radius-m); background: var(--surface);
 }
-.piece .pieceArt { border-radius: var(--radius-m); background: transparent; height: 100%; opacity: var(--opacity-disabled); }
+.piece .pieceArt { border-radius: var(--radius-m); background: transparent; height: 100%; opacity: calc(var(--opacity-disabled) * 0.75); }
 .pieceCheck {
   position: absolute; top: calc(var(--space-s) * -1); right: calc(var(--space-s) * -1);
   display: none; place-items: center; width: var(--size-radio); height: var(--size-radio);

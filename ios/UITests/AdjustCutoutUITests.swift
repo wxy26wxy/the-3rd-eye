@@ -268,8 +268,9 @@ final class AdjustCutoutUITests: XCTestCase {
     let photo = app.otherElements["cutout-photo"]
     XCTAssertTrue(photo.waitForExistence(timeout: 20))
     app.buttons["Draw a box"].tap()
-    // Tapping the mode scrolls the page a little, so the drag stays in the photo's lower part.
-    let start = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.4))
+    // Tapping the mode scrolls the page (the photo card and the message line under it push the
+    // tools down, T104), so the drag stays in the photo's lower part, which is on screen.
+    let start = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.55))
     let end = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.9))
     start.press(forDuration: 0.3, thenDragTo: end)
     XCTAssertTrue(app.buttons["Clear marks"].waitForExistence(timeout: 3), "the box is drawn")
@@ -279,7 +280,7 @@ final class AdjustCutoutUITests: XCTestCase {
     XCTAssertTrue(app.buttons["Back to photo"].waitForExistence(timeout: 10))
     let box = try XCTUnwrap(try lastBody("cleanup")["box"] as? [Double])
     XCTAssertEqual(box.count, 4)
-    for (sent, expected) in zip(box, [240.0, 640, 1080, 1440]) {
+    for (sent, expected) in zip(box, [240.0, 880, 1080, 1440]) {
       XCTAssertEqual(sent, expected, accuracy: 48, "within 12 pt of the drag (4 image px per pt)")
     }
   }

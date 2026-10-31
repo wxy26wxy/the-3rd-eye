@@ -1,131 +1,73 @@
+import AVFoundation
 import SwiftUI
 
-/// "Tag", the story-tag mascot, drawn with Shapes. Decorative unless given a label.
+/// The mascot (photographic green monster from the Sky boards). Decorative unless given a label.
+/// - `.book`: reading a book (`mascot-book`, sticker cut-out).
+/// - `.front`: standing, facing front (`mascot-front`).
+/// - `.magnifier`: searching with a magnifier, a muted looping video (`mascot-magnifier.mp4`);
+///   with Reduce Motion on it is the still `mascot-front` instead.
 struct TagMascot: View {
-  enum Pose { case listening, cheering, waving }
+  enum Pose { case book, front, magnifier }
 
   let pose: Pose
   var size: CGFloat = Theme.Size.record * 1.6
-  @Environment(\.themeColors) private var colors
+  var label: LocalizedStringKey?
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
-  @State private var wave = false
 
   var body: some View {
-    let line = Theme.Border.card
-    ZStack {
-      // Arms sit behind the body.
-      ArmsShape(pose: pose)
-        .stroke(colors.border, style: StrokeStyle(lineWidth: line * 2.2, lineCap: .round, lineJoin: .round))
-        .rotationEffect(.degrees(pose == .waving && wave ? 6 : 0), anchor: .center)
-
-      TagBodyShape()
-        .fill(colors.border, style: FillStyle(eoFill: true))
-        .offset(y: Theme.Shadow.hard.y)
-      TagBodyShape()
-        .fill(colors.accent, style: FillStyle(eoFill: true))
-      TagBodyShape()
-        .stroke(colors.border, lineWidth: line)
-      FaceShape(pose: pose)
-        .fill(colors.border)
-      SmileShape(pose: pose)
-        .stroke(colors.border, style: StrokeStyle(lineWidth: line, lineCap: .round))
-      if pose != .waving {
-        ExtrasShape(pose: pose)
-          .stroke(colors.border, style: StrokeStyle(lineWidth: line, lineCap: .round))
+    Group {
+      if pose == .magnifier && !reduceMotion {
+        LoopingVideo(resource: Tokens.Asset.mascotMagnifier)
+      } else {
+        Image(pose == .book ? Tokens.Asset.mascotBook : Tokens.Asset.mascotFront)
+          .resizable()
+          .scaledToFit()
       }
     }
     .frame(width: size, height: size)
-    .accessibilityHidden(true)
-    .onAppear {
-      guard pose == .waving, !reduceMotion else { return }
-      withAnimation(.easeInOut(duration: ThemeEffects.motionSlow * 2).repeatForever(autoreverses: true)) {
-        wave = true
-      }
-    }
+    .accessibilityElement()
+    .accessibilityLabel(label.map { Text($0) } ?? Text(""))
+    .accessibilityAddTraits(.isImage)
+    .accessibilityHidden(label == nil)
   }
 }
 
-private extension CGRect {
-  func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: minX + width * x, y: minY + height * y) }
-}
+/// A muted, looping, aspect-filling MP4 from `Resources/Animations` (no controls).
+/// Draws nothing if the file is missing.
+struct LoopingVideo: UIViewRepresentable {
+  let resource: String
 
-/// Tag silhouette: rounded body with a clipped top and a punched hole.
-private struct TagBodyShape: Shape {
-  func path(in r: CGRect) -> Path {
-    var path = Path()
-    path.move(to: r.p(0.36, 0.14))
-    path.addLine(to: r.p(0.64, 0.14))
-    path.addLine(to: r.p(0.78, 0.30))
-    path.addQuadCurve(to: r.p(0.74, 0.90), control: r.p(0.84, 0.86))
-    path.addLine(to: r.p(0.26, 0.90))
-    path.addQuadCurve(to: r.p(0.22, 0.30), control: r.p(0.16, 0.86))
-    path.closeSubpath()
-    let hole = CGRect(origin: r.p(0.46, 0.20), size: CGSize(width: r.width * 0.08, height: r.width * 0.08))
-    path.addEllipse(in: hole)
-    return path
+  func makeUIView(context: Context) -> PlayerView {
+    let view = PlayerView()
+    view.isUserInteractionEnabled = false
+    guard let url = Bundle.main.url(forResource: resource, withExtension: "mp4") else { return view }
+    let player = AVQueuePlayer()
+    player.isMuted = true
+    player.preventsDisplaySleepDuringVideoPlayback = false
+    // The MP4 has no audio track; muted as well so no sound can ever play.
+    player.audiovisualBackgroundPlaybackPolicy = .pauses
+    context.coordinator.looper = AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))
+    view.playerLayer.player = player
+    view.playerLayer.videoGravity = .resizeAspectFill
+    player.play()
+    return view
   }
-}
 
-private struct FaceShape: Shape {
-  let pose: TagMascot.Pose
-  func path(in r: CGRect) -> Path {
-    var path = Path()
-    let eye = r.width * 0.06
-    let eyeY: CGFloat = pose == .cheering ? 0.47 : 0.49
-    path.addEllipse(in: CGRect(origin: r.p(0.38, eyeY), size: CGSize(width: eye, height: eye * 1.25)))
-    path.addEllipse(in: CGRect(origin: r.p(0.56, eyeY), size: CGSize(width: eye, height: eye * 1.25)))
-    return path
+  func updateUIView(_ uiView: PlayerView, context: Context) {}
+
+  static func dismantleUIView(_ uiView: PlayerView, coordinator: Coordinator) {
+    uiView.playerLayer.player?.pause()
+    coordinator.looper = nil
   }
-}
 
-private struct SmileShape: Shape {
-  let pose: TagMascot.Pose
-  func path(in r: CGRect) -> Path {
-    var path = Path()
-    let depth: CGFloat = pose == .cheering ? 0.78 : 0.72
-    path.move(to: r.p(0.40, 0.64))
-    path.addQuadCurve(to: r.p(0.60, 0.64), control: r.p(0.50, depth))
-    return path
+  func makeCoordinator() -> Coordinator { Coordinator() }
+
+  final class Coordinator {
+    var looper: AVPlayerLooper?
   }
-}
 
-private struct ArmsShape: Shape {
-  let pose: TagMascot.Pose
-  func path(in r: CGRect) -> Path {
-    var path = Path()
-    switch pose {
-    case .cheering:
-      path.move(to: r.p(0.24, 0.55)); path.addLine(to: r.p(0.08, 0.22))
-      path.move(to: r.p(0.76, 0.55)); path.addLine(to: r.p(0.92, 0.22))
-    case .waving:
-      path.move(to: r.p(0.24, 0.60)); path.addLine(to: r.p(0.10, 0.80))
-      path.move(to: r.p(0.76, 0.55)); path.addLine(to: r.p(0.93, 0.25))
-    case .listening:
-      path.move(to: r.p(0.24, 0.60)); path.addLine(to: r.p(0.10, 0.80))
-      path.move(to: r.p(0.76, 0.58)); path.addQuadCurve(to: r.p(0.86, 0.36), control: r.p(0.94, 0.52))
-    }
-    return path
-  }
-}
-
-/// Sound waves for listening, stars for cheering.
-private struct ExtrasShape: Shape {
-  let pose: TagMascot.Pose
-  func path(in r: CGRect) -> Path {
-    var path = Path()
-    switch pose {
-    case .listening:
-      path.move(to: r.p(0.90, 0.20)); path.addQuadCurve(to: r.p(0.98, 0.34), control: r.p(0.97, 0.24))
-      path.move(to: r.p(0.86, 0.10)); path.addQuadCurve(to: r.p(1.0, 0.30), control: r.p(0.99, 0.12))
-    case .cheering:
-      for c in [r.p(0.06, 0.08), r.p(0.94, 0.06), r.p(0.50, 0.02)] {
-        let s = r.width * 0.035
-        path.move(to: CGPoint(x: c.x - s, y: c.y)); path.addLine(to: CGPoint(x: c.x + s, y: c.y))
-        path.move(to: CGPoint(x: c.x, y: c.y - s)); path.addLine(to: CGPoint(x: c.x, y: c.y + s))
-      }
-    case .waving:
-      break
-    }
-    return path
+  final class PlayerView: UIView {
+    override static var layerClass: AnyClass { AVPlayerLayer.self }
+    var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
   }
 }

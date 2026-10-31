@@ -9,7 +9,7 @@ struct YoureLiveView: View {
   var body: some View {
     FlowScreen(title: "You're live!", subtitle: "Your art is in the shop. We'll tell you when someone buys it.", showsBack: false) {
       VStack(spacing: Theme.Space.l) {
-        TagMascot(pose: .cheering)
+        TagMascot(pose: .front)
         if let product = app.flow.product {
           RemoteImage(url: product.mockupUrl.flatMap(URL.init(string:)) ?? app.flow.artwork?.displayURL, altText: app.flow.artwork?.altText)
             .frame(maxHeight: ThemeEffects.artworkMaxHeight)

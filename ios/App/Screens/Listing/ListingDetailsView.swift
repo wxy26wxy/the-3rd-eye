@@ -20,7 +20,7 @@ struct ListingDetailsView: View {
     FlowScreen(title: "Listing details", subtitle: "Check the name and price, then list it.") {
       if creatingProduct {
         VStack(spacing: Theme.Space.l) {
-          TagMascot(pose: .listening)
+          TagMascot(pose: .book)
           Text(app.flow.productType == .tote ? "Putting your art on a tote bag. This can take up to a minute." : "Making your sticker. This can take up to a minute.")
             .themeFont(.bodyL)
             .foregroundStyle(colors.text)

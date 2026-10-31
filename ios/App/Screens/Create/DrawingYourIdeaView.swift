@@ -10,7 +10,7 @@ struct DrawingYourIdeaView: View {
     LoadingScreen(
       title: "Drawing your idea",
       detail: "Making your picture now. This can take up to a minute.",
-      pose: .listening,
+      pose: .magnifier,
       spoken: app.flow.shaped?.spokenConfirmation,
       error: error,
       retry: { error = nil; attempt += 1 }

@@ -62,6 +62,34 @@ enum ThemeEffects {
   /// Checkerboard squares behind a cut-out preview: `border` at this opacity on `surface`
   /// (visible in high contrast too, where surface and surfaceAlt are the same).
   static let checkerOpacity: Double = 0.12
+  /// font.display.weightOnPhoto (Inter Bold for titles on the Welcome photo).
+  static let displayWeightOnPhoto: Int = 700
+  /// Primary action insets: 28 pt before the label, 4 pt around the arrow circle (56 − 48) / 2.
+  static let ctaLeading: CGFloat = 28
+  static let ctaInset: CGFloat = (Tokens.Size.cta - Tokens.Size.ctaArrow) / 2
+  /// Light-green circle behind a method icon: `accent` at this opacity (the board's `#E4F3C8`,
+  /// an open question in docs/design/tokens.md, proposal `color.accentSoft`).
+  static let iconTileOpacity: Double = 0.25
+  /// With Increase Contrast, the panel behind white text on a photo is ink at this opacity
+  /// (white on it ≥ 7:1 whatever the photo; the standard `color.scrim` is 35 % black).
+  static let highContrastScrimOpacity: Double = 0.8
+  /// Still mascot on the sky card: the "Mascot / Front" slot on You're live (153.85 × 181).
+  static let stillMascot = CGSize(width: 154, height: 181)
+  /// Pressed buttons dim slightly (Sky has no hard shadow to press into).
+  static let pressedOpacity: Double = 0.8
+  /// Glyph inside the primary action's arrow circle (`Icon / arrow`, 18 in a 48 circle).
+  static let ctaGlyph: CGFloat = 18
+  /// Glyph inside icon buttons and Back (`Icon / chevron-left`, 22 in a 44 circle).
+  static let iconGlyph: CGFloat = 22
+  /// Custom tab bar (Figma `Tab bar`): 56 pt tabs, a 56 × 30 accent pill behind a 22 pt icon,
+  /// a 20 pt ink badge, 6 pt top padding.
+  static let tabHeight: CGFloat = Tokens.Size.cta
+  static let tabPill = CGSize(width: Tokens.Size.cta, height: 30)
+  static let tabIcon: CGFloat = 22
+  static let tabBadge: CGFloat = 20
+  static let tabTopPadding: CGFloat = Tokens.Space.xs
+  /// Sky card on the loading screen (Figma `Sky card`; the `sky` slot on You're live is 342 × 286).
+  static let skyCardAspect: CGFloat = 342.0 / 286.0
   /// Story video recording limit in seconds.
   static let storyVideoSeconds: Double = 30
   /// Thank-you video recording limit in seconds.

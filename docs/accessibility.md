@@ -23,6 +23,13 @@ The app uses iOS's own accessibility settings instead of copying them (decision 
 - **Simple mode:** still honoured. It defaults to on and no client can change it today (API or seed only); with it on the app asks for one picture, so the pager in step 6 below needs a creator with `simpleMode: false` (the mock: sign in with a code starting `MULTI`).
 - Pictures are single VoiceOver elements labelled with their alt text; cards that belong together (eyebrow + text) read as one element.
 
+### VoiceOver check (iOS: Sky tab bar, T103) — to confirm by ear in test round 3
+The Home tab bar is a SwiftUI drawing inside a `UITabBar` host that exposes one element per tab (XCUITest sees one tab bar with four buttons and the selected state; `TabBarUITests`). What VoiceOver says has not been heard yet. On a device with VoiceOver on:
+1. Swipe to the tab bar. Expected: "Create, selected, tab, 1 of 4" (or the system's equivalent wording); then "My designs, tab, 2 of 4", "Orders, tab, 3 of 4", "Messages, tab, 4 of 4". No separate stops for the icons.
+2. With an unread order, Orders reads "… 2 new".
+3. Double-tap My designs: it becomes selected and the My designs screen shows. Double-tap it again on a pushed design: back to the grid.
+4. If "tab" or the position is missing, note the exact reading in the test-round notes; the fallback is to set the `.tabBar` trait on a plain container view (see the T103 decision).
+
 ### VoiceOver test script (Speak → Voice result)
 Run on a phone or simulator with VoiceOver on (Settings → Accessibility → VoiceOver, or the Accessibility Inspector in the simulator), signed in.
 1. Create tab → swipe to "Sticker, Die-cut around your art", double-tap. Swipe to "Say it out loud, Describe it, we draw it", double-tap.

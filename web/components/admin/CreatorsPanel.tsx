@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useRef, useState, type RefObject } from "react";
 import { addCreator, rotateCreatorCode, setCreatorHidden, type CreatorState, type IssuedView } from "@/app/admin/actions";
 import type { AdminCreator } from "@/lib/db/queries.contract";
 import { fmt, m } from "@/components/messages";
@@ -113,14 +113,23 @@ function RotateCode({ id, name, isExample, action, pending }: {
       </button>
     );
   }
+  const back = () => { setConfirming(false); setTimeout(() => triggerRef.current?.focus(), 0); };
+  return <RotateConfirm id={id} name={name} isExample={isExample} action={action} pending={pending} yesRef={yesRef} onSubmit={() => setTimeout(back, 0)} onCancel={back} />;
+}
+
+/** The confirm step of New code (Confirmation dialog pattern): the warning, the example note, Yes / Cancel. */
+export function RotateConfirm({ id, name, isExample, action, pending, yesRef, onSubmit, onCancel }: {
+  id: string; name: string; isExample: boolean; action: (fd: FormData) => void; pending: boolean;
+  yesRef?: RefObject<HTMLButtonElement | null>; onSubmit?: () => void; onCancel: () => void;
+}) {
   return (
-    <form action={action} onSubmit={() => setTimeout(() => { setConfirming(false); setTimeout(() => triggerRef.current?.focus(), 0); }, 0)} className={styles.confirm} role="group" aria-label={fmt(c.newCodeLabel, { name })}>
+    <form action={action} onSubmit={onSubmit} className={styles.confirm} role="group" aria-label={fmt(c.newCodeLabel, { name })}>
       <input type="hidden" name="creatorId" value={id} />
       <p className={styles.sub}>{fmt(c.rotateConfirm, { name })}</p>
       {isExample ? <p className={styles.sub}>{c.exampleNote}</p> : null}
       <div className={styles.statusForm}>
         <button ref={yesRef} type="submit" className={styles.pill} disabled={pending}>{c.rotateYes}</button>
-        <button type="button" className={styles.pill} onClick={() => { setConfirming(false); setTimeout(() => triggerRef.current?.focus(), 0); }}>{c.rotateCancel}</button>
+        <button type="button" className={styles.pill} onClick={onCancel}>{c.rotateCancel}</button>
       </div>
     </form>
   );

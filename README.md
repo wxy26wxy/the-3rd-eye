@@ -4,6 +4,17 @@ The 3rd Eye helps artists with disabilities turn their art into products people 
 
 This is our entry for the Meta Global AI Developer Hackathon (Startups track, "Build for Your World"). We built it from Oct 27 to Nov 4, 2026, and everything in this repository was written in that period.
 
+## Screenshots
+
+<p>
+  <img width="280" src="docs/images/ios-welcome.png" alt="The iOS app's Welcome screen: a green fuzzy mascot holding two tote bags on a sky photo, with the headline &quot;Your art, on things people love.&quot; and a Start creating button">
+  <img width="280" src="docs/images/ios-pick-product.png" alt="The iOS app's What do you want to make screen with Sticker and Tote bag cards">
+</p>
+
+![The shop home page at desktop width: a dark translucent card over a mascot-and-sky photo with the eyebrow "Art with", the headline "A story you can hold.", and the buttons Shop the collection and How story tags work](docs/images/web-shop-home.png)
+
+The iOS shots come from the simulator running against the mock API (`ios/scripts/mock_api.py`); the shop shot is the local dev server. Mascot and sky imagery: The 3rd Eye design team.
+
 ## The four problems
 
 1. **Art that can't sell at scale.** Most art studios serving people with disabilities can only sell original pieces locally, and once a piece sells, it's gone. We turn one artwork into products that can be sold again and again, with no inventory.

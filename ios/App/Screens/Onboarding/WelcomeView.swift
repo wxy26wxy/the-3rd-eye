@@ -5,6 +5,12 @@ import SwiftUI
 /// "I already have an account" (both open the code screen: creators sign in with their studio code).
 struct WelcomeView: View {
   @Environment(\.themeColors) private var colors
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+  @Environment(\.colorSchemeContrast) private var contrast
+
+  /// At accessibility text sizes or with Increase Contrast the words run past the top scrim, so
+  /// they sit on a scrim panel instead (white on it stays readable whatever the photo shows).
+  private var usesPanel: Bool { dynamicTypeSize.isAccessibilitySize || contrast == .increased }
 
   var body: some View {
     GeometryReader { proxy in
@@ -23,6 +29,12 @@ struct WelcomeView: View {
           .accessibilityLabel(Text(verbatim: Tokens.Brand.name + ". ") + Text("Your art, on things people love.") + Text(verbatim: " ")
                               + Text("Draw it or say it. We make the sticker or tote."))
           .accessibilityAddTraits(.isHeader)
+          .padding(usesPanel ? Theme.Space.l : 0)
+          .background {
+            if usesPanel {
+              RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(colors.scrim)
+            }
+          }
         }
         .padding(.horizontal, Theme.Space.page)
         .padding(.top, Theme.Space.s)

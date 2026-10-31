@@ -67,7 +67,7 @@ All **derived** from the brief rule "ink on white, borders `#111827`": `bg`, `su
 | `body` | 15 / 400 / 1.5 | node: `45:715`, `40:486`, `21:4542`; secondary pill labels `I21:4549;7:15` |
 | `bodyS` | 13 / 400 / 1.4 | node: card captions `45:727`, `45:733`; messages `45:690`, `45:693` (13 px, line height 1.5) |
 | `caption` | 13 / 500 / 1.4 | ruling + a11y: 13 px floor (brief said 12). Nearest node: "I already have an account" `36:429` (14 px Medium) |
-| `eyebrow` | 11 / 800 / 0.08em caps | ruling (brief value). Board: voice badge `45:770` is Figtree ExtraBold 10 px, tracking 1 px |
+| `eyebrow` | 13 / 800 / 0.08em caps | PM ruling 2026-10-30 (accessibility floor for captions; matches the Figma `eyebrow` text style; the brief said 11). Board: voice badge `45:770` is Figtree ExtraBold 10 px, tracking 1 px |
 
 ## space
 | Key | Value | Source |

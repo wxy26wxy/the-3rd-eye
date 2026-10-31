@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import { CheckIcon } from "./Icons";
 import styles from "./ChoiceCard.module.css";
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
 /**
  * Big selectable card backed by a native radio input, so arrow keys, forms and
  * screen readers work without JavaScript. Put several inside a <fieldset>.
+ * `badge` is a short line shown as an eyebrow above the title (Sky: "No pen needed!").
  */
 export function ChoiceCard({ title, description, media, badge, className, type = "radio", ...input }: Props) {
   return (
@@ -19,11 +21,11 @@ export function ChoiceCard({ title, description, media, badge, className, type =
       <input type={type} className={styles.input} {...input} />
       {media ? <span className={styles.media} aria-hidden="true">{media}</span> : null}
       <span className={styles.body}>
+        {badge ? <span className={styles.badge}>{badge}</span> : null}
         <span className={styles.title}>{title}</span>
         {description ? <span className={styles.desc}>{description}</span> : null}
       </span>
-      {badge ? <span className={styles.badge}>{badge}</span> : null}
-      <span className={styles.check} aria-hidden="true" />
+      <span className={styles.check} aria-hidden="true"><CheckIcon /></span>
     </label>
   );
 }

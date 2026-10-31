@@ -1,9 +1,11 @@
 /* Global base styles. Every value comes from app/tokens.css (generated from design/tokens.json). */
 
-/* next/font self-hosts the families; point the token families at the loaded faces. */
+/* next/font self-hosts Inter as --nf-body (app/layout.tsx); both token families point at it. */
 :root {
-  --font-display: var(--nf-display, var(--nf-body, 'Inter')), system-ui, sans-serif;
+  --font-display: var(--nf-body, 'Inter'), system-ui, sans-serif;
   --font-body: var(--nf-body, 'Inter'), system-ui, sans-serif;
+  /* Focus ring (Sky ruling): 2 px ink, 2 px offset so the page shows between ring and control. */
+  --focus-width: calc(var(--border-thin) * 2);
   /* Layout widths (not design tokens; relative units only). */
   --layout-max: 75rem;
   --layout-narrow: 36rem;
@@ -32,9 +34,9 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
-  font-size: var(--type-body-s-size);
-  line-height: var(--type-body-s-lh);
-  font-weight: var(--type-body-s-weight);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  font-weight: var(--type-body-weight);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -42,16 +44,7 @@ body {
   body { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); }
 }
 
-/* Subtle grain over the green ground. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: var(--grain-opacity);
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-}
+/* Sky (T102): no grain. The token --grain-opacity stays (0) for other platforms; nothing draws it on the web. */
 
 img, svg, video { display: block; max-width: 100%; }
 img, video { height: auto; }
@@ -63,9 +56,8 @@ p { max-width: 65ch; }
 ul[role="list"], ol[role="list"] { list-style: none; }
 
 :focus-visible {
-  outline: var(--border-card) solid var(--focus-ring);
-  outline-offset: var(--border-card);
-  border-radius: var(--radius-s);
+  outline: var(--focus-width) solid var(--text);
+  outline-offset: var(--focus-width);
 }
 
 .visually-hidden {

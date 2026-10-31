@@ -1,5 +1,5 @@
 .field { display: grid; gap: var(--space-xs); }
-.label { font-size: var(--type-body-size); font-weight: var(--type-title-m-weight); }
+.label { font-size: var(--type-caption-size); line-height: var(--type-caption-lh); font-weight: var(--type-caption-weight); color: var(--text); }
 .hint { font-size: var(--type-caption-size); line-height: var(--type-caption-lh); color: var(--text-muted); }
 .error { font-size: var(--type-caption-size); font-weight: var(--type-title-m-weight); color: var(--danger); }
 .control {
@@ -8,7 +8,8 @@
   padding: var(--space-m) var(--space-l);
   background: var(--surface-alt);
   color: var(--text);
-  border: var(--border-card) solid var(--border);
+  /* a11y: input boundary at least 3:1 against white (text-muted is 4.8:1); the hairline card border is not enough. */
+  border: var(--border-thin) solid var(--text-muted);
   border-radius: var(--radius-m);
   font-size: var(--type-body-l-size);
   font-weight: var(--type-body-l-weight);
@@ -16,7 +17,7 @@
 }
 textarea.control { resize: vertical; }
 .control::placeholder { color: var(--text-muted); opacity: 1; }
-.control:focus-visible { outline-offset: var(--border-thin); }
+.control:focus-visible { border-color: var(--text); }
 .control[aria-invalid="true"] { border-color: var(--danger); }
 
 .switchRow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-l); }
@@ -28,8 +29,8 @@ textarea.control { resize: vertical; }
   width: calc(var(--size-min-target) * 1.6);
   height: var(--size-min-target);
   border-radius: var(--radius-pill);
-  background: var(--color-sage);
-  border: var(--border-card) solid var(--border);
+  background: var(--border);
+  border: var(--border-thin) solid var(--border);
   cursor: pointer;
   transition: background var(--motion-base) var(--motion-easing);
 }
@@ -41,10 +42,10 @@ textarea.control { resize: vertical; }
   width: calc(var(--size-min-target) - var(--space-l));
   aspect-ratio: 1;
   border-radius: var(--radius-pill);
-  background: var(--surface-alt);
+  background: var(--surface);
   border: var(--border-thin) solid var(--border);
   transform: translateY(-50%);
   transition: left var(--motion-base) var(--motion-easing);
 }
-.switch:checked { background: var(--accent); }
-.switch:checked::after { left: calc(100% - var(--size-min-target) + var(--space-m)); background: var(--border); }
+.switch:checked { background: var(--accent-ink); border-color: var(--accent-ink); }
+.switch:checked::after { left: calc(100% - var(--size-min-target) + var(--space-m)); background: var(--surface); }

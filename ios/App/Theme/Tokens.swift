@@ -66,7 +66,7 @@ enum Tokens {
     static let body: CGFloat = 15
     static let bodyS: CGFloat = 13
     static let caption: CGFloat = 13
-    static let eyebrow: CGFloat = 11
+    static let eyebrow: CGFloat = 13
   }
   enum TypeWeight {
     static let displayXL = 500

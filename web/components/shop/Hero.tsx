@@ -21,7 +21,7 @@ export function Hero() {
       </div>
       <div className={styles.heroArt} aria-hidden="true">
         <div className={styles.heroBlob}>
-          <Tag pose="waving" decorative className={styles.heroTag} />
+          <Tag pose="waving" decorative eager className={styles.heroTag} />
         </div>
         <Starburst className={styles.heroBurst}>{m.shop.heroBurst}</Starburst>
       </div>

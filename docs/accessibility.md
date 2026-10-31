@@ -77,7 +77,9 @@ Raised on the Figma file (key `vIOMPzc2kjP18BbgduLmc8`) during the T100 intake. 
 | white on the sky photo | 2.4–2.7:1 (sky), ~1.5:1 (pink cloud) | Welcome headline, body, "I already have an account" | **fails**: needs `color.scrim` |
 | white on sky under the scrim `rgba(0,0,0,0.35)` | 5.3–5.7:1 (sky), ~3.5:1 (cloud) | same | passes for the 48 px headline everywhere; body text must sit over sky, not cloud, or the scrim is a gradient that is darkest behind the text |
 | border `#D1D5DB` on white | 1.5:1 | unselected card and secondary pill outline | below 3:1 for UI boundaries; the card is still found by its label and radio, the pill by its text. Flagged to the designer |
-| focus `#1E3A24` on white / on accent | 12.5:1 / 5.7:1 | focus ring | pass (kept from Direction A) |
+| text field border textMuted `#6B7280` on white / on `#F3F4F6` | 4.8:1 / 4.4:1 | web text inputs and textareas (`ui/Field`, T102 fix round 1) | pass 3:1 for input boundaries; inputs never use the `#D1D5DB` hairline because an empty field has no label inside it to find |
+| focus `#1E3A24` on white / on accent | 12.5:1 / 5.7:1 | focus ring | pass (kept from Direction A); the web ring is ink `#111827`, 2 px, 2 px offset since T102 |
+| forced colours (Windows High Contrast) | system colours | web choice cards and option rows | the selected card gets a `Highlight` border, outline and radio; the check glyph of unselected cards is hidden with `visibility`, not colour (T102 fix round 1) |
 
 1. **White text on the sky photo needs a scrim.** Token `color.scrim` = `rgba(0,0,0,0.35)` (also `semantic.scrim`) is added now. Welcome lays it under the text block (or as a top-to-bottom gradient ending in it) on both clients.
 2. **13 px is the floor for all text.** Captions on the boards are 13 px (`type.bodyS`), and `type.caption` is 13 (ruling; the brief said 12). The one exception is `type.eyebrow`, 11 px caps with 0.08em tracking, for short labels such as "NO DRAWING SKILL NEEDED". All sizes scale: Dynamic Type through `relativeTo:` on iOS, `rem`-based sizes on the web from T102.

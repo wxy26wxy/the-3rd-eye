@@ -4,7 +4,7 @@
 .empty { padding: var(--space-xxl); background: var(--surface); border: var(--border-thin) dashed var(--border); border-radius: var(--radius-card); font-weight: var(--type-title-m-weight); max-width: none; }
 .scroll { overflow-x: auto; background: var(--surface); border: var(--border-card) solid var(--border); border-radius: var(--radius-card); box-shadow: var(--shadow-hard-l); }
 .table { width: 100%; border-collapse: collapse; font-size: var(--type-body-s-size); }
-.table th, .table td { padding: var(--space-m); text-align: left; vertical-align: top; border-bottom: 1px solid var(--color-sage); }
+.table th, .table td { padding: var(--space-m); text-align: left; vertical-align: top; border-bottom: var(--border-thin) solid var(--border); }
 .table thead th { font-size: var(--type-eyebrow-size); letter-spacing: var(--type-eyebrow-ls); text-transform: uppercase; white-space: nowrap; background: var(--accent); }
 .table tbody th > *, .table td > * { display: block; width: fit-content; }
 .table td > * + * { margin-top: var(--space-xs); }
@@ -49,7 +49,7 @@
 .imageRow li { display: grid; gap: var(--space-xs); justify-items: start; padding: var(--space-xs); border-radius: var(--radius-m); border: var(--border-thin) solid transparent; }
 .imageRow li.chosen { border-color: var(--border); background: var(--accent); }
 .traceThumb { width: 100%; max-width: 14rem; }
-.callBlock { display: grid; gap: var(--space-xs); padding-top: var(--space-s); border-top: 1px solid var(--color-sage); }
+.callBlock { display: grid; gap: var(--space-xs); padding-top: var(--space-s); border-top: var(--border-thin) solid var(--border); }
 .section { display: grid; gap: var(--space-m); }
 .h2 { font-family: var(--font-display); font-size: var(--type-title-l-size); }
 .addForm { display: grid; gap: var(--space-m); max-width: 32rem; padding: var(--space-l); background: var(--surface); border: var(--border-thin) solid var(--border); border-radius: var(--radius-card); }

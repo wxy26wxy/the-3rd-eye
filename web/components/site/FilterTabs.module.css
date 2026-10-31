@@ -1,5 +1,5 @@
 /* Phones: one horizontally scrollable row that runs to the screen edges; the padding keeps the focus
-   ring inside the scroller. From 48rem the pills wrap instead. */
+   ring inside the scroller. From the 48 rem breakpoint the pills wrap instead. */
 .nav {
   margin-inline: calc(var(--layout-gutter) * -1);
   overflow-x: auto;

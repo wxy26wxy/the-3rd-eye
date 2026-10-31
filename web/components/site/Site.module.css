@@ -76,7 +76,7 @@
   color: var(--text);
   overflow-y: auto;
 }
-.drawer::backdrop { background: color-mix(in srgb, var(--primary) 55%, transparent); }
+.drawer::backdrop { background: var(--scrim); }
 .drawerHead {
   display: flex;
   align-items: center;
@@ -109,9 +109,9 @@
 .footerInner {
   max-width: calc(var(--layout-max) + var(--layout-gutter) * 2);
   margin-inline: auto;
-  padding: 3.5rem var(--layout-gutter);
+  padding: var(--space-band) var(--layout-gutter);
   display: grid;
-  gap: 2rem;
+  gap: var(--space-block);
 }
 .footerBrand { display: grid; gap: var(--space-l); justify-items: start; max-width: 26.25rem; font-size: var(--type-body-size); line-height: var(--type-body-lh); }
 .footerList { display: grid; list-style: none; }
@@ -119,7 +119,7 @@
   display: inline-flex;
   align-items: center;
   min-height: var(--size-min-target);
-  padding-right: 0.75rem;
+  padding-right: var(--space-sm);
   color: var(--text-on-dark);
   font-size: var(--type-body-size);
   line-height: var(--type-body-lh);
@@ -128,8 +128,8 @@
 }
 .footer :focus-visible { outline-color: var(--text-on-dark); }
 @media (min-width: 64rem) {
-  .footer { border-radius: 2.5rem 2.5rem 0 0; }
+  .footer { border-radius: calc(var(--radius-card) + var(--space-sm)) calc(var(--radius-card) + var(--space-sm)) 0 0; }
   .footerInner { grid-template-columns: 1fr auto; align-items: start; justify-content: space-between; }
   .footerList { display: flex; gap: var(--space-s); }
-  .footerLink { padding-inline: 0.75rem; }
+  .footerLink { padding-inline: var(--space-sm); }
 }

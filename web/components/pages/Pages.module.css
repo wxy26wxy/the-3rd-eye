@@ -1,6 +1,6 @@
 /* Site pages · Sky: artists (2024:2597), artist profile (2024:2688), static pages (2025:2682…), 404 (2025:2886). */
-.page { display: grid; gap: var(--space-xxl); align-content: start; padding-block: 3rem 6rem; }
-@media (min-width: 64rem) { .page { padding-block: 5rem 7.5rem; } }
+.page { display: grid; gap: var(--space-xxl); align-content: start; padding-block: calc(var(--space-xxl) * 2) var(--space-band-l); }
+@media (min-width: 64rem) { .page { padding-block: var(--space-gutter-wide) var(--space-hero); } }
 .lead { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); color: var(--color-ink-soft); max-width: 40rem; }
 .empty {
   padding: var(--space-section) var(--space-xxl);
@@ -13,11 +13,11 @@
 /* Artists grid: one card per row on phones, three from 64rem (gap 26). */
 .cards { display: grid; gap: var(--space-l); list-style: none; }
 @media (min-width: 40rem) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 64rem) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.625rem; } }
+@media (min-width: 64rem) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--space-m) + var(--space-sm)); } }
 
 /* Artist profile */
-.profile { display: grid; gap: 2.5rem; }
-.profileHead { display: flex; flex-wrap: wrap; gap: var(--space-xl) 1.75rem; align-items: center; }
+.profile { display: grid; gap: var(--space-block-l); }
+.profileHead { display: flex; flex-wrap: wrap; gap: var(--space-xl) var(--space-card-pad); align-items: center; }
 .profileTitle { display: grid; gap: var(--space-s); justify-items: start; }
 .studio { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); color: var(--text-muted); }
 .storyRow { display: grid; gap: var(--space-xxl); }
@@ -27,12 +27,12 @@
 .note { color: var(--text-muted); font-size: var(--type-caption-size); }
 .work { display: grid; gap: var(--space-xxl); }
 @media (min-width: 64rem) {
-  .storyRow { grid-template-columns: minmax(0, 1fr) minmax(0, 35rem); gap: 3.5rem; }
+  .storyRow { grid-template-columns: minmax(0, 1fr) minmax(0, 35rem); gap: var(--space-band); }
 }
 .profile .work { padding-top: 0; }
 
 /* Static pages: intro + sky on the left (520), checked point cards on the right. */
-.static { display: grid; gap: 2.5rem; padding-block: 3rem 6rem; }
+.static { display: grid; gap: var(--space-block-l); padding-block: calc(var(--space-xxl) * 2) var(--space-band-l); }
 .staticIntro { display: grid; gap: var(--space-xxl); align-content: start; }
 .staticSky.staticSky { aspect-ratio: 520 / 300; }
 .points { display: grid; gap: var(--space-l); align-content: start; }
@@ -41,7 +41,7 @@
   display: flex;
   gap: var(--space-l);
   align-items: flex-start;
-  padding: 1.375rem var(--space-xxl);
+  padding: calc(var(--space-s) + var(--space-sm)) var(--space-xxl);
   background: var(--surface);
   border: var(--border-thin) solid var(--border);
   border-radius: var(--space-xxl);
@@ -62,7 +62,7 @@
   color: var(--text-on-dark);
 }
 .closing {
-  padding: 1.375rem var(--space-xxl);
+  padding: calc(var(--space-s) + var(--space-sm)) var(--space-xxl);
   background: var(--surface-alt);
   border-radius: var(--space-xxl);
   font-size: var(--type-body-l-size);
@@ -70,11 +70,11 @@
   max-width: none;
 }
 @media (min-width: 64rem) {
-  .static { grid-template-columns: 32.5rem minmax(0, 1fr); gap: 5rem; padding-block: 5rem 7.5rem; }
+  .static { grid-template-columns: 32.5rem minmax(0, 1fr); gap: var(--space-gutter-wide); padding-block: var(--space-gutter-wide) var(--space-hero); }
 }
 
 /* 404 (2025:2886): centred sky picture, title, line, primary. */
-.notFound { display: grid; justify-items: center; gap: var(--space-xl); padding-block: 3rem 6rem; text-align: center; }
+.notFound { display: grid; justify-items: center; gap: var(--space-xl); padding-block: calc(var(--space-xxl) * 2) var(--space-band-l); text-align: center; }
 .notFound .notFoundSky { max-width: 35rem; aspect-ratio: 560 / 320; }
 .notFoundCopy { color: var(--color-ink-soft); }
-@media (min-width: 64rem) { .notFound { padding-block: 5rem 7.5rem; } }
+@media (min-width: 64rem) { .notFound { padding-block: var(--space-gutter-wide) var(--space-hero); } }

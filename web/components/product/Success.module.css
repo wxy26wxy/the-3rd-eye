@@ -1,6 +1,6 @@
 /* Order success · Sky (2019:2189): a 640 px white card, centred, 48 px padding (24 on phones). */
-.wrap { display: grid; justify-items: center; padding-block: var(--space-section) 6rem; }
-@media (min-width: 64rem) { .wrap { padding-block: 6rem 7.5rem; } }
+.wrap { display: grid; justify-items: center; padding-block: var(--space-section) var(--space-band-l); }
+@media (min-width: 64rem) { .wrap { padding-block: var(--space-band-l) var(--space-hero); } }
 .card {
   display: grid;
   gap: var(--space-xl);
@@ -12,7 +12,7 @@
   border: var(--border-thin) solid var(--border);
   border-radius: var(--radius-card);
 }
-@media (min-width: 48rem) { .card { padding: 3rem; } }
+@media (min-width: 48rem) { .card { padding: calc(var(--space-xxl) * 2); } }
 .card .sky { aspect-ratio: 544 / 220; border-radius: calc(var(--radius-card) - var(--border-thin) * 4); }
 .notified { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: 1.3; }
 .copy { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); color: var(--color-ink-soft); }
@@ -22,7 +22,7 @@
 .linkRow {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-sm);
   min-height: var(--size-cta);
   padding: var(--space-xs) var(--space-s) var(--space-xs) var(--space-l);
   background: var(--surface-alt);

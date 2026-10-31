@@ -81,9 +81,8 @@
 }
 .textAction { justify-self: center; }
 
-/* Welcome (board 2026:2865): full-bleed photo, white text on scrim panels. The panels use the ink at
-   55 % (as on the board) rather than color.scrim (35 % black), so 15 px white text keeps 4.5:1 on the
-   light clouds. */
+/* Welcome (board 2026:2865): full-bleed photo, white text on scrim panels. color.scrim is the ink at
+   55 % (the boards' value; since T106 the token itself), so 15 px white text keeps 4.5:1 on the clouds. */
 .welcome {
   position: relative;
   isolation: isolate;
@@ -111,7 +110,7 @@
   gap: var(--space-s);
   padding: var(--space-xl);
   border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--primary) 55%, transparent);
+  background: var(--scrim);
   color: var(--text-on-dark);
   font-size: var(--type-body-size);
   line-height: var(--type-body-lh);
@@ -124,7 +123,7 @@
   color: var(--text-on-dark); font-weight: var(--type-body-weight);
   padding-inline: var(--space-xl);
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--primary) 55%, transparent);
+  background: var(--scrim);
 }
 
 /* shared pieces */

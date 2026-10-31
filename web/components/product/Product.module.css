@@ -1,6 +1,6 @@
 /* Product page · Sky (2019:2004 at 1440, 2019:2098 at 390). */
-.page { display: grid; gap: var(--space-xxl); padding-block: var(--space-xl) 6rem; }
-@media (min-width: 64rem) { .page { padding-top: 2.5rem; } }
+.page { display: grid; gap: var(--space-xxl); padding-block: var(--space-xl) var(--space-band-l); }
+@media (min-width: 64rem) { .page { padding-top: var(--space-block-l); } }
 .back {
   display: inline-flex;
   align-items: center;
@@ -13,7 +13,7 @@
   text-underline-offset: 0.2em;
 }
 .layout { display: grid; gap: var(--space-xxl); }
-@media (min-width: 64rem) { .layout { grid-template-columns: minmax(0, 38.75rem) minmax(0, 1fr); gap: 3.5rem; align-items: start; } }
+@media (min-width: 64rem) { .layout { grid-template-columns: minmax(0, 38.75rem) minmax(0, 1fr); gap: var(--space-band); align-items: start; } }
 .media { display: grid; gap: var(--space-xl); }
 .media .mockup { aspect-ratio: 31 / 28; border-radius: var(--radius-card); }
 .info { display: grid; gap: var(--space-xl); align-content: start; justify-items: start; }
@@ -71,6 +71,6 @@
 .studio { color: var(--text-muted); font-size: var(--type-body-size); }
 .storyCopy { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); color: var(--color-ink-soft); }
 @media (min-width: 64rem) {
-  .story { padding: 2rem; }
-  .storyBody { grid-template-columns: minmax(0, 35rem) minmax(0, 1fr); gap: 2.5rem; }
+  .story { padding: var(--space-block); }
+  .storyBody { grid-template-columns: minmax(0, 35rem) minmax(0, 1fr); gap: var(--space-block-l); }
 }

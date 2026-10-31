@@ -28,6 +28,13 @@ Budget the Figma calls: a View seat allows very few per month; a Full seat on a 
 5. **Asset export.** For each image or vector on a board: raw photos come from `get_design_context` image URLs (the original upload) or `download_assets` `rawImages`; vectors from the SVG URLs. Commit to `design/assets/` with the names in `tokens.json` `assets` (PNG at 2x of its largest slot on the boards, SVG as exported). A photo with a Figma mask or crop is rendered at 2x with the same geometry the node uses (T100 did this for `mascot-book.png` and `tote.png`; numbers below). Then `pnpm assets` (copies to `web/public/assets/` and `ios/App/Assets.xcassets/<name>.imageset/` with 1x and 2x, keeps SVG vector, registers Inter in `Info.plist`). Check every file is non-empty and has the expected size: `file design/assets/*`.
 6. **Raw-value check, both platforms.**
    - web: `grep -rnE '#[0-9a-fA-F]{3,8}\b|[0-9]+px' web/components web/app --include='*.tsx' --include='*.css' | grep -v 'app/tokens.css'`. Baseline after T100: the same 7 accepted hits as before (`1px` hairlines and visually hidden inputs: `ui/ChoiceCard.module.css:22`, `admin/Admin.module.css:7` and `:52`, `create/Create.module.css:75` and `:93`, `app/globals.css:73` and `:74`).
+   - web `rem` (T106 fix round 1): the literals left after removing breakpoints, comments, icon `size` props and the allow-list in `docs/design/tokens.md` ("Web layout values that stay literal"). Baseline: **0**.
+     ```
+     grep -rnE '(^|[^A-Za-z0-9_.])[0-9]+(\.[0-9]+)?rem\b' web/components web/app --include='*.tsx' --include='*.css' | grep -v 'app/tokens.css' \
+       | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(\*|//|/\*)' | sed -E 's/\((min|max)-width: [0-9.]+rem\)//g; s#/\*.*\*/##g' \
+       | sed -E 's/size="[0-9.]+rem"//g; s/--layout-(max|narrow): [0-9.]+rem//g; s/(^|[^0-9.])(0\.25|1\.8|2\.7|2|3\.75|4|4\.5|5|5\.625|7\.5|9\.375|13|13\.375|14|15|18|18\.75|22|26\.25|32\.5|35|38\.75|40|42\.5)rem/\1/g' \
+       | grep -E '(^|[^A-Za-z0-9_.])[0-9]+(\.[0-9]+)?rem\b'
+     ```
    - iOS: `grep -rnE 'Color\(red|#colorLiteral|\.system\(size|Color\(hex' ios/App --include='*.swift' | grep -v 'Theme/'`. Baseline: 0.
    - Then `pnpm -C web lint`, `pnpm -C web test`, `pnpm -C web build`, and from `ios/`: `xcodegen generate` and `xcodebuild -project The3rdEye.xcodeproj -scheme The3rdEye -destination 'id=<simulator id>' -only-testing:The3rdEyeTests/ThemeEffectsTests test`.
 7. **Screen map.** Update the node table in `docs/design/screens.md`: node id → screen → web route / iOS view → status (designed / generated / pending). Classify each change as tokens-only, layout, new component, copy or new screen, with an S / M / L estimate.

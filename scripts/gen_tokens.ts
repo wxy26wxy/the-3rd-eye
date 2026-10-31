@@ -33,7 +33,7 @@ for (const [k, v] of Object.entries<any>(tokens.type)) {
   if (v.weight) css += `  --type-${kebab(k)}-weight: ${v.weight};\n`;
   if (v.letterSpacing) css += `  --type-${kebab(k)}-ls: ${v.letterSpacing};\n`;
 }
-for (const [k, v] of Object.entries(tokens.space)) css += `  --space-${k}: ${v}px;\n`;
+for (const [k, v] of Object.entries(tokens.space)) css += `  --space-${kebab(k)}: ${v}px;\n`;
 for (const [k, v] of Object.entries(tokens.radius)) css += `  --radius-${kebab(k)}: ${v}px;\n`;
 for (const [k, v] of Object.entries(tokens.border)) css += `  --border-${k}: ${v}px;\n`;
 for (const [k, v] of Object.entries<any>(tokens.shadow)) css += `  --shadow-${kebab(k)}: ${v.x}px ${v.y}px ${v.blur}px ${deref(v.color)};\n`;

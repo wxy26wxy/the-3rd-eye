@@ -13,7 +13,7 @@
   --layout-gutter: var(--space-page);
 }
 @media (min-width: 64rem) {
-  :root { --layout-gutter: 5rem; }
+  :root { --layout-gutter: var(--space-gutter-wide); }
 }
 
 *, *::before, *::after { box-sizing: border-box; }

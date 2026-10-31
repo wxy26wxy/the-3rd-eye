@@ -1,6 +1,6 @@
 .figure {
   display: grid;
-  gap: 0.75rem;
+  gap: var(--space-sm);
   padding: var(--space-xxl);
   background: var(--surface);
   border: var(--border-thin) solid var(--border);

@@ -1,11 +1,11 @@
 .card {
   position: relative;
   display: grid;
-  gap: 0.75rem;
+  gap: var(--space-sm);
   justify-items: start;
   align-content: start;
   height: 100%;
-  padding: 1.75rem;
+  padding: var(--space-card-pad);
   background: var(--surface);
   border: var(--border-thin) solid var(--border);
   border-radius: var(--radius-card);

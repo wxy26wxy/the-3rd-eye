@@ -1,9 +1,9 @@
 /* Story tag · Sky (2024:2428): phone-width column, centred at 640 px on wide screens (ruling 6). */
 .main { flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 40rem; margin-inline: auto; }
-.top { display: grid; gap: var(--space-l); padding: 2rem var(--space-page); }
+.top { display: grid; gap: var(--space-l); padding: var(--space-block) var(--space-page); }
 .who { font-size: var(--type-body-size); line-height: var(--type-body-lh); color: var(--color-ink-soft); }
 .top .video { aspect-ratio: 342 / 440; max-height: 80vh; border-radius: var(--radius-card); }
-.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); }
 .actions > div, .actions > button { width: 100%; }
 .actions > div > button { width: 100%; }
 
@@ -11,13 +11,13 @@
 .sheet {
   flex: 1;
   display: grid;
-  gap: 2rem;
+  gap: var(--space-block);
   align-content: start;
-  padding: 2rem var(--space-page) 3rem;
+  padding: var(--space-block) var(--space-page) calc(var(--space-xxl) * 2);
   background: var(--surface-alt);
   border-radius: var(--radius-card) var(--radius-card) 0 0;
 }
-.block { display: grid; gap: 0.75rem; }
+.block { display: grid; gap: var(--space-sm); }
 .h2 { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: 1.3; }
 /* On the grey sheet text-muted is 4.39:1, so muted lines use ink-soft (11:1). */
 .muted { color: var(--color-ink-soft); font-size: var(--type-body-size); }
@@ -38,12 +38,12 @@
 .thanksVideo { width: 100%; max-height: 80vh; margin-top: var(--space-s); background: var(--primary); border-radius: var(--radius-m); }
 
 /* Your notes: sender line, then the bubble (ink = mine on the right, white = the artist's on the left). */
-.thread { display: grid; gap: 0.75rem; list-style: none; }
+.thread { display: grid; gap: var(--space-sm); list-style: none; }
 .thread > li { display: grid; gap: var(--space-s); }
 .from { font-size: var(--type-caption-size); font-weight: var(--type-caption-weight); line-height: var(--type-caption-lh); color: var(--color-ink-soft); max-width: none; }
 .bubble {
   max-width: min(18rem, 85%);
-  padding: 0.75rem var(--space-l);
+  padding: var(--space-sm) var(--space-l);
   font-size: var(--type-body-size);
   line-height: var(--type-body-lh);
   border: var(--border-thin) solid var(--border);
@@ -62,12 +62,12 @@
   border: var(--border-thin) solid var(--border);
   border-radius: var(--radius-card);
 }
-.noteTitle { font-size: 1.375rem; font-weight: var(--type-title-l-weight); line-height: 1.3; }
+.noteTitle { font-size: var(--type-card-title-size); font-weight: var(--type-card-title-weight); line-height: var(--type-card-title-lh); }
 .form { display: grid; gap: var(--space-m); }
 
 /* More from the studio: two Small cards per row. */
-.more { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; list-style: none; }
+.more { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); list-style: none; }
 
 /* Not active (2024:2556). */
-.missing { display: grid; gap: var(--space-xl); padding: 2rem var(--space-page) 3rem; }
+.missing { display: grid; gap: var(--space-xl); padding: var(--space-block) var(--space-page) calc(var(--space-xxl) * 2); }
 .missing .sky { aspect-ratio: 342 / 286; }

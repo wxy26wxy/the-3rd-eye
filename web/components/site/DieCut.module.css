@@ -8,6 +8,6 @@
 }
 .title { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: 1.3; }
 .well { display: grid; place-items: center; padding: var(--space-m); background: var(--surface-alt); border-radius: var(--space-xl); }
-.svg { width: auto; height: 13.375rem; max-width: 100%; aspect-ratio: 1; }
+.svg { width: auto; height: 13.375rem; max-width: 100%; aspect-ratio: 1; overflow: visible; } /* the cut line's border runs a few units past the artwork box, into the well's padding */
 .cut { fill: none; stroke: var(--text); stroke-width: var(--border-card); stroke-dasharray: 2 1.5; vector-effect: non-scaling-stroke; }
 .caption { font-size: var(--type-body-size); line-height: var(--type-body-lh); color: var(--text-muted); }

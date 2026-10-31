@@ -1,14 +1,15 @@
 /**
  * Sticker print pipeline (pure image math, no model calls):
- * mask → offsetMask (~3 mm white border at 300 dpi) → single outer contour → potrace
- * outline → print PNG (white border + 1.5 mm bleed, 300 dpi metadata) + die-cut SVG.
+ * mask → offsetMask (~3 mm white border at 300 dpi, holes filled) → potrace outline with one
+ * outer contour per island (pieces that touch after the offset share one) → print PNG (white
+ * border + 1.5 mm bleed, 300 dpi metadata) + die-cut SVG.
  */
 import "server-only";
 import sharp from "sharp";
 import { Potrace } from "potrace";
 import type { Mask } from "@/lib/ai/types";
 import {
-  alphaToMask, bboxOf, componentMask, components, cropMask, dilate, fillHoles, maskFromAlpha, maskSharp, maskToGrey, padMask,
+  alphaToMask, bboxOf, cropMask, dilate, fillHoles, maskFromAlpha, maskSharp, maskToGrey, padMask,
   type AlphaMask, type BBox,
 } from "@/lib/image/mask";
 
@@ -24,21 +25,11 @@ export async function offsetMask(mask: Mask, px: number): Promise<Mask> {
   return fillHoles(await dilate(mask, px));
 }
 
-/** Ensures one connected outline: dilate further until pieces merge (≤ 4 tries), then keep the largest. */
-export async function singleContour(mask: Mask, step: number): Promise<Mask> {
-  let current = mask;
-  for (let i = 0; i < 4; i++) {
-    const { parts } = components(current);
-    if (parts.length <= 1) return current;
-    current = await offsetMask(current, step * (i + 1));
-  }
-  const { labels, parts } = components(current);
-  if (parts.length <= 1) return current;
-  const largest = parts.reduce((a, b) => (b.area > a.area ? b : a));
-  return fillHoles(componentMask(current, labels, largest.label));
-}
-
-/** Potrace outline of the mask as an SVG path `d` string (pixel coordinates). */
+/**
+ * Potrace outline of the mask as an SVG path `d` string (pixel coordinates). Every connected
+ * piece becomes its own `M…Z` subpath of the one `d`; pass a hole-filled mask (offsetMask) so
+ * each piece contributes only its outer contour.
+ */
 export async function traceOutline(mask: Mask): Promise<string> {
   const png = await maskSharp(mask).negate().png().toBuffer(); // black shape on white
   const tracer = new Potrace({ turdSize: 50, optTolerance: 0.4, threshold: 128, blackOnWhite: true });
@@ -112,7 +103,8 @@ export async function composeSticker(artPng: Buffer, opts: { borderMm?: number; 
   const pad = borderPx + bleedPx + 4;
 
   const padded = padMask(mask, pad);
-  const cut = await singleContour(await offsetMask(padded, borderPx), Math.max(4, Math.round(borderPx / 2)));
+  // Every island keeps its own border; islands within 2 × border of each other merge into one.
+  const cut = await offsetMask(padded, borderPx);
   const bleed = await dilate(cut, bleedPx);
   const { width, height } = cut;
 
@@ -146,7 +138,7 @@ export async function previewCutPath(cleanedPng: Buffer): Promise<string> {
   const mask = await maskFromAlpha(cleanedPng);
   const borderPx = Math.max(4, Math.round(Math.min(mask.width, mask.height) * 0.03));
   const pad = borderPx + 2;
-  const cut = await singleContour(await offsetMask(padMask(mask, pad), borderPx), borderPx);
+  const cut = await offsetMask(padMask(mask, pad), borderPx);
   return normalizePath(await traceOutline(cut), mask.width, mask.height, pad);
 }
 

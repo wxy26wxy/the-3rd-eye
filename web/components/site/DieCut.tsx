@@ -3,7 +3,9 @@ import styles from "./DieCut.module.css";
 
 /**
  * Die-cut preview card (board 2019:2031): title, the cleaned artwork with its dashed cut line on a grey
- * well, caption. `cutPathSvg` is SVG path data in the artwork's own coordinate space (`viewBox`).
+ * well, caption. `cutPathSvg` is SVG path data in the artwork's own coordinate space (`viewBox`); a cut
+ * of several pieces has one `M…Z` subpath per piece, all drawn by the one path. The border runs a few
+ * units past the artwork box, so the svg does not clip (overflow visible, inside the well's padding).
  */
 export function DieCut({ artworkUrl, cutPathSvg, alt, viewBox = "0 0 100 100" }: { artworkUrl: string | null; cutPathSvg: string | null; alt: string; viewBox?: string }) {
   if (!cutPathSvg || !artworkUrl) return null;

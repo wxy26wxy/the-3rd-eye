@@ -11,8 +11,8 @@ struct DesignDetailView: View {
   @State private var shopPage: SheetURL?
   @State private var openingRedo = false
   @State private var removing = false
-  /// "Make another sticker / tote" waiting for its confirmation.
-  @State private var another: ProductType?
+  /// "Make a sticker / tote" waiting for a confirmation (second product, or a creation in progress).
+  @State private var pending: ContinueRequest?
   @State private var error: String?
 
   private var artwork: Artwork? { app.designs.artwork(id: artworkId) }
@@ -39,19 +39,7 @@ struct DesignDetailView: View {
       SafariView(url: page.url).ignoresSafeArea()
     }
     .deleteDesignConfirmation(item: $deleting) { artwork in await delete(artwork) }
-    .confirmationDialog(
-      Text(another == .tote ? "This tote is already in the shop" : "This sticker is already in the shop"),
-      isPresented: Binding(get: { another != nil }, set: { if !$0 { another = nil } }),
-      titleVisibility: .visible,
-      presenting: another
-    ) { type in
-      Button(type == .tote ? "Make another tote" : "Make another sticker") {
-        if let artwork { app.continueFrom(artwork: artwork, productType: type) }
-      }
-      Button("Cancel", role: .cancel) {}
-    } message: { _ in
-      Text("A second product gets its own listing. To change the one in the shop, use Edit listing.")
-    }
+    .continueConfirmation($pending, app: app)
     .onDisappear {
       // Popped back to the grid: the re-cut notice has been seen.
       if !app.designsPath.contains(.detail(artworkId)), app.designFlow.photoArtwork?.id == artworkId {
@@ -139,7 +127,10 @@ struct DesignDetailView: View {
     }
     let listed = products.filter(\.hasListing)
     ForEach(listed) { product in
-      PillButton(listed.count == 1 ? "Edit listing" : (product.type == .tote ? "Edit the tote listing" : "Edit the sticker listing"),
+      // With several listings each label is distinct (a draft and a live sticker can sit side by side).
+      PillButton(listed.count == 1 ? "Edit listing"
+                 : product.isPublished ? (product.type == .tote ? "Edit the tote listing" : "Edit the sticker listing")
+                 : (product.type == .tote ? "Edit the tote draft" : "Edit the sticker draft"),
                  hint: product.isPublished ? "Change the name, description or price" : "Finish the listing and put it in the shop",
                  kind: .secondary, showsArrow: false) {
         editListing(product, of: artwork)
@@ -157,23 +148,34 @@ struct DesignDetailView: View {
     }
   }
 
-  /// "Make a sticker", or "Make another sticker" (with a confirmation) when one is already in the shop.
+  /// "Make a sticker", or "Make another sticker" (with a confirmation) when one is already in the
+  /// shop; "Continue the sticker draft" when a draft of that type is there too (that is what
+  /// happens). Each asks first when the Create tab has a creation in progress.
   @ViewBuilder private func makeButton(_ type: ProductType, artwork: Artwork) -> some View {
     if artwork.hasPublished(type) {
-      PillButton(type == .tote ? "Make another tote" : "Make another sticker",
-                 hint: type == .tote ? "You already have this tote in the shop" : "You already have this sticker in the shop",
+      let draft = hasDraft(type, in: artwork)
+      PillButton(draft ? (type == .tote ? "Continue the tote draft" : "Continue the sticker draft")
+                       : (type == .tote ? "Make another tote" : "Make another sticker"),
+                 hint: draft
+                   ? (type == .tote ? "Goes on to your tote draft" : "Goes on to your sticker draft")
+                   : (type == .tote ? "You already have this tote in the shop" : "You already have this sticker in the shop"),
                  kind: .secondary, showsArrow: false) {
-        another = type
+        go(artwork, type)
       }
     } else if type == .tote {
       PillButton("Make a tote", hint: hasDraft(.tote, in: artwork) ? "Goes on to your tote draft" : "Puts it on a tote bag and writes its listing") {
-        app.continueFrom(artwork: artwork, productType: .tote)
+        go(artwork, .tote)
       }
     } else {
       PillButton("Make a sticker", hint: hasDraft(.sticker, in: artwork) ? "Goes on to your sticker draft" : "Makes a sticker and writes its listing") {
-        app.continueFrom(artwork: artwork, productType: .sticker)
+        go(artwork, .sticker)
       }
     }
+  }
+
+  /// On to Listing details, or the confirmation first.
+  private func go(_ artwork: Artwork, _ type: ProductType, editingDraft: Bool = false) {
+    pending = app.requestContinue(artwork: artwork, productType: type, editingDraft: editingDraft)
   }
 
   /// A published listing is edited in the sheet; a draft goes through Listing details, the
@@ -182,7 +184,8 @@ struct DesignDetailView: View {
     if product.isPublished {
       editing = product
     } else if let type = product.type {
-      app.continueFrom(artwork: artwork, productType: type)
+      // Straight to the draft, even with a product of that type in the shop.
+      go(artwork, type, editingDraft: true)
     }
   }
 

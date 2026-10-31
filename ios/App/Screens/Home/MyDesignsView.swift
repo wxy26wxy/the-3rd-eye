@@ -6,6 +6,8 @@ struct MyDesignsView: View {
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
   @State private var deleting: Artwork?
+  /// "Make a sticker" waiting for a confirmation (the Create tab has a creation in progress).
+  @State private var pending: ContinueRequest?
 
   private let columns = [GridItem(.adaptive(minimum: ThemeEffects.gridMinimum), spacing: Theme.Space.l)]
 
@@ -31,7 +33,7 @@ struct MyDesignsView: View {
           ForEach(store.artworks) { artwork in
             DesignTile(artwork: artwork,
                        open: { app.designsPath.append(.detail(artwork.id)) },
-                       makeSticker: canMakeSticker(artwork) ? { app.continueFrom(artwork: artwork, productType: .sticker) } : nil,
+                       makeSticker: canMakeSticker(artwork) ? { pending = app.requestContinue(artwork: artwork, productType: .sticker) } : nil,
                        delete: { deleting = artwork })
           }
         }
@@ -40,6 +42,7 @@ struct MyDesignsView: View {
     }
     .task { await store.load() }
     .refreshable { await store.load() }
+    .continueConfirmation($pending, app: app)
     .deleteDesignConfirmation(item: $deleting) { artwork in
       do {
         try await store.delete(id: artwork.id)

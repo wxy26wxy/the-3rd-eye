@@ -1,7 +1,8 @@
 import XCTest
 
 /// My designs against scripts/mock_api.py: d1 in the shop, d2 a draft with a sticker listing,
-/// d3 failed, d4 still cutting. Each sign-in restores that list.
+/// d3 failed, d4 still cutting, d5 a tote without a known price, d6 a sticker in the shop plus a
+/// sticker draft. Each sign-in restores that list.
 final class DesignsUITests: XCTestCase {
   private var app: XCUIApplication?
 
@@ -149,13 +150,124 @@ final class DesignsUITests: XCTestCase {
     XCTAssertTrue(app.buttons["Make a sticker"].waitForExistence(timeout: 5), "the new cutout can be made into products")
   }
 
-  // MARK: Helpers
+  // MARK: T091
 
-  private func openDesigns() -> XCUIApplication {
+  /// A sticker in the shop and a sticker draft: the button reads "Continue the sticker draft", and
+  /// the confirmation says so instead of promising a second listing.
+  func testMakeAnotherWithADraftSaysItContinuesTheDraft() throws {
+    let app = openDesigns()
+    open(app, "Orange fish, In the shop")
+    XCTAssertTrue(app.buttons["Continue the sticker draft"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["Make another sticker"].exists, "the label says what happens")
+    tap(app, "Continue the sticker draft")
+    let confirm = app.buttons["Yes, continue the draft"]
+    XCTAssertTrue(confirm.waitForExistence(timeout: 5), "asks first, naming the draft")
+    XCTAssertTrue(text(app, containing: "This continues your sticker draft").exists)
+    XCTAssertFalse(text(app, containing: "A second product gets its own listing").exists)
+    confirm.tap()
+    let name = app.textFields["Name"]
+    XCTAssertTrue(name.waitForExistence(timeout: 10), "Listing details")
+    XCTAssertEqual(name.value as? String, "Fish Friend Sticker", "the draft, not a new product")
+    XCTAssertTrue(try lastBody("products").isEmpty, "no product was made")
+  }
+
+  /// "Edit listing" on the draft row goes straight to Listing details, even with a sticker of the
+  /// same design in the shop (T091 review minor 1).
+  func testEditListingOnADraftNextToAPublishedOneDoesNotAsk() {
+    let app = openDesigns()
+    open(app, "Orange fish, In the shop")
+    XCTAssertTrue(app.buttons["Edit the sticker listing"].waitForExistence(timeout: 5), "the live one keeps its label")
+    tap(app, "Edit the sticker draft")
+    let name = app.textFields["Name"]
+    XCTAssertTrue(name.waitForExistence(timeout: 10), "Listing details, no dialog")
+    XCTAssertEqual(name.value as? String, "Fish Friend Sticker")
+    XCTAssertFalse(app.buttons["Yes, continue the draft"].exists)
+    XCTAssertFalse(text(app, containing: "already in the shop").exists)
+  }
+
+  /// Emptying a prefilled description sends "" (an omitted field would keep the saved text).
+  func testEmptiedDescriptionIsCleared() throws {
+    let app = openDesigns()
+    open(app, "Blue bird on a branch, In the shop")
+    tap(app, "Edit listing")
+    let field = app.textFields["Description"].exists ? app.textFields["Description"] : app.textViews["Description"]
+    XCTAssertTrue(field.waitForExistence(timeout: 5))
+    let saved = field.value as? String ?? ""
+    XCTAssertEqual(saved, "A blue bird singing on a branch.")
+    field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+    field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: saved.count + 3))
+    tap(app, "Save changes")
+    XCTAssertTrue(app.buttons["Edit listing"].waitForExistence(timeout: 10), "the sheet closes")
+    let edits = try XCTUnwrap(try lastBody("approve")["edits"] as? [String: Any])
+    XCTAssertEqual(edits["description"] as? String, "", "sent explicitly as empty")
+  }
+
+  /// With a creation in progress in the Create tab, "Make a sticker" asks before replacing it.
+  func testContinueAsksBeforeReplacingACreationInProgress() {
     let app = XCUIApplication()
     self.app = app
     app.launch()
     signIn(app, code: "TEST-CODE")
+    let sticker = app.buttons["Sticker, Die-cut around your art"]
+    XCTAssertTrue(sticker.waitForExistence(timeout: 10))
+    sticker.tap()
+    XCTAssertTrue(app.buttons["Upload a picture, Pick art from your photos"].waitForExistence(timeout: 5), "a creation is under way")
+    app.tabBars.buttons["My designs"].tap()
+    open(app, "Green frog with a gold crown, Draft")
+    tap(app, "Make a sticker")
+    let replace = app.buttons["Replace it"]
+    XCTAssertTrue(replace.waitForExistence(timeout: 5), "asks first")
+    XCTAssertTrue(text(app, containing: "You have a design in progress in the Create tab").exists)
+    // A popover-style dialog has no Cancel button; tapping outside it cancels.
+    if app.buttons["Cancel"].exists { app.buttons["Cancel"].tap() } else { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap() }
+    XCTAssertFalse(replace.waitForExistence(timeout: 2), "the dialog closed")
+    XCTAssertTrue(app.buttons["Make a sticker"].waitForExistence(timeout: 5), "Cancel stays on the design")
+    XCTAssertFalse(app.textFields["Name"].exists)
+    tap(app, "Make a sticker")
+    XCTAssertTrue(replace.waitForExistence(timeout: 5))
+    replace.tap()
+    let name = app.textFields["Name"]
+    XCTAssertTrue(name.waitForExistence(timeout: 10), "Listing details replaced the creation")
+    XCTAssertEqual(name.value as? String, "Frog King Sticker")
+  }
+
+  /// 409 moderation_failed: the app's words, not the server's technical reason; the sheet stays.
+  func testModerationRefusalIsExplained() throws {
+    let app = openDesigns()
+    open(app, "Blue bird on a branch, In the shop")
+    tap(app, "Edit listing")
+    let name = app.textFields["Name"]
+    XCTAssertTrue(name.waitForExistence(timeout: 5))
+    name.tap()
+    name.typeText(" unkind")
+    tap(app, "Save changes")
+    XCTAssertTrue(text(app, containing: "Some words in the name or description can't go in the shop.").waitForExistence(timeout: 10))
+    XCTAssertFalse(text(app, containing: "flagged").exists, "the server's note is not shown")
+    XCTAssertTrue(app.buttons["Save changes"].exists, "the sheet stays open to fix it")
+    XCTAssertEqual(try lastBody("approve")["productId"] as? String, "pr-d1")
+    tap(app, "Cancel")
+    XCTAssertTrue(app.buttons["Edit listing"].waitForExistence(timeout: 5), "closed, so tearDown can sign out")
+  }
+
+  /// 409 print_check_failed on Approve and list it explains what to do.
+  func testPrintCheckRefusalIsExplained() {
+    let app = openDesigns(code: "NOPRINT-CODE")
+    open(app, "Green frog with a gold crown, Draft")
+    tap(app, "Edit listing")
+    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 10))
+    tap(app, "Approve and list it")
+    XCTAssertTrue(text(app, containing: "This picture won't print well yet.").waitForExistence(timeout: 10))
+    XCTAssertFalse(text(app, containing: "dpi").exists, "the server's note is not shown")
+    XCTAssertTrue(app.buttons["Approve and list it"].exists, "still on Listing details")
+  }
+
+  // MARK: Helpers
+
+  private func openDesigns(code: String = "TEST-CODE") -> XCUIApplication {
+    let app = XCUIApplication()
+    self.app = app
+    app.launch()
+    signIn(app, code: code)
     let tab = app.tabBars.buttons["My designs"]
     XCTAssertTrue(tab.waitForExistence(timeout: 10))
     tab.tap()
@@ -167,6 +279,10 @@ final class DesignsUITests: XCTestCase {
     XCTAssertTrue(button.waitForExistence(timeout: 10), "\(tile) is on the grid")
     if !button.isHittable { app.swipeUp() }
     button.tap()
+  }
+
+  private func text(_ app: XCUIApplication, containing words: String) -> XCUIElement {
+    app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", words)).firstMatch
   }
 
   private func tap(_ app: XCUIApplication, _ label: String) {

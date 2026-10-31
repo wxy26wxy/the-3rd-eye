@@ -29,4 +29,12 @@ final class SystemAccessibilityTests: XCTestCase {
     XCTAssertEqual(VoiceResultView.description(of: try artwork(#","altText":"Frog","spokenDescription":"  ""#)), "Frog")
     XCTAssertNil(VoiceResultView.description(of: try artwork("")))
   }
+
+  /// T091: the sign-out confirmation keeps version, git sha and server, with or without a name.
+  func testSignOutDetailsKeepVersionShaAndServer() {
+    XCTAssertEqual(SignOutButton.details(name: "Ana", version: "0.4.0", sha: "86ce0d1", server: "https://example.app"),
+                   "Signed in as Ana. Version 0.4.0 (86ce0d1), https://example.app")
+    XCTAssertEqual(SignOutButton.details(name: nil, version: "0.4.0", sha: "dev", server: "http://localhost:3999"),
+                   "Version 0.4.0 (dev), http://localhost:3999")
+  }
 }

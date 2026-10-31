@@ -34,6 +34,13 @@ enum CutoutGeometry {
     return CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(b.x - a.x), height: abs(b.y - a.y))
   }
 
+  /// Index of the mark whose centre is nearest to `location`, if it is within `radius` (view points).
+  static func markIndex(at location: CGPoint, centres: [CGPoint], radius: CGFloat) -> Int? {
+    let distances = centres.enumerated().map { ($0.offset, hypot($0.element.x - location.x, $0.element.y - location.y)) }
+    guard let nearest = distances.min(by: { $0.1 < $1.1 }), nearest.1 <= radius else { return nil }
+    return nearest.0
+  }
+
   /// A drag from `start` to `end` (view coordinates) → `[x0, y0, x1, y1]` in image pixels with
   /// x0 < x1 and y0 < y1, clamped to the image; nil when the box would be empty.
   static func imageBox(from start: CGPoint, to end: CGPoint, shownIn frame: CGRect, image: ImageSize) -> [Double]? {

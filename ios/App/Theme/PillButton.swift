@@ -37,7 +37,7 @@ struct PillButtonStyle: ButtonStyle {
     .background(Capsule().fill(fill))
     .overlay(Capsule().stroke(colors.border, lineWidth: Theme.Border.card))
     .hardShadow(shadow, in: Capsule(), pressed: configuration.isPressed && !reduceMotion)
-    .opacity(isEnabled ? 1 : 0.5)
+    .opacity(isEnabled ? 1 : Theme.Opacity.disabled)
     .contentShape(Capsule())
   }
 }

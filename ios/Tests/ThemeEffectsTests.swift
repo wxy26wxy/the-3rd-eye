@@ -31,4 +31,14 @@ final class ThemeEffectsTests: XCTestCase {
     XCTAssertEqual(ThemeEffects.motionBase * 1000, try number(t, "motion", "base"), accuracy: 0.001)
     XCTAssertEqual(ThemeEffects.motionSlow * 1000, try number(t, "motion", "slow"), accuracy: 0.001)
   }
+
+  /// T091: the Adjust-cutout photo is capped at `size.photoMaxHeight` of the screen.
+  @MainActor
+  func testPhotoMaxHeightIsAShareOfTheScreen() throws {
+    let height = Theme.photoMaxHeight
+    try XCTSkipIf(height == .infinity, "no window scene in this test host")
+    let screen = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first).screen.bounds.height
+    XCTAssertEqual(height, screen * Tokens.Size.photoMaxHeightShare, accuracy: 0.5)
+    XCTAssertLessThan(Theme.Opacity.disabled, 1)
+  }
 }

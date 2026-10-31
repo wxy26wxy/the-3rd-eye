@@ -21,14 +21,27 @@ extension XCTestCase {
 
   /// Signs out from the My designs tab (leaves a later test, such as the deep link one, signed out).
   func signOut(_ app: XCUIApplication) {
-    app.tabBars.buttons["My designs"].tap()
-    let signOut = app.buttons["Sign out"].firstMatch
-    XCTAssertTrue(signOut.waitForExistence(timeout: 5))
-    signOut.tap()
-    let confirm = app.sheets.buttons["Sign out"].exists ? app.sheets.buttons["Sign out"] : app.buttons.matching(identifier: "Sign out").element(boundBy: 1)
+    openSignOutDialog(app)
+    let confirm = signOutConfirm(app)
     XCTAssertTrue(confirm.waitForExistence(timeout: 5))
     confirm.tap()
     XCTAssertTrue(app.buttons["Start creating"].waitForExistence(timeout: 5))
+  }
+
+  /// Taps the header's sign-out button (identifier `sign-out`) on My designs.
+  func openSignOutDialog(_ app: XCUIApplication) {
+    app.tabBars.buttons["My designs"].tap()
+    let button = app.buttons.matching(identifier: "sign-out").firstMatch
+    XCTAssertTrue(button.waitForExistence(timeout: 5))
+    button.tap()
+  }
+
+  /// The dialog's confirm: by its identifier, or, where the system dialog drops identifiers, the
+  /// button labelled "Sign out" that is not the header button. Never by position.
+  func signOutConfirm(_ app: XCUIApplication) -> XCUIElement {
+    let byID = app.buttons.matching(identifier: "sign-out-confirm").firstMatch
+    if byID.waitForExistence(timeout: 3) { return byID }
+    return app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Sign out", "sign-out")).firstMatch
   }
 
   /// The last body the app sent to a mock route (`GET /__mock/last/<route>`); empty when none.

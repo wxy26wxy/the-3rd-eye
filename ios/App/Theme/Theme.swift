@@ -12,9 +12,18 @@ enum Theme {
   typealias Size = Tokens.Size
   typealias Shadow = Tokens.Shadow
   typealias Palette = Tokens.Palette
+  typealias Opacity = Tokens.Opacity
 
   static let displayTilt = Angle.degrees(Tokens.displayTilt)
   static let grainOpacity = Tokens.grainOpacity
+
+  /// `size.photoMaxHeight` (65vh on the web): the tallest a photo being edited is shown, as a
+  /// share of the screen height. No cap when no window scene is known.
+  @MainActor static var photoMaxHeight: CGFloat {
+    let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+    guard let height = scene?.screen.bounds.height else { return .infinity }
+    return height * Tokens.Size.photoMaxHeightShare
+  }
 }
 
 /// Values in design/tokens.json `effects` and `motion` that the generator does

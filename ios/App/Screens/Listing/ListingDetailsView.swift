@@ -156,7 +156,10 @@ struct ListingDetailsView: View {
       app.flow.product = res.product
       app.push(res.storyVideoNeeded ? .storyVideo : .youreLive)
     } catch {
-      self.error = error.localizedDescription
+      if APIError.isCancellation(error) { return }
+      let message = APIError.approveMessage(for: error)
+      self.error = message
+      UIAccessibility.post(notification: .announcement, argument: message)
     }
   }
 }

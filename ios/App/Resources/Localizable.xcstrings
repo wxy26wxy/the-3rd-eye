@@ -35,6 +35,9 @@
     "A happy frog wearing a crown" : {
 
     },
+    "A second product gets its own listing, and it replaces the design you're making in Create. To change the one in the shop, use Edit listing." : {
+
+    },
     "A second product gets its own listing. To change the one in the shop, use Edit listing." : {
 
     },
@@ -161,6 +164,12 @@
     "Clear marks" : {
 
     },
+    "Continue the sticker draft" : {
+
+    },
+    "Continue the tote draft" : {
+
+    },
     "Create" : {
 
     },
@@ -236,7 +245,13 @@
     "Edit listing" : {
 
     },
+    "Edit the sticker draft" : {
+
+    },
     "Edit the sticker listing" : {
+
+    },
+    "Edit the tote draft" : {
 
     },
     "Edit the tote listing" : {
@@ -573,6 +588,12 @@
     "Repeats the last step" : {
 
     },
+    "Replace it" : {
+
+    },
+    "Replace the design you're making?" : {
+
+    },
     "Reply" : {
 
     },
@@ -700,6 +721,9 @@
     "Snap a drawing on paper" : {
 
     },
+    "Some words in the name or description can't go in the shop. Change them and try again." : {
+
+    },
     "Something went wrong. Please try again." : {
 
     },
@@ -810,6 +834,18 @@
     "Thinking…" : {
 
     },
+    "This continues your sticker draft and replaces the design you're making in Create. To change the one in the shop, use Edit listing." : {
+
+    },
+    "This continues your sticker draft; no new product is made. To change the one in the shop, use Edit listing." : {
+
+    },
+    "This continues your tote draft and replaces the design you're making in Create. To change the one in the shop, use Edit listing." : {
+
+    },
+    "This continues your tote draft; no new product is made. To change the one in the shop, use Edit listing." : {
+
+    },
     "This design has no photo to cut out again." : {
 
     },
@@ -820,6 +856,9 @@
 
     },
     "This one didn't work. Re-do the cutout, or delete it." : {
+
+    },
+    "This picture won't print well yet. Re-do the cutout in My designs, or try a bigger, clearer photo." : {
 
     },
     "This sticker is already in the shop" : {
@@ -961,6 +1000,9 @@
     "Writing your listing…" : {
 
     },
+    "Yes, continue the draft" : {
+
+    },
     "Yes, list it!" : {
 
     },
@@ -980,6 +1022,9 @@
 
     },
     "You earn per sale" : {
+
+    },
+    "You have a design in progress in the Create tab. Going on replaces it." : {
 
     },
     "YOU SAID" : {

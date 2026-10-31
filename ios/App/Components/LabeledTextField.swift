@@ -11,7 +11,8 @@ struct LabeledTextField: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: Theme.Space.xs) {
-      Text(label).themeFont(.eyebrow).foregroundStyle(colors.textMuted).accessibilityHidden(true)
+      // Sky field label: 13 pt Medium caption in ink above a white field (Figma `Text field`).
+      Text(label).themeFont(.caption).foregroundStyle(colors.text).accessibilityHidden(true)
       TextField(text: $text, prompt: prompt.map { Text($0) }, axis: axis) { Text(label) }
         .themeFont(.bodyL)
         .foregroundStyle(colors.text)
@@ -19,7 +20,7 @@ struct LabeledTextField: View {
         .padding(.horizontal, Theme.Space.l)
         .padding(.vertical, Theme.Space.m)
         .frame(minHeight: Theme.Size.cta)
-        .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt))
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surface))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.thin))
         .accessibilityLabel(Text(label))
     }

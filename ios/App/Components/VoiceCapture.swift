@@ -52,37 +52,59 @@ final class VoiceCapture {
   }
 }
 
-/// 84 pt round record/stop button.
+/// Sky record button (Figma `Record button`): an 84 pt ink circle with the mic; while recording a
+/// deep-green circle with an accent ring and a stop square; while transcribing a spinner. The state's
+/// word ("Start talking", "Stop", "Working") is shown under it; VoiceOver reads it as the button label.
 struct RecordButton: View {
   let phase: VoiceCapture.Phase
   var idleLabel: LocalizedStringKey = "Start talking"
   var stopLabel: LocalizedStringKey = "Stop"
   let action: () -> Void
   @Environment(\.themeColors) private var colors
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  private var label: LocalizedStringKey {
+    switch phase {
+    case .idle: return idleLabel
+    case .recording: return stopLabel
+    case .transcribing: return "Working"
+    }
+  }
 
   var body: some View {
     Button(action: action) {
-      ZStack {
-        Circle().fill(phase == .recording ? colors.danger : colors.primary)
-        Circle().stroke(colors.border, lineWidth: Theme.Border.card)
-        switch phase {
-        case .idle:
-          Image(systemName: "mic.fill").font(TextRole.displayM.font).foregroundStyle(colors.primaryText)
-        case .recording:
-          RoundedRectangle(cornerRadius: Theme.Radius.s)
-            .fill(colors.primaryText)
-            .frame(width: Theme.Size.record / 3, height: Theme.Size.record / 3)
-        case .transcribing:
-          ProgressView().tint(colors.primaryText).controlSize(.large)
+      VStack(spacing: Theme.Space.s) {
+        ZStack {
+          Circle().fill(phase == .recording ? colors.accentInk : colors.primary)
+          if phase == .recording {
+            Circle().strokeBorder(colors.accent, lineWidth: Theme.Border.card * 3)
+          }
+          switch phase {
+          case .idle:
+            Image(Tokens.Asset.iconMic)
+              .renderingMode(.template)
+              .resizable()
+              .scaledToFit()
+              .frame(width: ThemeEffects.recordGlyph, height: ThemeEffects.recordGlyph)
+              .foregroundStyle(colors.primaryText)
+          case .recording:
+            RoundedRectangle(cornerRadius: Theme.Radius.s / 2)
+              .fill(colors.primaryText)
+              .frame(width: Theme.Size.record / 5, height: Theme.Size.record / 5)
+          case .transcribing:
+            ProgressView().tint(colors.primaryText).controlSize(.large)
+          }
         }
+        .frame(width: Theme.Size.record, height: Theme.Size.record)
+        Text(label)
+          .themeFont(.titleM)
+          .foregroundStyle(colors.text)
+          .multilineTextAlignment(.center)
       }
-      .frame(width: Theme.Size.record, height: Theme.Size.record)
-      .hardShadow(Theme.Shadow.primary, in: Circle())
+      .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
     .disabled(phase == .transcribing)
-    .accessibilityLabel(Text(phase == .recording ? stopLabel : (phase == .transcribing ? "Writing down what you said" : idleLabel)))
+    .accessibilityLabel(Text(phase == .transcribing ? "Writing down what you said" : label))
     .accessibilityHint(Text(phase == .recording ? "Stops recording and writes down what you said" : "Records your voice"))
   }
 }

@@ -1,3 +1,4 @@
+/* Sky icon button: 48 px outlined circle (44 px with size="s", the Back control). */
 .icon {
   display: inline-flex;
   align-items: center;
@@ -9,10 +10,10 @@
   background: var(--surface);
   color: var(--text);
   border: var(--border-thin) solid var(--border);
-  box-shadow: var(--shadow-icon);
   font-size: var(--type-title-l-size);
   text-decoration: none;
-  transition: transform var(--motion-fast) var(--motion-easing);
+  transition: background var(--motion-fast) var(--motion-easing);
 }
-.icon:active { transform: translateY(var(--border-thin)); box-shadow: none; }
+.icon:hover { background: var(--surface-alt); }
+.small { width: var(--size-min-target); height: var(--size-min-target); }
 .icon > span { display: inline-flex; }

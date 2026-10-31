@@ -1,17 +1,13 @@
+/* Sky card: white or accent, 28 px radius, 1.5 px border, no shadow. */
 .card {
   position: relative;
   border: var(--border-card) solid var(--border);
   border-radius: var(--radius-card);
-  box-shadow: var(--shadow-hard-l);
   color: var(--text);
 }
-.cream { background: var(--surface); }
-.white { background: var(--surface-alt); }
-.lime { background: var(--accent); }
-.ink { background: var(--primary); color: var(--primary-text); }
+.cream, .white { background: var(--surface); }
+.lime { background: var(--accent); border-color: var(--accent-border); color: var(--accent-ink); }
+.ink { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
 .pad-s { padding: var(--space-m); }
 .pad-m { padding: var(--space-xl); }
 .pad-l { padding: var(--space-page); }
-@media (min-width: 48rem) {
-  .card { border-radius: var(--radius-card-l); }
-}

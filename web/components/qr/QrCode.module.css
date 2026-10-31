@@ -1,3 +1,3 @@
 .qr { width: calc(var(--size-record) * 1.4); height: auto; border-radius: var(--radius-s); }
 .bg { fill: var(--color-white); }
-.fg { fill: var(--color-ink-deep); }
+.fg { fill: var(--color-ink); }

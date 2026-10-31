@@ -1,13 +1,24 @@
 import type { ReactNode } from "react";
+import { ASSETS } from "@/lib/assets";
+import { Mascot } from "./Mascot";
 import styles from "./Loading.module.css";
 
-/** Three bouncing dots with a live text label. Animation stops under reduced motion. */
-export function Loading({ label, inline }: { label: string; inline?: boolean }) {
+/**
+ * Spinner with a live text label (Sky). `variant="sky"` puts the sky card above it: the animated
+ * magnifier mascot, or the still front pose under prefers-reduced-motion. The card is decorative;
+ * the label carries the meaning.
+ */
+export function Loading({ label, inline, variant = "plain" }: { label: string; inline?: boolean; variant?: "plain" | "sky" }) {
   return (
-    <p className={[styles.loading, inline ? styles.inline : ""].join(" ")} role="status" aria-live="polite">
-      <span className={styles.dots} aria-hidden="true"><span /><span /><span /></span>
-      <span>{label}</span>
-    </p>
+    <div className={[styles.loading, inline ? styles.inline : ""].filter(Boolean).join(" ")} role="status" aria-live="polite">
+      {variant === "sky" ? (
+        <div className={styles.sky} style={{ backgroundImage: `url(${ASSETS.sky})` }} aria-hidden="true">
+          <Mascot pose="magnifier" decorative eager className={styles.skyMascot} />
+        </div>
+      ) : null}
+      <p className={styles.label}>{label}</p>
+      <span className={styles.spinner} aria-hidden="true" />
+    </div>
   );
 }
 

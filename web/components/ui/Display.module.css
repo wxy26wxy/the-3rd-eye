@@ -1,23 +1,30 @@
+/* Sky: Inter Medium, tight tracking, sentence case. No stroke, no shadow, no tilt. */
 .display {
   font-family: var(--font-display);
-  font-weight: 400;
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
+  color: var(--text);
   overflow-wrap: anywhere;
+  text-wrap: balance;
 }
-.xl { font-size: var(--type-display-l-size); line-height: var(--type-display-xl-lh); }
-.l { font-size: var(--type-display-m-size); line-height: var(--type-display-l-lh); }
-.m { font-size: var(--type-title-l-size); line-height: var(--type-display-m-lh); }
+.xl {
+  font-size: var(--type-display-xl-size);
+  line-height: var(--type-display-xl-lh);
+  font-weight: var(--type-display-xl-weight);
+  letter-spacing: var(--type-display-xl-ls);
+}
+.l {
+  font-size: calc(var(--type-display-l-size) * 0.8);
+  line-height: var(--type-display-l-lh);
+  font-weight: var(--type-display-l-weight);
+  letter-spacing: var(--type-display-l-ls);
+}
+.m {
+  font-size: var(--type-display-m-size);
+  line-height: var(--type-display-m-lh);
+  font-weight: var(--type-display-m-weight);
+  letter-spacing: var(--type-display-m-ls);
+}
 @media (min-width: 48rem) {
-  .xl { font-size: calc(var(--type-display-xl-size) * 1.6); }
   .l { font-size: var(--type-display-l-size); }
-  .m { font-size: var(--type-display-m-size); }
 }
-.onGround {
-  color: var(--surface);
-  -webkit-text-stroke: var(--display-stroke) var(--border);
-  paint-order: stroke fill;
-  text-shadow: 0 var(--display-shadow-y) 0 var(--border);
-}
-.onCream { color: var(--text); }
-.tilt { transform: rotate(var(--display-tilt)); transform-origin: left center; }
+/* White text on a photo (Welcome, shop hero): Bold, per the Welcome board. Needs a scrim behind it. */
+.onPhoto { color: var(--text-on-dark); font-weight: bold; }

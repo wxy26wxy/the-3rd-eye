@@ -1,13 +1,8 @@
-.eyebrow {
-  font-size: var(--type-eyebrow-size);
-  font-weight: var(--type-eyebrow-weight);
-  letter-spacing: var(--type-eyebrow-ls);
-  text-transform: uppercase;
-}
 .titleL { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: 1.2; }
 .titleM { font-size: var(--type-title-m-size); font-weight: var(--type-title-m-weight); line-height: 1.25; }
-.lead { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); font-weight: var(--type-body-l-weight); }
-.muted { color: var(--text-muted); font-size: var(--type-caption-size); line-height: var(--type-caption-lh); font-weight: var(--type-caption-weight); }
+.lead { font-size: var(--type-body-size); line-height: var(--type-body-lh); font-weight: var(--type-body-weight); color: var(--text-muted); }
+@media (min-width: 48rem) { .lead { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); } }
+.muted { color: var(--text-muted); font-size: var(--type-body-s-size); line-height: var(--type-body-s-lh); font-weight: var(--type-body-s-weight); }
 .chip {
   display: inline-flex;
   align-items: center;
@@ -15,11 +10,12 @@
   padding: var(--space-xs) var(--space-m);
   border: var(--border-thin) solid var(--border);
   border-radius: var(--radius-pill);
+  min-height: var(--space-xxl);
   font-size: var(--type-caption-size);
   font-weight: var(--type-title-m-weight);
   line-height: 1.2;
   white-space: nowrap;
 }
-.chip-lime { background: var(--accent); color: var(--accent-ink); }
+.chip-lime { background: var(--accent); color: var(--accent-ink); border-color: var(--accent-border); }
 .chip-cream { background: var(--surface); color: var(--text); }
 .chip-ink { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }

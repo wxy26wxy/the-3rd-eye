@@ -1,0 +1,5 @@
+:where(.mascot) { display: block; width: calc(var(--size-record) * 1.6); height: auto; }
+.mascot img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.book { aspect-ratio: 360 / 513; }
+.front { aspect-ratio: 204 / 240; }
+.magnifier { aspect-ratio: 1; }

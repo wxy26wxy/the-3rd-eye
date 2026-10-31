@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
 import styles from "./Text.module.css";
 
-export function Eyebrow({ children, as: Tag = "p", className }: { children: ReactNode; as?: "p" | "span" | "h2"; className?: string }) {
-  return <Tag className={[styles.eyebrow, className].filter(Boolean).join(" ")}>{children}</Tag>;
-}
+/** Re-exported from ./Eyebrow so existing `@/components/ui/Text` imports keep working. */
+export { Eyebrow } from "./Eyebrow";
 
 export function Title({ children, as: Tag = "h2", size = "l", id, className }: { children: ReactNode; as?: "h1" | "h2" | "h3" | "p"; size?: "l" | "m"; id?: string; className?: string }) {
   return <Tag id={id} className={[size === "l" ? styles.titleL : styles.titleM, className].filter(Boolean).join(" ")}>{children}</Tag>;

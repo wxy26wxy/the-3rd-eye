@@ -110,6 +110,12 @@ enum ThemeEffects {
   static let photoCheck: CGFloat = 28
   static let unselectedPieceOpacity: Double = 0.45
   static let segmentHeight: CGFloat = 64
+  /// Board values used in several places (T104 fix round 1): the 2 pt ink stroke of a selected
+  /// piece or mark ring (`border.card` 1.5 is too thin on photos), the 12 pt corner of small
+  /// thumbnails (order rows), and the smallest a fitted label may shrink to (mark numbers, tab labels).
+  static let selectedStroke: CGFloat = 2
+  static let thumbRadius: CGFloat = 12
+  static let minimumTextScale: CGFloat = 0.5
   /// Photo card (Figma `Photo card`): the photo sits on the green card with this inset.
   static let photoCardInset: CGFloat = 20
   /// Story video recording limit in seconds.

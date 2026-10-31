@@ -329,7 +329,7 @@ struct AdjustCutoutView: View {
   private func outline(rect: CGRect, selected: Bool) -> some View {
     RoundedRectangle(cornerRadius: Theme.Radius.m)
       .stroke(selected ? colors.text : colors.textMuted,
-              style: StrokeStyle(lineWidth: Theme.Border.card * 4 / 3, dash: selected ? [] : [Theme.Space.s, Theme.Space.xs]))
+              style: StrokeStyle(lineWidth: ThemeEffects.selectedStroke, dash: selected ? [] : [Theme.Space.s, Theme.Space.xs]))
       .frame(width: rect.width, height: rect.height)
       .overlay(alignment: .topTrailing) {
         if selected {
@@ -385,10 +385,10 @@ struct AdjustCutoutView: View {
       }
     }
       .foregroundStyle(colors.primaryText)
-      .minimumScaleFactor(0.5)
+      .minimumScaleFactor(ThemeEffects.minimumTextScale)
       .frame(width: Self.markDot, height: Self.markDot)
       .background(Circle().fill(positive ? colors.primary : colors.danger))
-      .overlay(Circle().stroke(colors.surface, lineWidth: Theme.Border.card * 4 / 3))
+      .overlay(Circle().stroke(colors.surface, lineWidth: ThemeEffects.selectedStroke))
       .frame(width: Theme.Size.iconButton, height: Theme.Size.iconButton)
       .allowsHitTesting(false)
       .accessibilityElement(children: .ignore)
@@ -432,7 +432,7 @@ struct AdjustCutoutView: View {
                 .frame(width: ThemeEffects.pieceThumb, height: ThemeEffects.pieceThumb)
                 .background(shape.fill(colors.surface))
                 .clipShape(shape)
-                .overlay(shape.strokeBorder(on ? colors.text : colors.border, lineWidth: on ? Theme.Border.card * 4 / 3 : Theme.Border.thin))
+                .overlay(shape.strokeBorder(on ? colors.text : colors.border, lineWidth: on ? ThemeEffects.selectedStroke : Theme.Border.thin))
                 .overlay(alignment: .topTrailing) {
                   if on { CheckBadge(size: Theme.Size.radio).offset(x: Theme.Space.xs, y: -Theme.Space.s + 2) }
                 }

@@ -39,16 +39,20 @@ struct OrdersView: View {
 struct OrderRow: View {
   let order: OrderSummary
   @Environment(\.themeColors) private var colors
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
   var body: some View {
     Card(padding: Theme.Space.m) {
       HStack(spacing: Theme.Space.m) {
-        RemoteImage(url: order.mockupUrl.flatMap(URL.init(string:)), altText: order.productTitle)
-          .padding(Theme.Space.xs)
-          .frame(width: Theme.Size.cta, height: Theme.Size.cta)
-          .background(RoundedRectangle(cornerRadius: Theme.Radius.s * 2, style: .continuous).fill(colors.surfaceAlt))
-          .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s * 2, style: .continuous))
-          .accessibilityHidden(true)
+        // The thumbnail gives its width to the words at accessibility sizes.
+        if !dynamicTypeSize.isAccessibilitySize {
+          RemoteImage(url: order.mockupUrl.flatMap(URL.init(string:)), altText: order.productTitle)
+            .padding(Theme.Space.xs)
+            .frame(width: Theme.Size.cta, height: Theme.Size.cta)
+            .background(RoundedRectangle(cornerRadius: ThemeEffects.thumbRadius, style: .continuous).fill(colors.surfaceAlt))
+            .clipShape(RoundedRectangle(cornerRadius: ThemeEffects.thumbRadius, style: .continuous))
+            .accessibilityHidden(true)
+        }
         VStack(alignment: .leading, spacing: Theme.Space.xs) {
           Text(order.productTitle ?? String(localized: "Your product")).themeFont(.titleL).foregroundStyle(colors.text)
           Text("Bought by \(order.buyerName ?? String(localized: "a buyer"))").themeFont(.bodyS).foregroundStyle(colors.textMuted)
@@ -56,6 +60,7 @@ struct OrderRow: View {
           if order.hasThankYou == false {
             Text("SAY THANK YOU")
               .themeFont(.eyebrow)
+              .fixedSize(horizontal: false, vertical: true)
               .foregroundStyle(colors.accentInk)
               .padding(.horizontal, Theme.Space.s)
               .padding(.vertical, Theme.Space.xs)

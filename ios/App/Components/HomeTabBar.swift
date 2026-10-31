@@ -86,7 +86,7 @@ private struct HomeTabBarContent: View {
               .monospacedDigit()
               .foregroundStyle(colors.primaryText)
               .lineLimit(1)
-              .minimumScaleFactor(0.5)
+              .minimumScaleFactor(ThemeEffects.minimumTextScale)
               .padding(.horizontal, Theme.Border.icon * 2)
               .frame(minWidth: ThemeEffects.tabBadge, minHeight: ThemeEffects.tabBadge)
               .background(Capsule().fill(colors.primary))

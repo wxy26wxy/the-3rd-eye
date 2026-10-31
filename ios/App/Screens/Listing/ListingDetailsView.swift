@@ -20,7 +20,7 @@ struct ListingDetailsView: View {
     FlowScreen(title: "Listing details", subtitle: "Check the name and price, then list it.") {
       if creatingProduct {
         VStack(spacing: Theme.Space.l) {
-          TagMascot(pose: .book)
+          SkyCard(pose: .book)
           Text(app.flow.productType == .tote ? "Putting your art on a tote bag. This can take up to a minute." : "Making your sticker. This can take up to a minute.")
             .themeFont(.bodyL)
             .foregroundStyle(colors.text)
@@ -52,9 +52,11 @@ struct ListingDetailsView: View {
   private var form: some View {
     VStack(alignment: .leading, spacing: Theme.Space.l) {
       if let product = app.flow.product {
+        // The mockup on a grey card (board `2014:678`).
         RemoteImage(url: product.mockupUrl.flatMap(URL.init(string:)) ?? app.flow.artwork?.displayURL, altText: app.flow.artwork?.altText)
-          .frame(maxHeight: ThemeEffects.artworkMaxHeight)
-          .frame(maxWidth: .infinity)
+          .padding(Theme.Space.l)
+          .frame(maxWidth: .infinity, maxHeight: ThemeEffects.mockupMaxHeight)
+          .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(colors.surfaceAlt))
       }
       Button {
         Task { await improve() }
@@ -72,9 +74,9 @@ struct ListingDetailsView: View {
 
       Card(selected: true) {
         HStack {
-          Text("You earn per sale").themeFont(.titleM).foregroundStyle(colors.accentInk)
+          Text("You earn per sale").themeFont(.titleL).foregroundStyle(colors.accentInk)
           Spacer()
-          Text(Money.format(cents: earnCents)).themeFont(.titleL).foregroundStyle(colors.accentInk)
+          Text(Money.format(cents: earnCents)).themeFont(.displayM).fontWeight(TextRole.titleL.weight).foregroundStyle(colors.accentInk)
         }
       }
       .accessibilityElement(children: .combine)

@@ -25,13 +25,15 @@ struct SpeakView: View {
         listeningCard
         if typing {
           VStack(alignment: .leading, spacing: Theme.Space.xs) {
-            Text(question == nil ? "Type your idea" : "Type your answer").themeFont(.eyebrow).foregroundStyle(colors.textMuted)
+            // Field label above a white box (Figma `Text field`, board `2011:246`).
+            Text(question == nil ? "Type your idea" : "Type your answer").themeFont(.caption).foregroundStyle(colors.text)
             TextField(question == nil ? "A happy frog wearing a crown" : "Your answer", text: question == nil ? $flow.transcript : $answerText, axis: .vertical)
               .themeFont(.bodyL)
               .lineLimit(3...6)
               .padding(Theme.Space.l)
               .frame(minHeight: Theme.Size.cta)
-              .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt))
+              .frame(minHeight: Theme.Size.record + Theme.Space.xxl, alignment: .topLeading)
+              .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surface))
               .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.thin))
               .accessibilityLabel(Text(question == nil ? "Your idea" : "Your answer"))
           }

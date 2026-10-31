@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Loading: Muse Image draws the shaped prompt.
+/// Board "Drawing your idea · Sky" (`2012:276`): Muse Image draws the shaped prompt; the sky card
+/// with the standing mascot, the I HEARD card, the message and a spinner.
 struct DrawingYourIdeaView: View {
   @Environment(AppState.self) private var app
   @State private var error: String?
@@ -10,7 +11,7 @@ struct DrawingYourIdeaView: View {
     LoadingScreen(
       title: "Drawing your idea",
       detail: "Making your picture now. This can take up to a minute.",
-      pose: .magnifier,
+      pose: .front,
       spoken: app.flow.shaped?.spokenConfirmation,
       error: error,
       retry: { error = nil; attempt += 1 }

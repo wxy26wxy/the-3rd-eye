@@ -20,6 +20,7 @@ import { NoteForm } from "@/components/storytag/NoteForm";
 import { CreatorCard } from "@/components/site/CreatorCard";
 import { StaticPage } from "@/components/pages/StaticPage";
 import NotFound from "@/app/not-found";
+import SiteNotFound from "@/app/(site)/not-found";
 import type { CreatorSummary } from "@/lib/db/queries.contract";
 
 const html = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(el);
@@ -175,5 +176,14 @@ describe("Artists, static pages, 404 (T106, 2024:2597 / 2025:2682 / 2025:2886)",
     expect(out).toMatch(new RegExp(`<h1[^>]*>${m.notFound.title}</h1>`));
     expect(out).toContain(m.notFound.home);
     expect(out.indexOf("</main>")).toBeLessThan(out.indexOf("<footer"));
+    expect(out.match(/<header/g)).toHaveLength(1);
+    expect(out.match(/id="nav-drawer"/g)).toHaveLength(1);
+  });
+
+  it("(site) 404 is the body only: the (site) layout supplies nav, main and footer", () => {
+    const out = html(createElement(SiteNotFound));
+    expect(out).toMatch(new RegExp(`<h1[^>]*>${m.notFound.title}</h1>`));
+    expect(out).toContain(m.notFound.home);
+    expect(out).not.toMatch(/<header|<main|<footer|nav-drawer/);
   });
 });

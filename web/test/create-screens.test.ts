@@ -116,6 +116,13 @@ describe("Select view (T105, boards 2027:3254 / 2038:4092 / 2038:4233 / 2038:436
     expect(select().match(/class="[^"]*pieceThumb/g)?.length).toBe(3);
   });
 
+  it("Result picture row wraps three per row, so a refine (5th picture) never clips", () => {
+    const css = readFileSync(resolve(__dirname, "../components/create/Create.module.css"), "utf8");
+    const tiles = css.match(/\n\.tiles\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(tiles).toMatch(/grid-template-columns:\s*repeat\(3,/);
+    expect(tiles).not.toMatch(/grid-auto-flow:\s*column/);
+  });
+
   it("making the product shows the making line", () => {
     expect(select({ work: "use" })).toContain(fmt(m.create.result.making, { product: "sticker" }));
   });

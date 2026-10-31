@@ -272,7 +272,8 @@
 .body > .skyShort { aspect-ratio: 342 / 200; }
 
 /* Result (board 2027:3091): picture row, large preview, change card. */
-.tiles { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--space-s); list-style: none; }
+/* Three per row as on the board; a fourth variant or a refine wraps to the next row (labels never clip). */
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-s); list-style: none; }
 .tile {
   display: grid; justify-items: center; gap: var(--space-xs);
   padding: var(--space-xs) var(--space-xs) var(--space-s);

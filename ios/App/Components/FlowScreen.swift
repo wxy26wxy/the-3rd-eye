@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// Standard creator-flow layout: green header (back, step pill, headline),
-/// then a scalloped cream sheet holding the content and the actions.
+/// Sky creator-flow layout on the white page: a top row (44 pt Back when the screen has a back action,
+/// else the logo mark), the headline and description, the content, then the actions at the bottom.
+/// Short screens pin the actions to the bottom edge; tall screens scroll and the actions follow the
+/// content (Figma B1 review: no pinned bar yet). The old step pill is a VoiceOver hint on the headline.
 struct FlowScreen<Content: View, Actions: View>: View {
   var title: LocalizedStringKey
   var subtitle: LocalizedStringKey?
@@ -14,44 +16,40 @@ struct FlowScreen<Content: View, Actions: View>: View {
   @Environment(\.themeColors) private var colors
 
   var body: some View {
-    ScrollView {
-      VStack(spacing: 0) {
-        VStack(spacing: Theme.Space.l) {
-          HStack {
-            if showsBack {
-              IconButton(systemName: "chevron.left", label: "Back", hint: "Goes to the previous screen") { dismiss() }
+    GeometryReader { proxy in
+      ScrollView {
+        VStack(alignment: .leading, spacing: Theme.Space.xxl) {
+          VStack(alignment: .leading, spacing: Theme.Space.l) {
+            HStack {
+              if showsBack {
+                IconButton(asset: Tokens.Asset.iconChevronRight, label: "Back", hint: "Goes to the previous screen",
+                           size: Theme.Size.minTarget, mirrored: true) { dismiss() }
+              } else {
+                LogoMark()
+              }
+              Spacer()
+              if let trailing { trailing }
             }
-            Spacer()
-            if let step { StepPill(step: step.0, total: step.1) }
-            Spacer()
-            if let trailing { trailing } else if showsBack {
-              Color.clear.frame(width: Theme.Size.iconButton, height: Theme.Size.iconButton).accessibilityHidden(true)
+            .frame(minHeight: Theme.Size.minTarget)
+            DisplayText(title)
+              .accessibilityHint(step.map { Text("Step \($0.0) of \($0.1)") } ?? Text(""))
+            if let subtitle {
+              Text(subtitle)
+                .themeFont(.body)
+                .foregroundStyle(colors.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
             }
           }
-          DisplayText(title, role: .displayL)
-          if let subtitle {
-            Text(subtitle)
-              .themeFont(.bodyL)
-              .foregroundStyle(colors.textOnDark)
-              .multilineTextAlignment(.center)
-          }
+          content
+          Spacer(minLength: 0)
+          VStack(spacing: Theme.Space.s) { actions }
         }
         .padding(.horizontal, Theme.Space.page)
         .padding(.top, Theme.Space.s)
-        .padding(.bottom, Theme.Space.xl)
-
-        CreamSheet {
-          VStack(spacing: Theme.Space.xl) {
-            content
-            VStack(spacing: Theme.Space.l) { actions }
-              .padding(.top, Theme.Space.s)
-          }
-        }
+        .padding(.bottom, Theme.Space.l)
+        .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .topLeading)
       }
-    }
-    .scrollBounceBehavior(.basedOnSize)
-    .background(alignment: .bottom) {
-      colors.surface.frame(height: Theme.Size.record * 4).ignoresSafeArea()
+      .scrollBounceBehavior(.basedOnSize)
     }
     .screenBackground()
     .toolbar(.hidden, for: .navigationBar)

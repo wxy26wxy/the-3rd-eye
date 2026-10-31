@@ -1,29 +1,30 @@
 import SwiftUI
 
-/// Layout for the non-flow tabs: headline + sign-out button, cream sheet below.
+/// Sky layout for the Home tabs on the white page: a top row with the logo mark (left) and the
+/// 44 pt Sign out button (right), the headline below it, then the content. No cream sheet.
+/// VoiceOver order follows the boards: Sign out, headline, content.
 struct TabScreen<Content: View>: View {
   let title: LocalizedStringKey
   @ViewBuilder var content: Content
-  @Environment(\.themeColors) private var colors
 
   var body: some View {
     ScrollView {
-      VStack(spacing: 0) {
-        HStack(alignment: .center) {
-          DisplayText(title, role: .displayM, tilted: false)
-          Spacer()
-          SignOutButton()
+      VStack(alignment: .leading, spacing: Theme.Space.xxl) {
+        VStack(alignment: .leading, spacing: Theme.Space.l) {
+          HStack {
+            LogoMark()
+            Spacer()
+            SignOutButton()
+          }
+          .frame(minHeight: Theme.Size.minTarget)
+          DisplayText(title)
         }
-        .padding(.horizontal, Theme.Space.page)
-        .padding(.vertical, Theme.Space.l)
-        CreamSheet {
-          VStack(alignment: .leading, spacing: Theme.Space.l) { content }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
+        VStack(alignment: .leading, spacing: Theme.Space.l) { content }
+          .frame(maxWidth: .infinity, alignment: .leading)
       }
-    }
-    .background(alignment: .bottom) {
-      colors.surface.frame(height: Theme.Size.record * 4).ignoresSafeArea()
+      .padding(.horizontal, Theme.Space.page)
+      .padding(.top, Theme.Space.s)
+      .padding(.bottom, Theme.Space.page)
     }
     .screenBackground()
     .toolbar(.hidden, for: .navigationBar)
@@ -43,7 +44,8 @@ struct SignOutButton: View {
   @State private var confirming = false
 
   var body: some View {
-    IconButton(systemName: "rectangle.portrait.and.arrow.right", label: "Sign out", hint: "Asks before signing you out") { confirming = true }
+    IconButton(systemName: "rectangle.portrait.and.arrow.right", label: "Sign out", hint: "Asks before signing you out",
+               size: Theme.Size.minTarget) { confirming = true }
       .accessibilityIdentifier(Self.buttonID)
       .confirmationDialog(Text("Sign out?"), isPresented: $confirming, titleVisibility: .visible) {
         Button("Sign out", role: .destructive) { app.signOut() }

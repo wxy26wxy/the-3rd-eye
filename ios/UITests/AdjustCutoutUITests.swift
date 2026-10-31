@@ -24,10 +24,14 @@ final class AdjustCutoutUITests: XCTestCase {
     let first = app.buttons["Piece 1"]
     XCTAssertTrue(first.waitForExistence(timeout: 20), "Adjust cutout shows the pieces")
     XCTAssertFalse(first.isSelected)
+    // The message line under the photo (board `21:4450`, in the app's words, T104).
+    XCTAssertTrue(app.staticTexts["Tap a piece below to pick it."].exists)
     first.tap()
     XCTAssertTrue(app.buttons["Piece 1"].isSelected, "the chip reads as selected")
+    XCTAssertTrue(app.staticTexts["Got piece 1! Tap another piece to add it too."].waitForExistence(timeout: 3))
     app.buttons["Piece 2"].tap()
     XCTAssertTrue(app.buttons["Piece 2"].isSelected)
+    XCTAssertTrue(app.staticTexts["Got 2 pieces. They are cut out together."].waitForExistence(timeout: 3), "a second piece is combined")
 
     tapUseThis(app)
     XCTAssertTrue(app.staticTexts["Put it up for sale now?"].waitForExistence(timeout: 10), "goes on to Design ready")

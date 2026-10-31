@@ -14,7 +14,7 @@ final class VoiceFlowUITests: XCTestCase {
     app.launch()
     signIn(app, code: "TEST-CODE")  // placeholder; the mock accepts any code (simple mode on)
 
-    let sticker = app.buttons["Sticker, Die-cut around your art"]
+    let sticker = app.buttons["Sticker, Die-cut, waterproof"]
     XCTAssertTrue(sticker.waitForExistence(timeout: 10))
     sticker.tap()
     describeIdea(app)
@@ -43,7 +43,7 @@ final class VoiceFlowUITests: XCTestCase {
     app.launch()
     signIn(app, code: "MULTI-CODE")
 
-    let sticker = app.buttons["Sticker, Die-cut around your art"]
+    let sticker = app.buttons["Sticker, Die-cut, waterproof"]
     XCTAssertTrue(sticker.waitForExistence(timeout: 10))
     sticker.tap()
     app.buttons["Next"].tap()
@@ -60,7 +60,7 @@ final class VoiceFlowUITests: XCTestCase {
   // MARK: Helpers
 
   private func describeIdea(_ app: XCUIApplication) {
-    let voice = app.buttons["Say it out loud, Describe it, we draw it"]
+    let voice = app.buttons["Say it out loud, Describe it, we draw it for you"]
     XCTAssertTrue(voice.waitForExistence(timeout: 5))
     voice.tap()
     let typeInstead = app.buttons["Type instead"]

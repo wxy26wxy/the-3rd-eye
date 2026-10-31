@@ -11,6 +11,11 @@ struct LoadingScreen: View {
   var spoken: String?
   var error: String?
   var retry: (() -> Void)?
+  /// Width / height of the sky card: 342 × 286 by default; Finding your drawings uses the taller
+  /// 342 × 415 card (`ThemeEffects.tallSkyCardAspect`).
+  var cardAspect: CGFloat = ThemeEffects.skyCardAspect
+  /// Finding your drawings shows only its message line under the card (no spinner on `21:4390`).
+  var showsSpinner = true
   @Environment(\.themeColors) private var colors
   @Environment(\.dismiss) private var dismiss
 
@@ -21,7 +26,7 @@ struct LoadingScreen: View {
           LogoMark().frame(minHeight: Theme.Size.minTarget)
           DisplayText(title)
         }
-        SkyCard(pose: error == nil ? pose : .front)
+        SkyCard(pose: error == nil ? pose : .front, aspect: cardAspect)
         if let error {
           Card {
             Text(error).themeFont(.body).foregroundStyle(colors.text)
@@ -41,10 +46,12 @@ struct LoadingScreen: View {
               .themeFont(.body)
               .foregroundStyle(colors.textMuted)
               .multilineTextAlignment(.center)
-            ProgressView()
-              .controlSize(.large)
-              .tint(colors.text)
-              .accessibilityLabel(Text("Working"))
+            if showsSpinner {
+              ProgressView()
+                .controlSize(.large)
+                .tint(colors.text)
+                .accessibilityLabel(Text("Working"))
+            }
             SlowWorkHint()
           }
           .frame(maxWidth: .infinity)
@@ -83,12 +90,15 @@ struct LoadingScreen: View {
 /// (and for still poses) the standing mascot on the sky photo. Decorative.
 struct SkyCard: View {
   var pose: TagMascot.Pose = .magnifier
+  var aspect: CGFloat = ThemeEffects.skyCardAspect
+  /// Where the still mascot stands: centred, or at the left (You're live, with the sticker at the right).
+  var mascotAlignment: Alignment = .bottom
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
     let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
     Color.clear
-      .aspectRatio(ThemeEffects.skyCardAspect, contentMode: .fit)
+      .aspectRatio(aspect, contentMode: .fit)
       .overlay {
         if pose == .magnifier && !reduceMotion {
           LoopingVideo(resource: Tokens.Asset.mascotMagnifier)
@@ -96,7 +106,7 @@ struct SkyCard: View {
           Image(Tokens.Asset.sky)
             .resizable()
             .scaledToFill()
-            .overlay(alignment: .bottom) {
+            .overlay(alignment: mascotAlignment) {
               Image(pose == .book ? Tokens.Asset.mascotBook : Tokens.Asset.mascotFront)
                 .resizable()
                 .scaledToFit()
@@ -104,6 +114,8 @@ struct SkyCard: View {
                 // blown up to the card width.
                 .frame(maxWidth: ThemeEffects.stillMascot.width, maxHeight: ThemeEffects.stillMascot.height)
                 .padding(.top, Theme.Space.xxl)
+                .padding(.horizontal, mascotAlignment == .bottom ? 0 : Theme.Space.xxl)
+                .padding(.bottom, mascotAlignment == .bottom ? 0 : Theme.Space.section)
             }
         }
       }

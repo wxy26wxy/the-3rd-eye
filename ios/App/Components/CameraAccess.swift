@@ -43,8 +43,11 @@ struct CameraDeniedCard: View {
         }
         Text("In Settings, tap \(Tokens.Brand.name), then turn on Camera.")
           .themeFont(.bodyS)
-          .foregroundStyle(colors.textMuted)
-        PillButton("Open Settings", hint: "Opens the Settings app so you can turn on the camera", showsArrow: false) {
+          .foregroundStyle(colors.text)
+          .padding(Theme.Space.m)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .background(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous).fill(colors.surfaceAlt))
+        PillButton("Open Settings", hint: "Opens the Settings app so you can turn on the camera", kind: .secondary, showsArrow: false) {
           CameraAccess.openSettings()
         }
         if let libraryLabel, let onLibrary {

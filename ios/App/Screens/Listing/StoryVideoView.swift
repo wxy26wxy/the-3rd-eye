@@ -36,14 +36,17 @@ struct StoryVideoView: View {
           }
           .accessibilityElement(children: .combine)
         }
-        Toggle(isOn: $mentionDisability) {
-          VStack(alignment: .leading, spacing: Theme.Space.xs) {
-            Text("Mention my disability").themeFont(.titleM).foregroundStyle(colors.text)
-            Text("Off means your story never says it. You can change this later.").themeFont(.bodyS).foregroundStyle(colors.textMuted)
+        // Figma `Toggle row`: the switch in a bordered card.
+        Card(padding: Theme.Space.l) {
+          Toggle(isOn: $mentionDisability) {
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+              Text("Mention my disability").themeFont(.titleM).foregroundStyle(colors.text)
+              Text("Off means your story never says it. You can change this later.").themeFont(.bodyS).foregroundStyle(colors.textMuted)
+            }
           }
+          .tint(colors.accent)
+          .frame(minHeight: Theme.Size.minTarget)
         }
-        .tint(colors.primary)
-        .frame(minHeight: Theme.Size.cta)
 
         if uploading {
           HStack(spacing: Theme.Space.m) {

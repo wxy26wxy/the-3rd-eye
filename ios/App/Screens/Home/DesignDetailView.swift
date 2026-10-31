@@ -18,9 +18,15 @@ struct DesignDetailView: View {
   private var artwork: Artwork? { app.designs.artwork(id: artworkId) }
 
   var body: some View {
-    FlowScreen(title: "Your design", pinsActions: false) {
+    // Board `2016:1178`: one primary pinned in the bottom bar (T103 re-review R1, so it is on
+    // screen at every text size); the other actions follow the content as secondary pills.
+    FlowScreen(title: "Your design") {
       if let artwork {
         content(artwork)
+        VStack(spacing: Theme.Space.s) {
+          secondaryActions(artwork)
+        }
+        .disabled(openingRedo || removing)
       } else {
         Text("This design is no longer in My designs.")
           .themeFont(.bodyL)
@@ -29,7 +35,7 @@ struct DesignDetailView: View {
       }
     } actions: {
       if let artwork {
-        actions(artwork).disabled(openingRedo || removing)
+        primaryAction(artwork).disabled(openingRedo || removing)
       }
     }
     .sheet(item: $editing) { product in
@@ -54,8 +60,9 @@ struct DesignDetailView: View {
     let badge = DesignBadge.of(artwork)
     return VStack(spacing: Theme.Space.l) {
       DesignPicture(artwork: artwork, badge: badge)
-        .frame(maxHeight: ThemeEffects.artworkMaxHeight)
-        .frame(maxWidth: .infinity)
+        .padding(Theme.Space.xl)
+        .frame(maxWidth: .infinity, maxHeight: ThemeEffects.artworkMaxHeight)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(colors.surfaceAlt))
         // Without an image the placeholder only repeats the badge below it.
         .accessibilityHidden(artwork.displayURL == nil)
       DesignBadgeView(badge: badge)
@@ -87,12 +94,8 @@ struct DesignDetailView: View {
 
   private func productRow(_ product: ArtworkProduct) -> some View {
     HStack(spacing: Theme.Space.m) {
-      Image(systemName: product.type == .tote ? "bag" : "seal")
-        .font(TextRole.titleM.font)
-        .foregroundStyle(colors.text)
-        .accessibilityHidden(true)
       VStack(alignment: .leading, spacing: Theme.Space.xs) {
-        Text(product.type == .tote ? "Tote bag" : "Sticker").themeFont(.titleM).foregroundStyle(colors.text)
+        Text(product.type == .tote ? "Tote bag" : "Sticker").themeFont(.titleL).foregroundStyle(colors.text)
         if let title = product.title, product.hasListing {
           Text(title).themeFont(.body).foregroundStyle(colors.text)
         }
@@ -100,10 +103,10 @@ struct DesignDetailView: View {
       Spacer(minLength: 0)
       DesignBadgeView(badge: product.isPublished ? .inShop : .draft)
     }
-    .padding(Theme.Space.m)
+    .padding(Theme.Space.l)
     .frame(maxWidth: .infinity, minHeight: Theme.Size.iconButton)
-    .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt))
-    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.thin))
+    .background(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous).fill(colors.surface))
+    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous).stroke(colors.border, lineWidth: Theme.Border.thin))
     .accessibilityElement(children: .combine)
   }
 
@@ -114,16 +117,30 @@ struct DesignDetailView: View {
 
   // MARK: Actions
 
+  private func primary(_ artwork: Artwork) -> DesignPrimaryAction? { DesignPrimaryAction.of(artwork) }
+
+  @ViewBuilder private func primaryAction(_ artwork: Artwork) -> some View {
+    let published = artwork.liveProducts.filter(\.isPublished)
+    switch primary(artwork) {
+    case .shop(let id):
+      if let product = published.first(where: { $0.id == id }) { shopButton(product, count: published.count, kind: .primary) }
+    case .make(let type):
+      makeButton(type, artwork: artwork, kind: .primary)
+    case .redo:
+      redoButton(artwork, kind: .primary)
+    case nil:
+      EmptyView()
+    }
+  }
+
   /// Shop and listing first (what a creator with a live design most often wants), then new
-  /// products, the cutout, and Delete.
-  @ViewBuilder private func actions(_ artwork: Artwork) -> some View {
+  /// products, the cutout, and Delete (destructive style), all secondary.
+  @ViewBuilder private func secondaryActions(_ artwork: Artwork) -> some View {
     let products = artwork.liveProducts
     let published = products.filter(\.isPublished)
+    let pinned = primary(artwork)
     ForEach(published) { product in
-      PillButton(published.count == 1 ? "See it in the shop" : (product.type == .tote ? "See the tote in the shop" : "See the sticker in the shop"),
-                 hint: "Opens the shop page buyers see") {
-        shopPage = SheetURL(url: AppConfig.productPageURL(productId: product.id))
-      }
+      if pinned != .shop(product.id) { shopButton(product, count: published.count, kind: .secondary) }
     }
     let listed = products.filter(\.hasListing)
     ForEach(listed) { product in
@@ -137,21 +154,33 @@ struct DesignDetailView: View {
       }
     }
     if artwork.isReadyForProducts {
-      makeButton(.sticker, artwork: artwork)
-      makeButton(.tote, artwork: artwork)
+      if pinned != .make(.sticker) { makeButton(.sticker, artwork: artwork, kind: .secondary) }
+      if pinned != .make(.tote) { makeButton(.tote, artwork: artwork, kind: .secondary) }
     }
-    PillButton(openingRedo ? "Opening your photo…" : "Re-do the cutout", hint: "Pick other pieces or change the cutout", kind: .secondary, showsArrow: false) {
+    if pinned != .redo { redoButton(artwork, kind: .secondary) }
+    PillButton(removing ? "Deleting…" : "Delete", hint: "Asks before deleting this design", kind: .destructive, showsArrow: false) {
+      deleting = artwork
+    }
+  }
+
+  private func redoButton(_ artwork: Artwork, kind: PillButtonStyle.Kind) -> some View {
+    PillButton(openingRedo ? "Opening your photo…" : "Re-do the cutout", hint: "Pick other pieces or change the cutout",
+               kind: kind, showsArrow: kind == .primary) {
       Task { await openRedo(artwork) }
     }
-    PillButton(removing ? "Deleting…" : "Delete", hint: "Asks before deleting this design", kind: .secondary, showsArrow: false) {
-      deleting = artwork
+  }
+
+  private func shopButton(_ product: ArtworkProduct, count: Int, kind: PillButtonStyle.Kind) -> some View {
+    PillButton(count == 1 ? "See it in the shop" : (product.type == .tote ? "See the tote in the shop" : "See the sticker in the shop"),
+               hint: "Opens the shop page buyers see", kind: kind, showsArrow: kind == .primary) {
+      shopPage = SheetURL(url: AppConfig.productPageURL(productId: product.id))
     }
   }
 
   /// "Make a sticker", or "Make another sticker" (with a confirmation) when one is already in the
   /// shop; "Continue the sticker draft" when a draft of that type is there too (that is what
   /// happens). Each asks first when the Create tab has a creation in progress.
-  @ViewBuilder private func makeButton(_ type: ProductType, artwork: Artwork) -> some View {
+  @ViewBuilder private func makeButton(_ type: ProductType, artwork: Artwork, kind: PillButtonStyle.Kind) -> some View {
     if artwork.hasPublished(type) {
       let draft = hasDraft(type, in: artwork)
       PillButton(draft ? (type == .tote ? "Continue the tote draft" : "Continue the sticker draft")
@@ -159,15 +188,17 @@ struct DesignDetailView: View {
                  hint: draft
                    ? (type == .tote ? "Goes on to your tote draft" : "Goes on to your sticker draft")
                    : (type == .tote ? "You already have this tote in the shop" : "You already have this sticker in the shop"),
-                 kind: .secondary, showsArrow: false) {
+                 kind: kind, showsArrow: kind == .primary) {
         go(artwork, type)
       }
     } else if type == .tote {
-      PillButton("Make a tote", hint: hasDraft(.tote, in: artwork) ? "Goes on to your tote draft" : "Puts it on a tote bag and writes its listing") {
+      PillButton("Make a tote", hint: hasDraft(.tote, in: artwork) ? "Goes on to your tote draft" : "Puts it on a tote bag and writes its listing",
+                 kind: kind, showsArrow: kind == .primary) {
         go(artwork, .tote)
       }
     } else {
-      PillButton("Make a sticker", hint: hasDraft(.sticker, in: artwork) ? "Goes on to your sticker draft" : "Makes a sticker and writes its listing") {
+      PillButton("Make a sticker", hint: hasDraft(.sticker, in: artwork) ? "Goes on to your sticker draft" : "Makes a sticker and writes its listing",
+                 kind: kind, showsArrow: kind == .primary) {
         go(artwork, .sticker)
       }
     }

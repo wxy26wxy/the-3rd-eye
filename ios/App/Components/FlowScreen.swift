@@ -12,6 +12,8 @@ struct FlowScreen<Content: View, Actions: View>: View {
   /// Actions in the pinned bottom bar (default). False for screens whose actions are a long list
   /// (Design detail): they then follow the content and scroll with it.
   var pinsActions = true
+  /// Celebration boards (Design ready, You're live) centre the headline.
+  var titleAlignment: TextAlignment = .leading
   @ViewBuilder var content: Content
   @ViewBuilder var actions: Actions
   @Environment(\.dismiss) private var dismiss
@@ -32,7 +34,7 @@ struct FlowScreen<Content: View, Actions: View>: View {
             if let trailing { trailing }
           }
           .frame(minHeight: Theme.Size.minTarget)
-          DisplayText(title)
+          DisplayText(title, alignment: titleAlignment)
             .accessibilityHint(step.map { Text("Step \($0.0) of \($0.1)") } ?? Text(""))
           if let subtitle {
             Text(subtitle)

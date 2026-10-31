@@ -28,9 +28,17 @@ struct VoiceResultView: View {
               artwork(variant, position: (index + 1, app.flow.variants.count)).tag(index)
             }
           }
-          .tabViewStyle(.page(indexDisplayMode: .always))
-          .indexViewStyle(.page(backgroundDisplayMode: .always))
+          .tabViewStyle(.page(indexDisplayMode: .never))
           .frame(height: ThemeEffects.artworkMaxHeight)
+          // Page dots under the card (board `2012:344`); VoiceOver hears "picture n of N" on the picture.
+          HStack(spacing: Theme.Space.xs) {
+            ForEach(app.flow.variants.indices, id: \.self) { index in
+              Circle()
+                .fill(index == app.flow.selectedVariant ? colors.text : colors.border)
+                .frame(width: Theme.Size.stepDot, height: Theme.Size.stepDot)
+            }
+          }
+          .accessibilityHidden(true)
         } else if let variant = app.flow.currentVariant {
           artwork(variant).frame(maxHeight: ThemeEffects.artworkMaxHeight)
         }
@@ -68,10 +76,12 @@ struct VoiceResultView: View {
   /// (a label on the TabView itself never reached VoiceOver; the UI test checks this).
   private func artwork(_ variant: ArtworkVariant, position: (Int, Int)? = nil) -> some View {
     let alt = variant.altText ?? String(localized: "Your picture")
+    let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
     return RemoteImage(url: variant.displayURL, altText: variant.altText)
-      .padding(Theme.Space.s)
-      .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt))
-      .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.card))
+      .padding(Theme.Space.xl)
+      .frame(maxWidth: .infinity)
+      .background(shape.fill(colors.surface))
+      .overlay(shape.strokeBorder(colors.border, lineWidth: Theme.Border.card))
       .accessibilityElement(children: .ignore)
       .accessibilityLabel(position.map { Text("\(alt), picture \($0.0) of \($0.1)") } ?? Text(alt))
       .accessibilityHint(position == nil ? Text("") : Text("Swipe left or right for other pictures"))

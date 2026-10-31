@@ -90,6 +90,34 @@ enum ThemeEffects {
   static let tabTopPadding: CGFloat = Tokens.Space.xs
   /// Sky card on the loading screen (Figma `Sky card`; the `sky` slot on You're live is 342 × 286).
   static let skyCardAspect: CGFloat = 342.0 / 286.0
+  /// Mic glyph inside the 84 pt record button (Figma `Record button`).
+  static let recordGlyph: CGFloat = 30
+  /// Pick sticker or tote (`45:700`): two product cards 302 pt tall; the sticker mascot's slot
+  /// (103 × 147) and the tote photo's slot (130 × 173).
+  static let productCardHeight: CGFloat = 302
+  static let productSticker = CGSize(width: 103, height: 147)
+  static let productTote = CGSize(width: 130, height: 173)
+  /// Finding your drawings (`21:4390`): the sky card is 342 × 415.
+  static let tallSkyCardAspect: CGFloat = 342.0 / 415.0
+  /// Your sticker is ready (`21:4509`): the sticker in the middle is 180 × 257.
+  static let readySticker = CGSize(width: 180, height: 257)
+  /// You're live (`21:4554`): the listed sticker card (112 × 156, 28 radius, turned 9°) on the sky card.
+  static let liveSticker = CGSize(width: 112, height: 156)
+  static let liveStickerTilt: Double = 9
+  /// Adjust cutout: piece chip thumbnails (80), the check badge on a selected piece on the photo (28),
+  /// dimmed art of a piece that is not picked (45 %), tool segments 64 tall.
+  static let pieceThumb: CGFloat = 80
+  static let photoCheck: CGFloat = 28
+  static let unselectedPieceOpacity: Double = 0.45
+  static let segmentHeight: CGFloat = 64
+  /// Board values used in several places (T104 fix round 1): the 2 pt ink stroke of a selected
+  /// piece or mark ring (`border.card` 1.5 is too thin on photos), the 12 pt corner of small
+  /// thumbnails (order rows), and the smallest a fitted label may shrink to (mark numbers, tab labels).
+  static let selectedStroke: CGFloat = 2
+  static let thumbRadius: CGFloat = 12
+  static let minimumTextScale: CGFloat = 0.5
+  /// Photo card (Figma `Photo card`): the photo sits on the green card with this inset.
+  static let photoCardInset: CGFloat = 20
   /// Story video recording limit in seconds.
   static let storyVideoSeconds: Double = 30
   /// Thank-you video recording limit in seconds.

@@ -24,10 +24,14 @@ final class AdjustCutoutUITests: XCTestCase {
     let first = app.buttons["Piece 1"]
     XCTAssertTrue(first.waitForExistence(timeout: 20), "Adjust cutout shows the pieces")
     XCTAssertFalse(first.isSelected)
+    // The message line under the photo (board `21:4450`, in the app's words, T104).
+    XCTAssertTrue(app.staticTexts["Tap a piece below to pick it."].exists)
     first.tap()
     XCTAssertTrue(app.buttons["Piece 1"].isSelected, "the chip reads as selected")
+    XCTAssertTrue(app.staticTexts["Got piece 1! Tap another piece to add it too."].waitForExistence(timeout: 3))
     app.buttons["Piece 2"].tap()
     XCTAssertTrue(app.buttons["Piece 2"].isSelected)
+    XCTAssertTrue(app.staticTexts["Got 2 pieces. They are cut out together."].waitForExistence(timeout: 3), "a second piece is combined")
 
     tapUseThis(app)
     XCTAssertTrue(app.staticTexts["Put it up for sale now?"].waitForExistence(timeout: 10), "goes on to Design ready")
@@ -268,8 +272,9 @@ final class AdjustCutoutUITests: XCTestCase {
     let photo = app.otherElements["cutout-photo"]
     XCTAssertTrue(photo.waitForExistence(timeout: 20))
     app.buttons["Draw a box"].tap()
-    // Tapping the mode scrolls the page a little, so the drag stays in the photo's lower part.
-    let start = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.4))
+    // Tapping the mode scrolls the page (the photo card and the message line under it push the
+    // tools down, T104), so the drag stays in the photo's lower part, which is on screen.
+    let start = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.55))
     let end = photo.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.9))
     start.press(forDuration: 0.3, thenDragTo: end)
     XCTAssertTrue(app.buttons["Clear marks"].waitForExistence(timeout: 3), "the box is drawn")
@@ -279,7 +284,7 @@ final class AdjustCutoutUITests: XCTestCase {
     XCTAssertTrue(app.buttons["Back to photo"].waitForExistence(timeout: 10))
     let box = try XCTUnwrap(try lastBody("cleanup")["box"] as? [Double])
     XCTAssertEqual(box.count, 4)
-    for (sent, expected) in zip(box, [240.0, 640, 1080, 1440]) {
+    for (sent, expected) in zip(box, [240.0, 880, 1080, 1440]) {
       XCTAssertEqual(sent, expected, accuracy: 48, "within 12 pt of the drag (4 image px per pt)")
     }
   }
@@ -342,10 +347,10 @@ final class AdjustCutoutUITests: XCTestCase {
     app.launchEnvironment["MOCK_BLOB_API"] = mockAPIURL.appendingPathComponent("blob").absoluteString + "/"
     app.launch()
     signIn(app, code: code)
-    let sticker = app.buttons["Sticker, Die-cut around your art"]
+    let sticker = app.buttons["Sticker, Die-cut, waterproof"]
     XCTAssertTrue(sticker.waitForExistence(timeout: 10))
     sticker.tap()
-    let upload = app.buttons["Upload a picture, Pick art from your photos"]
+    let upload = app.buttons["Upload a picture, Pick one you already have"]
     XCTAssertTrue(upload.waitForExistence(timeout: 5))
     upload.tap()
     return app

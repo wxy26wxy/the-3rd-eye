@@ -17,6 +17,18 @@ final class DesignsTests: XCTestCase {
     ArtworkProduct(id: id, type: type, status: status, title: title)
   }
 
+  // MARK: Design detail primary (T104 fix round 1)
+
+  func testPrimaryActionPerState() {
+    XCTAssertEqual(DesignPrimaryAction.of(artwork(products: [product("p1", .sticker, "draft"), product("p2", .tote, "published")])),
+                   .shop("p2"), "a live product: its shop page")
+    XCTAssertEqual(DesignPrimaryAction.of(artwork()), .make(.sticker), "a cut-out without products: make a sticker")
+    XCTAssertEqual(DesignPrimaryAction.of(artwork(products: [product("p1", .sticker, "archived")])), .make(.sticker))
+    XCTAssertEqual(DesignPrimaryAction.of(artwork(cleaned: nil, lastError: "timed out")), .redo, "didn't work: re-do the cutout")
+    XCTAssertEqual(DesignPrimaryAction.of(artwork(cleaned: nil, createdAt: "2026-10-30T11:58:00Z")), .redo, "still cutting")
+    XCTAssertEqual(DesignPrimaryAction.of(artwork(cleaned: nil)), .redo, "needs a cutout")
+  }
+
   // MARK: Badges
 
   func testBadgeMapping() {

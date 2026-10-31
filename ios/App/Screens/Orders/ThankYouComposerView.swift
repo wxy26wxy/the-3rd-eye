@@ -3,6 +3,7 @@ import SwiftUI
 
 /// Thank-you for a buyer: typed (or the keyboard's dictation), plus a photo or a short video.
 struct ThankYouComposerView: View {
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
   let orderId: String
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
@@ -46,7 +47,8 @@ struct ThankYouComposerView: View {
           .accessibilityElement(children: .combine)
         }
 
-        HStack(spacing: Theme.Space.m) {
+        // Side by side as on the board; stacked at accessibility sizes so the labels fit.
+        (dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: Theme.Space.s)) : AnyLayout(HStackLayout(spacing: Theme.Space.m))) {
           PhotosPicker(selection: $photoItem, matching: .images) {
             Label("Add a photo", systemImage: "photo")
           }

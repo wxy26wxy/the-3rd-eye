@@ -26,9 +26,9 @@ struct AdjustCutoutView: View {
 
     var symbol: String {
       switch self {
-      case .add: return "plus.circle"
-      case .remove: return "minus.circle"
-      case .box: return "rectangle.dashed"
+      case .add: return "plus"
+      case .remove: return "minus"
+      case .box: return "square.dashed"
       }
     }
 
@@ -83,6 +83,13 @@ struct AdjustCutoutView: View {
         } else if flow.photoArtwork != nil, error == nil {
           ProgressView().tint(colors.text).frame(minHeight: Theme.Size.record)
         }
+        if let message = selectionMessage, shownApplied == nil {
+          Text(message)
+            .themeFont(.body)
+            .foregroundStyle(colors.textMuted)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+        }
         if let applied, applied.request == currentRequest {
           PillButton(shownApplied == nil ? "Show the cutout" : "Back to photo",
                      hint: shownApplied == nil ? "Shows the saved cutout on its own" : "Shows your photo with the marks again",
@@ -93,12 +100,13 @@ struct AdjustCutoutView: View {
         if !candidates.isEmpty { candidateList }
         modePicker
         Text(mode.instruction)
-          .themeFont(.bodyS)
+          .themeFont(.body)
           .foregroundStyle(colors.textMuted)
           .multilineTextAlignment(.center)
           .frame(maxWidth: .infinity)
           .accessibilityLabel(Text(mode.instruction) + Text(verbatim: " ") + Text("With VoiceOver, use the actions on each piece in the list instead."))
         if hasMarks {
+          // Centred text action (Figma `Text action`).
           Button { clearMarks() } label: {
             Text("Clear marks")
               .themeFont(.body)
@@ -111,6 +119,7 @@ struct AdjustCutoutView: View {
           .disabled(work != nil)
           .opacity(work != nil ? Theme.Opacity.disabled : 1)
           .accessibilityHint(Text("Removes every mark and the box"))
+          .frame(maxWidth: .infinity)
         }
         if let notice {
           Text(notice)
@@ -196,17 +205,29 @@ struct AdjustCutoutView: View {
     }
   }
 
+  /// The board's message line under the photo ("Got the fern! Tap the flower to switch." on
+  /// `21:4450`), in this app's words: pieces have numbers, and a second piece is added, not swapped in.
+  private var selectionMessage: LocalizedStringKey? {
+    guard candidates.count > 1 else { return nil }
+    let numbers = candidates.enumerated().filter { isSelected($0.element) }.map { $0.offset + 1 }
+    switch numbers.count {
+    case 0: return "Tap a piece below to pick it."
+    case 1: return "Got piece \(numbers[0])! Tap another piece to add it too."
+    default: return "Got \(numbers.count) pieces. They are cut out together."
+    }
+  }
+
   // MARK: Photo with chips, marks and box
 
   private func photoArea(size: ImageSize) -> some View {
     photoImage
       .aspectRatio(size.w / size.h, contentMode: .fit)
-      // At most `size.photoMaxHeight` tall, so the tools stay near it; the overlay below then has
-      // exactly the picture's size.
-      .frame(maxHeight: Theme.photoMaxHeight)
+      // The green card (photo and its inset) is at most `size.photoMaxHeight` tall, so the tools
+      // stay near it; the overlay below then has exactly the picture's size.
+      .frame(maxHeight: Theme.photoMaxHeight - 2 * ThemeEffects.photoCardInset)
       // Only the picture is clipped: a mark at the edge stays whole, overhanging the frame.
-      .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m))
-      .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.card))
+      .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s))
+      .softShadow()
       .overlay {
         GeometryReader { geo in
           let frame = CutoutGeometry.fitRect(image: size, in: geo.size)
@@ -242,6 +263,9 @@ struct AdjustCutoutView: View {
       .accessibilityLabel(Text("Your photo"))
       .accessibilityIdentifier("cutout-photo")
       .frame(maxWidth: .infinity)
+      // Figma `Photo card`: the photo on the green card.
+      .padding(ThemeEffects.photoCardInset)
+      .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(colors.accent))
   }
 
   @ViewBuilder private var photoImage: some View {
@@ -300,15 +324,19 @@ struct AdjustCutoutView: View {
   /// each mark are the other ways to delete).
   private static let markDot = Theme.Space.xxl
 
+  /// Selected piece: a 2 pt ink outline with the ink check badge at its top-right corner (board
+  /// `21:4450`); other pieces: a dashed outline.
   private func outline(rect: CGRect, selected: Bool) -> some View {
-    RoundedRectangle(cornerRadius: Theme.Radius.s)
-      .fill(selected ? colors.selected.opacity(ThemeEffects.selectionFillOpacity) : Color.clear)
-      .overlay(
-        RoundedRectangle(cornerRadius: Theme.Radius.s)
-          .stroke(selected ? colors.selected : colors.surface,
-                  style: StrokeStyle(lineWidth: Theme.Border.card, dash: selected ? [] : [Theme.Space.s, Theme.Space.xs]))
-      )
+    RoundedRectangle(cornerRadius: Theme.Radius.m)
+      .stroke(selected ? colors.text : colors.textMuted,
+              style: StrokeStyle(lineWidth: ThemeEffects.selectedStroke, dash: selected ? [] : [Theme.Space.s, Theme.Space.xs]))
       .frame(width: rect.width, height: rect.height)
+      .overlay(alignment: .topTrailing) {
+        if selected {
+          CheckBadge(size: ThemeEffects.photoCheck)
+            .offset(x: ThemeEffects.photoCheck / 2 - Theme.Space.xs, y: -ThemeEffects.photoCheck / 2 + Theme.Space.xs)
+        }
+      }
       .position(x: rect.midX, y: rect.midY)
       .allowsHitTesting(false)
       .accessibilityHidden(true)
@@ -327,18 +355,13 @@ struct AdjustCutoutView: View {
   /// mark can be placed on it; pieces are picked in the strip below. Hidden from VoiceOver: the
   /// strip is the accessible list, so each piece is read once.
   private func chip(_ candidate: Candidate, number: Int) -> some View {
-    let on = isSelected(candidate)
-    return HStack(spacing: 0) {
-      if on {
-        Image(systemName: "checkmark").font(TextRole.caption.font.weight(.heavy))
-      }
-      Text("\(number)").themeFont(.caption)
-    }
-    .foregroundStyle(on ? colors.primaryText : colors.text)
-    .padding(.horizontal, Theme.Space.xs)
-    .frame(minWidth: Theme.Space.xxl, minHeight: Theme.Space.xxl)
-    .background(Capsule().fill(on ? colors.primary : colors.surface))
-    .overlay(Capsule().stroke(colors.border, lineWidth: Theme.Border.thin))
+    return Text("\(number)")
+      .themeFont(.caption)
+      .foregroundStyle(colors.text)
+      .padding(.horizontal, Theme.Space.xs)
+      .frame(minWidth: Theme.Space.xxl, minHeight: Theme.Space.xxl)
+      .background(Capsule().fill(colors.surface))
+      .overlay(Capsule().stroke(colors.text, lineWidth: Theme.Border.thin))
     .allowsHitTesting(false)
     .accessibilityHidden(true)
   }
@@ -353,12 +376,19 @@ struct AdjustCutoutView: View {
   /// Switch Control get a button with a 48 pt frame whose action deletes it.
   private func mark(_ point: CutoutPoint, index: Int) -> some View {
     let positive = point.label == .positive
-    return Image(systemName: positive ? "plus" : "minus")
-      .font(TextRole.caption.font.weight(.heavy))
-      .foregroundStyle(positive ? colors.accentInk : colors.danger)
+    // Board marks: an ink dot with a white ring and the mark's number; a "left out" mark is red with a minus.
+    return Group {
+      if positive {
+        Text("\(index + 1)").themeFont(.caption)
+      } else {
+        Image(systemName: "minus").font(TextRole.caption.font.weight(.heavy))
+      }
+    }
+      .foregroundStyle(colors.primaryText)
+      .minimumScaleFactor(ThemeEffects.minimumTextScale)
       .frame(width: Self.markDot, height: Self.markDot)
-      .background(Circle().fill(positive ? colors.accent : colors.surface))
-      .overlay(Circle().stroke(positive ? colors.border : colors.danger, lineWidth: Theme.Border.thin))
+      .background(Circle().fill(positive ? colors.primary : colors.danger))
+      .overlay(Circle().stroke(colors.surface, lineWidth: ThemeEffects.selectedStroke))
       .frame(width: Theme.Size.iconButton, height: Theme.Size.iconButton)
       .allowsHitTesting(false)
       .accessibilityElement(children: .ignore)
@@ -376,8 +406,8 @@ struct AdjustCutoutView: View {
     }
     .aspectRatio(size.w / size.h, contentMode: .fit)
     .frame(maxHeight: Theme.photoMaxHeight)
-    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m))
-    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.card))
+    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).stroke(colors.border, lineWidth: Theme.Border.card))
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("cutout-applied")
     .frame(maxWidth: .infinity)
@@ -392,19 +422,24 @@ struct AdjustCutoutView: View {
         ForEach(Array(candidates.enumerated()), id: \.element.id) { index, candidate in
           let on = isSelected(candidate)
           Button { toggle(candidate) } label: {
+            // Figma `Piece chip`: 80 pt white thumbnail; selected = 2 pt ink border and a check
+            // badge, not selected = 1 pt border and dimmed art. "Piece n" under it.
+            let shape = RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
             VStack(spacing: Theme.Space.xs) {
               RemoteImage(url: candidate.thumbUrl.flatMap(URL.init(string:)), altText: nil)
-                .frame(width: Theme.Size.record, height: Theme.Size.record)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s))
-              HStack(spacing: Theme.Space.xs) {
-                Image(systemName: on ? "checkmark.square.fill" : "square")
-                Text("Piece \(index + 1)").themeFont(.caption)
-              }
-              .foregroundStyle(colors.text)
+                .padding(Theme.Space.xs)
+                .opacity(on ? 1 : ThemeEffects.unselectedPieceOpacity)
+                .frame(width: ThemeEffects.pieceThumb, height: ThemeEffects.pieceThumb)
+                .background(shape.fill(colors.surface))
+                .clipShape(shape)
+                .overlay(shape.strokeBorder(on ? colors.text : colors.border, lineWidth: on ? ThemeEffects.selectedStroke : Theme.Border.thin))
+                .overlay(alignment: .topTrailing) {
+                  if on { CheckBadge(size: Theme.Size.radio).offset(x: Theme.Space.xs, y: -Theme.Space.s + 2) }
+                }
+              Text("Piece \(index + 1)").themeFont(.body).fontWeight(TextRole.caption.weight).foregroundStyle(colors.text)
             }
-            .padding(Theme.Space.xs)
-            .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(on ? colors.selected : colors.surfaceAlt))
-            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: on ? Theme.Border.card : Theme.Border.thin))
+            .padding(.top, Theme.Space.s)
+            .padding(.trailing, Theme.Space.xs)
           }
           .buttonStyle(.plain)
           .disabled(work != nil)
@@ -437,14 +472,15 @@ struct AdjustCutoutView: View {
       ForEach(Mode.allCases, id: \.self) { item in
         let on = mode == item
         Button { mode = item } label: {
+          // Figma `Segmented control`: 64 pt segments, the selected one ink with white text.
           VStack(spacing: Theme.Space.xs) {
-            Image(systemName: item.symbol)
-            Text(item.title).themeFont(.caption).multilineTextAlignment(.center)
+            Image(systemName: item.symbol).font(TextRole.titleL.font)
+            Text(item.title).themeFont(.body).fontWeight(TextRole.caption.weight).multilineTextAlignment(.center)
           }
           .foregroundStyle(on ? colors.primaryText : colors.text)
           .padding(Theme.Space.xs)
-          .frame(maxWidth: .infinity, minHeight: Theme.Size.iconButton)
-          .background(RoundedRectangle(cornerRadius: Theme.Radius.s).fill(on ? colors.primary : colors.surface))
+          .frame(maxWidth: .infinity, minHeight: ThemeEffects.segmentHeight)
+          .background(RoundedRectangle(cornerRadius: Theme.Radius.m + 2, style: .continuous).fill(on ? colors.primary : Color.clear))
           .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -455,9 +491,9 @@ struct AdjustCutoutView: View {
     }
     .disabled(work != nil)
     .opacity(work != nil ? Theme.Opacity.disabled : 1)
-    .padding(Theme.Space.xs)
-    .background(RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt))
-    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m).stroke(colors.border, lineWidth: Theme.Border.thin))
+    .padding(Theme.Space.xs / 1.5)
+    .background(RoundedRectangle(cornerRadius: Theme.Space.xxl, style: .continuous).fill(colors.surfaceAlt))
+    .overlay(RoundedRectangle(cornerRadius: Theme.Space.xxl, style: .continuous).stroke(colors.border, lineWidth: Theme.Border.thin))
   }
 
   // MARK: Editing
@@ -684,5 +720,23 @@ private struct BoxDragSurface: UIViewRepresentable {
     @objc func tap(_ recognizer: UITapGestureRecognizer) {
       surface.tapped(recognizer.location(in: recognizer.view))
     }
+  }
+}
+
+/// Ink circle with a white check (Figma `Selected check` / piece chip `Check`). Decorative.
+struct CheckBadge: View {
+  var size: CGFloat
+  @Environment(\.themeColors) private var colors
+
+  var body: some View {
+    Image(Tokens.Asset.iconCheck)
+      .renderingMode(.template)
+      .resizable()
+      .scaledToFit()
+      .foregroundStyle(colors.primaryText)
+      .padding(size * 0.22)
+      .frame(width: size, height: size)
+      .background(Circle().fill(colors.primary))
+      .accessibilityHidden(true)
   }
 }

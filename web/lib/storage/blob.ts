@@ -75,11 +75,27 @@ export function privateCreds(env: Env = process.env): Creds | null {
 export function storageError(err: unknown, env: Env = process.env): unknown {
   const message = err instanceof Error ? err.message : "";
   if (!/private access on a public store|no blob credentials found/i.test(message)) return err;
+  return credentialsExpired(env);
+}
+
+function credentialsExpired(env: Env): ApiError {
   if (!warnedCreds) {
     warnedCreds = true;
     console.error(`[storage] ${STORAGE_CREDENTIALS_EXPIRED} (VERCEL_OIDC_TOKEN ${oidcTokenState(env)}; see docs/rewind.md)`);
   }
   return new ApiError(503, "storage_credentials_expired", STORAGE_CREDENTIALS_EXPIRED);
+}
+
+/**
+ * privateCreds(), checked before any SDK call: locally (no `VERCEL` env), OIDC credentials with a
+ * missing or expired VERCEL_OIDC_TOKEN throw the 503 at once. Otherwise the SDK would quietly use
+ * the public token, and reads (head, get, signed URLs) would answer "not found" from the public
+ * store instead. On Vercel the credential comes with the request, so nothing is checked there.
+ */
+export function usablePrivateCreds(env: Env = process.env): Creds | null {
+  const creds = privateCreds(env);
+  if (creds && !creds.token && !env.VERCEL && oidcTokenState(env) !== "ok") throw credentialsExpired(env);
+  return creds;
 }
 
 /** Runs a private-store call, reporting credential failures as STORAGE_CREDENTIALS_EXPIRED. */
@@ -137,7 +153,7 @@ export class BlobStorage implements Storage {
   }
 
   private async putPrivateRaw(path: string, data: PutBody, contentType: string): Promise<StoredFile> {
-    const priv = privateCreds();
+    const priv = usablePrivateCreds();
     const physical = (logical: string) => (priv ? logical : hashedPathname(logical));
     const creds = priv ?? publicCreds();
     let logical = path;
@@ -150,7 +166,7 @@ export class BlobStorage implements Storage {
 
   /** Where a logical pathname physically lives. Client uploads are stored directly under their logical name. */
   private candidates(path: string): { pathname: string; access: "public" | "private"; creds: Creds }[] {
-    const priv = privateCreds();
+    const priv = usablePrivateCreds();
     const list: { pathname: string; access: "public" | "private"; creds: Creds }[] = priv
       ? [{ pathname: path, access: "private", creds: priv }]
       : [{ pathname: hashedPathname(path), access: "public", creds: publicCreds() }];
@@ -216,7 +232,7 @@ export class BlobStorage implements Storage {
       const url = new URL(urlOrPathname);
       if (!url.hostname.endsWith(BLOB_HOST_SUFFIX)) throw new Error("Only Vercel Blob URLs can be read");
       if (url.hostname.includes(".private.")) {
-        const res = await guarded(() => get(urlOrPathname, { access: "private", ...(privateCreds() ?? {}) }));
+        const res = await guarded(() => get(urlOrPathname, { access: "private", ...(usablePrivateCreds() ?? {}) }));
         if (!res || res.statusCode !== 200) throw new Error("Blob not found");
         return streamToBuffer(res.stream);
       }

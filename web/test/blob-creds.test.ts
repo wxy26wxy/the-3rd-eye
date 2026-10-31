@@ -7,7 +7,7 @@ vi.mock("@vercel/blob", () => {
   return { ...sdk, issueSignedToken: vi.fn(), presignUrl: vi.fn(), BlobNotFoundError };
 });
 
-const { BlobStorage, STORAGE_CREDENTIALS_EXPIRED, oidcTokenState, privateCreds, storageError } = await import("@/lib/storage/blob");
+const { BlobStorage, STORAGE_CREDENTIALS_EXPIRED, oidcTokenState, privateCreds, storageError, usablePrivateCreds } = await import("@/lib/storage/blob");
 const { ApiError } = await import("@/lib/http");
 
 // Fake values only (shape of the real ones, no secrets).
@@ -68,6 +68,7 @@ describe("credential failures surface clearly (T108)", () => {
     vi.stubEnv("BLOB_PRIVATE_STORE_ID", PRIV);
     vi.stubEnv("BLOB_PRIVATE_READ_WRITE_TOKEN", "");
     vi.stubEnv("BLOB_READ_WRITE_TOKEN", rw(PUB));
+    vi.stubEnv("VERCEL_OIDC_TOKEN", jwt(Date.now() / 1000 + 3600)); // looks valid; the store still refuses
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const { BlobNotFoundError } = await import("@vercel/blob");
     sdk.head.mockRejectedValue(new BlobNotFoundError());
@@ -76,6 +77,36 @@ describe("credential failures surface clearly (T108)", () => {
       .rejects.toMatchObject({ code: "storage_credentials_expired", message: STORAGE_CREDENTIALS_EXPIRED });
     expect(sdk.put.mock.calls[0][2]).toMatchObject({ access: "private", storeId: PRIV });
     expect(sdk.put.mock.calls[0][2].token).toBeUndefined();
+    log.mockRestore();
+    vi.unstubAllEnvs();
+  });
+
+  it("locally, a missing or expired OIDC token fails fast with the 503 before any SDK call (review M3)", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const base = { BLOB_PRIVATE_STORE_ID: PRIV, BLOB_READ_WRITE_TOKEN: rw(PUB) };
+    for (const env of [base, { ...base, VERCEL_OIDC_TOKEN: jwt(Date.now() / 1000 - 60) }]) {
+      expect(() => usablePrivateCreds(env)).toThrow(STORAGE_CREDENTIALS_EXPIRED);
+    }
+    // On Vercel the credential comes with the request; a private-store token needs no OIDC.
+    expect(usablePrivateCreds({ ...base, VERCEL: "1" })).toEqual({ storeId: PRIV });
+    expect(usablePrivateCreds({ BLOB_PRIVATE_STORE_ID: PRIV, BLOB_PRIVATE_READ_WRITE_TOKEN: rw(PRIV) })).toEqual({ token: rw(PRIV) });
+    expect(usablePrivateCreds({ BLOB_READ_WRITE_TOKEN: rw(PUB) })).toBeNull(); // no private store: hashed public fallback
+
+    vi.stubEnv("BLOB_PRIVATE_STORE_ID", PRIV);
+    vi.stubEnv("BLOB_PRIVATE_READ_WRITE_TOKEN", "");
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", rw(PUB));
+    vi.stubEnv("VERCEL_OIDC_TOKEN", "");
+    vi.stubEnv("VERCEL", "");
+    const store = new BlobStorage();
+    for (const call of [
+      () => store.signedUrl("u/c/masks/x.png", 60),
+      () => store.getPrivateStream("u/c/masks/x.png"),
+      () => store.putPrivate("u/c/masks/x.png", Buffer.from("x"), "image/png"),
+      () => store.delete("u/c/masks/x.png"),
+    ]) {
+      await expect(call()).rejects.toMatchObject({ status: 503, code: "storage_credentials_expired" });
+    }
+    for (const f of Object.values(sdk)) expect(f).not.toHaveBeenCalled();
     log.mockRestore();
     vi.unstubAllEnvs();
   });

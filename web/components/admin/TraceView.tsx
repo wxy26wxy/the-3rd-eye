@@ -129,7 +129,7 @@ function CallDetails({ call: c }: { call: AiCallRow }) {
   return (
     <div className={styles.callBlock}>
       <p className={styles.callHead}>
-        <span>{[c.stage, c.model, c.provider, c.latencyMs != null ? fmt(m.admin.traceLatency, { ms: c.latencyMs }) : null].filter(Boolean).join(" · ")}</span>
+        <span>{[c.stage, c.model, c.provider, c.latencyMs != null ? fmt(m.admin.traceLatency, { ms: c.latencyMs }) : null].filter(Boolean).join(m.common.listSeparator)}</span>
         {c.error ? <span className={styles.error}>{c.error}</span> : null}
       </p>
       <div className={styles.disclosures}>

@@ -17,7 +17,7 @@ export function Thread({ messages, name }: { messages: TagMessage[]; name: strin
               <li key={msg.id} className={mine ? styles.mine : styles.theirs}>
                 <p className={styles.from}>
                   {mine ? m.tag.fromYou : fmt(m.tag.fromCreator, { name })}
-                  {" · "}
+                  {m.common.listSeparator}
                   <time dateTime={new Date(msg.createdAt).toISOString()}>{when.format(new Date(msg.createdAt))}</time>
                 </p>
                 <p className={styles.bubble}>{msg.body}</p>

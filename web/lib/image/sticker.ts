@@ -1,20 +1,24 @@
 /**
  * Sticker print pipeline (pure image math, no model calls):
- * mask → offsetMask (~3 mm white border at 300 dpi) → single outer contour → potrace
- * outline → print PNG (white border + 1.5 mm bleed, 300 dpi metadata) + die-cut SVG.
+ * mask → cutMask (~3 mm white border at 300 dpi, closed by 1 mm so two cut lines are never
+ * closer than about 1 mm, holes filled) → potrace outline with one outer contour per island
+ * (pieces that touch after the offset share one) → print PNG (white
+ * border + 1.5 mm bleed, 300 dpi metadata) + die-cut SVG.
  */
 import "server-only";
 import sharp from "sharp";
 import { Potrace } from "potrace";
 import type { Mask } from "@/lib/ai/types";
 import {
-  alphaToMask, bboxOf, componentMask, components, cropMask, dilate, fillHoles, maskFromAlpha, maskSharp, maskToGrey, padMask,
+  alphaToMask, bboxOf, cropMask, dilate, erode, fillHoles, maskFromAlpha, maskSharp, maskToGrey, padMask,
   type AlphaMask, type BBox,
 } from "@/lib/image/mask";
 
 export const PRINT_DPI = 300;
 export const BORDER_MM = 3;
 export const BLEED_MM = 1.5;
+/** Closing radius on the cut mask: gaps between cut lines narrower than about this are filled (die-cut safety). */
+export const CUT_CLOSE_MM = 1;
 export const MIN_SHORT_SIDE = 900;
 
 export const mmToPx = (mm: number, dpi = PRINT_DPI) => Math.round((mm / 25.4) * dpi);
@@ -24,21 +28,22 @@ export async function offsetMask(mask: Mask, px: number): Promise<Mask> {
   return fillHoles(await dilate(mask, px));
 }
 
-/** Ensures one connected outline: dilate further until pieces merge (≤ 4 tries), then keep the largest. */
-export async function singleContour(mask: Mask, step: number): Promise<Mask> {
-  let current = mask;
-  for (let i = 0; i < 4; i++) {
-    const { parts } = components(current);
-    if (parts.length <= 1) return current;
-    current = await offsetMask(current, step * (i + 1));
-  }
-  const { labels, parts } = components(current);
-  if (parts.length <= 1) return current;
-  const largest = parts.reduce((a, b) => (b.area > a.area ? b : a));
-  return fillHoles(componentMask(current, labels, largest.label));
+/**
+ * The die-cut silhouette: grow by `borderPx + closePx`, shrink back by `closePx`, fill holes. The
+ * border is unchanged; a sliver between two pieces narrower than the closing is filled, so the two
+ * cut lines either merge or stay at least about `closePx` apart (a thinner sliver would tear).
+ * The canvas needs `borderPx + closePx` of padding around the art.
+ */
+export async function cutMask(mask: Mask, borderPx: number, closePx: number): Promise<Mask> {
+  if (closePx < 1) return offsetMask(mask, borderPx);
+  return fillHoles(await erode(await dilate(mask, borderPx + closePx), closePx));
 }
 
-/** Potrace outline of the mask as an SVG path `d` string (pixel coordinates). */
+/**
+ * Potrace outline of the mask as an SVG path `d` string (pixel coordinates). Every connected
+ * piece becomes its own `M…Z` subpath of the one `d`; pass a hole-filled mask (offsetMask) so
+ * each piece contributes only its outer contour.
+ */
 export async function traceOutline(mask: Mask): Promise<string> {
   const png = await maskSharp(mask).negate().png().toBuffer(); // black shape on white
   const tracer = new Potrace({ turdSize: 50, optTolerance: 0.4, threshold: 128, blackOnWhite: true });
@@ -49,6 +54,12 @@ export async function traceOutline(mask: Mask): Promise<string> {
 
 /** Largest upscale ensureDpi applies; beyond this the art would print visibly soft, so the resolution check fails instead. */
 export const MAX_UPSCALE = 2;
+
+/** The factor ensureDpi applies to a w × h image (1 when the short side already reaches `minShortSide`). */
+export function printUpscale(w: number, h: number, minShortSide = MIN_SHORT_SIDE): number {
+  const short = Math.min(w, h);
+  return short <= 0 || short >= minShortSide ? 1 : Math.min(MAX_UPSCALE, minShortSide / short);
+}
 
 /**
  * Lanczos upscale (at most ×2) so the short side reaches `minShortSide` (900 px = 3 in at 300 dpi
@@ -109,10 +120,12 @@ export async function composeSticker(artPng: Buffer, opts: { borderMm?: number; 
   if (!bboxOf(mask)) throw new Error("Artwork has no visible pixels");
   const borderPx = mmToPx(opts.borderMm ?? BORDER_MM);
   const bleedPx = mmToPx(opts.bleedMm ?? BLEED_MM);
-  const pad = borderPx + bleedPx + 4;
+  const closePx = mmToPx(CUT_CLOSE_MM);
+  const pad = Math.max(borderPx + bleedPx, borderPx + closePx) + 4;
 
   const padded = padMask(mask, pad);
-  const cut = await singleContour(await offsetMask(padded, borderPx), Math.max(4, Math.round(borderPx / 2)));
+  // Every island keeps its own border; islands under about 78 px (6.5 mm) apart merge into one; separate lines stay ≥ 2 mm apart.
+  const cut = await cutMask(padded, borderPx, closePx);
   const bleed = await dilate(cut, bleedPx);
   const { width, height } = cut;
 
@@ -138,15 +151,19 @@ export async function composeSticker(artPng: Buffer, opts: { borderMm?: number; 
 }
 
 /**
- * The cut-line path for an artwork preview (border offset only, no bleed), normalized to a
+ * The cut-line path for an artwork preview (the print border offset, no bleed), normalized to a
  * `0 0 100 100` viewBox: the cleaned image is fitted (contain, centered) into that square. The
  * border can extend a few units past 0–100, so render the SVG with overflow visible.
  */
 export async function previewCutPath(cleanedPng: Buffer): Promise<string> {
   const mask = await maskFromAlpha(cleanedPng);
-  const borderPx = Math.max(4, Math.round(Math.min(mask.width, mask.height) * 0.03));
-  const pad = borderPx + 2;
-  const cut = await singleContour(await offsetMask(padMask(mask, pad), borderPx), borderPx);
+  // The print border (3 mm at 300 dpi) in the cleaned PNG's own pixels: composeSticker first
+  // upscales by `k` (ensureDpi), so preview and print merge the same pieces.
+  const k = printUpscale(mask.width, mask.height);
+  const borderPx = Math.max(4, Math.round(mmToPx(BORDER_MM) / k));
+  const closePx = Math.round(mmToPx(CUT_CLOSE_MM) / k);
+  const pad = borderPx + closePx + 2;
+  const cut = await cutMask(padMask(mask, pad), borderPx, closePx);
   return normalizePath(await traceOutline(cut), mask.width, mask.height, pad);
 }
 

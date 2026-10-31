@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import sharp from "sharp";
-import { BLEED_MM, BORDER_MM, composeSticker, ensureDpi, mmToPx, normalizePath, offsetMask, previewCutPath, removeBackground, traceOutline } from "@/lib/image/sticker";
-import { bboxOf, emptyMask, maskFromAlpha, padMask } from "@/lib/image/mask";
+import { BLEED_MM, BORDER_MM, CUT_CLOSE_MM, composeSticker, cutMask, ensureDpi, mmToPx, normalizePath, offsetMask, previewCutPath, removeBackground, traceOutline } from "@/lib/image/sticker";
+import { bboxOf, components, emptyMask, maskFromAlpha, padMask } from "@/lib/image/mask";
 import type { Mask } from "@/lib/ai/types";
 
 function disc(width: number, height: number, cx: number, cy: number, r: number, into?: Mask): Mask {
@@ -17,6 +17,24 @@ async function twoBlobArt(): Promise<Buffer> {
     <circle cx="680" cy="500" r="90" fill="#e15554" stroke="#000" stroke-width="20"/></svg>`;
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
+
+/** Two discs with an `gap` px gap between their edges (1200 × 600, transparent elsewhere). */
+async function separatedArt(gap: number): Promise<Buffer> {
+  const r1 = 200, r2 = 150, cx1 = 250, cx2 = cx1 + r1 + gap + r2;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600">
+    <circle cx="${cx1}" cy="300" r="${r1}" fill="#3bb273"/><circle cx="${cx2}" cy="300" r="${r2}" fill="#e15554"/></svg>`;
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+/** Two bars (each a third of the width) with a `gap` px gap between them, centred in a w × h canvas. */
+async function twoBars(w: number, h: number, gap: number): Promise<Buffer> {
+  const bw = Math.round(w / 3), x1 = Math.round((w - 2 * bw - gap) / 2), y = Math.round(h / 4), bh = Math.round(h / 2);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
+    <rect x="${x1}" y="${y}" width="${bw}" height="${bh}" fill="#3bb273"/><rect x="${x1 + bw + gap}" y="${y}" width="${bw}" height="${bh}" fill="#e15554"/></svg>`;
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+const subpaths = (d: string) => d.match(/M/g)?.length ?? 0;
 
 describe("sticker pipeline", () => {
   it("offsetMask (dilation) grows the bounding box by about the requested radius", async () => {
@@ -88,5 +106,79 @@ describe("sticker pipeline", () => {
     expect(nums.length).toBeGreaterThan(4);
     expect(Math.min(...nums)).toBeGreaterThan(-10);
     expect(Math.max(...nums)).toBeLessThan(110);
+  });
+
+  describe("multi-piece cuts", () => {
+    it("a cut of two separated pieces gets one die-cut contour per piece, and both are backed in white", async () => {
+      const files = await composeSticker(await separatedArt(300));
+      expect(subpaths(files.cutPath)).toBe(2);
+      expect(subpaths(/<path id="die-cut" d="([^"]+)"/.exec(files.dieCutSvg)![1])).toBe(2);
+      // The art (1200 × 600) is upscaled 1.5× to reach 900 px, then padded.
+      const k = 1.5, pad = mmToPx(BORDER_MM) + mmToPx(BLEED_MM) + 4;
+      const { data, info } = await sharp(files.printPng).raw().toBuffer({ resolveWithObject: true });
+      const at = (x: number, y: number) => Array.from(data.subarray((y * info.width + x) * 4, (y * info.width + x) * 4 + 4));
+      const toPx = (x: number) => Math.round(pad + x * k);
+      const border = mmToPx(BORDER_MM);
+      // Just outside each disc's left and right edges, inside the 3 mm border: opaque white.
+      for (const edge of [50, 450, 750, 1050]) {
+        const dir = edge === 50 || edge === 750 ? -1 : 1;
+        expect(at(toPx(edge) + dir * Math.round(border / 2), toPx(300))).toEqual([255, 255, 255, 255]);
+      }
+      // Midway between the pieces (300 px apart, far more than the ~78 px merge gap): transparent.
+      expect(at(toPx(600), toPx(300))[3]).toBe(0);
+      // Each contour sits around its own piece: the path spans both discs horizontally.
+      const xs = (files.cutPath.match(/-?\d+(\.\d+)?/g) ?? []).map(Number).filter((_, i) => i % 2 === 0);
+      expect(Math.min(...xs)).toBeGreaterThan(toPx(50) - border * 1.5);
+      expect(Math.max(...xs)).toBeLessThan(toPx(1050) + border * 1.5);
+      const meta = await sharp(files.printPng).metadata();
+      expect(meta.density).toBe(300);
+      expect(meta.width).toBe(1800 + 2 * pad);
+    });
+
+    it("pieces close together (35 px apart in print) share one contour", async () => {
+      const gap = Math.round(mmToPx(BORDER_MM) / 1.5); // 35 px in print once upscaled 1.5×, well under the ~78 px merge gap
+      const files = await composeSticker(await separatedArt(gap));
+      expect(subpaths(files.cutPath)).toBe(1);
+    });
+
+    it.each([[3000, 1500, 64], [600, 600, 33]])("preview and print agree on the piece count near the merge gap (%i × %i, %i px)", async (w, h, gap) => {
+      const art = await twoBars(w, h, gap);
+      const [preview, files] = await Promise.all([previewCutPath(art), composeSticker(art)]);
+      expect(subpaths(preview)).toBe(subpaths(files.cutPath));
+    });
+
+    it("two cut lines are never closer than 1 mm: a thinner sliver is closed (review M2, fixture c = 60 px gap)", async () => {
+      const border = mmToPx(BORDER_MM), close = mmToPx(CUT_CLOSE_MM);
+      for (const gap of [56, 60, 70, 76, 80, 84, 96]) {
+        // Two 250 × 200 bars at print scale, `gap` px apart.
+        const W = 800, m = emptyMask(W, 400), x1 = 100, bw = 250;
+        for (let y = 100; y < 300; y++) for (let x = 0; x < W; x++) if ((x >= x1 && x < x1 + bw) || (x >= x1 + bw + gap && x < x1 + 2 * bw + gap)) m.data[y * W + x] = 1;
+        const cut = await cutMask(m, border, close);
+        const row = cut.data.subarray(200 * W, 201 * W);
+        let a = x1 + bw - 1, b = x1 + bw + gap;
+        while (a < b && row[a + 1]) a++;
+        while (b > a && row[b - 1]) b--;
+        const between = b - a - 1; // background run between the two cut lines on the centre row
+        const merged = components(cut).parts.length === 1;
+        expect(merged || between >= close, `gap ${gap}: ${between} px between cut lines`).toBe(true);
+      }
+      const files = await composeSticker(await twoBars(3000, 1500, 60));
+      expect(subpaths(files.cutPath)).toBe(1);
+    });
+
+    it("the preview path wraps every piece and stays inside the artwork's square (no clipped box)", async () => {
+      const d = await previewCutPath(await separatedArt(300));
+      expect(subpaths(d)).toBe(2);
+      const parts = d.split(/(?=M)/).map((p) => (p.match(/-?\d+(\.\d+)?/g) ?? []).map(Number));
+      const xRange = (nums: number[]) => {
+        const xs = nums.filter((_, i) => i % 2 === 0);
+        return [Math.min(...xs), Math.max(...xs)];
+      };
+      // 1200 px wide → 100 units; discs span x 50–450 and 750–1050 (≈ 4.2–37.5 and 62.5–87.5).
+      const [a, b] = parts.map(xRange).sort((p, q) => p[0] - q[0]);
+      // Bounds include Bézier control points, which sit a little outside the line itself.
+      expect(a[0]).toBeGreaterThan(-1); expect(a[1]).toBeLessThan(42);
+      expect(b[0]).toBeGreaterThan(58); expect(b[1]).toBeLessThan(92);
+    });
   });
 });

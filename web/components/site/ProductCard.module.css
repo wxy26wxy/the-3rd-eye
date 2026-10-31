@@ -11,7 +11,7 @@
 }
 .card:has(.link:focus-visible) { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
 .inner { display: flex; flex-direction: column; height: 100%; }
-.image { border-radius: 0; }
+.inner .image { border-radius: 0; }
 .body { display: grid; gap: var(--space-s); align-content: start; padding: var(--space-l) var(--space-m) var(--space-xl); }
 .chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 .title {

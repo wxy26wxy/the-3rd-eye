@@ -1,11 +1,20 @@
 import styles from "./Avatar.module.css";
 
-/** Round avatar; falls back to the first letter on lime. Decorative next to the name. */
-export function Avatar({ name, src, size = "m" }: { name: string; src: string | null | undefined; size?: "m" | "l" }) {
+/** Up to two initials ("Rosa M." → "RM"). */
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return parts.slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+}
+
+/**
+ * Round avatar (Sky): the photo, or initials in deep green on the accent. Decorative next to the
+ * visible name. `m` 40 px, `l` 56 px (story / product creator row), `xl` 96 px (profile, artists).
+ */
+export function Avatar({ name, src, size = "m" }: { name: string; src: string | null | undefined; size?: "m" | "l" | "xl" }) {
   const cls = [styles.avatar, styles[size]].join(" ");
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={src} alt="" className={cls} />;
   }
-  return <span className={cls} aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>;
+  return <span className={cls} aria-hidden="true">{initials(name)}</span>;
 }

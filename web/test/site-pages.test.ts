@@ -11,6 +11,9 @@ import { HowSteps } from "@/components/shop/HowSteps";
 import { StoryVideo } from "@/components/site/StoryVideo";
 import { SiteNav } from "@/components/site/SiteNav";
 import { SiteFooter } from "@/components/site/SiteFooter";
+import { BuyForm } from "@/components/product/BuyForm";
+import { DieCut } from "@/components/site/DieCut";
+import { Avatar, initials } from "@/components/site/Avatar";
 
 const html = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(el);
 
@@ -85,5 +88,29 @@ describe("Nav, drawer and footer (T106, 2010:467 / 2032:4004 / 2010:504)", () =>
     expect(out).toContain(`aria-label="${m.footer.label}"`);
     expect(out.match(/<li>/g)).toHaveLength(5);
     expect(out).toContain('href="/how-it-works#story-tags"');
+  });
+});
+
+describe("Product page parts (T106, board 2019:2004)", () => {
+  it("buy form: fields in board order, demo line above the primary submit", () => {
+    const out = html(createElement(BuyForm, { action: async () => ({}), priceLabel: "Buy for $5.00" }));
+    const order = [m.product.buyTitle, m.product.buyName, m.product.buyEmail, m.product.buyEmailHint, m.product.buyNote, m.product.buyStaged, "Buy for $5.00"].map((t) => out.indexOf(t));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(out).toMatch(/<button type="submit"/);
+    expect(out).not.toContain('role="alert"');
+  });
+
+  it("die-cut preview: titled card, labelled svg, caption", () => {
+    const out = html(createElement(DieCut, { artworkUrl: "/a.png", cutPathSvg: "M0 0L10 10", alt: "Bus on a Sticker" }));
+    expect(out).toContain('role="img" aria-label="Bus on a Sticker"');
+    expect(out).toContain(m.product.dieCutCaption);
+    expect(html(createElement(DieCut, { artworkUrl: null, cutPathSvg: null, alt: "x" }))).toBe("");
+  });
+
+  it("avatar: two initials on the accent, decorative", () => {
+    expect(initials("Rosa M.")).toBe("RM");
+    expect(initials("Leo")).toBe("L");
+    expect(html(createElement(Avatar, { name: "Rosa M.", src: null, size: "l" }))).toMatch(/aria-hidden="true">RM</);
   });
 });

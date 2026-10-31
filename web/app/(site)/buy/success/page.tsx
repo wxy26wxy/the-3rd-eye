@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: m.success.metaTitle, robots: { index:
 
 export default function SuccessPage({ searchParams }: PageProps<"/buy/success">) {
   return (
-    <Container width="narrow">
+    <Container>
       <Suspense fallback={<Loading label={m.common.loading} />}>
         <OrderSuccess searchParams={searchParams} />
       </Suspense>

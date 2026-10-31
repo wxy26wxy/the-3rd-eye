@@ -327,3 +327,12 @@
   background: var(--accent); color: var(--accent-ink); font-size: var(--type-body-size); max-width: none; overflow-wrap: anywhere;
 }
 .byline { font-size: var(--type-body-size); color: var(--text-muted); }
+
+/* Forced colours: fills disappear, so the chosen segment / picture / piece gets a Highlight outline. */
+@media (forced-colors: active) {
+  .mode:has(input:checked), .tile:has(input:checked), .piece:has(input:checked) .pieceThumb {
+    outline: calc(var(--border-thin) * 3) solid Highlight;
+    outline-offset: calc(var(--border-thin) * -3);
+  }
+  .footer[data-stuck="true"] { border-top-color: CanvasText; }
+}

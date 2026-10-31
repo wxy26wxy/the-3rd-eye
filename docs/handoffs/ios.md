@@ -128,9 +128,9 @@ Every screen reads these; screens never draw their own buttons, cards or headlin
 - `IconButton(systemName: or asset:, label:, hint:, size:, mirrored:)`: outlined white circle; 48 pt default, 44 pt (`Theme.Size.minTarget`) for Back and Sign out.
 - `LogoMark(onPhoto:)`: 40 × 35 eye mark, decorative.
 - `TagMascot(pose: .book | .front | .magnifier, size:, label:)`: photo mascot; `.magnifier` loops `mascot-magnifier.mp4` muted (still `mascot-front` with Reduce Motion). Decorative unless `label` is set. `SkyCard(pose:)` (in LoadingScreen.swift): the 342 × 286 card with the mascot.
-- `FlowScreen(title:, subtitle:, step:, showsBack:, trailing:)`: white page; Back (44 pt, VoiceOver "Back") when `showsBack`, else the logo mark; headline, description, content, actions at the bottom (pinned when the content is short, after the content when it scrolls). `step` is only a VoiceOver hint ("Step n of 3").
+- `FlowScreen(title:, subtitle:, step:, showsBack:, trailing:, pinsActions:)`: white page; Back (44 pt, VoiceOver "Back") when `showsBack`, else the logo mark; headline, description and content scroll; the actions are pinned in the bottom `ActionBar` (`.actionBar { … }`, also usable on any screen; `onPhoto:` for the Welcome photo). `pinsActions: false` puts a long action list after the content instead (Design detail). `step` is only a VoiceOver hint ("Step n of 3").
 - `TabScreen(title:)`: logo mark + Sign out (identifier `sign-out`), headline, content. `LoadingScreen`: logo mark, headline, SkyCard, I HEARD card, message, spinner; error = card + Try again / Go back. `ErrorCard`: white bordered card, 44 pt Try again.
-- `HomeTabBar`: see `docs/decisions.md` (T103). Tabs keep the labels Create / My designs / Orders / Messages and `app.tabBars.buttons[...]` in UI tests.
+- `HomeTabBar`: see `docs/decisions.md` (T103). The host exposes one accessibility element per tab; the VoiceOver reading is to be confirmed on a device (`docs/accessibility.md`). Tabs keep the labels Create / My designs / Orders / Messages and `app.tabBars.buttons[...]` in UI tests.
 - Retired, draw nothing (remove the call sites in T104): `StepPill`, `Starburst`, `ScallopDivider`, `CreamSheet` (now just page padding), `GrainOverlay`, `.hardShadow`.
 
 ### Adding an image or animation

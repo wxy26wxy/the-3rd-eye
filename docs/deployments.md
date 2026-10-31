@@ -41,3 +41,18 @@
 ## 2026-10-30 · TestFlight · The 3rd Eye 0.4.0 (1)
 - First build of the new App Store Connect record (bundle `com.the3rdeye.app`). Archived from main at v0.5 (b0277f5) with `xcodebuild archive` (`-project The3rdEye.xcodeproj`); uploaded by the founder from Xcode Organizer because the command-line export could not see the Apple sign-in ("Failed to Use Accounts"). Points at https://the-3rd-eye.vercel.app. Rollback: expire the build in App Store Connect; the old "maker story" app's 0.3.0 (1) still works against the kept alias.
 - Next: add the tester to the internal group once the build shows "Ready to Test"; later uploads via `bash ios/scripts/testflight.sh` (bumps to build 2) once the account issue is solved or an App Store Connect API key is in place.
+
+## 2026-10-30 · tag v0.7-rc1 (bbe6c8d) · production promotion pending
+- Release candidate: Sky tokens v2, the web primitives, the web creator flow on the Sky boards (T102, T105) and the iOS theme and components (T103). Tagged at bbe6c8d on 2026-10-30. Nothing was promoted to production from this tag; it was superseded by v0.7 the next day.
+- Production URL: https://the-3rd-eye.vercel.app. Deployment id: pending (the PM fills it in later).
+- Approver: the product owner. Rollback target: the previous production deployment (Vercel instant rollback); for code, tag `v0.6`.
+
+## 2026-10-31 · tag v0.7 (3f2cac5) · production promotion pending
+- Sky design on every screen of both platforms: web creator flow (T105), public site and admin (T106), iOS screens (T104), plus the T108 backend follow-ups (die-cut outline wraps every piece of a multi-piece cut, typed buy errors, name/studio and list separators from `en.json`, private Blob store credential checks). No database migration in this release.
+- Production URL: https://the-3rd-eye.vercel.app. Production deployment id: pending (the PM fills it in later).
+- The production promotion is run by the product owner from the CLI (`vercel deploy --prod` from `web/` at tag v0.7). It has not happened as of this entry; this entry records the intent and is updated after the run.
+- Approver: the product owner. Rollback target: the previous production deployment (Vercel instant rollback, no rebuild); for code, tag `v0.6`.
+
+## 2026-10-31 · TestFlight · The 3rd Eye 0.5.0 (1) and (2) · upload pending
+- Builds 0.5.0 (1) and 0.5.0 (2) are uploaded by the product owner from Xcode Organizer (the command-line export cannot see the Apple sign-in). Status: pending; this entry is updated once App Store Connect shows them as "Ready to Test".
+- Rollback: expire the build in App Store Connect → TestFlight; testers keep the previous build (0.4.0 (1)).

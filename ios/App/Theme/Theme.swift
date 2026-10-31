@@ -70,6 +70,11 @@ enum ThemeEffects {
   /// Light-green circle behind a method icon: `accent` at this opacity (the board's `#E4F3C8`,
   /// an open question in docs/design/tokens.md, proposal `color.accentSoft`).
   static let iconTileOpacity: Double = 0.25
+  /// With Increase Contrast, the panel behind white text on a photo is ink at this opacity
+  /// (white on it ≥ 7:1 whatever the photo; the standard `color.scrim` is 35 % black).
+  static let highContrastScrimOpacity: Double = 0.8
+  /// Still mascot on the sky card: the "Mascot / Front" slot on You're live (153.85 × 181).
+  static let stillMascot = CGSize(width: 154, height: 181)
   /// Pressed buttons dim slightly (Sky has no hard shadow to press into).
   static let pressedOpacity: Double = 0.8
   /// Glyph inside the primary action's arrow circle (`Icon / arrow`, 18 in a 48 circle).

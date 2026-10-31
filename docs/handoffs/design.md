@@ -9,8 +9,8 @@ Since 2026-10-30 (T100) the single design source is **the Figma file (key `vIOMP
 The file has **no Figma variables**; values in `design/tokens.json` were read from node styles with `get_design_context`. The source of every value (node id, brief, ruling, accessibility floor, derived, carry-over) is in `docs/design/tokens.md`; node ids per screen are in `docs/design/screens.md`.
 
 ## Current task
-T100 done on `feat/design-T100` (tokens v2, assets, docs; fix round 1 applied). Waiting on:
-1. **The waving mascot.** `mascot-wave.png` stays `pending` in `tokens.json` (skipped by `pnpm assets`, not emitted to `web/lib/assets.ts` / `Tokens.Asset`): the waving mascot exists only inside Welcome's flattened background (`21:4229` has one image fill and no mascot layer) and in no other node of either file. Ask the designer for the separate PNG; until then `welcome-bg.png` is used whole.
+T107 done: the Sky design is applied on both platforms at v0.7 and the retired canvas is not linked anywhere. Intake-ready for the next design version (checklist below). Still open from T100:
+1. **The waving mascot.** `mascot-wave.png` stays `pending` in `tokens.json` (the waving mascot exists only inside Welcome's flattened background); ask the designer for the separate PNG, until then `welcome-bg.png` is used whole.
 2. **A 2x Welcome background** (see the intake record).
 
 The user's copy of the file (key `dAdjR5HFtOutFlUZi957Do`, same page and node ids, on the user's own team with a Full seat) is the file to read from now on; another agent adds the generated boards to it (T101). Read-only for the design agent.

@@ -13,7 +13,7 @@
 ## 2026-10-29 · production · v0.3 (1efbed7)
 - https://maker-story-hroeg8lkl-xinyao-wangs-projects.vercel.app → alias https://maker-story-three.vercel.app. `vercel deploy --yes --prod` from `web/` after the T070 web merge; migration 0003 (`creators.hidden`) applied first with `pnpm migrate`.
 - New: `/admin` Creators panel (add creator, one-time code card with QR, sign-in link and app link, New code, hide from shop), `/create/code?c=` prefill, hidden creators excluded from public pages. Rollback target: https://maker-story-o9k5oafyh-xinyao-wangs-projects.vercel.app (v0.2 + T050 fixes); rolling back does not require reverting the migration (the column is additive).
-- Approved by: the founder (plan approval, 2026-10-29 evening). Next: T085 renames the project to The 3rd Eye; this alias stops working at that point.
+- Approved by: the product owner (plan approval, 2026-10-29 evening). Next: T085 renames the project to The 3rd Eye; this alias stops working at that point.
 
 ## 2026-10-29 · T085 rename (pending: filled in when the controller renames the Vercel project and uploads the new build)
 - Production: Vercel project `the-3rd-eye`, expected alias https://the-3rd-eye.vercel.app (if Vercel assigns a suffixed alias, that host goes into `NEXT_PUBLIC_SITE_URL` in production and `.env.local`, `web/.env.example`, and `DEPLOYED_SITE_URL` in `ios/project.yml`). Deployment URL, git sha and approver: to be recorded after the redeploy.
@@ -23,11 +23,11 @@
 ## 2026-10-30 · production · The 3rd Eye (7de964e)
 - Vercel project renamed `maker-story` → `the-3rd-eye`; new production host https://the-3rd-eye.vercel.app attached; the old alias https://maker-story-three.vercel.app stays attached on purpose so the TestFlight build 0.3.0 (1) already installed keeps working until 0.4.0 (1) replaces it. `NEXT_PUBLIC_SITE_URL` (production) now `https://the-3rd-eye.vercel.app`.
 - Deployment https://the-3rd-nmm800mm8-xinyao-wangs-projects.vercel.app (`vercel deploy --yes --prod` from `web/` at main 7de964e: rename + T080 cutout pipeline + T081-independent web changes). Verified: `<title>` is "The 3rd Eye · art with a story you can hold"; `/create/code?c=` prefill works. Rollback target: https://maker-story-hroeg8lkl-xinyao-wangs-projects.vercel.app (v0.3).
-- Approved by: the founder (rename decision and plan approval, 2026-10-29).
+- Approved by: the product owner (rename decision and plan approval, 2026-10-29).
 
 ## 2026-10-30 · production · v0.4 + web cutout parity (c285533)
 - https://the-3rd-7cskup1jd-xinyao-wangs-projects.vercel.app → https://the-3rd-eye.vercel.app. Adds the web Select-screen cutout adjuster (T084) on top of v0.4 (rename, T080 pipeline). Rollback target: https://the-3rd-nmm800mm8-xinyao-wangs-projects.vercel.app.
-- Approved by: the founder (plan approval). TestFlight 0.4.0 (1) of The 3rd Eye still pending on the Apple account sign-in.
+- Approved by: the product owner (plan approval). TestFlight 0.4.0 (1) of The 3rd Eye still pending on the Apple account sign-in.
 
 ## 2026-10-30 · production · live price in the product summary (147b9a7)
 - https://the-3rd-comuhhw6q-xinyao-wangs-projects.vercel.app → https://the-3rd-eye.vercel.app. Adds `priceCents`/`description`/`mockupUrl` to the product summary on `GET /artworks` and keeps a published price on approve when the client omits it (T087). Rollback target: https://the-3rd-7cskup1jd-xinyao-wangs-projects.vercel.app.
@@ -39,7 +39,7 @@
 - https://the-3rd-9mxe9dflc-xinyao-wangs-projects.vercel.app → https://the-3rd-eye.vercel.app. T090: scoped public-original delete, 503 on moderation outage, tags-aware moderation reuse, captions-route test, live row on draft edits, Select-screen follow-ups (persisted cutout, zero-pieces box, tappable labels, tokens), fragment sign-in link, a11y nits. Rollback target: https://the-3rd-835bbkwxt-xinyao-wangs-projects.vercel.app.
 
 ## 2026-10-30 · TestFlight · The 3rd Eye 0.4.0 (1)
-- First build of the new App Store Connect record (bundle `com.the3rdeye.app`). Archived from main at v0.5 (b0277f5) with `xcodebuild archive` (`-project The3rdEye.xcodeproj`); uploaded by the founder from Xcode Organizer because the command-line export could not see the Apple sign-in ("Failed to Use Accounts"). Points at https://the-3rd-eye.vercel.app. Rollback: expire the build in App Store Connect; the old "maker story" app's 0.3.0 (1) still works against the kept alias.
+- First build of the new App Store Connect record (bundle `com.the3rdeye.app`). Archived from main at v0.5 (b0277f5) with `xcodebuild archive` (`-project The3rdEye.xcodeproj`); uploaded by the product owner from Xcode Organizer because the command-line export could not see the Apple sign-in ("Failed to Use Accounts"). Points at https://the-3rd-eye.vercel.app. Rollback: expire the build in App Store Connect; the old "maker story" app's 0.3.0 (1) still works against the kept alias.
 - Next: add the tester to the internal group once the build shows "Ready to Test"; later uploads via `bash ios/scripts/testflight.sh` (bumps to build 2) once the account issue is solved or an App Store Connect API key is in place.
 
 ## 2026-10-30 · tag v0.7-rc1 (bbe6c8d) · production promotion pending
@@ -53,6 +53,6 @@
 - The production promotion is run by the product owner from the CLI (`vercel deploy --prod` from `web/` at tag v0.7). It has not happened as of this entry; this entry records the intent and is updated after the run.
 - Approver: the product owner. Rollback target: the previous production deployment (Vercel instant rollback, no rebuild); for code, tag `v0.6`.
 
-## 2026-10-31 · TestFlight · The 3rd Eye 0.5.0 (1) and (2) · upload pending
-- Builds 0.5.0 (1) and 0.5.0 (2) are uploaded by the product owner from Xcode Organizer (the command-line export cannot see the Apple sign-in). Status: pending; this entry is updated once App Store Connect shows them as "Ready to Test".
+## 2026-10-31 · TestFlight · The 3rd Eye 0.5.0 builds (1) and (2) · upload pending
+- Version 0.5.0, build numbers (1) and (2) (the second only if a second upload is needed; `ios/project.yml` holds build 1 at v0.7), are uploaded by the product owner from Xcode Organizer (the command-line export cannot see the Apple sign-in). Status: pending; this entry is updated once App Store Connect shows them as "Ready to Test".
 - Rollback: expire the build in App Store Connect → TestFlight; testers keep the previous build (0.4.0 (1)).

@@ -14,7 +14,7 @@ Shot-by-shot script for the submission video. Narration is plain, first person p
 - **Pre-recorded safety takes:** record each live step once in rehearsal and keep the clip, named `fallback-<shot>.mov`.
 
 ## Screens on camera (iOS, in order)
-Welcome ("Your art, on things people love.", signed in beforehand, so only the first frame if at all) → Pick ("What do you want to make?": Sticker or Tote bag, Next) → Choose ("Choose how you want to bring your drawing into the studio.": "Snap your drawing", "Pick one you already have", "Describe it, we draw it for you", marked "NO DRAWING SKILL NEEDED") → Camera or Upload (photo branch) or Speak, Drawing your idea and Voice result (voice branch) → Finding ("Finding your drawings…") → Adjust cutout → Design ready ("Your sticker is ready!", "Put it up for sale now?") → Listing details → Story video ("Tell buyers your story") → You're live ("<title> is in the shop."). Shots 2 and 3 cover the voice and photo branches; shots 5 and 6 cover the Orders and Messages tabs.
+Welcome ("Your art, on things people love.", signed in beforehand, so only the first frame if at all) → Pick ("What do you want to make?": Sticker or Tote bag, Next) → Choose ("Choose how you want to bring your drawing into the studio.": the rows "Take a photo" ("Snap your drawing"), "Upload a picture" ("Pick one you already have") and "Say it out loud" ("Describe it, we draw it for you"), marked "NO DRAWING SKILL NEEDED") → Camera (button "Open the camera") or Upload (photo branch) or Speak, Drawing your idea and Voice result (voice branch) → Finding ("Finding your drawings…") → Adjust cutout → Design ready ("Your sticker is ready!", "Put it up for sale now?") → Listing details → Story video ("Tell buyers your story") → Video saved → You're live ("<title> is in the shop."). Shots 2 and 3 cover the voice and photo branches; shots 5 and 6 cover the Orders and Messages tabs.
 
 ## Beat sheet
 
@@ -40,7 +40,7 @@ Fallback: none needed (stills).
 Creator: **June Park** (signed in beforehand). Capture: phone over the shoulder for the first 5 seconds (June's hand, VoiceOver on), then the phone's screen recording.
 
 Steps and what the viewer sees:
-1. Create tab > Sticker > Next > "Describe it, we draw it for you". Speak opens; VoiceOver reads "Start talking".
+1. Create tab > Sticker > Next > "Say it out loud" (detail line "Describe it, we draw it for you"). Speak opens; VoiceOver reads "Start talking".
 2. June says: "a green frog wearing a tiny red hat". Muse Voice Transcribe 1.0 turns it into text; the card reads "YOU SAID, a green frog wearing a tiny red hat".
 3. If Muse Spark 1.3 asks a clarifying question, VoiceOver announces it and the "QUESTION" card shows it. Answer in one short sentence.
 4. "Drawing your idea" screen: the "I HEARD" card shows the shaped prompt while Muse Image 1.0 draws.
@@ -56,7 +56,7 @@ Fallback: if the live generation takes more than 40 seconds or fails, cut to `fa
 Creator: **Leo** (signed in beforehand). Capture: simulator capture (the simulator uses a photo from the library) or the phone. Show the toy on the table for 2 seconds first.
 
 Steps:
-1. Create > Sticker > Next > "Snap your drawing" (or "Pick one you already have" in the simulator), then "Take a photo". "Finding your drawings…" shows while SAM 3.1 works; the toy comes back as 2 or 3 numbered pieces.
+1. Create > Sticker > Next > "Take a photo" (detail line "Snap your drawing") > "Open the camera" (in the simulator: "Upload a picture", detail line "Pick one you already have" > "Choose from my photos"). "Finding your drawings…" shows while SAM 3.1 works; the toy comes back as 2 or 3 numbered pieces.
 2. **Adjust cutout:** tap pieces 1 and 2 to combine them (both selected; the line under the photo reads "Got 2 pieces. They are cut out together."), tap "Apply cutout". The cutout appears on the checkerboard. Optionally show "Draw a box" trimming a stray piece.
 3. "Use this". Design ready: "Your sticker is ready!" with the die-cut sticker preview and "Put it up for sale now?". Listing details, "Tell buyers your story" and "You're live" follow in the app; this shot stops at Design ready.
 

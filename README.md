@@ -6,9 +6,12 @@ This is our entry for the Meta Global AI Developer Hackathon (Startups track, "B
 
 ## Screenshots
 
-![The iOS app's Welcome screen: a green fuzzy mascot holding two tote bags on a sky photo, with the headline "Your art, on things people love." and a "Start creating" button](docs/images/ios-welcome.png)
-![The iOS app's "What do you want to make?" screen with Sticker and Tote bag cards](docs/images/ios-pick-product.png)
-![The shop home page at desktop width: a white panel on a sky photo reading "Art with" and "A story you can hold.", with Shop the collection and How story tags work buttons](docs/images/web-shop-home.png)
+<p>
+  <img width="280" src="docs/images/ios-welcome.png" alt="The iOS app's Welcome screen: a green fuzzy mascot holding two tote bags on a sky photo, with the headline &quot;Your art, on things people love.&quot; and a Start creating button">
+  <img width="280" src="docs/images/ios-pick-product.png" alt="The iOS app's What do you want to make screen with Sticker and Tote bag cards">
+</p>
+
+![The shop home page at desktop width: a dark translucent card over a mascot-and-sky photo with the eyebrow "Art with", the headline "A story you can hold.", and the buttons Shop the collection and How story tags work](docs/images/web-shop-home.png)
 
 The iOS shots come from the simulator running against the mock API (`ios/scripts/mock_api.py`); the shop shot is the local dev server. Mascot and sky imagery: The 3rd Eye design team.
 

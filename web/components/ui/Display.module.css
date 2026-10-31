@@ -5,7 +5,7 @@
   overflow-wrap: anywhere;
   text-wrap: balance;
 }
-.xl {
+.web, .xl {
   font-size: var(--type-display-xl-size);
   line-height: var(--type-display-xl-lh);
   font-weight: var(--type-display-xl-weight);
@@ -25,6 +25,10 @@
 }
 @media (min-width: 48rem) {
   .l { font-size: var(--type-display-l-size); }
+}
+/* webDisplay (Sky web boards: page titles, shop hero): 72 / 1.05 from 64rem. */
+@media (min-width: 64rem) {
+  .web { font-size: calc(var(--type-display-xl-size) * 1.5); line-height: 1.05; }
 }
 /* White text on a photo (Welcome, shop hero): Bold, per the Welcome board. Needs a scrim behind it. */
 .onPhoto { color: var(--text-on-dark); font-weight: bold; }

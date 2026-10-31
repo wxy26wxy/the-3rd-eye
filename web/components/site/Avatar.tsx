@@ -8,9 +8,9 @@ export function initials(name: string): string {
 
 /**
  * Round avatar (Sky): the photo, or initials in deep green on the accent. Decorative next to the
- * visible name. `m` 40 px, `l` 56 px (story / product creator row), `xl` 96 px (profile, artists).
+ * visible name. `m` 40 px, `l` 56 px (story / product creator row), `xl` 80 px (artist cards), `xxl` 120 px from 64rem (profile header).
  */
-export function Avatar({ name, src, size = "m" }: { name: string; src: string | null | undefined; size?: "m" | "l" | "xl" }) {
+export function Avatar({ name, src, size = "m" }: { name: string; src: string | null | undefined; size?: "m" | "l" | "xl" | "xxl" }) {
   const cls = [styles.avatar, styles[size]].join(" ");
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element

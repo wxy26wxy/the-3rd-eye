@@ -28,7 +28,6 @@
   background: color-mix(in srgb, var(--primary) 55%, transparent);
   color: var(--text-on-dark);
 }
-.heroTitle { letter-spacing: var(--type-display-xl-ls); }
 .heroCopy { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); }
 .heroCtas { display: grid; gap: var(--space-s); width: 100%; }
 .heroCtas > * { width: 100%; }
@@ -42,7 +41,6 @@
   .hero { min-height: 42.5rem; }
   .heroInner { padding-block: 7.5rem; }
   .heroPanel { padding: 2.25rem 2.5rem; }
-  .heroPanel .heroTitle { font-size: calc(var(--type-display-xl-size) * 1.5); line-height: 1.05; }
 }
 
 /* Bands */

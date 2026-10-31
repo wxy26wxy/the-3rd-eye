@@ -18,7 +18,7 @@ export function Hero() {
       <div className={styles.heroInner}>
         <div className={styles.heroPanel}>
           <Eyebrow>{m.shop.heroEyebrow}</Eyebrow>
-          <Display as="h1" id="hero-title" size="xl" tone="onPhoto" className={styles.heroTitle}>{m.shop.heroTitle}</Display>
+          <Display as="h1" id="hero-title" size="web" tone="onPhoto">{m.shop.heroTitle}</Display>
           <p className={styles.heroCopy}>{m.shop.heroCopy}</p>
           <div className={styles.heroCtas}>
             <Button href="#collection" variant="white" className={styles.heroPrimary}>{m.shop.ctaShop}</Button>

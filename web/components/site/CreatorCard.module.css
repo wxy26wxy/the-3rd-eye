@@ -1,19 +1,28 @@
 .card {
   position: relative;
-  display: flex;
-  gap: var(--space-l);
-  align-items: flex-start;
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+  align-content: start;
   height: 100%;
-  padding: var(--space-xl);
+  padding: 1.75rem;
   background: var(--surface);
-  border: var(--border-card) solid var(--border);
+  border: var(--border-thin) solid var(--border);
   border-radius: var(--radius-card);
-  box-shadow: var(--shadow-hard-l);
 }
 .card:has(.link:focus-visible) { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
-.body { display: grid; gap: var(--space-xs); justify-items: start; }
-.name { font-family: var(--font-display); font-weight: var(--type-title-l-weight); font-size: var(--type-title-l-size); line-height: 1.2; }
-.link { text-decoration: none; }
+.name { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: 1.3; }
+.studio { color: var(--text-muted); font-size: var(--type-body-size); line-height: var(--type-body-lh); }
+/* "Meet {name}": the drawn text with a 44 px hit area; ::after makes the whole card clickable. */
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--size-min-target);
+  margin-block: calc((var(--size-min-target) - var(--type-body-size) * var(--type-body-lh)) / -2);
+  font-size: var(--type-body-size);
+  font-weight: var(--type-title-l-weight);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
 .link:focus-visible { outline: none; }
 .link::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius-card); }
-.studio { color: var(--text-muted); font-weight: var(--type-title-m-weight); }

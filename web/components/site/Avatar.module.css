@@ -12,4 +12,6 @@
 }
 .m { width: var(--size-avatar); height: var(--size-avatar); font-size: var(--type-caption-size); }
 .l { width: var(--size-cta); height: var(--size-cta); font-size: var(--type-title-l-size); }
-.xl { width: 6rem; height: 6rem; font-size: var(--type-display-m-size); }
+.xl { width: 5rem; height: 5rem; font-size: 1.8rem; }
+.xxl { width: 5rem; height: 5rem; font-size: 1.8rem; }
+@media (min-width: 64rem) { .xxl { width: 7.5rem; height: 7.5rem; font-size: 2.7rem; } }

@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { m } from "@/components/messages";
 import { loadCreatorProfile } from "@/components/data";
 import { CreatorProfile } from "@/components/pages/CreatorProfile";
-import { Container, Section } from "@/components/ui/Layout";
+import { Container } from "@/components/ui/Layout";
+import styles from "@/components/pages/Pages.module.css";
 
 export async function generateMetadata({ params }: PageProps<"/c/[slug]">): Promise<Metadata> {
   const c = await loadCreatorProfile((await params).slug);
@@ -21,10 +22,8 @@ export default async function CreatorPage({ params }: PageProps<"/c/[slug]">) {
   const creator = await loadCreatorProfile((await params).slug);
   if (!creator) notFound();
   return (
-    <Container>
-      <Section>
-        <CreatorProfile creator={creator} />
-      </Section>
+    <Container className={styles.page}>
+      <CreatorProfile creator={creator} />
     </Container>
   );
 }

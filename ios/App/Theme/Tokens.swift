@@ -144,6 +144,7 @@ enum Tokens {
     static let mascotMagnifier = "mascot-magnifier"
     static let sky = "sky"
     static let tote = "tote"
+    static let heroSky = "hero-sky"
     static let iconCamera = "icon-camera"
     static let iconImage = "icon-image"
     static let iconMic = "icon-mic"

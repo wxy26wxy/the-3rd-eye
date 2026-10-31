@@ -1,17 +1,20 @@
 import type { PublicCreator } from "@/lib/db/queries.contract";
 import { m } from "@/components/messages";
-import { Tag } from "@/components/Tag";
+import { Mascot } from "@/components/ui/Mascot";
+import { VideoPoster } from "./VideoPoster";
 import styles from "./StoryVideo.module.css";
 
 /**
- * Creator story video with an English captions track. Private pathnames are served by
- * the backend through /media/{pathname}; `tagToken` scopes access from a story-tag page.
+ * Creator story video with an English captions track (board: "StoryVideo poster with play button").
+ * Private pathnames are served by the backend through /media/{pathname}; `tagToken` scopes access from
+ * a story-tag page. The video keeps its native controls; the round play button over the poster is
+ * decorative and lets clicks through to the video.
  */
-export function StoryVideo({ creator, tagToken }: { creator: Pick<PublicCreator, "id" | "displayName" | "storyVideoUrl" | "storyVideoVtt">; tagToken?: string }) {
+export function StoryVideo({ creator, tagToken, className }: { creator: Pick<PublicCreator, "id" | "displayName" | "storyVideoUrl" | "storyVideoVtt">; tagToken?: string; className?: string }) {
   if (!creator.storyVideoUrl) {
     return (
-      <div className={styles.empty}>
-        <Tag pose="waving" decorative className={styles.tag} />
+      <div className={[styles.frame, styles.empty, className].filter(Boolean).join(" ")}>
+        <Mascot pose="book" decorative className={styles.mascot} />
         <p>{m.common.noVideo}</p>
       </div>
     );
@@ -19,9 +22,9 @@ export function StoryVideo({ creator, tagToken }: { creator: Pick<PublicCreator,
   const q = tagToken ? `?tag=${encodeURIComponent(tagToken)}` : "";
   const src = `/media/${creator.storyVideoUrl.split("/").map(encodeURIComponent).join("/")}${q}`;
   return (
-    <video className={styles.video} controls playsInline preload="metadata" aria-label={creator.displayName}>
+    <VideoPoster className={[styles.frame, className].filter(Boolean).join(" ")} videoClassName={styles.video} label={creator.displayName}>
       <source src={src} />
       {creator.storyVideoVtt ? <track kind="captions" src={`/captions/${creator.id}`} srcLang="en" label={m.common.videoCaptions} default /> : null}
-    </video>
+    </VideoPoster>
   );
 }

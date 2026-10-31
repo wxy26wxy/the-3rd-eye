@@ -6,13 +6,14 @@
   --font-body: var(--nf-body, 'Inter'), system-ui, sans-serif;
   /* Focus ring (Sky ruling): 2 px ink, 2 px offset so the page shows between ring and control. */
   --focus-width: calc(var(--border-thin) * 2);
-  /* Layout widths (not design tokens; relative units only). */
-  --layout-max: 75rem;
+  /* Layout widths (not design tokens; relative units only). Sky web boards (T106): 24 px gutter on
+     phones, 80 px at 1440 with a 1280 content column that stays centred on wider screens. */
+  --layout-max: 80rem;
   --layout-narrow: 36rem;
-  --layout-gutter: var(--space-xl);
+  --layout-gutter: var(--space-page);
 }
-@media (min-width: 48rem) {
-  :root { --layout-gutter: var(--space-page); }
+@media (min-width: 64rem) {
+  :root { --layout-gutter: 5rem; }
 }
 
 *, *::before, *::after { box-sizing: border-box; }

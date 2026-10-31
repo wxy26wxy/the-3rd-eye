@@ -1,5 +1,6 @@
-.container { width: 100%; max-width: var(--layout-max); margin-inline: auto; padding-inline: var(--layout-gutter); }
-.narrow { max-width: var(--layout-narrow); }
+/* max-width counts the gutters, so the content column is --layout-max (1280 on the Sky boards). */
+.container { width: 100%; max-width: calc(var(--layout-max) + var(--layout-gutter) * 2); margin-inline: auto; padding-inline: var(--layout-gutter); }
+.narrow { max-width: calc(var(--layout-narrow) + var(--layout-gutter) * 2); }
 .section { padding-block: var(--space-section); }
 @media (min-width: 48rem) { .section { padding-block: calc(var(--space-section) * 2); } }
 .stack { display: flex; flex-direction: column; list-style: none; }

@@ -2,24 +2,25 @@ import { getFeaturedCreator } from "@/lib/db/queries.contract";
 import { fmt, m } from "@/components/messages";
 import { StoryVideo } from "@/components/site/StoryVideo";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Display } from "@/components/ui/Display";
+import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Chip } from "@/components/ui/Text";
 import styles from "./Shop.module.css";
 
+/** Meet the artist card (board 2018:1939): story video poster left, name · studio, short bio, story, primary link. */
 export async function MeetArtist() {
   const creator = await getFeaturedCreator();
-  if (!creator) return <p className={styles.empty}>{m.shop.meetEmpty}</p>;
+  if (!creator) return <p className={styles.meetEmpty}>{m.shop.meetEmpty}</p>;
+  const story = creator.storyText && creator.storyText !== creator.bioShort ? creator.storyText : null;
   return (
-    <Card pad="l" className={styles.meet}>
+    <div className={styles.meet}>
       <div className={styles.meetVideo}><StoryVideo creator={creator} /></div>
       <div className={styles.meetText}>
-        <Display as="h3" size="l" tone="onCream">{creator.displayName}</Display>
-        {creator.studioName ? <p className={styles.meetStudio}>{creator.studioName}</p> : null}
+        <Eyebrow as="h3" tone="muted">{creator.studioName ? `${creator.displayName} · ${creator.studioName}` : creator.displayName}</Eyebrow>
         {creator.isExample ? <Chip tone="cream">{m.common.example}</Chip> : null}
-        {creator.bioShort ? <p>{creator.bioShort}</p> : null}
-        <Button href={`/c/${creator.slug}`}>{fmt(m.shop.meetCta, { name: creator.displayName })}</Button>
+        {creator.bioShort ? <p className={styles.meetLead}>{creator.bioShort}</p> : null}
+        {story ? <p className={styles.meetStory}>{story}</p> : null}
+        <Button href={`/c/${creator.slug}`} className={styles.meetCta}>{fmt(m.shop.meetCta, { name: creator.displayName })}</Button>
       </div>
-    </Card>
+    </div>
   );
 }

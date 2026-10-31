@@ -5,32 +5,36 @@ import { Hero } from "@/components/shop/Hero";
 import { HowSteps } from "@/components/shop/HowSteps";
 import { MeetArtist } from "@/components/shop/MeetArtist";
 import { Display } from "@/components/ui/Display";
-import { Container, Section, Stack } from "@/components/ui/Layout";
+import { Container } from "@/components/ui/Layout";
 import { Loading } from "@/components/ui/Loading";
+import styles from "@/components/shop/Shop.module.css";
 
+/** Shop · Sky (boards 2018:1789 / 2018:1970): hero → collection → how a story tag works (grey band) → meet the artist. */
 export default function ShopPage({ searchParams }: PageProps<"/">) {
   return (
-    <Container>
+    <>
       <Hero />
-      <Section id="collection" labelledBy="collection-title">
-        <Stack gap="xxl">
+      <section id="collection" aria-labelledby="collection-title" className={styles.band}>
+        <Container className={styles.bandStack}>
           <Display id="collection-title" size="l">{m.shop.collectionTitle}</Display>
           <Suspense fallback={<CollectionFallback />}>
             <Collection searchParams={searchParams} />
           </Suspense>
-        </Stack>
-      </Section>
-      <Section>
-        <HowSteps />
-      </Section>
-      <Section labelledBy="meet-title">
-        <Stack gap="xxl">
+        </Container>
+      </section>
+      <div className={[styles.band, styles.bandAlt].join(" ")}>
+        <Container>
+          <HowSteps />
+        </Container>
+      </div>
+      <section aria-labelledby="meet-title" className={styles.band}>
+        <Container className={styles.bandStack}>
           <Display id="meet-title" size="l">{m.shop.meetTitle}</Display>
           <Suspense fallback={<Loading label={m.common.loading} />}>
             <MeetArtist />
           </Suspense>
-        </Stack>
-      </Section>
-    </Container>
+        </Container>
+      </section>
+    </>
   );
 }

@@ -5,7 +5,7 @@ Accessibility is a requirement for every screen, not polish. This page lists wha
 ## Both clients
 - Every image has alt text; generated artwork carries `altText` and `spokenDescription` from the API, and both clients show the description as text, not only as sound.
 - Every control has a label a screen reader can read; icon-only buttons have a text label and a hint.
-- Touch targets are at least 44 pt / px; primary actions are 60.
+- Touch targets are at least 44 pt / px; primary actions are `size.cta` (56 since the Sky tokens, T100; `common.md` still says 60).
 - Colours and sizes come from `design/tokens.json` (tokens only, no raw values), including the high-contrast palette.
 - Motion respects reduced-motion settings.
 - Anything the app tells the person (arrival messages, questions, errors, results, the "I HEARD" confirmation while drawing) is visible on screen.
@@ -61,3 +61,28 @@ Safari on iPhone with VoiceOver on, or macOS Safari with VoiceOver (Control+Opti
 4. The mode group "What a tap on the photo does" is a set of three radio buttons ("Add area", "Remove area", "Draw a box"); arrow keys or swipes move between them and the checked one is read.
 5. "Apply cutout" shows "Saving the cutout..." then "Your cutout is saved. Here it is." in a status region that VoiceOver reads without moving focus. "Show the cutout" and "Back to photo" toggle the picture, whose alt text is "Your cutout".
 6. Tab order follows the visual order; every focused control has a visible focus ring; with `prefers-reduced-motion` on there is no animation.
+
+## Designer flags (Sky, T100)
+Raised on the Figma file (key `vIOMPzc2kjP18BbgduLmc8`) during the T100 intake. Contrast ratios computed from the token hex values (WCAG 2.x relative luminance).
+
+| Pair | Ratio | Use | Verdict |
+|---|---|---|---|
+| ink `#111827` on white | 17.7:1 | body, titles, CTA label on white | pass |
+| ink on page `#FCFCFC` | 17.3:1 | headlines | pass |
+| textMuted `#6B7280` on page | 4.7:1 (4.8:1 on white) | descriptions, 15 px | pass AA, little margin: do not lighten |
+| ink on accent `#65C361` | 8.0:1 | selected card title | pass |
+| greenDeep `#173D2B` on accent | 5.5:1 | selected card caption, 13 px | pass |
+| greenDeep on `#E4F3C8` | 10.3:1 | method icons | pass |
+| white on accent | 2.2:1 | not used on the boards | never use for text |
+| white on the sky photo | 2.4–2.7:1 (sky), ~1.5:1 (pink cloud) | Welcome headline, body, "I already have an account" | **fails**: needs `color.scrim` |
+| white on sky under the scrim `rgba(0,0,0,0.35)` | 5.3–5.7:1 (sky), ~3.5:1 (cloud) | same | passes for the 48 px headline everywhere; body text must sit over sky, not cloud, or the scrim is a gradient that is darkest behind the text |
+| border `#D1D5DB` on white | 1.5:1 | unselected card and secondary pill outline | below 3:1 for UI boundaries; the card is still found by its label and radio, the pill by its text. Flagged to the designer |
+| focus `#1E3A24` on white / on accent | 12.5:1 / 5.7:1 | focus ring | pass (kept from Direction A) |
+
+1. **White text on the sky photo needs a scrim.** Token `color.scrim` = `rgba(0,0,0,0.35)` (also `semantic.scrim`) is added now. Welcome lays it under the text block (or as a top-to-bottom gradient ending in it) on both clients.
+2. **13 px is the floor for all text.** Captions on the boards are 13 px (`type.bodyS`), and `type.caption` is 13 (ruling; the brief said 12). The one exception is `type.eyebrow`, 11 px caps with 0.08em tracking, for short labels such as "NO DRAWING SKILL NEEDED". All sizes scale: Dynamic Type through `relativeTo:` on iOS, `rem`-based sizes on the web from T102.
+3. **No visible step indicator on the boards.** The step pill is retired; each flow screen keeps the VoiceOver hint "Step n of 3" (iOS `accessibilityHint`, web visually hidden text) so the position in the flow is still announced.
+4. **24 px radio is fine** because the whole product card is the target (one control, at least 44 px, label = product name and description, selected state announced). The radio is decoration inside it.
+5. **"I already have an account"** is 14 px text on Welcome; give it a 44 px tall tap area (padding, not a larger font).
+6. **Primary CTA** is 56 px tall (was 60): above the 44 px minimum. "Both clients" above now says 56; `common.md` (outside the repo docs) still says 60 and should follow.
+7. **Icon-only parts:** the arrow circle in the CTA and the chevrons on method cards are decorative (hidden from VoiceOver); the button's text is its label.

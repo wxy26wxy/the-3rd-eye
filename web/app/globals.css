@@ -2,8 +2,8 @@
 
 /* next/font self-hosts the families; point the token families at the loaded faces. */
 :root {
-  --font-display: var(--nf-display, 'Bagel Fat One'), system-ui, sans-serif;
-  --font-body: var(--nf-body, 'Rubik'), system-ui, sans-serif;
+  --font-display: var(--nf-display, var(--nf-body, 'Inter')), system-ui, sans-serif;
+  --font-body: var(--nf-body, 'Inter'), system-ui, sans-serif;
   /* Layout widths (not design tokens; relative units only). */
   --layout-max: 75rem;
   --layout-narrow: 36rem;

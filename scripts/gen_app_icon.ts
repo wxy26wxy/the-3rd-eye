@@ -1,7 +1,7 @@
 /**
- * Renders the iOS app icon from design/tokens.json (no hand-drawn asset):
- * a lime tag with an ink outline and hard shadow on the green ground, with
- * Tag's camera dot. Output: ios/App/Assets.xcassets/AppIcon.appiconset/.
+ * Renders the iOS app icon from design/tokens.json and the logo mark exported from the Figma file
+ * (design/assets/logo-mark.svg, node "Union"): the ink eye mark centred on the accent green.
+ * Output: ios/App/Assets.xcassets/AppIcon.appiconset/.
  * Run: pnpm icon   (or: pnpm --filter web exec tsx ../scripts/gen_app_icon.ts)
  * Swap: drop a 1024x1024 PNG at the same path to use a designer-made icon.
  */
@@ -14,24 +14,17 @@ const tokens = JSON.parse(readFileSync(resolve(root, "design/tokens.json"), "utf
 const c = tokens.color as Record<string, string>;
 const S = 1024;
 
-// Tag shape: a rounded rectangle with a cut corner and a hole, tilted like the wordmark.
-const tag = (dx: number, dy: number, fill: string, stroke?: string) => `
-  <g transform="translate(${512 + dx} ${512 + dy}) rotate(-12)">
-    <path d="M -230 -300 L 150 -300 Q 230 -300 230 -220 L 230 230 Q 230 310 150 310 L -150 310 Q -230 310 -230 230 L -230 -150 Z"
-      fill="${fill}" ${stroke ? `stroke="${stroke}" stroke-width="28" stroke-linejoin="round"` : ""}/>
-  </g>`;
+// The mark keeps its exported path; only its fill and placement change. 40x35 viewBox, scaled to 60% of the icon width.
+const mark = readFileSync(resolve(root, "design/assets/logo-mark.svg"), "utf8");
+const path = mark.match(/<path[^>]*\sd="([^"]+)"/)?.[1];
+if (!path) throw new Error("logo-mark.svg: no path");
+const { w, h } = tokens.size.logoMark as { w: number; h: number };
+const scale = (S * 0.6) / w;
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">
-  <rect width="${S}" height="${S}" fill="${c.ground}"/>
-  ${tag(28, 34, c.inkDeep)}
-  ${tag(0, 0, c.lime, c.ink)}
-  <g transform="translate(512 512) rotate(-12)">
-    <circle cx="-150" cy="-220" r="34" fill="${c.ground}" stroke="${c.ink}" stroke-width="22"/>
-    <rect x="-120" y="20" width="240" height="170" rx="40" fill="${c.cream}" stroke="${c.ink}" stroke-width="22"/>
-    <rect x="-40" y="-20" width="80" height="50" rx="14" fill="${c.ink}"/>
-    <circle cx="0" cy="105" r="52" fill="${c.ink}"/>
-    <circle cx="0" cy="105" r="26" fill="${c.lime}"/>
-    <circle cx="80" cy="60" r="12" fill="${c.ink}"/>
+  <rect width="${S}" height="${S}" fill="${c.accent}"/>
+  <g transform="translate(${(S - w * scale) / 2} ${(S - h * scale) / 2}) scale(${scale})">
+    <path d="${path}" fill="${c.ink}"/>
   </g>
 </svg>`;
 

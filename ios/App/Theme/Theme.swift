@@ -32,13 +32,13 @@ enum Theme {
 /// the rest is checked against design/tokens.json by ThemeEffectsTests, so a token
 /// change fails the build's tests instead of drifting.
 enum ThemeEffects {
-  /// effects.displayStroke
-  static let displayStrokeWidth: CGFloat = 2
-  static let displayShadowY: CGFloat = 5
-  /// effects.scallop
+  /// effects.displayStroke (0 = off since the Sky tokens, T100)
+  static let displayStrokeWidth: CGFloat = 0
+  static let displayShadowY: CGFloat = 0
+  /// effects.scallop (height 0 = off since the Sky tokens, T100)
   static let scallopAmplitude: CGFloat = 16
   static let scallopPeriod: CGFloat = 48.75
-  static let scallopHeight: CGFloat = 26
+  static let scallopHeight: CGFloat = 0
   /// motion (milliseconds in tokens.json)
   static let motionFast: Double = 120 / 1000
   static let motionBase: Double = 200 / 1000

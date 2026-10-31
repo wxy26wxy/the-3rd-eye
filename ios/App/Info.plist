@@ -62,8 +62,7 @@
 	<string>The 3rd Eye lets you pick a picture or video of your art from your library.</string>
 	<key>UIAppFonts</key>
 	<array>
-		<string>BagelFatOne-Regular.ttf</string>
-		<string>Rubik-VariableFont_wght.ttf</string>
+		<string>Inter-Variable.ttf</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

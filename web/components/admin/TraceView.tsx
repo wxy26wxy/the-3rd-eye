@@ -5,7 +5,8 @@ import { DieCut } from "@/components/site/DieCut";
 import { ArtImage } from "@/components/ui/ArtImage";
 import { Button } from "@/components/ui/Button";
 import { Stack } from "@/components/ui/Layout";
-import { Chip, Title } from "@/components/ui/Text";
+import { ChevronRightIcon } from "@/components/ui/Icons";
+import { Chip } from "@/components/ui/Text";
 import styles from "./Admin.module.css";
 
 const json = (v: unknown) => JSON.stringify(v, null, 2);
@@ -20,7 +21,7 @@ const byTime = (a: AiCallRow, b: AiCallRow) => +a.createdAt - +b.createdAt;
 export async function TraceView({ params }: { params: Promise<{ artworkId: string }> }) {
   const { artworkId } = await params;
   const trace = await getArtworkTrace(artworkId);
-  if (!trace) return <p className={styles.empty}>{m.admin.traceMissing}</p>;
+  if (!trace) return <MissingTrace />;
   const { artwork: a, variants, candidates } = trace;
   const calls = [...trace.calls].sort(byTime);
   const used = new Set<string>();
@@ -34,9 +35,7 @@ export async function TraceView({ params }: { params: Promise<{ artworkId: strin
     {
       title: m.admin.traceVariants,
       calls: take("generate", "refine"),
-      body: variants.length ? <ImageRow images={variants} /> : a.originalUrl ? (
-        <div className={styles.traceThumb}><ArtImage src={mediaHref(a.originalUrl)} alt={m.admin.traceOriginal} placeholder={m.common.imageMissing} /></div>
-      ) : null,
+      body: variants.length ? <ImageRow images={variants.map((v, i) => ({ ...v, label: fmt(m.create.result.variant, { n: i + 1 }) }))} /> : null,
     },
     {
       title: m.admin.traceDescription,
@@ -61,17 +60,23 @@ export async function TraceView({ params }: { params: Promise<{ artworkId: strin
     {
       title: m.admin.traceMask,
       calls: take("segment"),
-      body: a.maskUrl ? (
-        <div className={styles.traceThumb}><ArtImage src={mediaHref(a.maskUrl)} alt={m.admin.traceMask} placeholder={m.common.imageMissing} /></div>
+      body: a.originalUrl || a.maskUrl ? (
+        <>
+          <ImageRow images={[
+            ...(a.originalUrl ? [{ id: "original", url: mediaHref(a.originalUrl), altText: m.admin.traceOriginal, chosen: false, label: m.admin.traceOriginal }] : []),
+            ...(a.maskUrl ? [{ id: "mask", url: mediaHref(a.maskUrl), altText: m.admin.traceMask, chosen: false, label: m.admin.traceMask }] : []),
+          ]} />
+          {a.maskUrl ? <a href={mediaHref(a.maskUrl)} className={styles.link}>{m.admin.traceOpenMask}</a> : null}
+        </>
       ) : null,
     },
     {
       title: m.admin.traceSticker,
       calls: take("sticker"),
       body: a.cleanedUrl ? (
-        <div className={styles.traceThumb}>
-          {a.cutPathSvg ? <DieCut artworkUrl={a.cleanedUrl} cutPathSvg={a.cutPathSvg} alt={a.altText ?? ""} /> : <ArtImage src={a.cleanedUrl} alt={a.altText ?? ""} placeholder={m.common.imageMissing} />}
-        </div>
+        a.cutPathSvg
+          ? <div className={styles.stickerCut}><DieCut artworkUrl={a.cleanedUrl} cutPathSvg={a.cutPathSvg} alt={a.altText ?? ""} /></div>
+          : <ImageRow images={[{ id: "sticker", url: a.cleanedUrl, altText: a.altText, chosen: false, label: m.admin.traceSticker }]} />
       ) : null,
     },
   ];
@@ -81,11 +86,8 @@ export async function TraceView({ params }: { params: Promise<{ artworkId: strin
     <Stack gap="xxl">
       <ol role="list" className={styles.chain}>
         {steps.map((s, i) => (
-          <li key={s.title} className={styles.call}>
-            <div className={styles.callHead}>
-              <span className={styles.stepNum} aria-hidden="true">{i + 1}</span>
-              <Title as="h2" size="m"><span className="visually-hidden">{fmt(m.admin.traceStep, { n: i + 1 })}: </span>{s.title}</Title>
-            </div>
+          <li key={s.title} className={styles.step}>
+            <h2 className={styles.stepTitle}><span className="visually-hidden">{fmt(m.admin.traceStep, { n: i + 1 })}: </span>{s.title}</h2>
             {s.body ?? <p className={styles.sub}>{m.admin.traceNone}</p>}
             {s.calls.map((c) => <CallDetails key={c.id} call={c} />)}
           </li>
@@ -93,9 +95,9 @@ export async function TraceView({ params }: { params: Promise<{ artworkId: strin
       </ol>
       {rest.length ? (
         <section aria-labelledby="other-calls">
-          <Stack gap="l">
-            <Title id="other-calls">{m.admin.traceOtherCalls}</Title>
-            <ol role="list" className={styles.chain}>{rest.map((c) => <li key={c.id} className={styles.call}><CallDetails call={c} /></li>)}</ol>
+          <Stack gap="m">
+            <h2 id="other-calls" className={styles.otherTitle}>{m.admin.traceOtherCalls}</h2>
+            <ol role="list" className={styles.chain}>{rest.map((c) => <li key={c.id}><CallDetails call={c} /></li>)}</ol>
           </Stack>
         </section>
       ) : null}
@@ -104,36 +106,52 @@ export async function TraceView({ params }: { params: Promise<{ artworkId: strin
   );
 }
 
-function ImageRow({ images }: { images: TraceImage[] }) {
+type Thumb = TraceImage & { label?: string };
+
+/** Thumbnails (90 px) with their label under each; the chosen one gets the ink border and the Chosen chip. */
+function ImageRow({ images }: { images: Thumb[] }) {
   return (
     <ul role="list" className={styles.imageRow}>
       {images.map((img) => (
         <li key={img.id} className={img.chosen ? styles.chosen : undefined}>
-          <ArtImage src={img.url} alt={img.altText ?? ""} placeholder={m.common.imageMissing} />
-          {img.chosen ? <Chip>{m.admin.traceChosen}</Chip> : null}
+          <ArtImage className={styles.thumb} src={img.url} alt={img.altText ?? img.label ?? ""} placeholder={m.common.imageMissing} />
+          {img.label || img.chosen ? (
+            <span className={styles.thumbLabel}>{img.label}{img.chosen ? <Chip>{m.admin.traceChosen}</Chip> : null}</span>
+          ) : null}
         </li>
       ))}
     </ul>
   );
 }
 
+/** One model call: "stage · model · provider · ms", then Request / Response disclosures side by side. */
 function CallDetails({ call: c }: { call: AiCallRow }) {
   return (
     <div className={styles.callBlock}>
-      <div className={styles.callHead}>
-        <Chip>{c.stage}</Chip>
-        <span className={styles.mono}>{c.model}</span>
-        <span className={styles.sub}>{c.provider}{c.latencyMs != null ? ` · ${fmt(m.admin.traceLatency, { ms: c.latencyMs })}` : ""}</span>
+      <p className={styles.callHead}>
+        <span>{[c.stage, c.model, c.provider, c.latencyMs != null ? fmt(m.admin.traceLatency, { ms: c.latencyMs }) : null].filter(Boolean).join(" · ")}</span>
         {c.error ? <span className={styles.error}>{c.error}</span> : null}
+      </p>
+      <div className={styles.disclosures}>
+        <details className={styles.details}>
+          <summary><ChevronRightIcon size="1rem" /><span>{m.admin.traceRequest}</span></summary>
+          <pre>{json(c.requestJson)}</pre>
+        </details>
+        <details className={styles.details}>
+          <summary><ChevronRightIcon size="1rem" /><span>{m.admin.traceResponse}</span></summary>
+          <pre>{json(c.responseJson)}</pre>
+        </details>
       </div>
-      <details className={styles.details}>
-        <summary>{m.admin.traceRequest}</summary>
-        <pre>{json(c.requestJson)}</pre>
-      </details>
-      <details className={styles.details}>
-        <summary>{m.admin.traceResponse}</summary>
-        <pre>{json(c.responseJson)}</pre>
-      </details>
     </div>
+  );
+}
+
+/** AI trace · Missing (board 2034:4158): the grey empty card and the way back. */
+function MissingTrace() {
+  return (
+    <Stack gap="xxl">
+      <p className={styles.empty}>{m.admin.traceMissing}</p>
+      <div><Button href="/admin" variant="secondary" arrow={false}>{m.admin.backToOrders}</Button></div>
+    </Stack>
   );
 }

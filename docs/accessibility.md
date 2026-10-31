@@ -5,7 +5,7 @@ Accessibility is a requirement for every screen, not polish. This page lists wha
 ## Both clients
 - Every image has alt text; generated artwork carries `altText` and `spokenDescription` from the API, and both clients show the description as text, not only as sound.
 - Every control has a label a screen reader can read; icon-only buttons have a text label and a hint.
-- Touch targets are at least 44 pt / px; primary actions are `size.cta` (56 since the Sky tokens, T100; `common.md` still says 60).
+- Touch targets are at least 44 pt / px; primary actions are `size.cta`, 56 points tall (Sky tokens, T100; the public Accessibility page says 56 since T106).
 - Colours and sizes come from `design/tokens.json` (tokens only, no raw values), including the high-contrast palette.
 - Motion respects reduced-motion settings.
 - Anything the app tells the person (arrival messages, questions, errors, results, the "I HEARD" confirmation while drawing) is visible on screen.

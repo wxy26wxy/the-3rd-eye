@@ -5,6 +5,7 @@ import type { OrderStatus } from "@/lib/db/queries.contract";
 import type { StatusState } from "@/app/admin/actions";
 import styles from "./Admin.module.css";
 
+/** Every other status as a 44 px "Mark {status}" pill (ruling 5); the error (danger) under the pills. */
 export function StatusButtons({ action, orderId, current, statuses, labels }: {
   action: (prev: StatusState, fd: FormData) => Promise<StatusState>;
   orderId: string; current: OrderStatus; statuses: OrderStatus[]; labels: Record<OrderStatus, string>;
@@ -14,7 +15,7 @@ export function StatusButtons({ action, orderId, current, statuses, labels }: {
     <form action={formAction} className={styles.statusForm}>
       <input type="hidden" name="orderId" value={orderId} />
       {statuses.filter((s) => s !== current).map((s) => (
-        <button key={s} type="submit" name="status" value={s} className={styles.statusBtn} disabled={pending}>
+        <button key={s} type="submit" name="status" value={s} className={styles.pill} disabled={pending}>
           {fmt(m.admin.moveTo, { status: labels[s] })}
         </button>
       ))}

@@ -15,6 +15,11 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
 const mediaHref = (pathname: string) => `/media/${pathname.split("/").map(encodeURIComponent).join("/")}`;
 const dateFmt = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
 
+/**
+ * Orders table (board 2031:3895, fixed r4): order + date; status chip and "Mark {status}" pills; buyer;
+ * product with type line, ship note, notes and the AI trace link; creator share; print files; story tag
+ * cell = 120 px QR, /t/{token} link, "{n} taps" and Copy.
+ */
 export async function OrdersTable() {
   const [orders, origin] = await Promise.all([listAdminOrders(), siteOrigin()]);
   if (orders.length === 0) return <p className={styles.empty}>{m.admin.empty}</p>;
@@ -34,53 +39,54 @@ export async function OrdersTable() {
         </thead>
         <tbody>
           {orders.map((o) => {
-            const url = o.token ? `${origin}${storyTagPath(o.token)}` : null;
+            const path = o.token ? storyTagPath(o.token) : null;
+            const url = path ? `${origin}${path}` : null;
             return (
               <tr key={o.id}>
                 <th scope="row">
-                  <span className={styles.mono}>{o.id.slice(0, 8)}</span>
+                  <span className={styles.strong}>{o.id.slice(0, 8)}</span>
                   <span className={styles.sub}>{dateFmt.format(o.createdAt)}</span>
                 </th>
-                <td>
+                <td className={styles.statusCell}>
                   <Chip tone={o.status === "delivered" ? "lime" : "cream"}>{STATUS_LABEL[o.status]}</Chip>
                   <StatusButtons action={setOrderStatus} orderId={o.id} current={o.status} statuses={ORDER_STATUSES} labels={STATUS_LABEL} />
                 </td>
                 <td>
-                  <span className={styles.strong}>{o.buyerName}</span>
+                  <span>{o.buyerName}</span>
                   {o.buyerEmail ? <span className={styles.sub}>{o.buyerEmail}</span> : null}
-                  {o.shipNote ? <span className={styles.sub}>“{o.shipNote}”</span> : null}
+                </td>
+                <td className={styles.productCell}>
+                  <Link href={`/p/${o.product.id}`} className={styles.title}>{o.product.title}</Link>
+                  <span className={styles.sub}>{o.product.type === "sticker" ? m.common.sticker : m.common.tote} · {fmt(m.common.by, { name: o.creator.displayName })}</span>
+                  {o.shipNote ? <span className={styles.note}>“{o.shipNote}”</span> : null}
                   {o.messages.length ? (
-                    <ul role="list" aria-label={m.admin.notesLabel} className={styles.files}>
+                    <ul role="list" aria-label={m.admin.notesLabel} className={styles.notes}>
                       {o.messages.map((msg) => (
-                        <li key={msg.id} className={styles.sub}>
+                        <li key={msg.id}>
                           {msg.direction === "buyer_to_creator" ? m.admin.noteFromBuyer : m.admin.noteFromCreator}: “{msg.body}”
                         </li>
                       ))}
                     </ul>
                   ) : null}
-                </td>
-                <td>
-                  <Link href={`/p/${o.product.id}`} className={styles.strong}>{o.product.title}</Link>
-                  <span className={styles.sub}>{o.product.type === "sticker" ? m.common.sticker : m.common.tote} · {fmt(m.common.by, { name: o.creator.displayName })}</span>
                   <Link href={`/admin/trace/${o.product.artworkId}`} className={styles.link}>{m.admin.trace}</Link>
                 </td>
-                <td><span className={styles.strong}>{money(o.creatorShareCents)}</span><span className={styles.sub}>{money(o.amountCents)}</span></td>
+                <td><span>{money(o.creatorShareCents)}</span><span className={styles.sub}>{money(o.amountCents)}</span></td>
                 <td>
                   {o.product.printPngUrl || o.product.printSvgUrl ? (
                     <ul role="list" className={styles.files}>
                       {o.product.printPngUrl ? <li><a href={mediaHref(o.product.printPngUrl)} className={styles.link} download>{m.admin.printPng}</a></li> : null}
                       {o.product.printSvgUrl ? <li><a href={mediaHref(o.product.printSvgUrl)} className={styles.link} download>{m.admin.dieSvg}</a></li> : null}
                     </ul>
-                  ) : <span className={styles.sub}>{m.admin.noFiles}</span>}
+                  ) : <span className={styles.muted}>{m.admin.noFiles}</span>}
                 </td>
                 <td>
-                  {url && o.token ? (
+                  {url && path ? (
                     <div className={styles.tag}>
-                      <QrCode value={url} label={fmt(m.admin.qrLabel, { url })} />
-                      <div className={styles.tagText}>
-                        <Link href={storyTagPath(o.token)} className={styles.url}>{url}</Link>
-                        <span className={styles.sub}>{fmt(m.admin.taps, { count: o.tapCount })}</span>
-                        <CopyButton value={url} label={m.common.copy} copiedLabel={m.common.copied} />
+                      <QrCode value={url} label={fmt(m.admin.qrLabel, { url })} className={styles.tagQr} />
+                      <Link href={path} className={styles.link}>{path}</Link>
+                      <div className={styles.taps}>
+                        <span>{fmt(m.admin.taps, { count: o.tapCount })}</span>
+                        <CopyButton value={url} label={m.common.copy} copiedLabel={m.common.copied} className={styles.copySmall} />
                       </div>
                     </div>
                   ) : null}

@@ -502,9 +502,6 @@
     }
   },
   "mascot": {
-    "listening": "Tag, the {brand} mascot, listening with a microphone",
-    "cheering": "Tag, the {brand} mascot, cheering",
-    "waving": "Tag, the {brand} mascot, waving hello",
     "book": "The {brand} mascot, a fuzzy green monster reading a book",
     "front": "The {brand} mascot, a fuzzy green monster looking at you",
     "magnifier": "The {brand} mascot, a fuzzy green monster searching with a magnifying glass"

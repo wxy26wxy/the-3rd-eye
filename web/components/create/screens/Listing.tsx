@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
 import { api, type AgentStep, type ListingDraft, type Product } from "../api";
@@ -63,6 +63,10 @@ function ListingForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchAgent is recreated each render; run once per product
   }, [ready, productId, hasListing]);
 
+  // A 409 (print check, moderation) lands under the form: bring the card above the pinned bar.
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (error) errorRef.current?.scrollIntoView({ block: "center" }); }, [error]);
+
   const cents = toCents(price);
   const bps = creator?.split?.creator_bps ?? 5000;
   const earn = cents ? Math.floor((cents * bps) / 10000) : null;
@@ -107,6 +111,7 @@ function ListingForm() {
       trace={draft.trace ?? []}
       showTrace={showTrace}
       error={error}
+      errorRef={errorRef}
       on={{ title: setTitle, description: setDescription, price: setPrice, improve, toggleTrace: () => setShowTrace((v) => !v), submit }}
     />
   );

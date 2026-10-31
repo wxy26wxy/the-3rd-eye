@@ -115,7 +115,7 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
 
   // Boards 2027:3184 (camera), 2027:3207 (finding), 2027:3226 / 2038:4419 (errors).
   return (
-    <CreateScreen back={busy ? undefined : "/create/method"} step={3} title={camera ? m.create.photo.titleCamera : m.create.photo.titleUpload} lead={m.create.photo.copy} footer={footer}>
+    <CreateScreen back="/create/method" step={3} title={camera ? m.create.photo.titleCamera : m.create.photo.titleUpload} lead={m.create.photo.copy} footer={footer}>
       {busy ? <Loading variant="sky" label={busyLabel} />
         : error ? <ErrorNotice error={error} />
         : preview ? <div className={styles.photoPreview}><ArtImage src={preview} alt={m.create.photo.preview} placeholder="" ratio="auto" /></div>

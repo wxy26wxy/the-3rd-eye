@@ -37,19 +37,10 @@
   z-index: 2;
   padding: var(--space-xxl) var(--space-page) calc(var(--space-l) * 2);
   background: var(--surface);
-  border-top: var(--border-thin) solid var(--border);
+  border-top: var(--border-thin) solid transparent;
 }
-/* When nothing scrolls under the bar (short screens), this strip covers the bar's top border at its
-   resting place, as on the short boards; once the bar is pinned over content the strip scrolls away. */
-.content:has(+ .footer)::after {
-  content: "";
-  position: relative;
-  z-index: 3;
-  top: calc(var(--space-xxl) + var(--border-thin));
-  height: var(--border-thin);
-  margin: auto calc(var(--space-page) * -1) 0;
-  background: var(--surface);
-}
+.footer[data-stuck="true"] { border-top-color: var(--border); }
+.barSentinel { height: var(--border-thin); margin-top: calc(var(--border-thin) * -1); }
 .footerInner { display: grid; gap: var(--space-s); }
 .footerHint { font-size: var(--type-body-size); color: var(--text-muted); text-align: center; }
 
@@ -301,7 +292,7 @@
 .photoPreview img { max-height: var(--size-photo-max-height); }
 
 /* Ready / Live */
-.body > .readyArt { width: auto; height: calc(var(--size-record) * 3.6); aspect-ratio: 1; justify-self: center; background: transparent; }
+.body > .readyArt { width: auto; height: calc(var(--size-record) * 3); aspect-ratio: 1; justify-self: center; background: transparent; }
 
 /* Listing (board 2030:3752) */
 .mockup { display: grid; place-items: center; padding: var(--space-l); border-radius: var(--radius-card); background: var(--surface-alt); }

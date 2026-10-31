@@ -1,4 +1,4 @@
-import type { FormEvent } from "react";
+import type { FormEvent, Ref } from "react";
 import { m, money } from "@/components/messages";
 import { ArtImage } from "@/components/ui/ArtImage";
 import { Button } from "@/components/ui/Button";
@@ -31,6 +31,8 @@ export type ListingViewProps = {
   trace: AgentStep[];
   showTrace: boolean;
   error: ScreenError | null;
+  /** Wraps the error card, so the screen can bring it into view above the pinned bar. */
+  errorRef?: Ref<HTMLDivElement>;
   on: {
     title: (v: string) => void;
     description: (v: string) => void;
@@ -47,7 +49,7 @@ export type ListingViewProps = {
  * → print check → Show how the AI decided (disclosure) → error card; Put it in the shop in the bar,
  * which submits the form through its `form` attribute. Field errors sit under their field.
  */
-export function ListingView({ uid, mockup, drafting, improving, submitting, title, description, price, errors, earnCents, printOk, trace, showTrace, error, on }: ListingViewProps) {
+export function ListingView({ uid, mockup, drafting, improving, submitting, title, description, price, errors, earnCents, printOk, trace, showTrace, error, errorRef, on }: ListingViewProps) {
   const traceId = `${uid}-trace`;
   return (
     <CreateScreen
@@ -94,7 +96,7 @@ export function ListingView({ uid, mockup, drafting, improving, submitting, titl
               </div>
             </>
           ) : null}
-          <ErrorNotice error={error} onRetry={on.improve} />
+          <div ref={errorRef} className={styles.errorSpot}><ErrorNotice error={error} onRetry={on.improve} /></div>
         </form>
       )}
     </CreateScreen>

@@ -9,6 +9,7 @@ import { ChevronLeftIcon } from "@/components/ui/Icons";
 import { LogoMark } from "@/components/ui/LogoMark";
 import { StepPill } from "@/components/ui/StepPill";
 import { Eyebrow, Lead } from "@/components/ui/Text";
+import { PinnedBar } from "./PinnedBar";
 import styles from "./Create.module.css";
 
 /**
@@ -40,7 +41,7 @@ export function CreateScreen({ back, step, eyebrow, title, lead, mascot, badge, 
         </div>
         {children ? <div className={styles.body}>{children}</div> : null}
       </div>
-      {footer ? <div className={styles.footer}><div className={styles.footerInner}>{footer}</div></div> : null}
+      {footer ? <PinnedBar>{footer}</PinnedBar> : null}
     </div>
   );
 }

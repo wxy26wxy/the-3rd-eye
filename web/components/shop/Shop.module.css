@@ -46,6 +46,8 @@
 /* Bands */
 .band { padding-block: var(--space-band); }
 .bandAlt { background: var(--surface-alt); }
+/* #collection takes focus from the drawer (tabIndex -1); it is a landing spot, not a control. */
+.band:focus { outline: none; }
 @media (min-width: 64rem) { .band { padding-block: var(--space-band-l); } }
 .bandStack { display: grid; gap: var(--space-card-pad); }
 

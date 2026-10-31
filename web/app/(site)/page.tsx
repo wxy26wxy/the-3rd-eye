@@ -14,7 +14,7 @@ export default function ShopPage({ searchParams }: PageProps<"/">) {
   return (
     <>
       <Hero />
-      <section id="collection" aria-labelledby="collection-title" className={styles.band}>
+      <section id="collection" aria-labelledby="collection-title" className={styles.band} tabIndex={-1}>
         <Container className={styles.bandStack}>
           <Display id="collection-title" size="l">{m.shop.collectionTitle}</Display>
           <Suspense fallback={<CollectionFallback />}>

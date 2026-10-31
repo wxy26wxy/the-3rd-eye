@@ -13,18 +13,24 @@ struct YoureLiveView: View {
       .first { !$0.isEmpty }
   }
 
+  private var pictureURL: URL? {
+    app.flow.product?.mockupUrl.flatMap(URL.init(string:)) ?? app.flow.artwork?.displayURL
+  }
+
   private var isTote: Bool { (app.flow.product?.type ?? app.flow.productType) == .tote }
 
   var body: some View {
     FlowScreen(title: "You're live!", showsBack: false, titleAlignment: .center) {
       VStack(alignment: .leading, spacing: Theme.Space.xxl) {
-        SkyCard(pose: .front, mascotAlignment: .bottomLeading)
+        // Without a picture the sky card shows only the standing mascot (no second, sample mascot).
+        SkyCard(pose: .front, mascotAlignment: pictureURL == nil ? .bottom : .bottomLeading)
           .overlay(alignment: .topTrailing) {
-            StickerCard(url: app.flow.product?.mockupUrl.flatMap(URL.init(string:)) ?? app.flow.artwork?.displayURL,
-                        altText: app.flow.artwork?.altText, size: ThemeEffects.liveSticker)
-              .rotationEffect(.degrees(ThemeEffects.liveStickerTilt))
-              .padding(.top, Theme.Space.xxl)
-              .padding(.trailing, Theme.Space.section)
+            if let pictureURL {
+              StickerCard(url: pictureURL, altText: app.flow.artwork?.altText, size: ThemeEffects.liveSticker)
+                .rotationEffect(.degrees(ThemeEffects.liveStickerTilt))
+                .padding(.top, Theme.Space.xxl)
+                .padding(.trailing, Theme.Space.section)
+            }
           }
         VStack(alignment: .leading, spacing: Theme.Space.s) {
           Group {

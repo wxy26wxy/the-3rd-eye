@@ -292,7 +292,8 @@
       "promise1": "You can speak, snap a photo, or upload a picture.",
       "promise2": "We read every result out loud, so you always know what it shows.",
       "promise3": "Nothing goes on sale until you say yes.",
-      "cta": "Start creating"
+      "cta": "Start creating",
+      "haveAccount": "I already have an account"
     },
     "code": {
       "title": "Hi there!",
@@ -304,6 +305,7 @@
     },
     "product": {
       "title": "What do you want to make?",
+      "copy": "You can make the other one later.",
       "sticker": "Sticker",
       "stickerCopy": "Die-cut, waterproof, about 3 inches.",
       "tote": "Tote bag",
@@ -354,12 +356,14 @@
       "youSaid": "You said",
       "groupLabel": "Choose a picture",
       "variant": "Picture {n}",
+      "shows": "What the image shows",
       "hear": "Hear what the image shows",
       "stop": "Stop",
       "change": "Change it",
       "changeLabel": "What should change?",
       "changeSubmit": "Change it",
       "changePlaceholder": "Make the frog bigger",
+      "backToPictures": "Back to the pictures",
       "changing": "Changing it…",
       "use": "Use this",
       "making": "Making your {product}… this can take a minute.",
@@ -404,6 +408,7 @@
       "addAround": "Add the area around this piece",
       "markAdded": "Added area, mark {n}. Remove this mark",
       "markRemoved": "Left out, mark {n}. Remove this mark",
+      "marksLabel": "Marks",
       "maxMarks": "You can add up to 10 marks. Tap a mark to remove it.",
       "clearMarks": "Clear marks",
       "needPiece": "Pick a piece, draw a box or add an area first. Remove area only leaves out pieces you picked.",

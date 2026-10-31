@@ -1,14 +1,14 @@
 import { useId, type ComponentProps } from "react";
 import styles from "./Field.module.css";
 
-type Base = { label: string; hint?: string; error?: string | null; className?: string };
+type Base = { label: string; hint?: string; error?: string | null; className?: string; /** Where the hint sits; "below" puts it under the control (creator code board). */ hintPosition?: "above" | "below" };
 type InputProps = Base & { multiline?: false } & Omit<ComponentProps<"input">, "className">;
 type AreaProps = Base & { multiline: true } & Omit<ComponentProps<"textarea">, "className">;
 
 /** Labelled text input or textarea with hint and error wired to aria-describedby. */
 export function Field(props: InputProps | AreaProps) {
   const autoId = useId();
-  const { label, hint, error, className, multiline, id: givenId, ...rest } = props;
+  const { label, hint, error, className, multiline, id: givenId, hintPosition = "above", ...rest } = props;
   const id = givenId ?? autoId;
   const hintId = hint ? `${id}-hint` : undefined;
   const errId = error ? `${id}-err` : undefined;
@@ -17,10 +17,11 @@ export function Field(props: InputProps | AreaProps) {
   return (
     <div className={[styles.field, className].filter(Boolean).join(" ")}>
       <label htmlFor={id} className={styles.label}>{label}</label>
-      {hint ? <p id={hintId} className={styles.hint}>{hint}</p> : null}
+      {hint && hintPosition === "above" ? <p id={hintId} className={styles.hint}>{hint}</p> : null}
       {multiline
         ? <textarea rows={4} {...common} {...(rest as Omit<ComponentProps<"textarea">, "className">)} />
         : <input type="text" {...common} {...(rest as Omit<ComponentProps<"input">, "className">)} />}
+      {hint && hintPosition === "below" ? <p id={hintId} className={styles.hint}>{hint}</p> : null}
       {error ? <p id={errId} className={styles.error} role="alert">{error}</p> : null}
     </div>
   );

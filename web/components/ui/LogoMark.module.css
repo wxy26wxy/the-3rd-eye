@@ -1,1 +1,3 @@
 .mark { display: block; flex: none; width: var(--size-logo-mark-w); height: var(--size-logo-mark-h); }
+/* The mark is a single-colour template: on a photo it is drawn white. */
+.white { filter: brightness(0) invert(1); }

@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { m } from "@/components/messages";
 import { Button } from "@/components/ui/Button";
 import { ChoiceCard, ChoiceGroup } from "@/components/ui/ChoiceCard";
-import { CameraIcon, MicIcon, UploadIcon } from "@/components/ui/Icons";
+import { CameraIcon, ImageIcon, MicIcon } from "@/components/ui/Icons";
 import { useCreate, type Draft } from "../store";
 import { CreateScreen, MissingState } from "../CreateScreen";
 
@@ -23,7 +23,7 @@ export function ChooseMethod() {
     >
       <ChoiceGroup legend={m.create.method.title}>
         <ChoiceCard name="method" value="photo" title={m.create.method.photo} description={m.create.method.photoCopy} media={<CameraIcon />} checked={method === "photo"} onChange={() => update({ method: "photo" })} />
-        <ChoiceCard name="method" value="upload" title={m.create.method.upload} description={m.create.method.uploadCopy} media={<UploadIcon />} checked={method === "upload"} onChange={() => update({ method: "upload" })} />
+        <ChoiceCard name="method" value="upload" title={m.create.method.upload} description={m.create.method.uploadCopy} media={<ImageIcon />} checked={method === "upload"} onChange={() => update({ method: "upload" })} />
         <ChoiceCard name="method" value="voice" title={m.create.method.speak} description={m.create.method.speakCopy} media={<MicIcon />} checked={method === "voice"} onChange={() => update({ method: "voice" })} badge={m.create.method.badge} />
       </ChoiceGroup>
     </CreateScreen>

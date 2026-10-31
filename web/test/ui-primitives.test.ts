@@ -5,6 +5,7 @@ import { m } from "@/components/messages";
 import { ASSETS } from "@/lib/assets";
 import { Mascot } from "@/components/ui/Mascot";
 import { LogoMark } from "@/components/ui/LogoMark";
+import { Loading } from "@/components/ui/Loading";
 import { StepPill } from "@/components/ui/StepPill";
 import { Scallop } from "@/components/ui/Scallop";
 import { Starburst } from "@/components/ui/Starburst";
@@ -26,11 +27,22 @@ describe("Sky UI primitives (T102)", () => {
     expect(out).toContain('loading="eager"');
   });
 
-  it("magnifier falls back to the still pose under reduced motion", () => {
+  it("magnifier plays the MP4 (never the GIF) with the still pose for reduced motion", () => {
     const out = html(createElement(Mascot, { pose: "magnifier" }));
-    expect(out).toContain('media="(prefers-reduced-motion: reduce)"');
-    expect(out).toContain(`srcSet="${ASSETS.mascotFront}"`);
-    expect(out).toContain(`src="${ASSETS.mascotMagnifier}"`);
+    // the source is set in the browser only when motion is allowed (nothing downloads under reduced motion)
+    expect(out).toContain(`data-src="${ASSETS.mascotMagnifierVideo}"`);
+    expect(out).not.toMatch(/<video[^>]*\ssrc=/);
+    expect(out).toMatch(/<video[^>]*preload="none"/);
+    expect(out).toMatch(/<video[^>]*\bloop\b/);
+    expect(out).toContain(`src="${ASSETS.mascotFront}"`);
+    expect(out).not.toContain(".gif");
+    expect(out).toContain(`aria-label="${m.mascot.magnifier}"`);
+  });
+
+  it("Loading sky variant never references the GIF", () => {
+    const out = html(createElement(Loading, { label: "Finding", variant: "sky" }));
+    expect(out).toContain(ASSETS.mascotMagnifierVideo);
+    expect(out).not.toContain(".gif");
   });
 
   it("LogoMark is decorative unless labelled", () => {

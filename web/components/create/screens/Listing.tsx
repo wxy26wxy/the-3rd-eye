@@ -1,18 +1,12 @@
 "use client";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { m, money } from "@/components/messages";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Field } from "@/components/ui/Field";
-import { SparkleIcon } from "@/components/ui/Icons";
-import { Loading, Status } from "@/components/ui/Loading";
-import { Title } from "@/components/ui/Text";
+import { fmt, m } from "@/components/messages";
 import { api, type AgentStep, type ListingDraft, type Product } from "../api";
-import { CreateScreen, MissingState } from "../CreateScreen";
-import { describeError, ErrorNotice, type ScreenError } from "../errors";
+import { HydratingScreen, MissingState } from "../CreateScreen";
+import { describeError, type ScreenError } from "../errors";
 import { once, updateDraft, useCreate, useCreator } from "../store";
-import styles from "../Create.module.css";
+import { ListingView } from "./ListingView";
 
 const toDollars = (cents: number) => (cents / 100).toFixed(2);
 function toCents(v: string): number | null {
@@ -23,7 +17,7 @@ function toCents(v: string): number | null {
 /** Listing: the agent prefills name, description and price; the creator edits and approves. */
 export function Listing() {
   const { ready, draft } = useCreate();
-  if (!ready) return <CreateScreen back="/create/ready" title={m.create.listing.title}><Loading label={m.common.loading} /></CreateScreen>;
+  if (!ready) return <HydratingScreen back="/create/ready" title={m.create.listing.title} />;
   if (!draft.productRecord) return <MissingState />;
   return <ListingForm />;
 }
@@ -32,7 +26,7 @@ function ListingForm() {
   const router = useRouter();
   const { ready, draft, update } = useCreate();
   const { creator } = useCreator();
-  const traceId = useId();
+  const uid = useId();
   const p = draft.productRecord;
   const [title, setTitle] = useState(draft.listing?.title ?? "");
   const [description, setDescription] = useState(draft.listing?.description ?? "");
@@ -40,6 +34,8 @@ function ListingForm() {
   const [running, setRunning] = useState(!draft.listing);
   const [showTrace, setShowTrace] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  /** Which call failed last, so "Try again" repeats that one (approve vs. the listing agent). */
+  const [failedCall, setFailedCall] = useState<"agent" | "approve">("agent");
   const [error, setError] = useState<ScreenError | null>(null);
   const [errors, setErrors] = useState<{ title?: string; price?: string }>({});
 
@@ -53,7 +49,7 @@ function ListingForm() {
     if (!p) return Promise.resolve();
     return once(key, () => api<{ listing: ListingDraft; trace: AgentStep[] }>(`listings/${p.id}/run`, { method: "POST", json: {} }))
       .then((res) => { update({ listing: res.listing, trace: res.trace }); apply(res.listing); })
-      .catch((err) => setError(describeError(err)))
+      .catch((err) => { setFailedCall("agent"); setError(describeError(err)); })
       .finally(() => setRunning(false));
   }
   function improve() {
@@ -69,13 +65,22 @@ function ListingForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchAgent is recreated each render; run once per product
   }, [ready, productId, hasListing]);
 
+  // A 409 (print check, moderation) lands under the form: bring the card above the pinned bar.
+  const errorRef = useRef<HTMLDivElement>(null);
+  // Focus goes there too, so a keyboard user continues from the card instead of the top of the page.
+  useEffect(() => {
+    if (!error || !errorRef.current) return;
+    errorRef.current.scrollIntoView({ block: "center" });
+    errorRef.current.focus({ preventScroll: true });
+  }, [error]);
+
   const cents = toCents(price);
   const bps = creator?.split?.creator_bps ?? 5000;
   const earn = cents ? Math.floor((cents * bps) / 10000) : null;
   const printOk = draft.listing?.print_ok;
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit(e?: FormEvent) {
+    e?.preventDefault();
     if (!p) return;
     const errs = { title: title.trim() ? undefined : m.create.listing.nameRequired, price: cents ? undefined : m.create.listing.priceInvalid };
     setErrors(errs);
@@ -90,47 +95,32 @@ function ListingForm() {
       router.push(res.storyVideoNeeded ? "/create/story-video" : "/create/live");
     } catch (err) {
       // 409 print_check_failed / moderation_failed: stay on the form and show the reason.
+      setFailedCall("approve");
       setError(describeError(err));
       setSubmitting(false);
     }
   }
 
+  const art = draft.variants?.find((v) => v.id === p?.artworkId);
+  const tote = p?.type === "tote";
   return (
-    <CreateScreen back="/create/ready" title={m.create.listing.title}>
-      {running && !draft.listing ? <Loading label={m.create.listing.drafting} /> : null}
-      <form onSubmit={submit} className={styles.said} noValidate>
-        <Field label={m.create.listing.name} value={title} onChange={(e) => setTitle(e.target.value)} error={errors.title} required maxLength={80} />
-        <Field label={m.create.listing.description} multiline rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={600} />
-        <Field label={m.create.listing.price} value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" error={errors.price} required />
-        <p className={styles.earn} aria-live="polite">
-          <span>{m.create.listing.earn}</span>
-          <span className={styles.earnValue}>{earn != null ? money(earn) : "—"}</span>
-        </p>
-        {printOk !== undefined ? <Status tone={printOk ? "success" : "info"}>{m.create.listing.printCheck.replace("{status}", printOk ? m.create.listing.printOk : m.create.listing.printWarn)}</Status> : null}
-        <Button variant="secondary" arrow={false} icon={<SparkleIcon />} onClick={improve} disabled={running}>
-          {running ? m.create.listing.improving : m.create.listing.improve}
-        </Button>
-        {draft.trace?.length ? (
-          <>
-            <Button variant="ghost" arrow={false} aria-expanded={showTrace} aria-controls={traceId} onClick={() => setShowTrace((s) => !s)}>
-              {showTrace ? m.create.listing.hideTrace : m.create.listing.showTrace}
-            </Button>
-            <Card id={traceId} pad="m" tone="white" hidden={!showTrace}>
-              <Title as="h2" size="m">{m.create.listing.traceTitle}</Title>
-              <ol role="list" className={styles.trace}>
-                {draft.trace.map((s, i) => (
-                  <li key={i}>
-                    <span className={styles.traceTool}>{s.step}. {s.tool ?? m.create.listing.traceNote}</span>{" "}
-                    {s.text ?? (s.result !== undefined ? JSON.stringify(s.result) : s.args !== undefined ? JSON.stringify(s.args) : "")}
-                  </li>
-                ))}
-              </ol>
-            </Card>
-          </>
-        ) : null}
-        <ErrorNotice error={error} onRetry={improve} />
-        <Button type="submit" block disabled={submitting || running}>{submitting ? m.create.listing.submitting : m.create.listing.submit}</Button>
-      </form>
-    </CreateScreen>
+    <ListingView
+      uid={uid}
+      mockup={{ src: p?.mockupUrl ?? art?.cleanedUrl ?? null, alt: fmt(m.create.ready.mockupAlt, { product: tote ? m.common.tote : m.common.sticker }) }}
+      drafting={running && !draft.listing}
+      improving={running && !!draft.listing}
+      submitting={submitting}
+      title={title}
+      description={description}
+      price={price}
+      errors={errors}
+      earnCents={earn}
+      printOk={printOk}
+      trace={draft.trace ?? []}
+      showTrace={showTrace}
+      error={error}
+      errorRef={errorRef}
+      on={{ title: setTitle, description: setDescription, price: setPrice, improve, retry: () => void (failedCall === "approve" ? submit() : improve()), toggleTrace: () => setShowTrace((v) => !v), submit }}
+    />
   );
 }

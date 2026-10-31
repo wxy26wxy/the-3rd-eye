@@ -9,7 +9,7 @@ import styles from "./Site.module.css";
 
 /**
  * Phone nav (ruling 3, boards 2033:3991 / 2032:4004). "Menu" (aria-expanded, aria-controls) opens a modal
- * <dialog>: the browser makes the page behind inert and keeps Tab inside it, Esc closes it, and the
+ * <dialog>: the browser makes the page behind inert, Tab wraps inside it, Esc closes it, and the
  * ::backdrop is the scrim. The drawer repeats the header so "Close" sits where "Menu" was. Focus goes to
  * the first link on open and back to Menu on close.
  */
@@ -44,6 +44,14 @@ export function NavMenu() {
         aria-label={m.nav.label}
         onClose={() => { setOpen(false); buttonRef.current?.focus(); }}
         onClick={(e) => { if (e.target === e.currentTarget) hide(); }}
+        onKeyDown={(e) => {
+          // Keep Tab inside the drawer (the native modal would let it reach the browser UI between cycles).
+          if (e.key !== "Tab") return;
+          const items = [...e.currentTarget.querySelectorAll<HTMLElement>("a[href], button")];
+          const first = items[0], last = items[items.length - 1];
+          if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+          else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+        }}
       >
         <div className={styles.drawerHead}>
           <Wordmark />

@@ -27,7 +27,7 @@ export function CreateScreen({ back, step, eyebrow, title, lead, mascot, badge, 
         {step ? <StepPill step={step} total={3} label={fmt(m.create.step, { n: step, total: 3 })} /> : null}
       </div>
       <div className={styles.head}>
-        {mascot ? <Tag pose={mascot} decorative className={styles.mascot} /> : null}
+        {mascot ? <Tag pose={mascot} decorative eager className={styles.mascot} /> : null}
         {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
         <div className={styles.titleRow}>
           <Display as="h1" size="xl">{title}</Display>

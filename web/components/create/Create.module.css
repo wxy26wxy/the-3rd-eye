@@ -79,7 +79,7 @@
   box-shadow: var(--shadow-hard); cursor: pointer; font-weight: var(--type-title-m-weight);
 }
 .pick:has(input:checked) { background: var(--selected); }
-.pick:has(input:focus-visible) { outline: var(--border-card) solid var(--focus-ring); outline-offset: var(--border-card); }
+.pick:has(input:focus-visible) { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
 .pick input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .pickLabel { display: flex; justify-content: space-between; align-items: center; gap: var(--space-xs); font-size: var(--type-caption-size); padding: 0 var(--space-xs); }
 .tick { width: var(--space-xl); height: var(--space-xl); border-radius: var(--radius-pill); border: var(--border-thin) solid var(--border); background: var(--surface-alt); flex: none; }
@@ -95,7 +95,7 @@
 .playIcon { display: grid; place-items: center; flex: none; width: calc(var(--size-min-target) - var(--space-s)); aspect-ratio: 1; border-radius: var(--radius-pill); background: var(--accent); color: var(--accent-ink); }
 .filePick { position: relative; display: block; }
 .filePick input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
-.filePick:has(input:focus-visible) > span { outline: var(--border-card) solid var(--focus-ring); outline-offset: var(--border-card); }
+.filePick:has(input:focus-visible) > span { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
 .preview { width: 100%; max-width: 20rem; justify-self: center; }
 .trace { display: grid; gap: var(--space-s); list-style: none; font-size: var(--type-caption-size); }
 .trace li { padding: var(--space-s) var(--space-m); background: var(--surface-alt); border-radius: var(--radius-s); border: var(--border-thin) solid var(--border); overflow-wrap: anywhere; }
@@ -144,7 +144,7 @@
   display: grid; place-items: center; width: var(--size-min-target); height: var(--size-min-target);
   background: transparent; border: 0; padding: 0; cursor: pointer;
 }
-.mark:focus-visible { outline: var(--border-card) solid var(--focus-ring); border-radius: var(--radius-pill); }
+.mark:focus-visible { outline: var(--focus-width) solid var(--text); border-radius: var(--radius-pill); }
 .markDot {
   display: grid; place-items: center; width: var(--space-xl); height: var(--space-xl); border-radius: var(--radius-pill);
   font-weight: var(--type-title-l-weight); line-height: 1; border: var(--border-thin) solid var(--border);
@@ -168,7 +168,7 @@
   font-size: var(--type-caption-size); font-weight: var(--type-title-m-weight); cursor: pointer;
 }
 .mode:has(input:checked) { background: var(--primary); color: var(--primary-text); }
-.mode:has(input:focus-visible) { outline: var(--border-card) solid var(--focus-ring); outline-offset: var(--border-thin); }
+.mode:has(input:focus-visible) { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
 .modes:disabled .mode { cursor: default; opacity: var(--opacity-disabled); }
 .instruction { font-size: var(--type-body-s-size); line-height: var(--type-body-s-lh); color: var(--text-muted); text-align: center; }
 .tickBox { border-radius: var(--radius-s); display: grid; place-items: center; color: var(--surface-alt); font-size: var(--type-caption-size); }
@@ -187,7 +187,7 @@
   background: none; border: 0; color: var(--text); text-decoration: underline; font-size: var(--type-body-size); cursor: pointer;
 }
 .resultHeading { font-size: var(--type-title-m-size); font-weight: var(--type-title-m-weight); text-align: center; }
-.resultHeading:focus-visible, .errorSpot:focus-visible { outline: var(--border-card) solid var(--focus-ring); outline-offset: var(--border-thin); border-radius: var(--radius-s); }
+.resultHeading:focus-visible, .errorSpot:focus-visible { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); border-radius: var(--radius-s); }
 .notice { font-size: var(--type-body-size); text-align: center; }
 .errorSpot { display: grid; gap: var(--space-m); }
 .errorSpot:empty { display: none; }

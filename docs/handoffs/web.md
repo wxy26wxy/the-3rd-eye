@@ -71,14 +71,14 @@ Every page now draws with the Sky look (Inter, white page, ink, accent green); s
   - `ChoiceCard` / `ChoiceGroup`: `layout="grid"` = product cards (28 px radius, picture on top, check radio top right); `stack` = option rows (18 px radius, 44 px icon circle, radio at the end). Selected = accent fill + accent border + deep-green radio with a white check. `badge` (string) shows as an eyebrow above the title.
   - `Display`: Inter Medium, sizes `xl` 48, `l` 32 → 40 from 48rem, `m` 21; `tone="onPhoto"` = white Bold. `tilt` is ignored.
   - `Eyebrow` (new file; `Text` re-exports it): caps label, optional `tone` `muted` | `accent`.
-  - `Field`: white control, hairline border, 13 px label; `Switch` track deep green when on.
+  - `Field`: `surface-alt` control with a `textMuted` border (3:1 input boundary), 13 px label; `Switch` track deep green when on.
   - `IconButton`: 48 px outlined circle; `size="s"` = 44 px (the Back control).
   - `Loading`: label + 24 px spinner; `variant="sky"` adds the sky card with the animated magnifier mascot (still front pose under reduced motion). `Status` unchanged.
   - `Mascot` (new): `pose` `book` | `front` | `magnifier`, `decorative`, `eager`; `<img>` from `ASSETS`, alt from `messages.mascot.<pose>`.
   - `LogoMark` (new): the 40 × 35 eye mark; decorative unless `label` is passed.
   - `Sheet`: plain white section (no scallop). `StepPill`: visually hidden "Step n of 3". `Scallop`, `Starburst`: render nothing (exports kept).
   - `Icons`: stroke 1.8; new `ChevronLeftIcon`, `ChevronRightIcon`.
-- **Wrappers:** `components/Tag.tsx` is a thin wrapper over `Mascot` (`listening → front`, `cheering → book`, `waving → book`). `site/Wordmark` = `LogoMark` + `BRAND.name` in Inter Semi Bold (link name "{brand} home").
+- **Wrappers:** `components/Tag.tsx` is a thin wrapper over `Mascot` (every pose → `book` until larger sources exist; `eager` passes through). `site/Wordmark` = `LogoMark` + `BRAND.name` in Inter Semi Bold (link name "{brand} home").
 - **CreateScreen:** logo mark top-left, or a 44 px Back chevron in its place when `back` is set; 48 px title; muted lead; body; bottom action bar sticky at the bottom (`footer` prop). `step` is announced only. `create/glyphs.tsx` `ProductGlyph` now shows `mascot-book.png` / `tote.png`.
 - **Adding an asset:** put the file in `design/assets/`, add an entry under `assets` in `design/tokens.json` (name, file, node id), run `pnpm assets` (copies to `web/public/assets/` and the iOS catalog) and `pnpm tokens` (adds `ASSETS.<name>` to `web/lib/assets.ts`). Components import `ASSETS` from `@/lib/assets` and render a plain `<img>` (or `Mascot` / `LogoMark`); never hard-code `/assets/...` paths.
 - **Open for per-screen tasks:** Welcome sky photo and white pill (`Button variant="white"`, `Display tone="onPhoto"`); shop hero (tilted card and copy, T106); dark footer and mobile Menu drawer (T106); Drawing/Photo finding screens should pass `variant="sky"` to `Loading`; admin tables still use the old layout.

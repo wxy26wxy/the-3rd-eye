@@ -10,9 +10,9 @@
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-hard-l);
 }
-.card:has(.link:focus-visible) { outline: var(--border-card) solid var(--focus-ring); outline-offset: var(--border-card); }
+.card:has(.link:focus-visible) { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
 .body { display: grid; gap: var(--space-xs); justify-items: start; }
-.name { font-family: var(--font-display); font-weight: 400; font-size: var(--type-display-m-size); text-transform: uppercase; line-height: 1; }
+.name { font-family: var(--font-display); font-weight: var(--type-title-l-weight); font-size: var(--type-title-l-size); line-height: 1.2; }
 .link { text-decoration: none; }
 .link:focus-visible { outline: none; }
 .link::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius-card); }

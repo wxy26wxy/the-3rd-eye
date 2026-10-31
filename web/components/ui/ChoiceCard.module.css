@@ -72,8 +72,17 @@
   border-radius: var(--radius-pill);
   border: var(--border-thin) solid var(--border);
   background: var(--surface-alt);
-  color: transparent;
+  color: var(--text-on-dark);
   font-size: var(--type-body-s-size);
 }
+/* The check glyph is hidden structurally (not by colour) so forced-colors mode cannot reveal it on unselected cards. */
+.check svg { visibility: hidden; }
+.card:has(.input:checked) .check svg { visibility: visible; }
 .grid .check { position: absolute; top: var(--space-m); right: var(--space-m); }
-.card:has(.input:checked) .check { background: var(--accent-ink); border-color: var(--accent-ink); color: var(--text-on-dark); }
+.card:has(.input:checked) .check { background: var(--accent-ink); border-color: var(--accent-ink); }
+
+/* Forced colours (Windows High Contrast): backgrounds are dropped, so mark the selected card with system colours. */
+@media (forced-colors: active) {
+  .card:has(.input:checked) { border-color: Highlight; outline: var(--focus-width) solid Highlight; }
+  .card:has(.input:checked) .check { background: Highlight; border-color: Highlight; color: HighlightText; forced-color-adjust: none; }
+}

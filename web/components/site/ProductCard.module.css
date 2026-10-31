@@ -12,7 +12,7 @@
   transition: transform var(--motion-base) var(--motion-easing);
 }
 .card:hover { transform: translateY(calc(var(--border-thin) * -1)) rotate(-0.5deg); }
-.card:has(.link:focus-visible) { outline: var(--border-card) solid var(--focus-ring); outline-offset: var(--border-card); }
+.card:has(.link:focus-visible) { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
 .body { display: grid; gap: var(--space-s); padding: 0 var(--space-xs) var(--space-xs); }
 .chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 .title { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: 1.15; }

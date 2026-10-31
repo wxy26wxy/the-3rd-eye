@@ -6,9 +6,10 @@
   width: 100%;
   min-height: var(--size-cta-secondary);
   padding: var(--space-m) var(--space-l);
-  background: var(--surface);
+  background: var(--surface-alt);
   color: var(--text);
-  border: var(--border-thin) solid var(--border);
+  /* a11y: input boundary at least 3:1 against white (text-muted is 4.8:1); the hairline card border is not enough. */
+  border: var(--border-thin) solid var(--text-muted);
   border-radius: var(--radius-m);
   font-size: var(--type-body-l-size);
   font-weight: var(--type-body-l-weight);

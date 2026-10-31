@@ -51,7 +51,8 @@ struct MethodRow: View {
     }
     .buttonStyle(MethodRowStyle())
     .accessibilityLabel(Text(name) + Text(", ") + Text(detail))
-    .accessibilityHint(Text(hint))
+    // The eyebrow is read before the hint, so "No pen needed!" is still spoken.
+    .accessibilityHint(eyebrow.map { Text($0) + Text(verbatim: ". ") + Text(hint) } ?? Text(hint))
   }
 }
 

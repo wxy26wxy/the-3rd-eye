@@ -15,53 +15,58 @@ struct LoadingScreen: View {
   @Environment(\.dismiss) private var dismiss
 
   var body: some View {
-    GeometryReader { proxy in
-      ScrollView {
-        VStack(alignment: .leading, spacing: Theme.Space.xxl) {
-          VStack(alignment: .leading, spacing: Theme.Space.l) {
-            LogoMark().frame(minHeight: Theme.Size.minTarget)
-            DisplayText(title)
-          }
-          SkyCard(pose: error == nil ? pose : .front)
-          if let error {
-            Card {
-              Text(error).themeFont(.body).foregroundStyle(colors.text)
-            }
-            Spacer(minLength: 0)
-            VStack(spacing: Theme.Space.s) {
-              if let retry { PillButton("Try again", hint: "Repeats the last step", action: retry) }
-              PillButton("Go back", kind: .secondary, showsArrow: false) { dismiss() }
-            }
-          } else {
-            if let spoken, !spoken.isEmpty {
-              Card {
-                VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                  Text("I HEARD").themeFont(.eyebrow).foregroundStyle(colors.textMuted)
-                  Text(spoken).themeFont(.bodyL).foregroundStyle(colors.text)
-                }
-              }
-              .accessibilityElement(children: .combine)
-            }
-            VStack(spacing: Theme.Space.l) {
-              Text(detail)
-                .themeFont(.body)
-                .foregroundStyle(colors.textMuted)
-                .multilineTextAlignment(.center)
-              ProgressView()
-                .controlSize(.large)
-                .tint(colors.text)
-                .accessibilityLabel(Text("Working"))
-              SlowWorkHint()
-            }
-            .frame(maxWidth: .infinity)
-          }
+    let page = ScrollView {
+      VStack(alignment: .leading, spacing: Theme.Space.xxl) {
+        VStack(alignment: .leading, spacing: Theme.Space.l) {
+          LogoMark().frame(minHeight: Theme.Size.minTarget)
+          DisplayText(title)
         }
-        .padding(.horizontal, Theme.Space.page)
-        .padding(.top, Theme.Space.s)
-        .padding(.bottom, Theme.Space.l)
-        .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .topLeading)
+        SkyCard(pose: error == nil ? pose : .front)
+        if let error {
+          Card {
+            Text(error).themeFont(.body).foregroundStyle(colors.text)
+          }
+        } else {
+          if let spoken, !spoken.isEmpty {
+            Card {
+              VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                Text("I HEARD").themeFont(.eyebrow).foregroundStyle(colors.textMuted)
+                Text(spoken).themeFont(.bodyL).foregroundStyle(colors.text)
+              }
+            }
+            .accessibilityElement(children: .combine)
+          }
+          VStack(spacing: Theme.Space.l) {
+            Text(detail)
+              .themeFont(.body)
+              .foregroundStyle(colors.textMuted)
+              .multilineTextAlignment(.center)
+            ProgressView()
+              .controlSize(.large)
+              .tint(colors.text)
+              .accessibilityLabel(Text("Working"))
+            SlowWorkHint()
+          }
+          .frame(maxWidth: .infinity)
+        }
       }
-      .scrollBounceBehavior(.basedOnSize)
+      .padding(.horizontal, Theme.Space.page)
+      .padding(.top, Theme.Space.s)
+      .padding(.bottom, Theme.Space.xxl)
+      .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+    .scrollBounceBehavior(.basedOnSize)
+
+    Group {
+      if error != nil {
+        // Error actions are pinned at the bottom (T103 fix round 1); no bar while working.
+        page.actionBar {
+          if let retry { PillButton("Try again", hint: "Repeats the last step", action: retry) }
+          PillButton("Go back", kind: .secondary, showsArrow: false) { dismiss() }
+        }
+      } else {
+        page
+      }
     }
     .screenBackground()
     .toolbar(.hidden, for: .navigationBar)
@@ -95,6 +100,9 @@ struct SkyCard: View {
               Image(pose == .book ? Tokens.Asset.mascotBook : Tokens.Asset.mascotFront)
                 .resizable()
                 .scaledToFit()
+                // At most the slot the boards give the still mascot, so the small source is not
+                // blown up to the card width.
+                .frame(maxWidth: ThemeEffects.stillMascot.width, maxHeight: ThemeEffects.stillMascot.height)
                 .padding(.top, Theme.Space.xxl)
             }
         }

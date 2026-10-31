@@ -16,7 +16,7 @@ struct WelcomeView: View {
               .foregroundStyle(colors.textOnDark)
           }
           .padding(Theme.Space.l)
-          .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(Theme.Palette.scrim))
+          .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(colors.scrim))
 
           Spacer(minLength: Theme.Space.section)
 
@@ -27,12 +27,6 @@ struct WelcomeView: View {
               PromiseRow(systemName: "wave.3.right", text: "Buyers tap to hear your story")
             }
           }
-
-          NavigationLink(value: OnboardingRoute.code) {
-            Text("Start creating")
-          }
-          .buttonStyle(PillButtonStyle(kind: .onPhoto))
-          .accessibilityHint(Text("Sign in with your studio code to begin"))
         }
         .padding(.horizontal, Theme.Space.page)
         .padding(.top, Theme.Space.s)
@@ -40,6 +34,14 @@ struct WelcomeView: View {
         .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .topLeading)
       }
       .scrollBounceBehavior(.basedOnSize)
+    }
+    .actionBar(onPhoto: true) {
+      // Pinned so it is on screen at every text size (T103 fix round 1).
+      NavigationLink(value: OnboardingRoute.code) {
+        Text("Start creating")
+      }
+      .buttonStyle(PillButtonStyle(kind: .onPhoto))
+      .accessibilityHint(Text("Sign in with your studio code to begin"))
     }
     .background {
       // Full-bleed sky photo with the waving mascot (decorative).

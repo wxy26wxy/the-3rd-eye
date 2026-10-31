@@ -22,6 +22,7 @@ struct PillButtonStyle: ButtonStyle {
         .themeFont(isSecondary ? .body : .titleM)
         .foregroundStyle(label)
         .multilineTextAlignment(isSecondary ? .center : .leading)
+        .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: isSecondary ? .center : .leading)
       if arrow {
         Image(Tokens.Asset.iconArrow)

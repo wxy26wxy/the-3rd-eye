@@ -18,7 +18,7 @@ struct DesignDetailView: View {
   private var artwork: Artwork? { app.designs.artwork(id: artworkId) }
 
   var body: some View {
-    FlowScreen(title: "Your design") {
+    FlowScreen(title: "Your design", pinsActions: false) {
       if let artwork {
         content(artwork)
       } else {

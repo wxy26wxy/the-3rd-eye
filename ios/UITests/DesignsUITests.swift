@@ -85,6 +85,7 @@ final class DesignsUITests: XCTestCase {
     let app = openDesigns()
     open(app, "Red flower, Didn't work")
     XCTAssertTrue(app.buttons["Re-do the cutout"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["Re-do the cutout"].isHittable, "the pinned primary is on screen without scrolling (T104)")
     XCTAssertTrue(app.buttons["Delete"].exists)
     XCTAssertFalse(app.buttons["Make a sticker"].exists, "no cutout, so no product yet")
     XCTAssertFalse(app.buttons["Edit listing"].exists)

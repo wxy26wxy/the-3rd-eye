@@ -142,3 +142,20 @@ final class DesignsStore {
     error = nil
   }
 }
+
+/// The one action Design detail pins in its bottom bar (boards `2016:1178`, `2016:1284`):
+/// the shop page of the first live product; else "Make a sticker" (or "Make a tote") when the
+/// cut-out is ready; else "Re-do the cutout" (failed, needs a cutout, still cutting). Nil = none.
+enum DesignPrimaryAction: Equatable {
+  case shop(String)
+  case make(ProductType)
+  case redo
+
+  static func of(_ artwork: Artwork) -> DesignPrimaryAction? {
+    if let first = artwork.liveProducts.first(where: \.isPublished) { return .shop(first.id) }
+    guard artwork.isReadyForProducts else { return .redo }
+    if !artwork.hasPublished(.sticker) { return .make(.sticker) }
+    if !artwork.hasPublished(.tote) { return .make(.tote) }
+    return nil
+  }
+}

@@ -117,17 +117,7 @@ struct DesignDetailView: View {
 
   // MARK: Actions
 
-  /// The one primary action (pinned): the shop page of the first live product; without one,
-  /// "Make a sticker" (or "Make a tote") when the cut-out is ready. Nil = no pinned bar.
-  private enum Primary: Equatable { case shop(String), make(ProductType) }
-
-  private func primary(_ artwork: Artwork) -> Primary? {
-    if let first = artwork.liveProducts.first(where: \.isPublished) { return .shop(first.id) }
-    guard artwork.isReadyForProducts else { return nil }
-    if !artwork.hasPublished(.sticker) { return .make(.sticker) }
-    if !artwork.hasPublished(.tote) { return .make(.tote) }
-    return nil
-  }
+  private func primary(_ artwork: Artwork) -> DesignPrimaryAction? { DesignPrimaryAction.of(artwork) }
 
   @ViewBuilder private func primaryAction(_ artwork: Artwork) -> some View {
     let published = artwork.liveProducts.filter(\.isPublished)
@@ -136,6 +126,8 @@ struct DesignDetailView: View {
       if let product = published.first(where: { $0.id == id }) { shopButton(product, count: published.count, kind: .primary) }
     case .make(let type):
       makeButton(type, artwork: artwork, kind: .primary)
+    case .redo:
+      redoButton(artwork, kind: .primary)
     case nil:
       EmptyView()
     }
@@ -165,11 +157,16 @@ struct DesignDetailView: View {
       if pinned != .make(.sticker) { makeButton(.sticker, artwork: artwork, kind: .secondary) }
       if pinned != .make(.tote) { makeButton(.tote, artwork: artwork, kind: .secondary) }
     }
-    PillButton(openingRedo ? "Opening your photo…" : "Re-do the cutout", hint: "Pick other pieces or change the cutout", kind: .secondary, showsArrow: false) {
-      Task { await openRedo(artwork) }
-    }
+    if pinned != .redo { redoButton(artwork, kind: .secondary) }
     PillButton(removing ? "Deleting…" : "Delete", hint: "Asks before deleting this design", kind: .destructive, showsArrow: false) {
       deleting = artwork
+    }
+  }
+
+  private func redoButton(_ artwork: Artwork, kind: PillButtonStyle.Kind) -> some View {
+    PillButton(openingRedo ? "Opening your photo…" : "Re-do the cutout", hint: "Pick other pieces or change the cutout",
+               kind: kind, showsArrow: kind == .primary) {
+      Task { await openRedo(artwork) }
     }
   }
 

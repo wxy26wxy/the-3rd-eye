@@ -9,7 +9,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--nf-body", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: m.shop.metaTitle, template: `%s · ${m.common.brand}` },
+  title: { default: m.shop.metaTitle, template: `%s${m.common.listSeparator}${m.common.brand}` },
   description: m.shop.metaDescription,
 };
 

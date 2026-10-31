@@ -57,7 +57,7 @@ export async function OrdersTable() {
                 </td>
                 <td className={styles.productCell}>
                   <Link href={`/p/${o.product.id}`} className={styles.title}>{o.product.title}</Link>
-                  <span className={styles.sub}>{o.product.type === "sticker" ? m.common.sticker : m.common.tote} · {fmt(m.common.by, { name: o.creator.displayName })}</span>
+                  <span className={styles.sub}>{o.product.type === "sticker" ? m.common.sticker : m.common.tote}{m.common.listSeparator}{fmt(m.common.by, { name: o.creator.displayName })}</span>
                   {o.shipNote ? <span className={styles.note}>“{o.shipNote}”</span> : null}
                   {o.messages.length ? (
                     <ul role="list" aria-label={m.admin.notesLabel} className={styles.notes}>

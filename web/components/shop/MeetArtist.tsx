@@ -15,7 +15,7 @@ export async function MeetArtist() {
     <div className={styles.meet}>
       <div className={styles.meetVideo}><StoryVideo creator={creator} /></div>
       <div className={styles.meetText}>
-        <Eyebrow as="h3" tone="muted">{creator.studioName ? `${creator.displayName} · ${creator.studioName}` : creator.displayName}</Eyebrow>
+        <Eyebrow as="h3" tone="muted">{creator.studioName ? fmt(m.common.nameStudio, { name: creator.displayName, studio: creator.studioName }) : creator.displayName}</Eyebrow>
         {creator.isExample ? <Chip tone="cream">{m.common.example}</Chip> : null}
         {creator.bioShort ? <p className={styles.meetLead}>{creator.bioShort}</p> : null}
         {story ? <p className={styles.meetStory}>{story}</p> : null}

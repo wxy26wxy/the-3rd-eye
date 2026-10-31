@@ -100,3 +100,8 @@ Every page now draws with the Sky look (Inter, white page, ink, accent green); s
 - **Admin:** header `admin.header` from `lib/brand`; `admin/CodeCard` is the one-time code card (live region always mounted, message + code only); story tag cell shows the path (`/t/<token>`) and copies the full URL.
 - **Assets:** `ASSETS.heroSky` (`design/assets/hero-sky.png`, node `2018:1805`, the board's raw fill, 816 × 1456).
 - **Fix round 1:** 404 body in `pages/NotFoundBody` (used by `app/(site)/not-found.tsx` alone and by the root 404 inside nav/main/footer); new tokens `--space-sm` (12), `--space-card-pad` (28), `--space-block` (32), `--space-block-l` (40), `--space-band` (56), `--space-gutter-wide` (80), `--space-band-l` (96), `--space-hero` (120), `--type-web-display-*`, `--type-card-title-*`; `--scrim` is the ink at 55 % (use it for white text on photos and for backdrops); the hero image goes through `next/image`. Use the `rem` check in the design handoff (step 6) before adding a literal.
+
+## T108 (2026-10-31)
+- `DieCut`: `cutPathSvg` may hold several `M…Z` subpaths (one per piece); the svg has `overflow: visible` so the border is not clipped (it stays inside the well's padding).
+- Separators: `common.nameStudio` "{name} · {studio}" for a name with its studio; `common.listSeparator` " · " for list joins (TraceView call line, thread sender line, orders table, page title template). `test/separators.test.ts` fails on a literal " · " in `components/` or `app/` code.
+- `BuyForm` reads `state.field` ("name" | "note" | "form") from the action; no message-text comparison.

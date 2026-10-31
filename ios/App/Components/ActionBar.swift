@@ -2,8 +2,9 @@ import SwiftUI
 
 /// Sky bottom action bar: the screen's actions pinned to the bottom edge (above the tab bar or the
 /// home indicator) while the content scrolls above it. White with a hairline top border; on a photo
-/// (`onPhoto`) it sits on the photo scrim, so content scrolling under it never shows through. The scroll content gets the bar's height as bottom inset, so the
-/// last content line is never covered.
+/// (`onPhoto`) a blurred scrim. Stacked under the content rather than laid over it
+/// (`safeAreaInset`): the content area ends at the bar, so nothing scrolls behind it and the last
+/// content line is never covered (with an overlay, taps on controls half under the bar hit the bar).
 struct ActionBar<Actions: View>: ViewModifier {
   var onPhoto = false
   @ViewBuilder var actions: Actions
@@ -12,7 +13,8 @@ struct ActionBar<Actions: View>: ViewModifier {
   @State private var hasActions = true
 
   func body(content: Content) -> some View {
-    content.safeAreaInset(edge: .bottom, spacing: 0) {
+    VStack(spacing: 0) {
+      content
       VStack(spacing: Theme.Space.s) { actions }
         .background {
           GeometryReader { proxy in
@@ -28,7 +30,6 @@ struct ActionBar<Actions: View>: ViewModifier {
         .background {
           if hasActions {
             if onPhoto {
-              // Blurred photo under the scrim: content scrolling under the bar is not readable through it.
               Rectangle().fill(.ultraThinMaterial).overlay(colors.scrim).ignoresSafeArea(edges: .bottom)
             } else {
               colors.surface

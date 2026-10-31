@@ -34,7 +34,10 @@ const product = {
 describe("Shop (T106, boards 2018:1789 / 2018:1970)", () => {
   it("hero: decorative static photo, eyebrow outside the h1, white primary then secondary", () => {
     const out = html(createElement(Hero));
-    expect(out).toContain(`src="${ASSETS.heroSky}" alt=""`);
+    expect(out).toMatch(/<img alt=""[^>]*>/);
+    expect(out).toMatch(/<link rel="preload" as="image"[^>]*imageSizes="100vw"/);
+    expect(out).toContain(encodeURIComponent(ASSETS.heroSky));
+    expect(out).toContain('sizes="100vw"');
     expect(out).not.toMatch(/<video|autoplay/i);
     expect(out).toMatch(new RegExp(`<p[^>]*>${m.shop.heroEyebrow}</p><h1[^>]*id="hero-title"[^>]*>${m.shop.heroTitle}</h1>`));
     expect(out.indexOf(m.shop.ctaShop)).toBeLessThan(out.indexOf(m.shop.ctaHow));

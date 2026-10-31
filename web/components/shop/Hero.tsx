@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { m } from "@/components/messages";
 import { ASSETS } from "@/lib/assets";
 import { Button } from "@/components/ui/Button";
@@ -13,8 +14,8 @@ import styles from "./Shop.module.css";
 export function Hero() {
   return (
     <section aria-labelledby="hero-title" className={styles.hero}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={ASSETS.heroSky} alt="" className={styles.heroPhoto} fetchPriority="high" decoding="async" />
+      {/* next/image: resized and re-encoded per viewport (the PNG in design/assets stays the source); the LCP image, so priority. */}
+      <Image src={ASSETS.heroSky} alt="" fill priority sizes="100vw" className={styles.heroPhoto} />
       <div className={styles.heroInner}>
         <div className={styles.heroPanel}>
           <Eyebrow>{m.shop.heroEyebrow}</Eyebrow>

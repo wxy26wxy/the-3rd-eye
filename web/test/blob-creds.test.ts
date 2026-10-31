@@ -7,7 +7,7 @@ vi.mock("@vercel/blob", () => {
   return { ...sdk, issueSignedToken: vi.fn(), presignUrl: vi.fn(), BlobNotFoundError };
 });
 
-const { BlobStorage, STORAGE_CREDENTIALS_EXPIRED, oidcTokenState, privateCreds, storageError, usablePrivateCreds } = await import("@/lib/storage/blob");
+const { BlobStorage, STORAGE_CREDENTIALS_HINT, STORAGE_UNAVAILABLE, oidcTokenState, privateCreds, storageError, usablePrivateCreds } = await import("@/lib/storage/blob");
 const { ApiError } = await import("@/lib/http");
 
 // Fake values only (shape of the real ones, no secrets).
@@ -52,10 +52,12 @@ describe("credential failures surface clearly (T108)", () => {
     const b = storageError(new Error("No blob credentials found. Pass a `token` option…"), {});
     for (const e of [a, b]) {
       expect(e).toBeInstanceOf(ApiError);
-      expect(e).toMatchObject({ status: 503, code: "storage_credentials_expired", message: STORAGE_CREDENTIALS_EXPIRED });
+      expect(e).toMatchObject({ status: 503, code: "storage_credentials_expired", message: STORAGE_UNAVAILABLE });
     }
     expect(log).toHaveBeenCalledTimes(1);
-    expect(String(log.mock.calls[0][0])).toContain("vercel env pull");
+    expect(String(log.mock.calls[0][0])).toContain(STORAGE_CREDENTIALS_HINT);
+    // The client sees a neutral message (review M4): no CLI command.
+    expect(STORAGE_UNAVAILABLE).not.toMatch(/vercel|env/i);
     log.mockRestore();
   });
 
@@ -74,7 +76,7 @@ describe("credential failures surface clearly (T108)", () => {
     sdk.head.mockRejectedValue(new BlobNotFoundError());
     sdk.put.mockRejectedValue(new Error("Vercel Blob: Cannot use private access on a public store."));
     await expect(new BlobStorage().putPrivate("u/c/masks/x.png", Buffer.from("x"), "image/png"))
-      .rejects.toMatchObject({ code: "storage_credentials_expired", message: STORAGE_CREDENTIALS_EXPIRED });
+      .rejects.toMatchObject({ code: "storage_credentials_expired", message: STORAGE_UNAVAILABLE });
     expect(sdk.put.mock.calls[0][2]).toMatchObject({ access: "private", storeId: PRIV });
     expect(sdk.put.mock.calls[0][2].token).toBeUndefined();
     log.mockRestore();
@@ -85,7 +87,7 @@ describe("credential failures surface clearly (T108)", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const base = { BLOB_PRIVATE_STORE_ID: PRIV, BLOB_READ_WRITE_TOKEN: rw(PUB) };
     for (const env of [base, { ...base, VERCEL_OIDC_TOKEN: jwt(Date.now() / 1000 - 60) }]) {
-      expect(() => usablePrivateCreds(env)).toThrow(STORAGE_CREDENTIALS_EXPIRED);
+      expect(() => usablePrivateCreds(env)).toThrow(STORAGE_UNAVAILABLE);
     }
     // On Vercel the credential comes with the request; a private-store token needs no OIDC.
     expect(usablePrivateCreds({ ...base, VERCEL: "1" })).toEqual({ storeId: PRIV });

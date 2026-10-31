@@ -23,7 +23,7 @@ Every change in this project can be traced and undone. Use the smallest step tha
 - Files are write-once at hashed paths; a new version is a new path. To revert an asset, point the database row back at the previous path (the previous path is in `ai_calls` / the row's history).
 
 ### Local private-store credentials expired
-- Symptom: a local upload or cut fails with `503 storage_credentials_expired` "Storage credentials expired; run `vercel env pull`" (before T108: a 500 "Cannot use private access on a public store"). The server log says once whether `VERCEL_OIDC_TOKEN` is missing or expired.
+- Symptom: a local upload or cut fails with `503 storage_credentials_expired` "Storage is unavailable; try again later." (before T108: a 500 "Cannot use private access on a public store"). The server log says once "Storage credentials expired; run `vercel env pull`" and whether `VERCEL_OIDC_TOKEN` is missing or expired.
 - Cause: the local OIDC token from `vercel env pull` lasts about 12 h. On Vercel the credential is automatic, so deployments are not affected.
 - Fix: from `web/`, `vercel env pull .env.local` (the project must be linked: `vercel link`), then restart `pnpm dev`. Nothing was written to the private store by the failed call.
 - Do not point private files at the public token to work around it; `lib/storage` ignores any token that is not the private store's.

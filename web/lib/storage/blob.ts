@@ -7,7 +7,8 @@
  *   BLOB_READ_WRITE_TOKEN if it is the private store's); the public store's token never is. When
  *   the local OIDC token is missing or expired, the SDK falls back to the public token and the
  *   store answers "Cannot use private access on a public store": that is reported as
- *   STORAGE_CREDENTIALS_EXPIRED (logged once). Only when BLOB_PRIVATE_STORE_ID is absent, private files go to the
+ *   503 storage_credentials_expired with the neutral STORAGE_UNAVAILABLE message; the
+ *   `vercel env pull` hint goes to the server log only, once. Only when BLOB_PRIVATE_STORE_ID is absent, private files go to the
  *   public store under `private/<sha256(pathname)>.<ext>` (unguessable because every logical
  *   pathname contains a random uuid). The database always keeps the logical pathname.
  * - Write-once: an existing pathname is never overwritten; a new suffixed pathname is written instead.
@@ -25,8 +26,10 @@ let warnedCreds = false;
 type Creds = { token?: string; storeId?: string };
 type Env = Record<string, string | undefined>;
 
-/** Server-side message when the private store cannot be reached with the local credentials. */
-export const STORAGE_CREDENTIALS_EXPIRED = "Storage credentials expired; run `vercel env pull`";
+/** Message the client gets when the private store cannot be reached with the server's credentials. */
+export const STORAGE_UNAVAILABLE = "Storage is unavailable; try again later.";
+/** One-time server log line for the same case (local credentials; never shown to clients). */
+export const STORAGE_CREDENTIALS_HINT = "Storage credentials expired; run `vercel env pull`";
 
 const normalizeStoreId = (id: string) => id.trim().replace(/^store_/, "");
 /** Store id inside a read/write token (`vercel_blob_rw_<storeId>_<secret>`), as the SDK parses it. */
@@ -81,9 +84,9 @@ export function storageError(err: unknown, env: Env = process.env): unknown {
 function credentialsExpired(env: Env): ApiError {
   if (!warnedCreds) {
     warnedCreds = true;
-    console.error(`[storage] ${STORAGE_CREDENTIALS_EXPIRED} (VERCEL_OIDC_TOKEN ${oidcTokenState(env)}; see docs/rewind.md)`);
+    console.error(`[storage] ${STORAGE_CREDENTIALS_HINT} (VERCEL_OIDC_TOKEN ${oidcTokenState(env)}; see docs/rewind.md)`);
   }
-  return new ApiError(503, "storage_credentials_expired", STORAGE_CREDENTIALS_EXPIRED);
+  return new ApiError(503, "storage_credentials_expired", STORAGE_UNAVAILABLE);
 }
 
 /**
@@ -98,7 +101,7 @@ export function usablePrivateCreds(env: Env = process.env): Creds | null {
   return creds;
 }
 
-/** Runs a private-store call, reporting credential failures as STORAGE_CREDENTIALS_EXPIRED. */
+/** Runs a private-store call, reporting credential failures as the 503 storage_credentials_expired. */
 async function guarded<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();

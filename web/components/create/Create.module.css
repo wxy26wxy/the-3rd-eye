@@ -208,7 +208,8 @@
 .piece { display: grid; justify-items: center; gap: var(--space-xs); cursor: pointer; }
 .pieceThumb {
   position: relative; display: block; width: calc(var(--size-cta) + var(--size-radio)); aspect-ratio: 1;
-  border: var(--border-thin) solid var(--border); border-radius: var(--radius-m); background: var(--surface);
+  /* Unchosen tile: a muted boundary (4.8:1 on white; UI boundaries need 3:1); chosen: 2 px ink. */
+  border: var(--border-thin) solid var(--text-muted); border-radius: var(--radius-m); background: var(--surface);
 }
 .piece .pieceArt { border-radius: var(--radius-m); background: transparent; height: 100%; opacity: calc(var(--opacity-disabled) * 0.75); }
 .pieceCheck {

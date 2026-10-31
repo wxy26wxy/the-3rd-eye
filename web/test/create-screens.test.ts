@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -103,6 +105,15 @@ describe("Select view (T105, boards 2027:3254 / 2038:4092 / 2038:4233 / 2038:436
     expect(out).not.toContain(t.retake);
     expect(out).not.toContain(t.boxAround);
     expect(out).toMatch(new RegExp(`<button[^>]*disabled[^>]*>(?:(?!</button>).)*${t.use}`));
+  });
+
+  it("piece tiles: muted boundary when not chosen, 2 px ink when chosen (M8)", () => {
+    const css = readFileSync(resolve(__dirname, "../components/create/Create.module.css"), "utf8");
+    const rule = (sel: string) => css.match(new RegExp(`(?:^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+    expect(rule(".pieceThumb")).toMatch(/border:\s*var\(--border-thin\) solid var\(--text-muted\)/);
+    expect(rule(".piece:has(input:checked) .pieceThumb")).toMatch(/solid var\(--text\)/);
+    // and the strip renders one tile per piece
+    expect(select().match(/class="[^"]*pieceThumb/g)?.length).toBe(3);
   });
 
   it("making the product shows the making line", () => {

@@ -2,8 +2,12 @@
  * Vercel Blob implementation of Storage.
  * - Public store: BLOB_READ_WRITE_TOKEN.
  * - Private store: selected by BLOB_PRIVATE_STORE_ID with OIDC credentials (the SDK reads
- *   VERCEL_OIDC_TOKEN locally; on Vercel the credential is automatic). Private stores have no
- *   read/write token. Only when BLOB_PRIVATE_STORE_ID is absent, private files go to the
+ *   VERCEL_OIDC_TOKEN locally; on Vercel the credential is automatic). A read/write token is used
+ *   instead only when one belongs to that store (BLOB_PRIVATE_READ_WRITE_TOKEN, or
+ *   BLOB_READ_WRITE_TOKEN if it is the private store's); the public store's token never is. When
+ *   the local OIDC token is missing or expired, the SDK falls back to the public token and the
+ *   store answers "Cannot use private access on a public store": that is reported as
+ *   STORAGE_CREDENTIALS_EXPIRED (logged once). Only when BLOB_PRIVATE_STORE_ID is absent, private files go to the
  *   public store under `private/<sha256(pathname)>.<ext>` (unguessable because every logical
  *   pathname contains a random uuid). The database always keeps the logical pathname.
  * - Write-once: an existing pathname is never overwritten; a new suffixed pathname is written instead.
@@ -16,20 +20,75 @@ import { ApiError } from "@/lib/http";
 
 const BLOB_HOST_SUFFIX = ".blob.vercel-storage.com";
 let warned = false;
+let warnedCreds = false;
 
 type Creds = { token?: string; storeId?: string };
+type Env = Record<string, string | undefined>;
+
+/** Server-side message when the private store cannot be reached with the local credentials. */
+export const STORAGE_CREDENTIALS_EXPIRED = "Storage credentials expired; run `vercel env pull`";
+
+const normalizeStoreId = (id: string) => id.trim().replace(/^store_/, "");
+/** Store id inside a read/write token (`vercel_blob_rw_<storeId>_<secret>`), as the SDK parses it. */
+const tokenStoreId = (token: string) => normalizeStoreId(token.split("_")[3] ?? "");
+
+/** "ok", "missing" or "expired" for VERCEL_OIDC_TOKEN (exp read from the JWT payload; nothing printed). */
+export function oidcTokenState(env: Env = process.env, now = Date.now()): "ok" | "missing" | "expired" {
+  const token = env.VERCEL_OIDC_TOKEN?.trim();
+  if (!token) return "missing";
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8")) as { exp?: number };
+    return typeof payload.exp === "number" && payload.exp * 1000 <= now ? "expired" : "ok";
+  } catch {
+    return "ok"; // not a JWT we can read: let the SDK decide
+  }
+}
 
 function publicCreds(): Creds {
   return { token: process.env.BLOB_READ_WRITE_TOKEN };
 }
-/** Private-store credentials (OIDC + store id), or null when the private store is not configured. */
-function privateCreds(): Creds | null {
-  const storeId = process.env.BLOB_PRIVATE_STORE_ID;
-  if (!storeId && !warned) {
-    warned = true;
-    console.warn("[storage] BLOB_PRIVATE_STORE_ID missing: private files use hashed pathnames in the public store");
+/**
+ * Private-store credentials, or null when the private store is not configured. A read/write token
+ * whose store id is the private store's wins (BLOB_PRIVATE_READ_WRITE_TOKEN, then
+ * BLOB_READ_WRITE_TOKEN); otherwise OIDC with the store id. A token of another store is never used.
+ */
+export function privateCreds(env: Env = process.env): Creds | null {
+  const storeId = env.BLOB_PRIVATE_STORE_ID?.trim();
+  if (!storeId) {
+    if (!warned) {
+      warned = true;
+      console.warn("[storage] BLOB_PRIVATE_STORE_ID missing: private files use hashed pathnames in the public store");
+    }
+    return null;
   }
-  return storeId ? { storeId } : null;
+  for (const name of ["BLOB_PRIVATE_READ_WRITE_TOKEN", "BLOB_READ_WRITE_TOKEN"]) {
+    const token = env[name]?.trim();
+    if (token && tokenStoreId(token) === normalizeStoreId(storeId)) return { token };
+  }
+  return { storeId };
+}
+
+/**
+ * Maps the SDK's errors for missing or expired private-store credentials to a clear ApiError
+ * (503 storage_credentials_expired), logged once; any other error is returned unchanged.
+ */
+export function storageError(err: unknown, env: Env = process.env): unknown {
+  const message = err instanceof Error ? err.message : "";
+  if (!/private access on a public store|no blob credentials found/i.test(message)) return err;
+  if (!warnedCreds) {
+    warnedCreds = true;
+    console.error(`[storage] ${STORAGE_CREDENTIALS_EXPIRED} (VERCEL_OIDC_TOKEN ${oidcTokenState(env)}; see docs/rewind.md)`);
+  }
+  return new ApiError(503, "storage_credentials_expired", STORAGE_CREDENTIALS_EXPIRED);
+}
+
+/** Runs a private-store call, reporting credential failures as STORAGE_CREDENTIALS_EXPIRED. */
+async function guarded<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    throw storageError(err);
+  }
 }
 
 function extOf(path: string): string {
@@ -74,6 +133,10 @@ export class BlobStorage implements Storage {
   }
 
   async putPrivate(path: string, data: PutBody, contentType: string): Promise<StoredFile> {
+    return guarded(() => this.putPrivateRaw(path, data, contentType));
+  }
+
+  private async putPrivateRaw(path: string, data: PutBody, contentType: string): Promise<StoredFile> {
     const priv = privateCreds();
     const physical = (logical: string) => (priv ? logical : hashedPathname(logical));
     const creds = priv ?? publicCreds();
@@ -96,6 +159,10 @@ export class BlobStorage implements Storage {
   }
 
   async getPrivateStream(path: string): Promise<PrivateStream | null> {
+    return guarded(() => this.getPrivateStreamRaw(path));
+  }
+
+  private async getPrivateStreamRaw(path: string): Promise<PrivateStream | null> {
     for (const c of this.candidates(path)) {
       try {
         const res = await get(c.pathname, { access: c.access, ...c.creds });
@@ -108,6 +175,10 @@ export class BlobStorage implements Storage {
   }
 
   async signedUrl(path: string, ttlSeconds: number): Promise<string | null> {
+    return guarded(() => this.signedUrlRaw(path, ttlSeconds));
+  }
+
+  private async signedUrlRaw(path: string, ttlSeconds: number): Promise<string | null> {
     for (const c of this.candidates(path)) {
       try {
         if (c.access === "private") {
@@ -127,6 +198,10 @@ export class BlobStorage implements Storage {
   }
 
   async delete(path: string): Promise<void> {
+    return guarded(() => this.deleteRaw(path));
+  }
+
+  private async deleteRaw(path: string): Promise<void> {
     for (const c of this.candidates(path)) {
       try {
         await del(c.pathname, c.creds);
@@ -141,7 +216,7 @@ export class BlobStorage implements Storage {
       const url = new URL(urlOrPathname);
       if (!url.hostname.endsWith(BLOB_HOST_SUFFIX)) throw new Error("Only Vercel Blob URLs can be read");
       if (url.hostname.includes(".private.")) {
-        const res = await get(urlOrPathname, { access: "private", ...(privateCreds() ?? {}) });
+        const res = await guarded(() => get(urlOrPathname, { access: "private", ...(privateCreds() ?? {}) }));
         if (!res || res.statusCode !== 200) throw new Error("Blob not found");
         return streamToBuffer(res.stream);
       }

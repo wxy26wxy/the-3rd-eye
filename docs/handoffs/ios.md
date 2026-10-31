@@ -4,7 +4,7 @@
 `ios/**` (except `ios/App/Theme/Tokens.swift`, generated from `design/tokens.json`).
 
 ## Current task
-T091 · polish wave from the T081/T082/T083 re-reviews (see "Polish (T091)" below). Earlier: T083 My designs management, T082 Adjust cutout screen, T081 system accessibility (see "System accessibility (T081)" and `docs/accessibility.md`), T070 deep link, T060 TestFlight, T051 fix wave, T030 SwiftUI creator app.
+T103 · Sky re-skin of the theme layer and shared components (see "Sky components (T103)" below). Before: T091 · polish wave from the T081/T082/T083 re-reviews (see "Polish (T091)" below). Earlier: T083 My designs management, T082 Adjust cutout screen, T081 system accessibility (see "System accessibility (T081)" and `docs/accessibility.md`), T070 deep link, T060 TestFlight, T051 fix wave, T030 SwiftUI creator app.
 
 ## Install on your iPhone (deployed site)
 1. On the Mac: `cd ios && xcodegen generate && open The3rdEye.xcodeproj` (needs Xcode and `brew install xcodegen`).
@@ -32,10 +32,10 @@ UI tests now include `AdjustCutoutUITests` (photo branch). To run the mock on an
 The mock also answers `POST /creators/me/story-video` (logs `audioUrl`, returns a `storyDraft`) and `POST /orders/o1/thank-you`.
 
 ## Layout
-- `App/Theme/` — the only place tokens are read: `Theme` aliases, `ThemeColors` (standard / high contrast via `@Environment(\.themeColors)`; `ThemeColors.resolved(for:)` picks high contrast when the system's Increase Contrast is on), `TextRole` fonts (Bagel Fat One + Rubik, Dynamic Type), `DisplayText`, `PillButton(Style)`, `IconButton`, `Card`/`ChoiceCard`, `StepPill`, `Starburst`, `ScallopDivider`/`CreamSheet`, `GrainOverlay`/`screenBackground()`, `TagMascot` (listening, cheering, waving). `ThemeEffects` holds `effects`/`motion` values the generator does not emit yet.
+- `App/Theme/` — the only place tokens are read: `Theme` aliases, `ThemeColors` (standard / high contrast via `@Environment(\.themeColors)`; `ThemeColors.resolved(for:)` picks high contrast when the system's Increase Contrast is on), `TextRole` fonts (Inter Variable, Dynamic Type, line heights), `DisplayText`, `PillButton(Style)`, `IconButton`, `Card`/`ChoiceCard`/`RadioMark`, `LogoMark`, `MethodRow`, `TagMascot` + `LoopingVideo`, and the retired no-ops (`StepPill`, `Starburst`, `ScallopDivider`/`CreamSheet`, `GrainOverlay`, `hardShadow`) plus `screenBackground()`. `ThemeEffects` holds values the generator does not emit (mirrored and tested) and derived component metrics. Component list: "Sky components (T103)".
 - `App/Networking/` — `APIClient` (all `/api/v1` routes, Bearer token in Keychain), `Models` (Codable from docs/api.md), `APIError`, `BlobUploader`, `Transcriber`, `Keychain`.
 - `App/Services/` — `VideoTools` (length cap by passthrough trim; soundtrack → 16 kHz mono WAV via `AVAssetReader`) and `VideoUpload` (video + WAV upload, used by story and thank-you), `AudioRecorder` (16 kHz mono PCM WAV, ≤ 60 s; used only by `SpeakView` and "Say what to change"), `Poller`, `OrdersStore` (10 s polling, unread badge), `Money` (share), `ImageTools`, `DeepLink`. No text-to-speech.
-- `App/Components/` — `SlowWorkHint` (after 30 s on long calls), `CameraAccess`/`CameraDeniedCard` (permission check, Settings link), `FlowScreen`, `TabScreen` (header with `SignOutButton`), `LoadingScreen` (announces the "I HEARD" text and the detail together), `VoiceCapture`/`RecordButton` (only `SpeakView` and `VoiceResultView`), `LabeledTextField` (no mic; keyboard dictation), `View.announces(_:)` (VoiceOver announcement on appear and on change; the text must also be on screen), `RemoteImage`, `ErrorCard`, `MediaPicker`, `SafariView`.
+- `App/Components/` — `HomeTabBar` (Sky tab bar, T103), `SlowWorkHint` (after 30 s on long calls), `CameraAccess`/`CameraDeniedCard` (permission check, Settings link), `FlowScreen`, `TabScreen` (header with `SignOutButton`), `LoadingScreen` (announces the "I HEARD" text and the detail together), `VoiceCapture`/`RecordButton` (only `SpeakView` and `VoiceResultView`), `LabeledTextField` (no mic; keyboard dictation), `View.announces(_:)` (VoiceOver announcement on appear and on change; the text must also be on screen), `RemoteImage`, `ErrorCard`, `MediaPicker`, `SafariView`.
 - `App/Screens/` — one view per file, named after the design boards.
 - Copy: `App/Resources/Localizable.xcstrings` (refresh with `xcodebuild -exportLocalizations -project The3rdEye.xcodeproj -localizationPath /tmp/loc -exportLanguage en`).
 
@@ -58,11 +58,11 @@ The mock also answers `POST /creators/me/story-video` (logs `audioUrl`, returns 
 Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s PCM asset), camera-permission flow, interruption handling, the story-draft sheet against the live backend, 401 from the live backend's token expiry.
 
 ## Last updated
-2026-10-30 (T091)
+2026-10-30 (T103)
 
 ## TestFlight (T060)
 - Icon: `pnpm icon` renders `ios/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` from `design/tokens.json` (no alpha, as App Store Connect requires). To use a designer-made icon, replace that PNG.
-- Settings in `ios/project.yml`: `DEVELOPMENT_TEAM` (the Apple Developer Program team), `MARKETING_VERSION` (0.4.0 from T085), `CURRENT_PROJECT_VERSION` (build number; `ios/scripts/bump_build.sh` increments it, every upload needs a new one). `Info.plist` sets `ITSAppUsesNonExemptEncryption` to false (HTTPS only) so builds skip the export-compliance question.
+- Settings in `ios/project.yml`: `DEVELOPMENT_TEAM` (the Apple Developer Program team), `MARKETING_VERSION` (0.5.0 from T103; 0.4.0 from T085), `CURRENT_PROJECT_VERSION` (build number; `ios/scripts/bump_build.sh` increments it, every upload needs a new one). `Info.plist` sets `ITSAppUsesNonExemptEncryption` to false (HTTPS only) so builds skip the export-compliance question.
 - Release builds talk to the production site (`API_BASE_URL` in `project.yml`); TestFlight installs are Release.
 - Upload: the first upload of the renamed app (record "The 3rd Eye", build 0.4.0 (1)) runs `bash ios/scripts/testflight.sh --no-bump`, because `project.yml` already says build 1; later uploads run `bash ios/scripts/testflight.sh` (bumps the build number, `xcodegen generate`, archives with `-allowProvisioningUpdates`, exports with `ios/ExportOptions.plist` using `method app-store-connect`, `destination upload`). Xcode must be signed in with the team's Apple ID (Xcode → Settings → Accounts), or export `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_PATH` for an App Store Connect API key kept outside the repo.
 - First time only: create the app record in App Store Connect (My Apps → + → New App → iOS, bundle id `com.the3rdeye.app`, SKU `the-3rd-eye`).
@@ -119,3 +119,21 @@ Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s 
 - Still parked from the T083 review: My designs reloads `GET /artworks` on every visit to the tab (no caching or "pull only" mode). Not in the T091 brief; left as is.
 - Box mode's UIKit surface follows SwiftUI `.disabled` (`isUserInteractionEnabled` from `context.environment.isEnabled`), so no drag draws while a request runs.
 
+
+## Sky components (T103)
+Every screen reads these; screens never draw their own buttons, cards or headlines. Values come from `Tokens` (generated) or `ThemeEffects` (Theme.swift).
+- `DisplayText(key, role: .displayXL, alignment: .leading, onPhoto: false)`: Inter Medium 48 ink (Bold white with `onPhoto`), header trait. `tilted:` is accepted and ignored.
+- `PillButton(title, hint:, kind:, showsArrow:)` / `PillButtonStyle`: `.primary` 56 pt ink pill with the 48 pt arrow circle; `.onPhoto` white pill on photos; `.secondary` 50 pt white pill with a 1 pt border and a centred label. Disabled = `Theme.Opacity.disabled`.
+- `Card(selected:, padding:)`: white, or accent with `accentBorder` when selected; 28 radius, 1.5 pt border. `ChoiceCard`: a Card button with `RadioMark` top-right (selected trait for VoiceOver). `MethodRow(icon:, name:, detail:, eyebrow:, highlighted:)`: Choose-how-to-make-it row (44 pt icon tile, name, description, chevron), label "name, detail".
+- `IconButton(systemName: or asset:, label:, hint:, size:, mirrored:)`: outlined white circle; 48 pt default, 44 pt (`Theme.Size.minTarget`) for Back and Sign out.
+- `LogoMark(onPhoto:)`: 40 × 35 eye mark, decorative.
+- `TagMascot(pose: .book | .front | .magnifier, size:, label:)`: photo mascot; `.magnifier` loops `mascot-magnifier.mp4` muted (still `mascot-front` with Reduce Motion). Decorative unless `label` is set. `SkyCard(pose:)` (in LoadingScreen.swift): the 342 × 286 card with the mascot.
+- `FlowScreen(title:, subtitle:, step:, showsBack:, trailing:)`: white page; Back (44 pt, VoiceOver "Back") when `showsBack`, else the logo mark; headline, description, content, actions at the bottom (pinned when the content is short, after the content when it scrolls). `step` is only a VoiceOver hint ("Step n of 3").
+- `TabScreen(title:)`: logo mark + Sign out (identifier `sign-out`), headline, content. `LoadingScreen`: logo mark, headline, SkyCard, I HEARD card, message, spinner; error = card + Try again / Go back. `ErrorCard`: white bordered card, 44 pt Try again.
+- `HomeTabBar`: see `docs/decisions.md` (T103). Tabs keep the labels Create / My designs / Orders / Messages and `app.tabBars.buttons[...]` in UI tests.
+- Retired, draw nothing (remove the call sites in T104): `StepPill`, `Starburst`, `ScallopDivider`, `CreamSheet` (now just page padding), `GrainOverlay`, `.hardShadow`.
+
+### Adding an image or animation
+1. The design owner adds the file to `design/assets/` and an entry to `design/tokens.json` `assets` (`template: true` for single-colour icons), then from the repo root (Node 24) `pnpm tokens && pnpm assets`: PNG/SVG land in `ios/App/Assets.xcassets/<name>.imageset/` and `Tokens.Asset.<name>` is generated; a GIF becomes `ios/App/Resources/Animations/<name>.mp4` (needs `ffmpeg`).
+2. In code: `Image(Tokens.Asset.<name>)` (`.renderingMode(.template)` + a token colour for icons; `.resizable().scaledToFit()` for photos), or `LoopingVideo(resource: Tokens.Asset.<name>)` for an MP4, with a still image when `accessibilityReduceMotion` is on. Decorative images get `.accessibilityHidden(true)`; meaningful ones a label.
+3. `ThemeEffectsTests.testAssetsAreBundled` checks every non-pending asset is in the app; run `xcodegen generate` so a new folder under `Resources/` is picked up.

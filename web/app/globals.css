@@ -71,21 +71,32 @@ ul[role="list"], ol[role="list"] { list-style: none; }
   border: 0;
 }
 
+/* Skip link (board component 2032:4002, 2033:4035): 48 px ink pill, top-left 24 px in, above the nav.
+   The ring is drawn as box-shadow (2 px white, then 2 px ink) so it reads on the dark pill and on the page. */
 .skip-link {
   position: absolute;
-  left: var(--space-l);
+  left: var(--space-page);
   top: var(--space-l);
   z-index: 10;
-  transform: translateY(-200%);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--size-icon-button);
+  padding: 0 var(--space-xl);
+  border-radius: var(--radius-pill);
   background: var(--primary);
   color: var(--primary-text);
-  padding: var(--space-m) var(--space-xl);
-  border-radius: var(--radius-pill);
+  font-size: var(--type-body-size);
   font-weight: var(--type-title-m-weight);
+  line-height: var(--type-body-lh);
   text-decoration: none;
-  min-height: var(--size-min-target);
+  white-space: nowrap;
+  transform: translateY(-200%);
 }
 .skip-link:focus { transform: none; }
+.skip-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--focus-width) var(--surface), 0 0 0 calc(var(--focus-width) * 2) var(--text);
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

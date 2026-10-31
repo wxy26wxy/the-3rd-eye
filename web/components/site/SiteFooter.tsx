@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { m } from "@/components/messages";
-import { Sheet } from "@/components/ui/Sheet";
 import { Wordmark } from "./Wordmark";
 import styles from "./Site.module.css";
 
+/** Web footer (board component 2010:504): white on ink (17:1), rounded top, underlined 44 px links. */
 export function SiteFooter() {
   return (
-    <Sheet as="footer" className={styles.footer}>
+    <footer className={styles.footer}>
       <div className={styles.footerInner}>
         <div className={styles.footerBrand}>
-          <Wordmark />
+          <Wordmark tone="white" />
           <p>{m.footer.tagline}</p>
         </div>
         <nav aria-label={m.footer.label}>
@@ -22,6 +22,6 @@ export function SiteFooter() {
           </ul>
         </nav>
       </div>
-    </Sheet>
+    </footer>
   );
 }

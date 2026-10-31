@@ -9,6 +9,8 @@ import { FilterTabs } from "@/components/site/FilterTabs";
 import { Hero } from "@/components/shop/Hero";
 import { HowSteps } from "@/components/shop/HowSteps";
 import { StoryVideo } from "@/components/site/StoryVideo";
+import { SiteNav } from "@/components/site/SiteNav";
+import { SiteFooter } from "@/components/site/SiteFooter";
 
 const html = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(el);
 
@@ -61,5 +63,27 @@ describe("Shop (T106, boards 2018:1789 / 2018:1970)", () => {
     expect(out).toMatch(/<span class="[^"]*play[^"]*" aria-hidden="true">/);
     const none = html(createElement(StoryVideo, { creator: { id: "c1", displayName: "Rosa M.", storyVideoUrl: null, storyVideoVtt: null } }));
     expect(none).toContain(m.common.noVideo);
+  });
+});
+
+describe("Nav, drawer and footer (T106, 2010:467 / 2032:4004 / 2010:504)", () => {
+  it("nav: wordmark link, labelled nav with four links, Menu button controlling a modal drawer", () => {
+    const out = html(createElement(SiteNav));
+    expect(out).toContain(`aria-label="${m.nav.home}"`);
+    expect(out).toMatch(new RegExp(`<button[^>]*aria-expanded="false"[^>]*aria-controls="nav-drawer"[^>]*>.*${m.nav.menu}</button>`));
+    expect(out).toMatch(/<dialog[^>]*id="nav-drawer"/);
+    const drawer = out.slice(out.indexOf("<dialog"));
+    expect(drawer).toContain(`>${m.common.close}</button>`);
+    for (const l of [m.nav.shop, m.nav.artists, m.nav.howItWorks, m.nav.forStudios]) expect(drawer).toContain(l);
+  });
+
+  it("footer: contentinfo with the white wordmark, tagline and five links", () => {
+    const out = html(createElement(SiteFooter));
+    expect(out).toMatch(/<footer/);
+    expect(out).toMatch(/class="[^"]*wordmarkWhite/);
+    expect(out).toContain(m.footer.tagline);
+    expect(out).toContain(`aria-label="${m.footer.label}"`);
+    expect(out.match(/<li>/g)).toHaveLength(5);
+    expect(out).toContain('href="/how-it-works#story-tags"');
   });
 });

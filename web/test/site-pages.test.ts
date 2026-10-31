@@ -14,6 +14,9 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { BuyForm } from "@/components/product/BuyForm";
 import { DieCut } from "@/components/site/DieCut";
 import { Avatar, initials } from "@/components/site/Avatar";
+import { Thread } from "@/components/storytag/Thread";
+import { ThankYou } from "@/components/storytag/ThankYou";
+import { NoteForm } from "@/components/storytag/NoteForm";
 
 const html = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(el);
 
@@ -112,5 +115,34 @@ describe("Product page parts (T106, board 2019:2004)", () => {
     expect(initials("Rosa M.")).toBe("RM");
     expect(initials("Leo")).toBe("L");
     expect(html(createElement(Avatar, { name: "Rosa M.", src: null, size: "l" }))).toMatch(/aria-hidden="true">RM</);
+  });
+});
+
+describe("Story tag parts (T106, board 2024:2428)", () => {
+  it("thread: sender line above each bubble, mine and theirs", () => {
+    const out = html(createElement(Thread, { name: "Rosa M.", messages: [
+      { id: "1", direction: "buyer_to_creator", body: "Thank you!", createdAt: new Date("2026-10-30T15:45:00Z") },
+      { id: "2", direction: "creator_to_buyer", body: "So happy!", createdAt: new Date("2026-10-30T17:10:00Z") },
+    ] }));
+    expect(out).toMatch(new RegExp(`<li class="[^"]*mine[^"]*"><p[^>]*>${m.tag.fromYou} · <time`));
+    expect(out).toMatch(/<\/time><\/p><p class="[^"]*bubble[^"]*">Thank you!<\/p>/);
+    expect(out).toMatch(/<li class="[^"]*theirs[^"]*"><p[^>]*>Rosa M\. · /);
+    expect(html(createElement(Thread, { name: "Rosa M.", messages: [] }))).toContain(m.tag.threadEmpty);
+  });
+
+  it("thank-you: the title is the card's h2 eyebrow; green only once there is a thank-you", () => {
+    const sent = html(createElement(ThankYou, { name: "Rosa M.", token: "tok", thankYou: { text: "Thanks!", imageUrl: null, videoUrl: null, videoVtt: null } }));
+    expect(sent).toMatch(new RegExp(`<h2 id="thanks-title" class="[^"]*">${fmt(m.tag.thankYouTitle, { name: "Rosa M." })}</h2>`));
+    expect(sent).toMatch(/class="[^"]*thanksGreen/);
+    const empty = html(createElement(ThankYou, { name: "Rosa M.", token: "tok", thankYou: null }));
+    expect(empty).toContain(fmt(m.tag.thankYouEmpty, { name: "Rosa M." }));
+    expect(empty).not.toMatch(/thanksGreen/);
+  });
+
+  it("note form: labelled field with the hint under it, Send note primary", () => {
+    const out = html(createElement(NoteForm, { action: async () => ({}), name: "Rosa M." }));
+    expect(out).toContain(fmt(m.tag.noteLabel, { name: "Rosa M." }));
+    expect(out.indexOf("<textarea")).toBeLessThan(out.indexOf(m.tag.noteHint));
+    expect(out).toMatch(new RegExp(`<button type="submit"[^>]*>.*${m.tag.noteSubmit}`));
   });
 });

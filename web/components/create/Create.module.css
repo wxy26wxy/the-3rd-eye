@@ -13,15 +13,23 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-m);
-  padding: var(--space-l) var(--space-xl) 0;
+  min-height: var(--size-min-target);
+  padding: var(--space-l) var(--space-page) 0;
 }
-.spacer { width: var(--size-icon-button); flex: none; }
-.head { display: grid; gap: var(--space-m); padding: var(--space-xl) var(--space-xl) var(--space-l); justify-items: start; }
+.head { display: grid; gap: var(--space-m); padding: var(--space-xxl) var(--space-page) var(--space-xxl); justify-items: start; }
 .titleRow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-m); width: 100%; }
-.mascot { width: calc(var(--size-record) * 1.3); justify-self: center; }
-.body { flex: 1; display: grid; gap: var(--space-xl); align-content: start; padding: var(--space-s) var(--space-xl) var(--space-xxl); }
-.footer { position: sticky; bottom: 0; margin-top: auto; z-index: 2; }
-.footerInner { display: grid; gap: var(--space-m); }
+.mascot { width: calc(var(--size-record) * 1.6); justify-self: center; }
+.body { flex: 1; display: grid; gap: var(--space-xxl); align-content: start; padding: 0 var(--space-page) var(--space-xxl); }
+/* Bottom action bar: stays in view at the bottom of the screen while the body scrolls. */
+.footer {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  z-index: 2;
+  padding: var(--space-l) var(--space-page) var(--space-xxl);
+  background: var(--bg);
+}
+.footerInner { display: grid; gap: var(--space-s); }
 
 /* shared pieces */
 .promises { display: grid; gap: var(--space-m); list-style: none; }
@@ -75,7 +83,7 @@
 .pick input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .pickLabel { display: flex; justify-content: space-between; align-items: center; gap: var(--space-xs); font-size: var(--type-caption-size); padding: 0 var(--space-xs); }
 .tick { width: var(--space-xl); height: var(--space-xl); border-radius: var(--radius-pill); border: var(--border-thin) solid var(--border); background: var(--surface-alt); flex: none; }
-.pick:has(input:checked) .tick { background: var(--border); box-shadow: inset 0 0 0 var(--border-thin) var(--surface-alt); }
+.pick:has(input:checked) .tick { background: var(--accent-ink); border-color: var(--accent-ink); box-shadow: inset 0 0 0 var(--border-card) var(--surface); }
 .playbar {
   display: flex; align-items: center; gap: var(--space-s);
   min-height: var(--size-min-target); width: 100%;
@@ -90,7 +98,7 @@
 .filePick:has(input:focus-visible) > span { outline: var(--border-card) solid var(--focus-ring); outline-offset: var(--border-card); }
 .preview { width: 100%; max-width: 20rem; justify-self: center; }
 .trace { display: grid; gap: var(--space-s); list-style: none; font-size: var(--type-caption-size); }
-.trace li { padding: var(--space-s) var(--space-m); background: var(--surface-alt); border-radius: var(--radius-s); border: 1px solid var(--color-sage); overflow-wrap: anywhere; }
+.trace li { padding: var(--space-s) var(--space-m); background: var(--surface-alt); border-radius: var(--radius-s); border: var(--border-thin) solid var(--border); overflow-wrap: anywhere; }
 .traceTool { font-weight: var(--type-title-m-weight); }
 .earn { display: flex; justify-content: space-between; align-items: center; gap: var(--space-m); padding: var(--space-m) var(--space-l); background: var(--accent); border: var(--border-thin) solid var(--border); border-radius: var(--radius-m); font-weight: var(--type-title-m-weight); }
 .earnValue { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); }
@@ -183,3 +191,7 @@
 .notice { font-size: var(--type-body-size); text-align: center; }
 .errorSpot { display: grid; gap: var(--space-m); }
 .errorSpot:empty { display: none; }
+
+/* Product pictures on the Pick cards (glyphs.tsx). */
+.glyph { width: 100%; height: 100%; object-fit: contain; }
+.glyphTote { width: 80%; margin-inline: auto; filter: drop-shadow(var(--shadow-soft)); }

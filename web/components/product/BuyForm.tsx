@@ -7,18 +7,20 @@ import { Field } from "@/components/ui/Field";
 import type { BuyState } from "@/app/(site)/p/[id]/actions";
 import styles from "./Product.module.css";
 
-/** A rejected or unchecked note is about the note field, so it shows under that field (ruling 7). */
-const NOTE_ERRORS = new Set([m.product.noteRejected, m.product.noteUnavailable]);
-
-/** Buy this piece (board 2019:2056): name, email, note, demo line, primary. Errors under their field, others above the button. */
+/**
+ * Buy this piece (board 2019:2056): name, email, note, demo line, primary. The action says where its
+ * error belongs (`field`): under the name or the note (a rejected or unchecked note, ruling 7), or
+ * above the button for anything else.
+ */
 export function BuyForm({ action, priceLabel }: { action: (prev: BuyState, fd: FormData) => Promise<BuyState>; priceLabel: string }) {
   const [state, formAction, pending] = useActionState(action, {});
-  const noteError = state.error && NOTE_ERRORS.has(state.error) ? state.error : null;
-  const formError = state.error && !noteError ? state.error : null;
+  const nameError = state.field === "name" ? state.error : undefined;
+  const noteError = state.field === "note" ? state.error : undefined;
+  const formError = state.error && !nameError && !noteError ? state.error : null;
   return (
     <form action={formAction} className={styles.buyForm} aria-labelledby="buy-title" noValidate>
       <h2 id="buy-title" className={styles.buyTitle}>{m.product.buyTitle}</h2>
-      <Field label={m.product.buyName} name="buyerName" autoComplete="name" required defaultValue={state.values?.buyerName} error={state.nameError} />
+      <Field label={m.product.buyName} name="buyerName" autoComplete="name" required defaultValue={state.values?.buyerName} error={nameError} />
       <Field label={m.product.buyEmail} name="buyerEmail" type="email" autoComplete="email" inputMode="email" hint={m.product.buyEmailHint} hintPosition="below" defaultValue={state.values?.buyerEmail} />
       <Field label={m.product.buyNote} name="shipNote" multiline rows={3} defaultValue={state.values?.shipNote} error={noteError} />
       <p className={styles.staged}>{m.product.buyStaged}</p>

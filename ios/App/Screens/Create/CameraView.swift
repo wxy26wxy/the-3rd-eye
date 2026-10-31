@@ -18,7 +18,7 @@ struct CameraView: View {
       step: (2, 3)
     ) {
       VStack(spacing: Theme.Space.l) {
-        TagMascot(pose: .listening)
+        TagMascot(pose: .front)
         if source == .camera && !MediaPicker.cameraAvailable {
           Text("This device has no camera, so you can pick a picture instead.")
             .themeFont(.bodyS)

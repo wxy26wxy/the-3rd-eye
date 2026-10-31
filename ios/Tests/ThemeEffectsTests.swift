@@ -84,4 +84,37 @@ final class ThemeEffectsTests: XCTestCase {
       XCTAssertEqual(role.weight, TextRole.fontWeight(css), key)
     }
   }
+
+  /// T103: line heights mirrored in TextRole and the display weight on photos follow tokens.json.
+  func testLineHeightsAndPhotoWeightMatchTokens() throws {
+    let t = try tokens()
+    let roles: [(TextRole, String)] = [(.displayXL, "displayXL"), (.displayL, "displayL"), (.displayM, "displayM"),
+                                       (.titleL, "titleL"), (.titleM, "titleM"), (.bodyL, "bodyL"), (.body, "body"),
+                                       (.bodyS, "bodyS"), (.caption, "caption"), (.eyebrow, "eyebrow")]
+    for (role, key) in roles {
+      let entry = try XCTUnwrap((t["type"] as? [String: Any])?[key] as? [String: Any], key)
+      let expected = (entry["lineHeight"] as? NSNumber)?.doubleValue
+      XCTAssertEqual(role.lineHeight.map(Double.init), expected, key)
+    }
+    XCTAssertEqual(Double(ThemeEffects.displayWeightOnPhoto), try number(t, "font", "display", "weightOnPhoto"))
+    XCTAssertEqual(ThemeEffects.ctaInset, (Tokens.Size.cta - Tokens.Size.ctaArrow) / 2)
+  }
+
+  /// T103: the retired effects draw nothing and the step pill is only a VoiceOver hint.
+  func testRetiredEffectsAreOff() {
+    XCTAssertEqual(Theme.grainOpacity, 0)
+    XCTAssertEqual(ThemeEffects.scallopHeight, 0)
+    XCTAssertEqual(ThemeEffects.displayStrokeWidth, 0)
+    XCTAssertEqual(Tokens.Shadow.hard.y, 0)
+    XCTAssertEqual(Tokens.Shadow.primary.y, 0)
+  }
+
+  /// T103: the mascot poses and the loading animation resolve to bundled assets.
+  func testMascotAssetsResolve() {
+    XCTAssertNotNil(UIImage(named: Tokens.Asset.mascotBook))
+    XCTAssertNotNil(UIImage(named: Tokens.Asset.mascotFront))
+    XCTAssertNotNil(UIImage(named: Tokens.Asset.sky))
+    XCTAssertNotNil(UIImage(named: Tokens.Asset.logoMark))
+    XCTAssertNotNil(Bundle.main.url(forResource: Tokens.Asset.mascotMagnifier, withExtension: "mp4"))
+  }
 }

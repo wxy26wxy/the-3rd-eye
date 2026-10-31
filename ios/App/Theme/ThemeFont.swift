@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Type roles from tokens.json `type`. Custom fonts scale with Dynamic Type
 /// through `relativeTo:`.
@@ -86,10 +87,50 @@ enum TextRole {
     }
   }
 
+  /// `type.<role>.lineHeight` in tokens.json (a multiple of the size; nil = the font's own).
+  /// Mirrored by hand (the generator does not emit it) and checked by ThemeEffectsTests.
+  var lineHeight: CGFloat? {
+    switch self {
+    case .displayXL, .displayL: return 1.13
+    case .displayM: return 1.2
+    case .bodyL, .body: return 1.5
+    case .bodyS, .caption: return 1.4
+    default: return nil
+    }
+  }
+
+  /// Extra space between lines so the line height reaches `lineHeight` (SwiftUI cannot tighten lines,
+  /// so the tighter display heights keep Inter's own). Scales with Dynamic Type like the font.
+  var lineSpacing: CGFloat {
+    guard let lineHeight,
+          let font = UIFont(name: isDisplay ? Tokens.FontName.display : Tokens.FontName.body, size: size)
+    else { return 0 }
+    let extra = size * lineHeight - font.lineHeight
+    return extra > 0 ? UIFontMetrics(forTextStyle: textStyle.uiKit).scaledValue(for: extra) : 0
+  }
+
   var uppercased: Bool {
     switch self {
     case .eyebrow, .step: return true
     default: return false
+    }
+  }
+}
+
+private extension Font.TextStyle {
+  var uiKit: UIFont.TextStyle {
+    switch self {
+    case .largeTitle: return .largeTitle
+    case .title: return .title1
+    case .title2: return .title2
+    case .title3: return .title3
+    case .headline: return .headline
+    case .subheadline: return .subheadline
+    case .callout: return .callout
+    case .footnote: return .footnote
+    case .caption: return .caption1
+    case .caption2: return .caption2
+    default: return .body
     }
   }
 }
@@ -100,6 +141,7 @@ extension View {
     self
       .font(role.font)
       .tracking(role.tracking)
+      .lineSpacing(role.lineSpacing)
       .textCase(role.uppercased ? .uppercase : nil)
   }
 }

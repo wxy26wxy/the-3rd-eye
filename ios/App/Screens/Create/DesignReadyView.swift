@@ -8,7 +8,7 @@ struct DesignReadyView: View {
   var body: some View {
     FlowScreen(title: "Your design is ready!", subtitle: "It's saved in My designs.") {
       VStack(spacing: Theme.Space.l) {
-        TagMascot(pose: .cheering)
+        TagMascot(pose: .book)
         if let artwork = app.flow.artwork {
           RemoteImage(url: artwork.displayURL, altText: artwork.altText)
             .frame(maxHeight: ThemeEffects.artworkMaxHeight)

@@ -1,10 +1,12 @@
 import SwiftUI
 
-/// Full-screen wait state with the mascot. Announces itself to VoiceOver.
+/// Sky wait state: logo mark, headline, the sky card with the searching mascot, the "I HEARD" card,
+/// a 15 pt message line and a spinner. On error: the message, then Try again / Go back at the bottom.
+/// Announces itself to VoiceOver.
 struct LoadingScreen: View {
   let title: LocalizedStringKey
   let detail: LocalizedStringResource
-  var pose: TagMascot.Pose = .listening
+  var pose: TagMascot.Pose = .magnifier
   /// What the app understood ("I HEARD" card); announced to VoiceOver before the detail.
   var spoken: String?
   var error: String?
@@ -13,41 +15,54 @@ struct LoadingScreen: View {
   @Environment(\.dismiss) private var dismiss
 
   var body: some View {
-    VStack(spacing: Theme.Space.xxl) {
-      Spacer()
-      TagMascot(pose: error == nil ? pose : .waving)
-      DisplayText(title, role: .displayL)
-      if let error {
-        Card {
-          VStack(alignment: .leading, spacing: Theme.Space.m) {
-            Text(error).themeFont(.bodyL).foregroundStyle(colors.text)
-            if let retry { PillButton("Try again", hint: "Repeats the last step", action: retry) }
-            PillButton("Go back", kind: .secondary, showsArrow: false) { dismiss() }
+    GeometryReader { proxy in
+      ScrollView {
+        VStack(alignment: .leading, spacing: Theme.Space.xxl) {
+          VStack(alignment: .leading, spacing: Theme.Space.l) {
+            LogoMark().frame(minHeight: Theme.Size.minTarget)
+            DisplayText(title)
           }
-        }
-      } else {
-        if let spoken, !spoken.isEmpty {
-          Card {
-            VStack(alignment: .leading, spacing: Theme.Space.xs) {
-              Text("I HEARD").themeFont(.eyebrow).foregroundStyle(colors.textMuted)
-              Text(spoken).themeFont(.bodyL).foregroundStyle(colors.text)
+          SkyCard(pose: error == nil ? pose : .front)
+          if let error {
+            Card {
+              Text(error).themeFont(.body).foregroundStyle(colors.text)
             }
+            Spacer(minLength: 0)
+            VStack(spacing: Theme.Space.s) {
+              if let retry { PillButton("Try again", hint: "Repeats the last step", action: retry) }
+              PillButton("Go back", kind: .secondary, showsArrow: false) { dismiss() }
+            }
+          } else {
+            if let spoken, !spoken.isEmpty {
+              Card {
+                VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                  Text("I HEARD").themeFont(.eyebrow).foregroundStyle(colors.textMuted)
+                  Text(spoken).themeFont(.bodyL).foregroundStyle(colors.text)
+                }
+              }
+              .accessibilityElement(children: .combine)
+            }
+            VStack(spacing: Theme.Space.l) {
+              Text(detail)
+                .themeFont(.body)
+                .foregroundStyle(colors.textMuted)
+                .multilineTextAlignment(.center)
+              ProgressView()
+                .controlSize(.large)
+                .tint(colors.text)
+                .accessibilityLabel(Text("Working"))
+              SlowWorkHint()
+            }
+            .frame(maxWidth: .infinity)
           }
-          .accessibilityElement(children: .combine)
         }
-        Text(detail)
-          .themeFont(.bodyL)
-          .foregroundStyle(colors.textOnDark)
-          .multilineTextAlignment(.center)
-        ProgressView()
-          .controlSize(.large)
-          .tint(colors.textOnDark)
-          .accessibilityLabel(Text("Working"))
-        SlowWorkHint(onDark: true)
+        .padding(.horizontal, Theme.Space.page)
+        .padding(.top, Theme.Space.s)
+        .padding(.bottom, Theme.Space.l)
+        .frame(maxWidth: .infinity, minHeight: proxy.size.height, alignment: .topLeading)
       }
-      Spacer()
+      .scrollBounceBehavior(.basedOnSize)
     }
-    .padding(Theme.Space.page)
     .screenBackground()
     .toolbar(.hidden, for: .navigationBar)
     .accessibilityElement(children: .contain)
@@ -56,5 +71,36 @@ struct LoadingScreen: View {
       let parts = [spoken, String(localized: detail)].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
       UIAccessibility.post(notification: .announcement, argument: parts.joined(separator: " "))
     }
+  }
+}
+
+/// Sky card (Figma `Sky card`): 28 pt corners; the looping magnifier mascot, or with Reduce Motion
+/// (and for still poses) the standing mascot on the sky photo. Decorative.
+struct SkyCard: View {
+  var pose: TagMascot.Pose = .magnifier
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  var body: some View {
+    let shape = RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+    Color.clear
+      .aspectRatio(ThemeEffects.skyCardAspect, contentMode: .fit)
+      .overlay {
+        if pose == .magnifier && !reduceMotion {
+          LoopingVideo(resource: Tokens.Asset.mascotMagnifier)
+        } else {
+          Image(Tokens.Asset.sky)
+            .resizable()
+            .scaledToFill()
+            .overlay(alignment: .bottom) {
+              Image(pose == .book ? Tokens.Asset.mascotBook : Tokens.Asset.mascotFront)
+                .resizable()
+                .scaledToFit()
+                .padding(.top, Theme.Space.xxl)
+            }
+        }
+      }
+      .clipShape(shape)
+      .frame(maxWidth: .infinity)
+      .accessibilityHidden(true)
   }
 }

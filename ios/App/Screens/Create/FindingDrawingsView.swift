@@ -10,7 +10,7 @@ struct FindingDrawingsView: View {
     LoadingScreen(
       title: "Finding your drawings",
       detail: "Looking for every drawing on the page. This takes a few seconds.",
-      pose: .listening,
+      pose: .magnifier,
       error: error,
       retry: { error = nil; attempt += 1 }
     )

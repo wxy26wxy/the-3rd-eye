@@ -1,60 +1,51 @@
 import SwiftUI
 
-/// Bagel Fat One headline with ink stroke, hard drop shadow and the design tilt.
+/// Sky headline: Inter Medium (Bold on a photo), ink on the white page, no stroke, tilt or shadow.
+/// Left-aligned by default, as on the boards; `alignment: .center` for the celebration screens.
 struct DisplayText: View {
   private let text: Text
   private let role: TextRole
   private let fill: Color?
-  private let tilted: Bool
+  private let alignment: TextAlignment
+  private let onPhoto: Bool
   @Environment(\.themeColors) private var colors
 
-  init(_ key: LocalizedStringKey, role: TextRole = .displayL, fill: Color? = nil, tilted: Bool = true) {
+  /// `tilted` is kept so older call sites compile; Sky has no tilt (tokens `display.tilt` 0).
+  init(_ key: LocalizedStringKey, role: TextRole = .displayXL, fill: Color? = nil, alignment: TextAlignment = .leading,
+       onPhoto: Bool = false, tilted: Bool = false) {
     self.text = Text(key)
     self.role = role
     self.fill = fill
-    self.tilted = tilted
+    self.alignment = alignment
+    self.onPhoto = onPhoto
   }
 
-  init(verbatim: String, role: TextRole = .displayL, fill: Color? = nil, tilted: Bool = true) {
+  init(verbatim: String, role: TextRole = .displayXL, fill: Color? = nil, alignment: TextAlignment = .leading,
+       onPhoto: Bool = false, tilted: Bool = false) {
     self.text = Text(verbatim)
     self.role = role
     self.fill = fill
-    self.tilted = tilted
+    self.alignment = alignment
+    self.onPhoto = onPhoto
   }
 
-  private var strokeOffsets: [CGSize] {
-    let w = ThemeEffects.displayStrokeWidth
-    return [
-      CGSize(width: -w, height: -w), CGSize(width: 0, height: -w), CGSize(width: w, height: -w),
-      CGSize(width: -w, height: 0), CGSize(width: w, height: 0),
-      CGSize(width: -w, height: w), CGSize(width: 0, height: w), CGSize(width: w, height: w),
-    ]
-  }
-
-  private func styled(_ color: Color) -> some View {
-    text
-      .themeFont(role)
-      .multilineTextAlignment(.center)
-      .foregroundStyle(color)
-      .fixedSize(horizontal: false, vertical: true)
+  private var frameAlignment: Alignment {
+    switch alignment {
+    case .center: return .center
+    case .trailing: return .trailing
+    default: return .leading
+    }
   }
 
   var body: some View {
-    ZStack {
-      styled(colors.border)
-        .offset(y: ThemeEffects.displayShadowY)
-        .accessibilityHidden(true)
-      ForEach(strokeOffsets.indices, id: \.self) { i in
-        styled(colors.border)
-          .offset(strokeOffsets[i])
-          .accessibilityHidden(true)
-      }
-      styled(fill ?? colors.textOnDark)
-    }
-    .rotationEffect(tilted ? Theme.displayTilt : .zero)
-    .padding(.vertical, ThemeEffects.displayShadowY)
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel(text)
-    .accessibilityAddTraits(.isHeader)
+    text
+      .themeFont(role)
+      .fontWeight(onPhoto ? TextRole.fontWeight(ThemeEffects.displayWeightOnPhoto) : role.weight)
+      .multilineTextAlignment(alignment)
+      .foregroundStyle(fill ?? (onPhoto ? colors.textOnDark : colors.text))
+      .fixedSize(horizontal: false, vertical: true)
+      .frame(maxWidth: .infinity, alignment: frameAlignment)
+      .rotationEffect(Theme.displayTilt)
+      .accessibilityAddTraits(.isHeader)
   }
 }

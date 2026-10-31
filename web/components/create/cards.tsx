@@ -23,9 +23,9 @@ export function InfoCard({ eyebrow, children, tone = "white", className, ...rest
  * Error card (Components page `2007:268`): warning icon, the message, and optional text actions
  * under it. Announced as an alert. Used for every creator-flow error and blocking hint.
  */
-export function ErrorCard({ children, actions, id, live = "alert" }: { children: ReactNode; actions?: ReactNode; id?: string; live?: "alert" | "status" }) {
+export function ErrorCard({ children, actions, id, live = "alert" }: { children: ReactNode; actions?: ReactNode; id?: string; live?: "alert" | "status" | "off" }) {
   return (
-    <div className={styles.errorCard} role={live} id={id}>
+    <div className={styles.errorCard} role={live === "off" ? undefined : live} id={id}>
       <span className={styles.errorIcon} aria-hidden="true"><WarningIcon /></span>
       <div className={styles.errorBody}>
         <p>{children}</p>

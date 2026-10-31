@@ -4,9 +4,15 @@ import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
 import { speak } from "@/components/speech";
 import { Button } from "@/components/ui/Button";
+import { SkyCard } from "@/components/ui/Loading";
+import { Title } from "@/components/ui/Text";
 import { CreateScreen, MissingState } from "../CreateScreen";
 import { resetDraft, useCreate } from "../store";
 
+/**
+ * You're live (board `2030:3958`): logo, centred title, the sky card with the mascot, "{title} is now
+ * in the shop." (also spoken once on arrival), and Make another / See what buyers see in the bar.
+ */
 export function Live() {
   const router = useRouter();
   const { ready, draft } = useCreate();
@@ -20,14 +26,16 @@ export function Live() {
   return (
     <CreateScreen
       title={m.create.live.title}
-      lead={fmt(m.create.live.copy, { title })}
-      mascot="cheering"
+      align="center"
       footer={
         <>
           <Button block onClick={() => { resetDraft(); router.push("/create/product"); }}>{m.create.live.another}</Button>
           {productId ? <Button block variant="secondary" arrow={false} href={`/p/${productId}`}>{m.create.live.buyerView}</Button> : null}
         </>
       }
-    />
+    >
+      <SkyCard />
+      <Title as="p" size="l">{fmt(m.create.live.copy, { title })}</Title>
+    </CreateScreen>
   );
 }

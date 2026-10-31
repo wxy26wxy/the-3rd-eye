@@ -2,11 +2,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
-import { m } from "@/components/messages";
+import { fmt, m } from "@/components/messages";
 import { ArtImage } from "@/components/ui/ArtImage";
 import { Button, ButtonFace } from "@/components/ui/Button";
-import { CameraIcon, UploadIcon } from "@/components/ui/Icons";
-import { Loading } from "@/components/ui/Loading";
+import { CameraIcon, ImageIcon } from "@/components/ui/Icons";
+import { Loading, SkyCard } from "@/components/ui/Loading";
 import { api, extFor, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid, type Artwork, type Candidate } from "../api";
 import { CreateScreen, MissingState } from "../CreateScreen";
 import { boxRescueArtworkId } from "../cutout";
@@ -95,37 +95,43 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
     router.push("/create/select");
   }
 
+  const busy = phase !== "pick";
+  const productWord = draft.product === "tote" ? m.common.tote.toLowerCase() : m.common.sticker.toLowerCase();
+  const busyLabel = phase === "uploading" ? m.create.photo.uploading : phase === "finding" ? m.create.photo.finding : fmt(m.create.result.making, { product: productWord });
+  const picker = (label: string, variant: "primary" | "secondary" = "primary") => (
+    <FilePicker label={label} variant={variant} icon={variant === "secondary" ? (camera ? <CameraIcon /> : <ImageIcon />) : undefined}
+      accept="image/*" capture={camera ? "environment" : undefined} onFile={onFile} />
+  );
+  // Bar per state: the picker (idle), Retake + Draw a box (no drawing found, board 2027:3226),
+  // Try again (time-out or other, board 2038:4419), nothing while working.
+  let footer: ReactNode = null;
+  if (!busy && error?.action === "retake") {
+    footer = <>{picker(m.create.errors.retake)}{rescueId ? <Button block variant="secondary" arrow={false} onClick={() => drawBox(rescueId)}>{m.create.photo.drawBox}</Button> : null}</>;
+  } else if (!busy && error?.action === "retry" && lastFile) {
+    footer = <Button block onClick={() => void onFile(lastFile)}>{m.create.errors.retry}</Button>;
+  } else if (!busy) {
+    footer = picker(preview || error ? m.create.photo.retake : camera ? m.create.photo.pickCamera : m.create.photo.pickUpload);
+  }
+
+  // Boards 2027:3184 (camera), 2027:3207 (finding), 2027:3226 / 2038:4419 (errors).
   return (
-    <CreateScreen back="/create/method" step={3} title={camera ? m.create.photo.titleCamera : m.create.photo.titleUpload} lead={m.create.photo.copy}>
-      {preview ? <div className={styles.preview}><ArtImage src={preview} alt={m.create.photo.preview} placeholder="" /></div> : null}
-      {phase === "uploading" ? <Loading label={m.create.photo.uploading} /> : null}
-      {phase === "finding" ? <Loading label={m.create.photo.finding} /> : null}
-      {phase === "making" ? <Loading label={m.create.result.making.replace("{product}", draft.product === "tote" ? m.common.tote.toLowerCase() : m.common.sticker.toLowerCase())} /> : null}
-      <ErrorNotice error={error} onRetry={lastFile ? () => void onFile(lastFile) : undefined} />
-      {rescueId && phase === "pick" ? (
-        <Button block variant="secondary" arrow={false} onClick={() => drawBox(rescueId)}>{m.create.photo.drawBox}</Button>
-      ) : null}
-      {phase === "pick" ? (
-        <FilePicker
-          label={preview ? m.create.photo.retake : camera ? m.create.photo.pickCamera : m.create.photo.pickUpload}
-          icon={camera ? <CameraIcon /> : <UploadIcon />}
-          accept="image/*"
-          capture={camera ? "environment" : undefined}
-          onFile={onFile}
-        />
-      ) : null}
+    <CreateScreen back={busy ? undefined : "/create/method"} step={3} title={camera ? m.create.photo.titleCamera : m.create.photo.titleUpload} lead={m.create.photo.copy} footer={footer}>
+      {busy ? <Loading variant="sky" label={busyLabel} />
+        : error ? <ErrorNotice error={error} />
+        : preview ? <div className={styles.photoPreview}><ArtImage src={preview} alt={m.create.photo.preview} placeholder="" ratio="auto" /></div>
+        : <SkyCard />}
     </CreateScreen>
   );
 }
 
 /** A native file input styled as the primary pill (keyboard + screen reader friendly). */
 export function FilePicker({ label, icon, accept, capture, onFile, variant = "primary" }: {
-  label: string; icon: ReactNode; accept: string; capture?: "environment" | "user"; onFile: (f: File | undefined) => void; variant?: "primary" | "secondary";
+  label: string; icon?: ReactNode; accept: string; capture?: "environment" | "user"; onFile: (f: File | undefined) => void; variant?: "primary" | "secondary";
 }) {
   return (
     <label className={styles.filePick}>
       <input type="file" accept={accept} capture={capture} aria-label={label} onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }} />
-      <ButtonFace variant={variant} block icon={icon}>{label}</ButtonFace>
+      <ButtonFace variant={variant} block icon={icon} arrow={variant === "primary"}>{label}</ButtonFace>
     </label>
   );
 }

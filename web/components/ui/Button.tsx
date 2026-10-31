@@ -45,11 +45,12 @@ export function ArrowBubble() {
 }
 
 /** Non-interactive element that looks like a Button (e.g. the visible face of a file input's label). */
-export function ButtonFace({ variant = "primary", block, icon, children }: { variant?: Variant; block?: boolean; icon?: ReactNode; children: ReactNode }) {
+export function ButtonFace({ variant = "primary", block, icon, arrow = false, children }: { variant?: Variant; block?: boolean; icon?: ReactNode; arrow?: boolean; children: ReactNode }) {
   return (
-    <span className={cls(variant, block)} aria-hidden="true">
+    <span className={cls(variant, block, undefined, arrow)} aria-hidden="true">
       {icon ? <span className={styles.icon}>{icon}</span> : null}
       <span className={styles.label}>{children}</span>
+      {arrow ? <ArrowBubble /> : null}
     </span>
   );
 }

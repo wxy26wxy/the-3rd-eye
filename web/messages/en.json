@@ -407,6 +407,7 @@
       "addAround": "Add the area around this piece",
       "markAdded": "Added area, mark {n}. Remove this mark",
       "markRemoved": "Left out, mark {n}. Remove this mark",
+      "marksLabel": "Marks",
       "maxMarks": "You can add up to 10 marks. Tap a mark to remove it.",
       "clearMarks": "Clear marks",
       "needPiece": "Pick a piece, draw a box or add an area first. Remove area only leaves out pieces you picked.",

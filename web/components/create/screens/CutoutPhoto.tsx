@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { fmt, m } from "@/components/messages";
+import { CheckIcon } from "@/components/ui/Icons";
 import type { Candidate } from "../api";
 import { fitRect, imageBox, imagePoint, percentRect, type Box, type CutoutPoint, type ImageSize, type Rect, type XY } from "../cutout";
 import styles from "../Create.module.css";
@@ -21,7 +22,8 @@ function pct(v: number) { return `${v}%`; }
  * Taps add marks; in box mode a drag draws the box; a tap on a piece's number chooses or drops
  * that piece (same as its checkbox). Pointer only: the same actions are real controls under
  * each piece (Select), so the tap layer and the number chips are hidden from assistive tech.
- * Marks are buttons (44 px targets) that delete themselves.
+ * Marks are 44 px pointer targets that delete themselves; the keyboard and screen-reader path to the
+ * same action is the Marks list under the tools (Select), so the marks here stay out of the tab order.
  */
 export function CutoutPhoto({ src, image, candidates, selectedIds, points, box, mode, disabled, onTap, onBox, onRemoveMark, onToggle, onImageError }: {
   src: string; image: ImageSize; candidates: Candidate[]; selectedIds: string[]; points: CutoutPoint[]; box: Box | null;
@@ -73,7 +75,9 @@ export function CutoutPhoto({ src, image, candidates, selectedIds, points, box, 
             const on = selectedIds.includes(c.id);
             return (
               <span key={c.id} aria-hidden="true" className={[styles.outline, on ? styles.outlineOn : ""].join(" ")}
-                style={{ left: pct(r.left), top: pct(r.top), width: pct(r.width), height: pct(r.height) }} />
+                style={{ left: pct(r.left), top: pct(r.top), width: pct(r.width), height: pct(r.height) }}>
+                {on ? <span className={styles.outlineCheck}><CheckIcon /></span> : null}
+              </span>
             );
           })}
           {boxRect ? (
@@ -107,7 +111,7 @@ export function CutoutPhoto({ src, image, candidates, selectedIds, points, box, 
               <span key={c.id} aria-hidden="true" className={[styles.chipHit, on ? styles.chipOn : "", disabled ? styles.chipOff : "", mode === "box" ? styles.chipPass : ""].join(" ")}
                 style={{ left: pct(r.left), top: pct(r.top) }}
                 onClick={(e) => { e.stopPropagation(); if (!disabled) onToggle?.(c.id); }}>
-                <span className={styles.chip}>{on ? "✓ " : ""}{i + 1}</span>
+                <span className={styles.chip}>{i + 1}</span>
               </span>
             );
           })}
@@ -118,6 +122,8 @@ export function CutoutPhoto({ src, image, candidates, selectedIds, points, box, 
                 key={`${i}-${pt.x}-${pt.y}`}
                 type="button"
                 disabled={disabled}
+                tabIndex={-1}
+                aria-hidden="true"
                 className={[styles.mark, positive ? styles.markAdd : styles.markRemove].join(" ")}
                 style={{ left: pct((pt.x / image.w) * 100), top: pct((pt.y / image.h) * 100) }}
                 aria-label={fmt(positive ? m.create.select.markAdded : m.create.select.markRemoved, { n: i + 1 })}

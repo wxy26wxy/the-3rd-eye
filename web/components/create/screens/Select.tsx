@@ -2,20 +2,16 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
-import { ArtImage } from "@/components/ui/ArtImage";
-import { Button } from "@/components/ui/Button";
-import { CameraIcon } from "@/components/ui/Icons";
-import { Loading, Status } from "@/components/ui/Loading";
 import { api, type Artwork, type ArtworkDetail, type CleanupResult } from "../api";
-import { CreateScreen, HydratingScreen, MissingState } from "../CreateScreen";
+import { HydratingScreen, MissingState } from "../CreateScreen";
 import {
   boxAround, centrePoint, chooseAction, initialChoice, isStuck, leavesNothing, makeRequest, MAX_POINTS, needsTrimAdvice, ORIGINAL_URL_TTL_MS,
   productNotice, sameRequest, usableSize, wholeImageBox, type AppliedCutout, type Box, type CleanupRequest, type CutoutPoint, type ImageSize, type XY,
 } from "../cutout";
-import { describeError, ErrorNotice, type ScreenError } from "../errors";
+import { describeError, type ScreenError } from "../errors";
 import { makeProduct, useCreate } from "../store";
 import { CutoutPhoto, type TapMode } from "./CutoutPhoto";
-import styles from "../Create.module.css";
+import { SelectView } from "./SelectView";
 
 const t = m.create.select;
 const MODES: { id: TapMode; label: string; instruction: string }[] = [
@@ -251,96 +247,52 @@ function SelectFlow() {
 
   const productWord = draft.product === "tote" ? m.common.tote.toLowerCase() : m.common.sticker.toLowerCase();
   return (
-    <CreateScreen
-      back={busy ? undefined : retake}
-      step={3}
-      title={t.title}
+    <SelectView
+      uid={uid}
       lead={lead}
-      footer={(
-        <>
-          <Button block onClick={() => void goOn()} disabled={!action || busy} aria-busy={work === "use"}>{t.use}</Button>
-          <Button block variant="secondary" arrow={false} onClick={() => void apply()} disabled={!request || busy} aria-busy={work === "apply"}>
-            {work === "apply" ? t.applying : t.apply}
-          </Button>
-          {busy ? (
-            <Button block variant="secondary" arrow={false} icon={<CameraIcon />} disabled>{t.retake}</Button>
-          ) : (
-            <Button block variant="secondary" arrow={false} icon={<CameraIcon />} href={retake}>{t.retake}</Button>
-          )}
-        </>
-      )}
-    >
-      <p className="visually-hidden" role="status" aria-live="polite">{announce}</p>
-      {work === "use" ? <Loading label={fmt(m.create.result.making, { product: productWord })} /> : null}
-      {work === "apply" ? <Loading label={t.applying} /> : null}
-
-      {shown ? (
-        <>
-          <h2 ref={resultRef} tabIndex={-1} className={styles.resultHeading}>{t.applied}</h2>
-          <div className={styles.checker} style={imageSize ? { aspectRatio: `${imageSize.w} / ${imageSize.h}` } : undefined}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={shown.cleanedUrl ?? ""} alt={shown.altText ?? t.cutoutAlt} />
-          </div>
-        </>
-      ) : imageSize && originalUrl ? (
+      retake={retake}
+      productWord={productWord}
+      work={work}
+      announce={announce}
+      photo={imageSize && originalUrl ? (
         <CutoutPhoto
           src={originalUrl} image={imageSize} candidates={candidates} selectedIds={selectedIds} points={points} box={box}
           mode={mode} disabled={busy} onTap={onTap} onBox={placeBox} onRemoveMark={removeMark} onToggle={toggle} onImageError={onPhotoError}
         />
-      ) : detail.state === "loading" ? <Loading label={t.loadingPhoto} /> : <Status>{none ? t.photoMissingNone : t.photoMissing}</Status>}
-
-      {appliedNow ? (
-        <Button block variant="secondary" arrow={false} onClick={() => setShowApplied((v) => !v)} disabled={busy}>
-          {shown ? t.backToPhoto : t.showCutout}
-        </Button>
       ) : null}
-
-      {imageSize && originalUrl && !shown ? (
-        <>
-          <fieldset className={styles.modes} disabled={busy}>
-            <legend className="visually-hidden">{t.modesLabel}</legend>
-            {modes.map((x) => (
-              <label key={x.id} className={styles.mode}>
-                <input className="visually-hidden" type="radio" name={`${uid}-mode`} value={x.id} checked={mode === x.id} onChange={() => setMode(x.id)} />
-                <span>{x.label}</span>
-              </label>
-            ))}
-          </fieldset>
-          <p className={styles.instruction}>{instruction} {none ? t.keyboardHintNone : t.keyboardHint}</p>
-          {wholeBox ? <button type="button" className={styles.pieceAction} onClick={() => placeBox(wholeBox)} disabled={busy}>{t.wholePhoto}</button> : null}
-        </>
-      ) : null}
-
-      {points.length || box ? <button type="button" className={styles.textButton} onClick={clearMarks} disabled={busy}>{t.clearMarks}</button> : null}
-      {notice ? <p className={styles.notice}>{notice}</p> : null}
-      {stuck ? <p className={styles.notice}>{t.needPiece}</p> : null}
-      <div ref={errorRef} tabIndex={-1} className={styles.errorSpot}>
-        <ErrorNotice error={error} onRetry={() => void (failed === "use" ? goOn() : apply())} retakeHref={busy ? undefined : retake} />
-      </div>
-
-      {none ? null : <fieldset className={styles.fieldset} disabled={busy}>
-        <legend className="visually-hidden">{t.groupLabel}</legend>
-        <ul role="list" className={styles.variants}>
-          {candidates.map((c, i) => {
-            const labelId = `${uid}-piece-${i}`;
-            return (
-              <li key={c.id} className={styles.variant}>
-                <label className={styles.pick}>
-                  <input type="checkbox" value={c.id} checked={selectedIds.includes(c.id)} onChange={() => toggle(c.id)} />
-                  <ArtImage src={c.thumbUrl} alt="" placeholder={m.common.imageMissing} />
-                  <span className={styles.pickLabel} id={labelId}>
-                    {fmt(t.candidate, { n: i + 1 })}<span className={[styles.tick, styles.tickBox].join(" ")} aria-hidden="true" />
-                  </span>
-                </label>
-                <div role="group" aria-labelledby={labelId} className={styles.pieceActions}>
-                  <button type="button" className={styles.pieceAction} onClick={() => placeBox(boxAround(c))}>{t.boxAround}</button>
-                  <button type="button" className={styles.pieceAction} onClick={() => { const p = centrePoint(c); if (p) addMark(p); }}>{t.addAround}</button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      </fieldset>}
-    </CreateScreen>
+      photoState={detail.state === "loading" ? "loading" : "missing"}
+      noPieces={none}
+      applied={shown ? { src: shown.cleanedUrl ?? "", alt: shown.altText ?? t.cutoutAlt, aspectRatio: imageSize ? `${imageSize.w} / ${imageSize.h}` : undefined } : null}
+      canShowApplied={!!appliedNow}
+      candidates={candidates.map((c) => ({ id: c.id, thumbUrl: c.thumbUrl }))}
+      selectedIds={selectedIds}
+      modes={modes}
+      mode={mode}
+      instruction={instruction}
+      keyboardHint={none ? t.keyboardHintNone : t.keyboardHint}
+      wholePhoto={!!wholeBox}
+      marks={points.map((pt, i) => fmt(pt.label === "positive" ? t.markAdded : t.markRemoved, { n: i + 1 }))}
+      hasMarksOrBox={points.length > 0 || box !== null}
+      notice={notice}
+      stuck={stuck}
+      error={error}
+      canUse={!!action}
+      canApply={!!request}
+      resultRef={resultRef}
+      errorRef={errorRef}
+      on={{
+        toggle,
+        boxAround: (i) => { const c = candidates[i]; if (c) placeBox(boxAround(c)); },
+        addAround: (i) => { const c = candidates[i]; const pt = c ? centrePoint(c) : null; if (pt) addMark(pt); },
+        mode: setMode,
+        wholePhoto: () => placeBox(wholeBox),
+        removeMark,
+        clearMarks,
+        toggleApplied: () => setShowApplied((v) => !v),
+        use: () => void goOn(),
+        apply: () => void apply(),
+        retry: () => void (failed === "use" ? goOn() : apply()),
+      }}
+    />
   );
 }

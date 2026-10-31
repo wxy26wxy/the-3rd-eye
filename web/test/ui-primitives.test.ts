@@ -29,9 +29,11 @@ describe("Sky UI primitives (T102)", () => {
 
   it("magnifier plays the MP4 (never the GIF) with the still pose for reduced motion", () => {
     const out = html(createElement(Mascot, { pose: "magnifier" }));
-    expect(out).toContain(`src="${ASSETS.mascotMagnifierVideo}"`);
+    // the source is set in the browser only when motion is allowed (nothing downloads under reduced motion)
+    expect(out).toContain(`data-src="${ASSETS.mascotMagnifierVideo}"`);
+    expect(out).not.toMatch(/<video[^>]*\ssrc=/);
+    expect(out).toMatch(/<video[^>]*preload="none"/);
     expect(out).toMatch(/<video[^>]*\bloop\b/);
-    expect(out).toMatch(/<video[^>]*\bautoplay/i);
     expect(out).toContain(`src="${ASSETS.mascotFront}"`);
     expect(out).not.toContain(".gif");
     expect(out).toContain(`aria-label="${m.mascot.magnifier}"`);

@@ -38,6 +38,8 @@ export type ListingViewProps = {
     description: (v: string) => void;
     price: (v: string) => void;
     improve: () => void;
+    /** Repeats the call that failed (approve or the agent). */
+    retry: () => void;
     toggleTrace: () => void;
     submit: (e: FormEvent) => void;
   };
@@ -96,7 +98,7 @@ export function ListingView({ uid, mockup, drafting, improving, submitting, titl
               </div>
             </>
           ) : null}
-          <div ref={errorRef} className={styles.errorSpot}><ErrorNotice error={error} onRetry={on.improve} /></div>
+          <div ref={errorRef} tabIndex={-1} className={styles.errorSpot}><ErrorNotice error={error} onRetry={on.retry} /></div>
         </form>
       )}
     </CreateScreen>

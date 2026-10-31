@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
 import { speak } from "@/components/speech";
@@ -57,10 +57,15 @@ function SpeakFlow() {
 
   const recorder = useRecorder({ onAutoStop: (b) => void handleAudio(b, answering) });
 
+  // Typing chosen while the browser's mic prompt was still open: a late grant must not start recording.
+  const typingRef = useRef(typing);
+  useEffect(() => { typingRef.current = typing; }, [typing]);
   async function startRecording(forAnswer: boolean) {
     setError(null);
     setAnswering(forAnswer);
+    typingRef.current = false;
     const ok = await recorder.start();
+    if (ok && typingRef.current) { void recorder.stop(); return; }
     if (ok) setPhase("recording");
     else setTyping(true);
   }
@@ -147,7 +152,7 @@ function SpeakFlow() {
       {phase === "idle" ? (
         typingOpen ? (
           <form id={IDEA_FORM} className={styles.form} onSubmit={(e) => { e.preventDefault(); if (transcript.trim()) setPhase("review"); }}>
-            <Field multiline rows={4} label={m.create.speak.textLabel} placeholder={m.create.speak.textPlaceholder} value={transcript} onChange={(e) => setTranscript(e.target.value)} />
+            <Field multiline rows={4} autoFocus={typing} label={m.create.speak.textLabel} placeholder={m.create.speak.textPlaceholder} value={transcript} onChange={(e) => setTranscript(e.target.value)} />
             {!micProblem ? <TextAction onClick={() => setTyping(false)}>{m.create.speakInstead}</TextAction> : null}
           </form>
         ) : (
@@ -197,7 +202,7 @@ function AnswerForm({ onSubmit, onSpeak }: { onSubmit: (answer: string) => void;
   const [value, setValue] = useState("");
   return (
     <form className={styles.form} onSubmit={(e) => { e.preventDefault(); if (value.trim()) onSubmit(value.trim()); }}>
-      <Field label={m.create.speak.answerLabel} value={value} onChange={(e) => setValue(e.target.value)} />
+      <Field autoFocus label={m.create.speak.answerLabel} value={value} onChange={(e) => setValue(e.target.value)} />
       <Button type="submit" block disabled={!value.trim()}>{m.create.speak.answerSubmit}</Button>
       {onSpeak ? <TextAction onClick={onSpeak}>{m.create.speakInstead}</TextAction> : null}
     </form>

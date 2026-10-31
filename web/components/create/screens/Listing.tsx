@@ -34,6 +34,8 @@ function ListingForm() {
   const [running, setRunning] = useState(!draft.listing);
   const [showTrace, setShowTrace] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  /** Which call failed last, so "Try again" repeats that one (approve vs. the listing agent). */
+  const [failedCall, setFailedCall] = useState<"agent" | "approve">("agent");
   const [error, setError] = useState<ScreenError | null>(null);
   const [errors, setErrors] = useState<{ title?: string; price?: string }>({});
 
@@ -47,7 +49,7 @@ function ListingForm() {
     if (!p) return Promise.resolve();
     return once(key, () => api<{ listing: ListingDraft; trace: AgentStep[] }>(`listings/${p.id}/run`, { method: "POST", json: {} }))
       .then((res) => { update({ listing: res.listing, trace: res.trace }); apply(res.listing); })
-      .catch((err) => setError(describeError(err)))
+      .catch((err) => { setFailedCall("agent"); setError(describeError(err)); })
       .finally(() => setRunning(false));
   }
   function improve() {
@@ -65,15 +67,20 @@ function ListingForm() {
 
   // A 409 (print check, moderation) lands under the form: bring the card above the pinned bar.
   const errorRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { if (error) errorRef.current?.scrollIntoView({ block: "center" }); }, [error]);
+  // Focus goes there too, so a keyboard user continues from the card instead of the top of the page.
+  useEffect(() => {
+    if (!error || !errorRef.current) return;
+    errorRef.current.scrollIntoView({ block: "center" });
+    errorRef.current.focus({ preventScroll: true });
+  }, [error]);
 
   const cents = toCents(price);
   const bps = creator?.split?.creator_bps ?? 5000;
   const earn = cents ? Math.floor((cents * bps) / 10000) : null;
   const printOk = draft.listing?.print_ok;
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+  async function submit(e?: FormEvent) {
+    e?.preventDefault();
     if (!p) return;
     const errs = { title: title.trim() ? undefined : m.create.listing.nameRequired, price: cents ? undefined : m.create.listing.priceInvalid };
     setErrors(errs);
@@ -88,6 +95,7 @@ function ListingForm() {
       router.push(res.storyVideoNeeded ? "/create/story-video" : "/create/live");
     } catch (err) {
       // 409 print_check_failed / moderation_failed: stay on the form and show the reason.
+      setFailedCall("approve");
       setError(describeError(err));
       setSubmitting(false);
     }
@@ -112,7 +120,7 @@ function ListingForm() {
       showTrace={showTrace}
       error={error}
       errorRef={errorRef}
-      on={{ title: setTitle, description: setDescription, price: setPrice, improve, toggleTrace: () => setShowTrace((v) => !v), submit }}
+      on={{ title: setTitle, description: setDescription, price: setPrice, improve, retry: () => void (failedCall === "approve" ? submit() : improve()), toggleTrace: () => setShowTrace((v) => !v), submit }}
     />
   );
 }

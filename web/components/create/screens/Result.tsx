@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
 import { speak, stopSpeaking } from "@/components/speech";
@@ -33,6 +33,14 @@ export function Result() {
   const [error, setError] = useState<ScreenError | null>(null);
   const [retry, setRetry] = useState<(() => void) | null>(null);
   const [playing, setPlaying] = useState(false);
+  // Focus follows the panel: "Change it" opens it (the field takes focus), its Back returns to "Change it".
+  const changeRef = useRef<HTMLButtonElement>(null);
+  const [focusChange, setFocusChange] = useState(false);
+  useEffect(() => {
+    if (!focusChange || phase !== "pick") return;
+    changeRef.current?.focus();
+    setFocusChange(false); // eslint-disable-line react-hooks/set-state-in-effect -- one-shot focus request
+  }, [focusChange, phase]);
   const recorder = useRecorder({ onAutoStop: (b) => void afterRecording(b) });
   useEffect(() => () => stopSpeaking(), []);
 
@@ -89,12 +97,12 @@ export function Result() {
   const footer = phase === "pick" ? (
     <>
       <Button block onClick={chooseThis} disabled={!selected}>{m.create.result.use}</Button>
-      <Button block variant="secondary" arrow={false} onClick={() => { setError(null); setPhase("change"); }}>{m.create.result.change}</Button>
+      <Button block variant="secondary" arrow={false} ref={changeRef} onClick={() => { setError(null); setPhase("change"); }}>{m.create.result.change}</Button>
     </>
   ) : null;
   const preview = (
     <div className={styles.previewCard}>
-      <ArtImage src={current?.previewUrl ?? current?.cleanedUrl ?? null} alt={current?.altText ?? ""} placeholder={m.common.imageMissing} ratio="auto" eager className={styles.previewArt} />
+      <ArtImage src={current?.previewUrl ?? current?.cleanedUrl ?? null} alt={description && phase === "pick" && !error ? "" : current?.altText ?? ""} placeholder={m.common.imageMissing} ratio="auto" eager className={styles.previewArt} />
     </div>
   );
 
@@ -128,7 +136,7 @@ export function Result() {
             </div>
           ) : (
             <form className={styles.form} onSubmit={(e) => { e.preventDefault(); void refine(instruction); }}>
-              <Field multiline rows={3} label={m.create.result.changeLabel} placeholder={m.create.result.changePlaceholder} value={instruction} onChange={(e) => setInstruction(e.target.value)} />
+              <Field multiline rows={3} autoFocus label={m.create.result.changeLabel} placeholder={m.create.result.changePlaceholder} value={instruction} onChange={(e) => setInstruction(e.target.value)} />
               {!typing && recorder.status !== "denied" && recorder.status !== "unsupported" ? (
                 <div className={styles.recordWrap}>
                   <button type="button" className={styles.record} aria-label={m.create.speak.start} onClick={async () => { if (await recorder.start()) setPhase("recording"); else setTyping(true); }}><MicIcon /></button>
@@ -138,7 +146,7 @@ export function Result() {
               <Button type="submit" block disabled={!instruction.trim()}>{m.create.result.changeSubmit}</Button>
             </form>
           )}
-          <Button variant="ghost" arrow={false} className={styles.textAction} onClick={() => { if (phase === "recording") void recorder.stop(); setPhase("pick"); setTyping(false); }}>{m.common.back}</Button>
+          <Button variant="ghost" arrow={false} className={styles.textAction} aria-label={m.create.result.backToPictures} onClick={() => { if (phase === "recording") void recorder.stop(); setPhase("pick"); setTyping(false); setFocusChange(true); }}>{m.common.back}</Button>
         </div>
       ) : error ? (
         <>

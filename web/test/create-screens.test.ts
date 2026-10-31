@@ -140,7 +140,7 @@ function listing(over: Partial<ListingViewProps> = {}): string {
     trace: [{ step: 1, tool: "check_print", text: "ok" }] as ListingViewProps["trace"],
     showTrace: false,
     error: null,
-    on: { title: noop, description: noop, price: noop, improve: noop, toggleTrace: noop, submit: noop },
+    on: { title: noop, description: noop, price: noop, improve: noop, retry: noop, toggleTrace: noop, submit: noop },
     ...over,
   };
   return html(createElement(ListingView, props));

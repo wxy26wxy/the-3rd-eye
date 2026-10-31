@@ -8,7 +8,8 @@ export type PickItem = { id: string; src: string | null; alt: string };
 /**
  * Picture row (Result board `2027:3091`): radio-backed tiles in one row. Selected = accent fill with
  * the accent border and a tick before the label ("✓ Picture 1"), so the choice is not shown by colour
- * alone. Each tile's image carries the picture's description as its alt text.
+ * alone. The tiles' images are decorative: the radio is named "Picture n" and the chosen picture's
+ * description is the visible "What the image shows" card.
  */
 export function VariantPicker({ name, legend, items, selected, onSelect, itemLabel, placeholder, disabled }: {
   name: string; legend: string; items: PickItem[]; selected?: string; onSelect: (id: string) => void;
@@ -22,7 +23,7 @@ export function VariantPicker({ name, legend, items, selected, onSelect, itemLab
           <li key={it.id}>
             <label className={styles.tile}>
               <input className="visually-hidden" type="radio" name={name} value={it.id} checked={selected === it.id} onChange={() => onSelect(it.id)} />
-              <ArtImage src={it.src} alt={it.alt} placeholder={placeholder} className={styles.tileArt} />
+              <ArtImage src={it.src} alt="" placeholder={placeholder} className={styles.tileArt} />
               <span className={styles.tileLabel}>
                 {selected === it.id ? <span aria-hidden="true">✓ </span> : null}{fmt(itemLabel, { n: i + 1 })}
               </span>

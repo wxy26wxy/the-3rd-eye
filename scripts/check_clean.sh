@@ -5,8 +5,12 @@ set -u
 cd "$(dirname "$0")/.."
 status=0
 patterns='Co-Authored-By|CLAUDE\.md|\.claude/|[Gg]enerated with \[|Anthropic|claude\.ai|Claude Code'
+# Bare assistant name, any case (scratch paths such as /private/tmp/<name>-501 have slipped into filed reviews before).
+bare_name='claude'
 # Only files git would ship: tracked plus untracked-but-not-ignored.
 hits=$(git ls-files -co --exclude-standard -z 2>/dev/null | grep -zv 'scripts/check_clean.sh' | xargs -0 grep -EIl "$patterns" 2>/dev/null || true)
+barehits=$(git ls-files -co --exclude-standard -z 2>/dev/null | grep -zv 'scripts/check_clean.sh' | xargs -0 grep -Iil "$bare_name" 2>/dev/null || true)
+hits=$(printf '%s\n%s\n' "$hits" "$barehits" | sed '/^$/d' | sort -u)
 if [ -n "$hits" ]; then
   echo "check_clean: disallowed text in files:"; echo "$hits"; status=1
 fi

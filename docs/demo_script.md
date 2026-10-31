@@ -10,7 +10,7 @@ Shot-by-shot script for the submission video. Narration is plain, first person p
   - **Leo** (drawing and photo flow, the Adjust-cutout shot): shot 3. Use a tester creator for rehearsals so the demo creators' data stays clean.
 - **Mac:** Ollama running with `muse-glimmer`, the app pointed at the Mac only for the story-draft shot. On Vercel the same stage falls back to Muse Spark 1.3.
 - **Phone:** VoiceOver on, Settings > Accessibility > VoiceOver > Speech volume up, Do Not Disturb on, screen recording ready (Control Centre). Over-the-shoulder camera on a tripod for the three phone shots.
-- **Props:** one stitched toy (or a wallet), one printed die-cut sticker with an NFC tag written to `/t/<token>` of a test order (to do: print, cut and write it at the physical test on Oct 30; method: a standard NFC writer app), a second phone to play the buyer.
+- **Props:** one stitched toy (or a wallet), one printed die-cut sticker with an NFC tag written to `/t/<token>` of a test order (to do: print, cut and write it at the physical test before the Nov 2 freeze; method: a standard NFC writer app), a second phone to play the buyer.
 - **Pre-recorded safety takes:** record each live step once in rehearsal and keep the clip, named `fallback-<shot>.mov`.
 
 ## Screens on camera (iOS, in order)
@@ -89,7 +89,7 @@ Fallback: if Ollama is down, the stage uses Muse Spark 1.3 and the response says
 Capture: over the shoulder for the print and tap; screen recordings for the page and the creator app.
 
 Steps:
-1. Show the printed die-cut sticker (print PNG and die SVG downloaded from `/admin`). Show the NFC tag on the back. The physical sticker and tag are planned for the physical test on Oct 30 (method: a standard NFC writer app); until they exist, use the QR route in the fallback and do not narrate a tap.
+1. Show the printed die-cut sticker (print PNG and die SVG downloaded from `/admin`). Show the NFC tag on the back. The physical sticker and tag are done at the physical test before the Nov 2 freeze (method: a standard NFC writer app); until they exist, use the QR route in the fallback and do not narrate a tap.
 2. **Tap the sticker with the buyer phone.** `/t/<token>` opens: the artist's captioned video, the thank-you, the note box.
 3. Buyer types a reply and sends it.
 4. **Switch to the creator app, Messages tab: the reply arrives** (within about 10 seconds of polling). Show it.

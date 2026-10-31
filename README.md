@@ -33,7 +33,7 @@ Staged or limited:
 - **Payments.** Buy creates the order and takes no payment (`PAYMENTS_MODE=staged`).
 - **Creators.** The example artists in the shop are fictional and labelled as such. Real creators sign in with a code issued from `/admin`; this is development-grade sign-in, not production auth.
 - **Notifications.** The iOS app checks for new orders and messages about every 10 seconds. There are no push notifications.
-- **Physical sticker and NFC tag.** Printing, cutting and writing a tag are planned for the physical test on Oct 30; method: a standard NFC writer app. The iOS app does not write tags. The QR code on `/admin` opens the same story page.
+- **Physical sticker and NFC tag.** Printing, cutting and writing a tag are the physical test before the Nov 2 freeze (steps in `scripts/print_checklist.md`); method: a standard NFC writer app. The iOS app does not write tags. The QR code on `/admin` opens the same story page.
 - **Fulfilment.** We print and ship by hand from the admin page.
 - **Open-weight stage.** Muse Glimmer runs on our development Mac, so it is only available while that Mac is serving (see below).
 - **Not yet verified on a phone:** captions from a camera video on a real iPhone, and a VoiceOver pass over the Adjust cutout and My designs screens. See `docs/risks.md` and `docs/accessibility.md`.

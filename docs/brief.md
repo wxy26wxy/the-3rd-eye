@@ -20,7 +20,7 @@ This solves three problems: studios can only sell one-off originals locally, art
 | Generate and refine artwork; product mockups | Muse Image 1.0 (`muse-image-1.0`) |
 | Find and cut out drawings and handmade objects (the creator can combine pieces, add or remove areas, or draw a box); sticker die-cut outline | SAM 3.1 (`sam-3.1`) |
 | Draft creator stories from transcripts (open weights, on our own hardware) | Muse Glimmer 30B via Ollama (`muse-glimmer`), with Muse Spark 1.3 as fallback |
-| Development tooling | Muse Code |
+| Development tooling | none claimed (Muse Code was considered and not used; see README) |
 
 There is no Meta text-to-speech model. Descriptions are written by Muse Spark and shown as text; on iOS the system's VoiceOver reads them (the app has no speech engine of its own), on the web a "Read aloud" button uses `speechSynthesis`.
 

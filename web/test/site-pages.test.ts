@@ -17,6 +17,10 @@ import { Avatar, initials } from "@/components/site/Avatar";
 import { Thread } from "@/components/storytag/Thread";
 import { ThankYou } from "@/components/storytag/ThankYou";
 import { NoteForm } from "@/components/storytag/NoteForm";
+import { CreatorCard } from "@/components/site/CreatorCard";
+import { StaticPage } from "@/components/pages/StaticPage";
+import NotFound from "@/app/not-found";
+import type { CreatorSummary } from "@/lib/db/queries.contract";
 
 const html = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(el);
 
@@ -144,5 +148,32 @@ describe("Story tag parts (T106, board 2024:2428)", () => {
     expect(out).toContain(fmt(m.tag.noteLabel, { name: "Rosa M." }));
     expect(out.indexOf("<textarea")).toBeLessThan(out.indexOf(m.tag.noteHint));
     expect(out).toMatch(new RegExp(`<button type="submit"[^>]*>.*${m.tag.noteSubmit}`));
+  });
+});
+
+describe("Artists, static pages, 404 (T106, 2024:2597 / 2025:2682 / 2025:2886)", () => {
+  it("creator card: h2 name, studio, visible Meet {name} link to the profile", () => {
+    const creator = { id: "c1", slug: "rosa", displayName: "Rosa M.", studioName: "Sunny Studio", avatarUrl: null, isExample: false, bioShort: null, split: null } as unknown as CreatorSummary;
+    const out = html(createElement(CreatorCard, { creator }));
+    expect(out).toMatch(/<h2[^>]*>Rosa M\.<\/h2>/);
+    expect(out).toMatch(new RegExp(`<a[^>]*href="/c/rosa"[^>]*>${fmt(m.artists.viewProfile, { name: "Rosa M." })}</a>`));
+    expect(out).toContain(">RM<");
+  });
+
+  it("static page: h1, intro, decorative sky, checked list with the story-tags anchor, closing note", () => {
+    const out = html(createElement(StaticPage, { title: m.how.title, intro: m.how.intro, items: [m.how.draw, { text: m.how.tap, id: "story-tags" }], note: "Bye" }));
+    expect(out).toMatch(new RegExp(`<h1[^>]*>${m.how.title}</h1>`));
+    expect(out).toMatch(/<li id="story-tags"[^>]*><span[^>]*aria-hidden="true"><svg/);
+    expect(out).toContain(m.how.tap);
+    expect(out).toMatch(/aria-hidden="true"[^>]*style="background-image|style="background-image[^"]*"[^>]*aria-hidden="true"/);
+    expect(out.indexOf("</ul>")).toBeLessThan(out.indexOf("Bye"));
+  });
+
+  it("404: site nav, main with the h1 and Go to the shop, footer", () => {
+    const out = html(createElement(NotFound));
+    expect(out.indexOf("<header")).toBeLessThan(out.indexOf('<main id="main"'));
+    expect(out).toMatch(new RegExp(`<h1[^>]*>${m.notFound.title}</h1>`));
+    expect(out).toContain(m.notFound.home);
+    expect(out.indexOf("</main>")).toBeLessThan(out.indexOf("<footer"));
   });
 });

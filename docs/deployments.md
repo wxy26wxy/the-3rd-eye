@@ -47,10 +47,10 @@
 - Production URL: https://the-3rd-eye.vercel.app. Deployment id: pending (the PM fills it in later).
 - Approver: the product owner. Rollback target: the previous production deployment (Vercel instant rollback); for code, tag `v0.6`.
 
-## 2026-10-31 · tag v0.7 (3f2cac5) · production promotion pending
+## 2026-10-31 · tag v0.7 (3f2cac5) + docs 9e41723 · promoted to production
 - Sky design on every screen of both platforms: web creator flow (T105), public site and admin (T106), iOS screens (T104), plus the T108 backend follow-ups (die-cut outline wraps every piece of a multi-piece cut, typed buy errors, name/studio and list separators from `en.json`, private Blob store credential checks). No database migration in this release.
-- Production URL: https://the-3rd-eye.vercel.app. Production deployment id: pending (the PM fills it in later).
-- The production promotion is run by the product owner from the CLI (`vercel deploy --prod` from `web/` at tag v0.7). It has not happened as of this entry; this entry records the intent and is updated after the run.
+- Production URL: https://the-3rd-eye.vercel.app. Production deployment id: `dpl_9uvgSeEd9qW1t1vc6P2CzXWmtRfH` (built from main 9e41723 = tag v0.7 plus docs-only commits; build 26 s, 42 routes).
+- Promoted by the product owner from the CLI (`vercel deploy --yes --prod` from `web/`) on 2026-10-31. Smoke after promotion: `/`, `/artists`, `/how-it-works`, `/accessibility`, `/create` return 200, an unknown path returns 404, and the home page serves the Sky hero (sky photo, nav drawer, optimized images).
 - Approver: the product owner. Rollback target: the previous production deployment (Vercel instant rollback, no rebuild); for code, tag `v0.6`.
 
 ## 2026-10-31 · TestFlight · The 3rd Eye 0.5.0 builds (1) and (2) · upload pending

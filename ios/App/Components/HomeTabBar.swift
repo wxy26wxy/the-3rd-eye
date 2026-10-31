@@ -103,7 +103,6 @@ private struct HomeTabBarContent: View {
     .frame(maxWidth: .infinity, minHeight: ThemeEffects.tabHeight)
     .contentShape(Rectangle())
     .onTapGesture { choose(tab) }
-    .accessibilityShowsLargeContentViewer { Image(systemName: symbol); label }
     .accessibilityHidden(true)
   }
 }

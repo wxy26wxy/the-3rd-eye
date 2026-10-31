@@ -5,8 +5,9 @@
  *                                                     SVG: <name>.svg, vector kept; icons and the logo
  *                                                     render as templates (tinted by the view)
  *   ios/App/Info.plist UIAppFonts                    makes sure Inter-Variable.ttf is registered
- * A GIF entry stays GIF on the web and becomes an MP4 (<name>.mp4, H.264, looped by the player) for
- * iOS in ios/App/Resources/Animations/ (needs ffmpeg; bit-exact flags keep reruns byte-identical).
+ * A GIF entry becomes an MP4 (<name>.mp4, H.264, looped by the player) in ios/App/Resources/Animations/
+ * (needs ffmpeg; bit-exact flags keep reruns byte-identical); the same MP4 is copied to
+ * web/public/assets/<name>.mp4 (ASSETS.<key>Video), which pages play instead of the GIF.
  * No APNG: the Finding drawings GIF becomes a 12 MB APNG against a 0.15 MB MP4 (decision T100 fix 1).
  * Entries marked `pending` in tokens.json are skipped with a warning.
  * Outputs this script owns that no longer match a non-pending entry are deleted (web/public/assets/
@@ -120,12 +121,18 @@ async function main() {
     return !a.pending;
   });
   const baseName = (file: string) => file.replace(/\.[a-z0-9]+$/i, "");
-  prune(new Set(live.map(([, a]) => baseName(a.file))), new Set(live.map(([, a]) => a.file)));
+  const webFiles = live.flatMap(([, a]) => (extname(a.file).toLowerCase() === ".gif" ? [a.file, `${baseName(a.file)}.mp4`] : [a.file]));
+  prune(new Set(live.map(([, a]) => baseName(a.file))), new Set(webFiles));
   for (const [, a] of live) {
     const from = resolve(src, a.file);
     nonEmpty(from);
     copyFileSync(from, resolve(webDir, a.file));
-    if (extname(a.file).toLowerCase() === ".gif") gif(baseName(a.file), a.file);
+    if (extname(a.file).toLowerCase() === ".gif") {
+      gif(baseName(a.file), a.file);
+      const mp4 = `${baseName(a.file)}.mp4`;
+      nonEmpty(resolve(animDir, mp4));
+      copyFileSync(resolve(animDir, mp4), resolve(webDir, mp4));
+    }
     else await imageset(baseName(a.file), a.file, a.template === true);
   }
   registerFont();

@@ -7,6 +7,7 @@ export const ASSETS = {
   mascotOutline: "/assets/mascot-outline.svg",
   mascotFront: "/assets/mascot-front.png",
   mascotMagnifier: "/assets/mascot-magnifier.gif",
+  mascotMagnifierVideo: "/assets/mascot-magnifier.mp4",
   sky: "/assets/sky.png",
   tote: "/assets/tote.png",
   iconCamera: "/assets/icon-camera.svg",

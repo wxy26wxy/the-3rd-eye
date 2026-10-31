@@ -80,7 +80,9 @@ writeFileSync(
   assetsOut,
   `// GENERATED from design/tokens.json — do not edit by hand. Run: pnpm tokens\n` +
     `// Files are served from web/public/assets/ (copied from design/assets/ by \`pnpm assets\`).\nexport const ASSETS = {\n` +
-    assets.map(([k, a]) => `  ${k}: ${JSON.stringify(`/assets/${a.file}`)},\n`).join("") +
+    assets.map(([k, a]) => `  ${k}: ${JSON.stringify(`/assets/${a.file}`)},\n` +
+      // A GIF is also served as its MP4 (`pnpm assets`): pages play the MP4, never the GIF.
+      (/\.gif$/i.test(a.file) ? `  ${k}Video: ${JSON.stringify(`/assets/${assetName(a.file)}.mp4`)},\n` : "")).join("") +
     `} as const;\n`,
 );
 

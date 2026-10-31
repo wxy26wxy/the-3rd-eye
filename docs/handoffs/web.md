@@ -4,7 +4,7 @@
 `web/app/**` except `web/app/api/**`, `web/app/media/**`, `web/app/tokens.css`; `web/components/**`; `web/messages/en.json`; `web/proxy.ts`; `web/public/**` (except `public/ref/`); `web/lib/db/queries.contract.ts` and `web/lib/db/queries.fixtures.ts` (web-side contract and example data); `docs/design/screens.md`.
 
 ## Current task
-T020 · public site, admin, and mobile-web creator flow (done on `feat/web-T01x`).
+T105 · creator flow on the B4 web boards (done on `feat/web-T105`). Next: T106 site pages.
 
 ## Interface exposed to others
 - **Data contract** `web/lib/db/queries.contract.ts`: the backend's `queries.ts` should export these functions with these signatures: `listShopProducts(filter)`, `getProductDetail(id)`, `listPublicCreators()`, `getFeaturedCreator()`, `getCreatorProfile(slug)`, `getCreatorCaptions(creatorId)`, `getStoryTag(token)`, `getOrderConfirmation(orderId)`, `listAdminOrders()`, `getArtworkTrace(artworkId)` (returns `{ artwork, variants, candidates, calls }`; `variants` are sibling text2image variants plus refine ancestors with `chosen`, `candidates` are SAM candidates), `createOrder(productId, input, {task})`, `recordTap(token, {task})`, `createBuyerMessage(token, body, {task})`, `updateOrderStatus(orderId, status, {task})`. To bind, replace each stub body with a re-export and keep the `connection()` call on reads.
@@ -29,7 +29,7 @@ T020 · public site, admin, and mobile-web creator flow (done on `feat/web-T01x`
 - **Backend: `/creators/me` `split`** is used for "You earn per sale"; defaults to 50% if missing.
 
 ## Last updated
-2026-10-31 (T102)
+2026-10-31 (T105)
 
 ## T050 fix wave (2026-10-29)
 - `/t/[token]`: story video → thank-you (`components/storytag/ThankYou.tsx`; media via `/media/<path>?tag=`, captions via `/captions/tag/<token>`) → thread (`Thread.tsx`) → note form (refreshes the thread; moderation rejections shown) → about → more. Empty states for each.
@@ -82,3 +82,12 @@ Every page now draws with the Sky look (Inter, white page, ink, accent green); s
 - **CreateScreen:** logo mark top-left, or a 44 px Back chevron in its place when `back` is set; 48 px title; muted lead; body; bottom action bar sticky at the bottom (`footer` prop). `step` is announced only. `create/glyphs.tsx` `ProductGlyph` now shows `mascot-book.png` / `tote.png`.
 - **Adding an asset:** put the file in `design/assets/`, add an entry under `assets` in `design/tokens.json` (name, file, node id), run `pnpm assets` (copies to `web/public/assets/` and the iOS catalog) and `pnpm tokens` (adds `ASSETS.<name>` to `web/lib/assets.ts`). Components import `ASSETS` from `@/lib/assets` and render a plain `<img>` (or `Mascot` / `LogoMark`); never hard-code `/assets/...` paths.
 - **Open for per-screen tasks:** Welcome sky photo and white pill (`Button variant="white"`, `Display tone="onPhoto"`); shop hero (tilted card and copy, T106); dark footer and mobile Menu drawer (T106); Drawing/Photo finding screens should pass `variant="sky"` to `Loading`; admin tables still use the old layout.
+
+## T105 Creator flow on the B4 boards (2026-10-31)
+- **Frame (`create/CreateScreen`)**: logo mark or 44 px Back (only screens with a back action: Code, Product, Method, Speak, Result, Photo, Select when not busy, Listing); 48 px title (`align="center"` on Ready and Live); muted lead; body with 20 px gaps and 24 px gutters; `footer` goes into `create/PinnedBar` (sticky white bar; its top line shows only while content is under it). Step is announced only.
+- **Cards (`create/cards.tsx`)**: `InfoCard` (eyebrow + text; tones white / green for the question / alt for the story), `ErrorCard` (warning icon, message, optional text actions; `role=alert` unless `live` says otherwise), `NoticeCard`. `errors#ErrorNotice` now renders an `ErrorCard` with "Try again" / "Retake the photo" as text actions inside it.
+- **Pure views for tests**: `screens/SelectView.tsx` (every Select state from props) and `screens/ListingView.tsx` (`LISTING_FORM`: the bar's submit button submits the form by id). `Select.tsx` and `Listing.tsx` keep all logic and API calls (T090 behaviour and the cleanup contract unchanged).
+- **Forms submitted from the bar**: the code sign-in (still a plain form POST, works without JS), Speak's typed idea, Listing.
+- **Assets**: `ASSETS.mascotMagnifierVideo` (MP4). `ui/Loading variant="sky"` plays it, `ui/SkyCard` is the static sky card (Photo idle, Live, Drawing error). Never reference the GIF from a page.
+- **Primitive additions**: `Field hintPosition="below"`, `LogoMark tone="white"`, `ButtonFace arrow`, `Loading inline` is left-aligned, icons `Plus`, `Minus`, `Box`, `Warning`, `Close`, `Image`.
+- **Checking states without the backend**: seed `sessionStorage["ms:create"]` with a draft and stub `window.fetch` for `/create/bff/*` in a navigation init script (chrome-devtools `navigate_page` `initScript`); the Blob client upload can be stubbed the same way (`/create/bff/uploads` → a client token, `vercel.com/api/blob` → a blob JSON).

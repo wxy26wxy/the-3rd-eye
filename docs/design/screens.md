@@ -4,7 +4,9 @@ Since T100 (2026-10-30) the design source is **the Figma file (key `vIOMPzc2kjP1
 
 ## Figma node table (Sky)
 
-Status: **designed** = a board exists in the Figma file; **generated** = drawn by the design agent in the duplicated file (T101), waiting for the user's review; **pending** = no board yet. iOS views are in `ios/App/Screens/`.
+Web creator boards (batch B4, section `2026:2864` in the Figma copy, key `dAdjR5HFtOutFlUZi957Do`) are implemented by T105; their rows follow the eight designed frames. Board screenshots and the 390 px comparison shots live outside the repo.
+
+Status: **designed** = a board exists in the Figma file; **generated** = drawn by the design agent in the duplicated file (T101), waiting for the user's review; **pending** = no board yet; **implemented (T1xx)** = the screen follows the board in code. iOS views are in `ios/App/Screens/`.
 
 | Figma node | Board | Screen | Web route | iOS view | Status |
 |---|---|---|---|---|---|
@@ -16,13 +18,39 @@ Status: **designed** = a board exists in the Figma file; **generated** = drawn b
 | `40:488` | Tap to select · Cloud studio (second frame, title "You can adjust the cut out") | Adjust cutout | `/create/select` (adjust) | `Create/AdjustCutoutView` | designed (adjust tools not drawn) |
 | `21:4509` | Sticker ready · Cloud studio | Your sticker is ready! + "Put it up for sale now?" | `/create/ready` | `Create/DesignReadyView` | designed |
 | `21:4554` | You're live · Cloud studio | You're live! ("Make another", "See what buyers see") | `/create/live` | `Listing/YoureLiveView` | designed |
-| — | — | Sign in with code | `/create/code` | `Onboarding/CodeEntryView` | pending |
-| — | — | Speak / Type instead / clarifying question | `/create/speak` | `Create/SpeakView` | pending |
-| — | — | Drawing your idea | `/create/drawing` | `Create/DrawingYourIdeaView` | pending |
-| — | — | Voice result (variants, Change it / Use this) | `/create/result` | `Create/VoiceResultView` | pending |
-| — | — | Take / upload a photo | `/create/photo` | `Create/CameraView` | pending |
-| — | — | Listing details (Improve with AI, trace) | `/create/listing` | `Listing/ListingDetailsView` | pending |
-| — | — | Story video, Video saved | `/create/story-video` | `Listing/StoryVideoView`, `VideoSavedView` | pending |
+| `2026:2865` | Welcome · Web · Sky | Welcome (sky photo, scrim panels, numbered promises, white pill, Sign out / I already have an account) | `/create` · `Welcome`, `SignOut#WelcomeAccount` | — (web board) | implemented (T105) |
+| `2026:2883` | Sign in with code · Web · Sky | Sign in with code | `/create/code` · `CodeSignIn`, `CodeField` | — (web board) | implemented (T105) |
+| `2026:2905` | Sign in with code · Prefilled · Web · Sky | Sign in, prefilled (hint under the field) | `/create/code?c=` · `CodeField` | — (web board) | implemented (T105) |
+| `2026:2930` | Sign in with code · Error · Web · Sky | Sign in, wrong code (error card) | `/create/code?error=1` · `CodeField` | — (web board) | implemented (T105) |
+| `2026:2959` | Choose product · Web · Sky | Choose product | `/create/product` · `ChooseProduct` | — (web board) | implemented (T105) |
+| `2026:2998` | Choose method · Web · Sky | Choose method | `/create/method` · `ChooseMethod` | — (web board) | implemented (T105) |
+| `2026:3067` | Speak · Listening · Web · Sky | Speak, listening (seconds, Stop) | `/create/speak` · `Speak` | — (web board) | implemented (T105) |
+| `2026:3098` | Speak · Question · Web · Sky | Speak, clarifying question (Hear the question again) | `/create/speak` · `Speak` | — (web board) | implemented (T105) |
+| `2026:3135` | Speak · Microphone off · Web · Sky | Speak, microphone off (typed idea, Next) | `/create/speak` · `Speak` | — (web board) | implemented (T105) |
+| `2027:3042` | Drawing your idea · Web · Sky | Drawing (searching MP4 on the sky card) | `/create/drawing` · `Drawing`, `ui/Loading` sky | — (web board) | implemented (T105) |
+| `2027:3062` | Drawing your idea · Error · Web · Sky | Drawing, error (Try again, Say it again) | `/create/drawing` · `Drawing` | — (web board) | implemented (T105) |
+| `2027:3091` | Result · Web · Sky | Result (picture row, What the image shows, Hear…) | `/create/result` · `Result`, `VariantPicker` | — (web board) | implemented (T105) |
+| `2027:3138` | Result · Change it · Web · Sky | Result, change panel | `/create/result` · `Result` | — (web board) | implemented (T105) |
+| `2038:4035` | Result · Changing · Web · Sky | Result, changing / making | `/create/result` · `Result` | — (web board) | implemented (T105) |
+| `2038:4060` | Result · Error · Web · Sky | Result, error card with Try again | `/create/result` · `Result`, `errors#ErrorNotice` | — (web board) | implemented (T105) |
+| `2027:3184` | Photo · Web · Sky | Take / upload a photo (sky card) | `/create/photo?mode=camera|upload` · `Photo` | — (web board) | implemented (T105) |
+| `2027:3207` | Photo · Finding your drawing · Web · Sky | Photo, uploading → finding (MP4 card) | `/create/photo` · `Photo` | — (web board) | implemented (T105) |
+| `2027:3226` | Photo · Error (no drawing found) · Web · Sky | Photo, no drawing (Retake the photo, Draw a box) | `/create/photo` · `Photo` | — (web board) | implemented (T105) |
+| `2038:4419` | Photo · Error (other) · Web · Sky | Photo, time-out / other (Try again) | `/create/photo` · `Photo` | — (web board) | implemented (T105) |
+| `2027:3254` | Select (Adjust cutout) · Web · Sky | Pick your art (green photo card, strip, per-piece buttons, tools) | `/create/select` · `Select`, `SelectView`, `CutoutPhoto` | — (web board) | implemented (T105) |
+| `2038:4092` | Select · Marks · Web · Sky | Select, marks list, 10-mark note, needPiece | `/create/select` · `SelectView` | — (web board) | implemented (T105) |
+| `2038:4233` | Select · Applied · Web · Sky | Select, saved cutout (Back to photo, product notice) | `/create/select` · `SelectView` | — (web board) | implemented (T105) |
+| `2038:4369` | Select · Saving · Web · Sky | Select, saving / making | `/create/select` · `SelectView` | — (web board) | implemented (T105) |
+| `2030:3726` | Ready · Web · Sky | Your sticker is ready! | `/create/ready` · `Ready` | — (web board) | implemented (T105) |
+| `2038:4443` | Ready · Notice · Web · Sky | Ready with the cutout notice | `/create/ready` · `Ready` | — (web board) | implemented (T105) |
+| `2030:3752` | Listing · Web · Sky | Get it ready for the shop (board order) | `/create/listing` · `Listing`, `ListingView` | — (web board) | implemented (T105) |
+| `2030:3804` | Listing · Drafting · Web · Sky | Listing, drafting | `/create/listing` · `ListingView` | — (web board) | implemented (T105) |
+| `2030:3832` | Listing · Error · Web · Sky | Listing, 409 print check / moderation | `/create/listing` · `ListingView` | — (web board) | implemented (T105) |
+| `2030:3884` | Story video · Web · Sky | Make your story video! | `/create/story-video` · `StoryVideo` | — (web board) | implemented (T105) |
+| `2038:4469` | Story video · Video selected · Web · Sky | Story video, file chosen | `/create/story-video` · `StoryVideo` | — (web board) | implemented (T105) |
+| `2030:3931` | Story video · Draft · Web · Sky | Story draft | `/create/story-video` · `StoryVideo` | — (web board) | implemented (T105) |
+| `2038:4510` | Story video · Draft editing · Web · Sky | Story draft, editing | `/create/story-video` · `StoryVideo` | — (web board) | implemented (T105) |
+| `2030:3958` | Live · Web · Sky | You're live! | `/create/live` · `Live` | — (web board) | implemented (T105) |
 | — | — | Home, My designs (status badges), Design detail, Messages, Orders | — | `Home/*`, `Orders/*` | pending |
 | — | — | Admin · Creators panel with one-time code card | `/admin` | — | pending |
 | — | — | Public site (shop, product, artists, story tag, static pages) | `/`, `/p/[id]`, `/artists`, `/c/[slug]`, `/t/[token]`, … | — | pending (T101 generates Sky web boards) |
@@ -46,6 +74,8 @@ Frame 1 on Welcome (`36:422`) is the white logo mark; on every other board the m
 | Admin · AI trace | `/admin/trace/[artworkId]` | `components/admin/TraceView` |
 
 ## Creator flow (mobile web)
+
+Since T105 the screens follow the B4 web boards (node ids in the table above); the board names below are the old canvas names, kept for history.
 
 | Board | Route | Component (`components/create/screens/*`) |
 |---|---|---|

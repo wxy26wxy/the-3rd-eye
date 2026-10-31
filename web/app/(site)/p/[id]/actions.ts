@@ -6,7 +6,9 @@ import { m } from "@/components/messages";
 
 /** Where an error belongs on the form: under the name or the note field, or above the button. */
 export type BuyErrorField = "name" | "note" | "form";
-export type BuyState = { error?: string; field?: BuyErrorField; values?: { buyerName: string; buyerEmail: string; shipNote: string } };
+/** Every failure says where it goes: `error` and `field` come together or not at all. */
+export type BuyState = { values?: { buyerName: string; buyerEmail: string; shipNote: string } } &
+  ({ error?: undefined; field?: undefined } | { error: string; field: BuyErrorField });
 
 const schema = z.object({
   buyerName: z.string().trim().min(1).max(120),

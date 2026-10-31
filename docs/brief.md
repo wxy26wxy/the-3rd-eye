@@ -27,3 +27,5 @@ There is no Meta text-to-speech model. Descriptions are written by Muse Spark an
 ## Hackathon
 
 Meta Global AI Developer Hackathon, Startups track, problem statement "Build for Your World". Building period Oct 27 – Nov 4, 2026. Everything in this repository was built during that period.
+
+Source for problem 2: U.S. Bureau of Labor Statistics, *Persons with a Disability: Labor Force Characteristics — 2025* (2026-03-03), employment-population ratio ages 16–64: 38.1 % with a disability vs 74.8 % without. <https://www.bls.gov/news.release/disabl.nr0.htm>

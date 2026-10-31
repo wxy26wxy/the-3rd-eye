@@ -15,12 +15,20 @@ This is our entry for the Meta Global AI Developer Hackathon (Startups track, "B
 
 The iOS shots come from the simulator running against the mock API (`ios/scripts/mock_api.py`); the shop shot is the local dev server. Mascot and sky imagery: The 3rd Eye design team.
 
+## Try it in 3 minutes
+
+1. **Buy something.** Open <https://the-3rd-eye.vercel.app>, pick a sticker, tap **Buy**. Payment is staged: the order is created with no charge. The success page shows the story-tag link `/t/<token>`, the page a buyer sees when they tap the sticker's NFC tag. Leave the artist a note there.
+2. **Make something.** Open `/create` on your phone (or the iOS TestFlight build) and sign in with the creator code in the submission notes. Pick **Sticker**, choose **Say it out loud** and describe an idea, or **Upload a picture** of a drawing. Muse Spark shapes the prompt, Muse Image draws it, Muse Spark describes the result as text (VoiceOver reads it); or SAM 3.1 finds the pieces and you adjust the cutout. Approve the listing the agent drafts and the product is in the shop.
+3. **See the trace.** The admin page (`/admin`, password in the submission notes) lists orders, print files and every model call behind each artwork at `/admin/trace/<artworkId>`.
+
 ## The four problems
 
 1. **Art that can't sell at scale.** Most art studios serving people with disabilities can only sell original pieces locally, and once a piece sells, it's gone. We turn one artwork into products that can be sold again and again, with no inventory.
 2. **Talent without income or recognition.** People with disabilities are employed at about half the rate of people without disabilities. We give them a way to earn money and be recognized as artists.
 3. **No connection between buyers and creators.** Buyers usually have no idea who made what they're buying. Our NFC story tag lets them hear directly from the artist, which makes the product more meaningful and a better gift.
 4. **People who can't draw are left out.** People who are blind or have low vision have visual ideas too, but they can't put them on paper. By describing their idea out loud and letting AI generate the image, they can become creators too.
+
+Source for problem 2: U.S. Bureau of Labor Statistics, *Persons with a Disability: Labor Force Characteristics — 2025* (released 2026-03-03): employment-population ratio for ages 16–64 was 38.1 % with a disability and 74.8 % without. <https://www.bls.gov/news.release/disabl.nr0.htm>
 
 ## What is real and what is staged
 

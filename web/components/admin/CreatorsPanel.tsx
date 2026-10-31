@@ -1,13 +1,13 @@
 "use client";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useRef, useState, type RefObject } from "react";
 import { addCreator, rotateCreatorCode, setCreatorHidden, type CreatorState, type IssuedView } from "@/app/admin/actions";
 import type { AdminCreator } from "@/lib/db/queries.contract";
 import { fmt, m } from "@/components/messages";
-import { QrCode } from "@/components/qr/QrCode";
-import { CopyButton } from "@/components/site/CopyButton";
 import { Button } from "@/components/ui/Button";
 import { Field, Switch } from "@/components/ui/Field";
 import { Chip } from "@/components/ui/Text";
+import { ErrorCard } from "@/components/create/cards";
+import { CodeCard } from "./CodeCard";
 import styles from "./Admin.module.css";
 
 const c = m.admin.creators;
@@ -28,20 +28,9 @@ export function CreatorsPanel({ creators }: { creators: AdminCreator[] }) {
   return (
     <section aria-labelledby="creators-title" className={styles.section}>
       <h2 id="creators-title" className={styles.h2} ref={headingRef} tabIndex={-1}>{c.title}</h2>
-      <p className={styles.sub}>{c.lead}</p>
+      <p className={styles.lead}>{c.lead}</p>
 
-      {/* Always mounted so the live region announces; it holds only the message and the code. */}
-      <div className={issued ? styles.codeCard : undefined} role={issued ? "group" : undefined} aria-labelledby={issued ? "code-card-title" : undefined}>
-        <div aria-live="polite" aria-atomic="true" className={styles.codeLive}>
-          {issued ? (
-            <>
-              <p id="code-card-title" className={styles.strong}>{issued.message}</p>
-              <p><span className="visually-hidden">{c.codeLabel}: </span><span className={styles.code}>{issued.code}</span></p>
-            </>
-          ) : null}
-        </div>
-        {issued ? <CodeDetails issued={issued} onDone={() => done(issued.at)} /> : null}
-      </div>
+      <CodeCard issued={issued} onDone={() => issued && done(issued.at)} />
 
       {creators.length === 0 ? <p className={styles.empty}>{c.empty}</p> : (
         <div className={styles.scroll} role="region" aria-labelledby="creators-title" tabIndex={0}>
@@ -50,8 +39,8 @@ export function CreatorsPanel({ creators }: { creators: AdminCreator[] }) {
               <tr>
                 <th scope="col">{c.colName}</th>
                 <th scope="col">{c.colStudio}</th>
-                <th scope="col">{c.colProducts}</th>
                 <th scope="col">{c.colShop}</th>
+                <th scope="col">{c.colProducts}</th>
                 <th scope="col">{c.colCode}</th>
               </tr>
             </thead>
@@ -59,16 +48,17 @@ export function CreatorsPanel({ creators }: { creators: AdminCreator[] }) {
               {creators.map((row) => (
                 <tr key={row.id}>
                   <th scope="row">
-                    <span className={styles.strong}>{row.displayName}</span>
+                    <span className={styles.nameLine}><span className={styles.strong}>{row.displayName}</span>{row.isExample ? <Chip tone="cream">{c.example}</Chip> : null}</span>
                     <span className={styles.sub}>{row.slug}</span>
-                    {row.isExample ? <Chip tone="cream">{c.example}</Chip> : null}
                   </th>
                   <td>{row.studioName ?? ""}</td>
-                  <td>{row.publishedProducts}</td>
                   <td>
-                    <Chip tone={row.hidden ? "cream" : "lime"}>{row.hidden ? c.hiddenChip : c.visibleChip}</Chip>
-                    <HiddenToggle id={row.id} hidden={row.hidden} name={row.displayName} />
+                    <div className={styles.shopCell}>
+                      <Chip tone={row.hidden ? "cream" : "lime"}>{row.hidden ? c.hiddenChip : c.visibleChip}</Chip>
+                      <HiddenToggle id={row.id} hidden={row.hidden} name={row.displayName} />
+                    </div>
                   </td>
+                  <td>{row.publishedProducts}</td>
                   <td>
                     <RotateCode id={row.id} name={row.displayName} isExample={row.isExample} action={rotateAction} pending={rotating} />
                   </td>
@@ -82,13 +72,13 @@ export function CreatorsPanel({ creators }: { creators: AdminCreator[] }) {
       {rotated.error ? <p role="alert" className={styles.error}>{rotated.error}</p> : null}
 
       <form action={addAction} className={styles.addForm} aria-labelledby="add-creator-title">
-        <h3 id="add-creator-title" className={styles.strong}>{c.addTitle}</h3>
+        <h3 id="add-creator-title" className={styles.formTitle}>{c.addTitle}</h3>
         <Field label={c.displayName} name="displayName" required maxLength={80} autoComplete="off" />
         <Field label={c.studioName} name="studioName" maxLength={120} autoComplete="off" />
-        <Switch label={c.mentionDisability} hint={c.mentionDisabilityHint} name="mentionDisability" />
-        <Switch label={c.hiddenField} hint={c.hiddenFieldHint} name="hidden" />
+        <Switch label={c.mentionDisability} hint={c.mentionDisabilityHint} name="mentionDisability" className={styles.toggleRow} />
+        <Switch label={c.hiddenField} hint={c.hiddenFieldHint} name="hidden" className={styles.toggleRow} />
+        {added.error ? <ErrorCard>{added.error}</ErrorCard> : null}
         <Button type="submit" disabled={adding}>{c.add}</Button>
-        {added.error ? <p role="alert" className={styles.error}>{added.error}</p> : null}
       </form>
     </section>
   );
@@ -100,7 +90,7 @@ function HiddenToggle({ id, hidden, name }: { id: string; hidden: boolean; name:
     <form action={action} className={styles.statusForm}>
       <input type="hidden" name="creatorId" value={id} />
       <input type="hidden" name="hidden" value={hidden ? "false" : "true"} />
-      <button type="submit" className={styles.statusBtn} disabled={pending} aria-label={`${hidden ? c.show : c.hide}: ${name}`}>
+      <button type="submit" className={styles.pill} disabled={pending} aria-label={`${hidden ? c.show : c.hide}: ${name}`}>
         {hidden ? c.show : c.hide}
       </button>
       {state.error ? <p role="alert" className={styles.error}>{state.error}</p> : null}
@@ -117,44 +107,30 @@ function RotateCode({ id, name, isExample, action, pending }: {
   const triggerRef = useRef<HTMLButtonElement>(null);
   if (!confirming) {
     return (
-      <button ref={triggerRef} type="button" className={styles.statusBtn} disabled={pending} aria-label={fmt(c.newCodeLabel, { name })}
+      <button ref={triggerRef} type="button" className={styles.pill} disabled={pending} aria-label={fmt(c.newCodeLabel, { name })}
         onClick={() => { setConfirming(true); setTimeout(() => yesRef.current?.focus(), 0); }}>
         {c.newCode}
       </button>
     );
   }
+  const back = () => { setConfirming(false); setTimeout(() => triggerRef.current?.focus(), 0); };
+  return <RotateConfirm id={id} name={name} isExample={isExample} action={action} pending={pending} yesRef={yesRef} onSubmit={() => setTimeout(back, 0)} onCancel={back} />;
+}
+
+/** The confirm step of New code (Confirmation dialog pattern): the warning, the example note, Yes / Cancel. */
+export function RotateConfirm({ id, name, isExample, action, pending, yesRef, onSubmit, onCancel }: {
+  id: string; name: string; isExample: boolean; action: (fd: FormData) => void; pending: boolean;
+  yesRef?: RefObject<HTMLButtonElement | null>; onSubmit?: () => void; onCancel: () => void;
+}) {
   return (
-    <form action={action} onSubmit={() => setTimeout(() => { setConfirming(false); setTimeout(() => triggerRef.current?.focus(), 0); }, 0)} className={styles.confirm} role="group" aria-label={fmt(c.newCodeLabel, { name })}>
+    <form action={action} onSubmit={onSubmit} className={styles.confirm} role="group" aria-label={fmt(c.newCodeLabel, { name })}>
       <input type="hidden" name="creatorId" value={id} />
       <p className={styles.sub}>{fmt(c.rotateConfirm, { name })}</p>
       {isExample ? <p className={styles.sub}>{c.exampleNote}</p> : null}
       <div className={styles.statusForm}>
-        <button ref={yesRef} type="submit" className={styles.statusBtn} disabled={pending}>{c.rotateYes}</button>
-        <button type="button" className={styles.statusBtn} onClick={() => { setConfirming(false); setTimeout(() => triggerRef.current?.focus(), 0); }}>{c.rotateCancel}</button>
+        <button ref={yesRef} type="submit" className={styles.pill} disabled={pending}>{c.rotateYes}</button>
+        <button type="button" className={styles.pill} onClick={onCancel}>{c.rotateCancel}</button>
       </div>
     </form>
-  );
-}
-
-function CodeDetails({ issued, onDone }: { issued: IssuedView; onDone: () => void }) {
-  return (
-    <>
-      <div className={styles.codeBody}>
-        <QrCode value={issued.qrUrl} label={fmt(c.qrLabel, { name: issued.displayName })} className={styles.codeQr} />
-        <dl className={styles.dl}>
-          <dt>{c.codeLabel}</dt>
-          <dd><CopyButton value={issued.code} label={c.copyCode} copiedLabel={m.common.copied} /></dd>
-          <dt>{c.linkLabel}</dt>
-          <dd className={styles.url}>{issued.signInUrl}</dd>
-          <dd><CopyButton value={issued.signInUrl} label={c.copyLink} copiedLabel={m.common.copied} /></dd>
-          <dt>{c.appLink}</dt>
-          <dd className={styles.url}>{issued.appUrl}</dd>
-        </dl>
-      </div>
-      <p className={styles.sub}>{c.onceNote}</p>
-      <p className={styles.sub}>{c.sensitive}</p>
-      <p className={styles.sub}>{c.linkNote}</p>
-      <Button variant="secondary" arrow={false} onClick={onDone}>{c.dismiss}</Button>
-    </>
   );
 }

@@ -11,7 +11,6 @@ export default function AccessibilityPage() {
       intro={m.a11y.intro}
       items={[m.a11y.voiceFirst, m.a11y.spoken, m.a11y.captions, m.a11y.contrast, m.a11y.targets, m.a11y.keyboard, m.a11y.motion]}
       note={m.a11y.feedback}
-      pose="listening"
     />
   );
 }

@@ -178,13 +178,14 @@
     "spoken": "Spoken descriptions: after an image is made, a written description is read aloud on your device, so you know what it shows.",
     "captions": "Captions: every story video has captions.",
     "contrast": "High contrast: the site follows your device's high-contrast setting.",
-    "targets": "Large targets: buttons are at least 44 points, and main actions are 60 points tall.",
+    "targets": "Large targets: buttons are at least 44 points, and main actions are 56 points tall.",
     "keyboard": "Keyboard and screen readers: every control has a label and a visible focus ring.",
     "motion": "Reduced motion: animations stop when your device asks for less motion.",
     "feedback": "Something not working for you? Tell the team and we will fix it."
   },
   "admin": {
     "metaTitle": "Admin",
+    "header": "{brand} · Admin",
     "title": "Orders",
     "empty": "No orders yet.",
     "colOrder": "Order",
@@ -501,9 +502,6 @@
     }
   },
   "mascot": {
-    "listening": "Tag, the {brand} mascot, listening with a microphone",
-    "cheering": "Tag, the {brand} mascot, cheering",
-    "waving": "Tag, the {brand} mascot, waving hello",
     "book": "The {brand} mascot, a fuzzy green monster reading a book",
     "front": "The {brand} mascot, a fuzzy green monster looking at you",
     "magnifier": "The {brand} mascot, a fuzzy green monster searching with a magnifying glass"

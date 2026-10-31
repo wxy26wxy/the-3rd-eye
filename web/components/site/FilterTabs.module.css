@@ -1,15 +1,36 @@
-.list { display: flex; flex-wrap: wrap; gap: var(--space-s); list-style: none; }
+/* Phones: one horizontally scrollable row that runs to the screen edges; the padding keeps the focus
+   ring inside the scroller. From the 48 rem breakpoint the pills wrap instead. */
+.nav {
+  margin-inline: calc(var(--layout-gutter) * -1);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav::-webkit-scrollbar { display: none; }
+.list {
+  display: flex;
+  gap: var(--space-s);
+  width: max-content;
+  padding: var(--space-xs) var(--layout-gutter);
+  list-style: none;
+}
+@media (min-width: 48rem) {
+  .nav { margin-inline: 0; overflow: visible; }
+  .list { flex-wrap: wrap; width: auto; padding: 0; }
+}
 .tab {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-xs);
   min-height: var(--size-min-target);
   padding: 0 var(--space-xl);
   border-radius: var(--radius-pill);
   border: var(--border-thin) solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-weight: var(--type-title-m-weight);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
   text-decoration: none;
-  box-shadow: var(--shadow-icon);
+  white-space: nowrap;
 }
-.tab[aria-current="page"] { background: var(--primary); color: var(--primary-text); }
+.tab:hover { background: var(--surface-alt); }
+.tab[aria-current="page"] { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }

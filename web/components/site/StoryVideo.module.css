@@ -1,21 +1,37 @@
-.video {
-  width: 100%;
-  aspect-ratio: 9 / 16;
-  max-height: 80vh;
-  object-fit: cover;
-  background: var(--primary);
-  border: var(--border-card) solid var(--border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-hard-l);
-}
-.empty {
+/* Story video (Sky): 24 px radius frame on ink, the video contained (story videos are often portrait;
+   the boards' landscape still would crop them), white 64 px play circle in the middle until it plays. */
+.frame {
+  position: relative;
   display: grid;
+  width: 100%;
+  aspect-ratio: 7 / 5;
+  border-radius: calc(var(--radius-card) - var(--border-thin) * 4);
+  overflow: hidden;
+  background: var(--primary);
+}
+.video { width: 100%; height: 100%; object-fit: contain; }
+.play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: calc(var(--size-cta) + var(--space-s) - var(--border-thin) * 2);
+  aspect-ratio: 1;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.play svg { margin-left: 0.15em; }
+.empty {
+  place-content: center;
   justify-items: center;
   gap: var(--space-m);
   padding: var(--space-xxl);
   text-align: center;
   background: var(--surface-alt);
-  border: var(--border-thin) dashed var(--border);
-  border-radius: var(--radius-card);
+  color: var(--text);
 }
-.tag { width: var(--size-record); }
+.mascot { width: var(--size-record); }

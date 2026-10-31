@@ -1,6 +1,33 @@
-.wrap { display: grid; gap: var(--space-xxl); justify-items: center; text-align: center; padding-block: var(--space-section); }
-.card { display: grid; gap: var(--space-m); justify-items: center; width: 100%; max-width: var(--layout-narrow); }
-.notified { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); }
-.urlLabel { font-size: var(--type-eyebrow-size); font-weight: var(--type-eyebrow-weight); letter-spacing: var(--type-eyebrow-ls); text-transform: uppercase; }
-.url { overflow-wrap: anywhere; font-weight: var(--type-title-m-weight); background: var(--surface-alt); padding: var(--space-m); border-radius: var(--radius-m); border: var(--border-thin) solid var(--border); width: 100%; max-width: none; }
-.actions { display: flex; flex-wrap: wrap; gap: var(--space-m); justify-content: center; }
+/* Order success · Sky (2019:2189): a 640 px white card, centred, 48 px padding (24 on phones). */
+.wrap { display: grid; justify-items: center; padding-block: var(--space-section) var(--space-band-l); }
+@media (min-width: 64rem) { .wrap { padding-block: var(--space-band-l) var(--space-hero); } }
+.card {
+  display: grid;
+  gap: var(--space-xl);
+  justify-items: stretch;
+  width: 100%;
+  max-width: 40rem;
+  padding: var(--space-xxl);
+  background: var(--surface);
+  border: var(--border-thin) solid var(--border);
+  border-radius: var(--radius-card);
+}
+@media (min-width: 48rem) { .card { padding: calc(var(--space-xxl) * 2); } }
+.card .sky { aspect-ratio: 544 / 220; border-radius: calc(var(--radius-card) - var(--border-thin) * 4); }
+.notified { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: 1.3; }
+.copy { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); color: var(--color-ink-soft); }
+.linkBlock { display: grid; gap: var(--space-s); }
+.urlLabel { font-size: var(--type-caption-size); font-weight: var(--type-caption-weight); line-height: var(--type-caption-lh); }
+/* Link row: the URL, then Copy inset 8 px (r3). */
+.linkRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: var(--size-cta);
+  padding: var(--space-xs) var(--space-s) var(--space-xs) var(--space-l);
+  background: var(--surface-alt);
+  border: var(--border-thin) solid var(--border);
+  border-radius: var(--space-l);
+}
+.url { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); text-underline-offset: 0.2em; }
+.linkRow .copyBtn { flex: none; min-height: var(--size-min-target); padding-inline: var(--space-l); }

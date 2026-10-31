@@ -16,7 +16,7 @@ export function Muted({ children, as: Tag = "p", className }: { children: ReactN
   return <Tag className={[styles.muted, className].filter(Boolean).join(" ")}>{children}</Tag>;
 }
 
-/** Small pill label, e.g. "Made by voice" or "Example artist". */
+/** Small non-interactive pill label, e.g. "Made by voice" or "Example artist". `lime` = Green, `cream` = Neutral (Sky Chip). */
 export function Chip({ children, tone = "lime" }: { children: ReactNode; tone?: "lime" | "cream" | "ink" }) {
   return <span className={[styles.chip, styles[`chip-${tone}`]].join(" ")}>{children}</span>;
 }

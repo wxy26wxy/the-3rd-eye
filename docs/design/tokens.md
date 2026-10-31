@@ -35,7 +35,7 @@ Source kinds:
 | `white` | `#FFFFFF` | node: card `45:728`, Welcome CTA `36:428`, Welcome text `21:4257`, sticker card `21:4571` |
 | `danger` | `#B3261E` | carry-over: error text and destructive actions; no Sky board shows an error |
 | `focus` | `#1E3A24` | carry-over (brief: keep, re-check on white): boards have no focus state; 12.5:1 on white, 5.7:1 on accent |
-| `scrim` | `rgba(0,0,0,0.35)` | a11y + brief: white text on the Welcome photo (`21:4229`) is 2.4–2.7:1 without it |
+| `scrim` | `rgba(17,24,39,0.55)` (ink at 55 %) | node: the boards' `color.scrim` variable (hero panel `2018:1806`, drawer scrim `2033:3993`, Welcome panels `2026:2865`); T106 fix round 1, was `rgba(0,0,0,0.35)` (a11y + brief). Worst pixel under the shop hero panel 5.08:1 at 390 |
 
 ## semantic
 All **derived** from `color` by the brief's mapping: `bg`←page, `surface`←white, `surfaceAlt`←surfaceAlt, `text`←ink, `textOnDark`←white, `textMuted`←textMuted, `accent`←accent, `accentBorder`←accentBorder, `accentInk`←greenDeep, `primary`←ink, `primaryText`←white, `primaryShadow`←ink (carry-over key, read by hard shadows that are now zero), `border`←border, `selected`←accent, `danger`←danger, `focusRing`←focus, `scrim`←scrim.
@@ -67,6 +67,8 @@ All **derived** from the brief rule "ink on white, borders `#111827`": `bg`, `su
 | `body` | 15 / 400 / 1.5 | node: `45:715`, `40:486`, `21:4542`; secondary pill labels `I21:4549;7:15` |
 | `bodyS` | 13 / 400 / 1.4 | node: card captions `45:727`, `45:733`; messages `45:690`, `45:693` (13 px, line height 1.5) |
 | `caption` | 13 / 500 / 1.4 | ruling + a11y: 13 px floor (brief said 12). Nearest node: "I already have an account" `36:429` (14 px Medium) |
+| `webDisplay` | 72 / 1.05 / 500 / −0.04em | node: web page titles `2024:2613`, `2024:2708`, `2025:2699`, shop hero `2018:1808` (Bold on the photo) — T106; on phones the same headings use `displayXL` |
+| `cardTitle` | 22 / 600 / 1.3 | node: Note form title `2010:572` — T106 |
 | `eyebrow` | 13 / 800 / 0.08em caps | PM ruling 2026-10-30 (accessibility floor for captions; matches the Figma `eyebrow` text style; the brief said 11). Board: voice badge `45:770` is Figtree ExtraBold 10 px, tracking 1 px |
 
 ## space
@@ -79,7 +81,17 @@ All **derived** from the brief rule "ink on white, borders `#111827`": `bg`, `su
 | `xl` | 20 | node: gap in `21:4517`, `21:4562`; Welcome text block padding `36:423` |
 | `xxl` | 24 | node: gap in `21:4348`, `21:4398`, `21:4458`; actions top padding `45:736` |
 | `page` | 24 | node: horizontal padding `45:711`, `45:737`, `21:4540` |
-| `section` | 36 | carry-over (web section spacing; no Sky web board yet) |
+| `section` | 36 | carry-over (web section spacing); also the shop hero panel's vertical padding `2018:1806` |
+| `sm` | 12 | node: gaps in the hero CTAs `2018:1810`, Meet the artist copy `2018:1941`, admin cells `2039:4287`, story tag rows `2024:2453` — T106 |
+| `cardPad` | 28 | node: step cards `2018:1925`, creator cards `2024:2616`, code card `2031:3895`, section gaps `2018:1821` — T106 |
+| `block` | 32 | node: story card `2033:3936`, story tag top / sheet `2024:2440`, `2024:2466`, footer gap `2010:486` — T106 |
+| `blockL` | 40 | node: Meet the artist card `2018:1939`, product columns `2019:2019`, profile `2024:2703` — T106 |
+| `band` | 56 | node: band padding at 390 `2018:2000`, footer `2010:468`, product column gap `2019:2024` — T106 |
+| `gutterWide` | 80 | node: page side padding at 1440 (`2010:442`, `2018:1821`); `--layout-gutter` from 64rem — T106 |
+| `bandL` | 96 | node: band padding at 1440 `2018:1821`, page bottom padding `2019:2019` — T106 |
+| `hero` | 120 | node: hero padding at 1440 `2018:1805`, page bottom padding `2024:2612` — T106 |
+
+Derived steps used in CSS (no token of their own): 48 = `space.xxl` × 2 (admin side padding `2031:3900`, success card `2019:2205`, page top at 390), 64 = `space.block` × 2 (hero padding at 390 `2018:1986`, admin bottom), 26 = `space.m` + `space.sm` (card grid column gap `2018:1835`), 22 = `space.s` + `space.sm` (point cards `2025:2704`), radius 12 = `radius.s` × 2 (admin notes and call blocks), radius 40 = `radius.card` + `space.sm` (footer top corners at 1440 `2010:468`).
 
 ## radius
 | Key | Value | Source |
@@ -139,3 +151,13 @@ Node ids are on each entry in `tokens.json`; sizes and how each was made are in 
 - `#E4F3C8` method icon circle (`45:751`), `#5FAE57` selected radio border (`45:719`), `#19583C` voice badge text (`45:770`).
 - Drawing paper: white, radius 8, rotated 3°, shadow `0 12 22 rgba(0,0,0,0.08)` (`21:4467`). Listed sticker card: rotated 9°, shadow `0 12 22 rgba(73,103,122,0.13)` (`21:4571`). Tote badge drop shadow `0 4.2 2.8 rgba(30,40,70,0.22)` (`21:4584`). Illustration-only until a second use.
 - Selected piece: 2 px ink border, radius 24, `surfaceAlt` fill (`21:4470`); selected check: 28 px ink circle with a 16 px white check (`21:4468`). T102/T103 build these from `ink`, `surfaceAlt`, `border.thin` × 2 and `radius.card`−4; a token is added if a second board repeats them.
+
+## Web layout values that stay literal (T106)
+Checked by the `rem` grep in `docs/handoffs/design.md` step 6; anything not on this list is a finding.
+- **Breakpoints:** 30rem, 40rem, 48rem (47.99rem for max-width), 64rem; container query 12.5rem (Web product card Size=Small under 200 px, `2035:4116`).
+- **Layout:** `--layout-max` 80rem (1280 content column), `--layout-narrow` 36rem.
+- **One-off widths and heights from single boards:** shop hero 38.75rem / 42.5rem tall, panel 42.5rem wide, CTAs 18.75rem / 15rem (`2018:1805`); Meet the artist video column 26.25rem (`2018:1940`); footer brand 26.25rem; product image column 38.75rem, story video 35rem (`2019:2025`, `2033:3939`); success card 40rem; story tag column 40rem (ruling 6); static intro 32.5rem, 404 picture 35rem; header heights 4rem / 5rem (Web nav), admin header 4.5rem, drawer rows 3.75rem; check circle 2rem (`2025:2705`); avatars 5rem / 7.5rem with initials 1.8rem / 2.7rem (`2024:2617`, `2024:2705`); admin QR 7.5rem (story tag cell) and 9.375rem (code card), trace thumbnails 5.625rem, die-cut well 13.375rem, admin column minimums 13 / 14 / 15rem, confirm and sticker preview max 22rem; message bubble max 18rem; chip vertical padding 0.25rem (`2010:509`).
+- **Icon sizes** passed as `size="…rem"` to `ui/Icons` (decorative glyphs inside labelled controls).
+
+## Known differences from the boards (web)
+- `Display size="l"` stays 32 px on phones (T102 primitive, 40 px from 48rem); the Sky web boards draw 40 px section titles at 390. Changing it touches every T105 screen too, so it waits for a design decision.

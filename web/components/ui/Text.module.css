@@ -7,15 +7,14 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-m);
-  border: var(--border-thin) solid var(--border);
+  padding: 0.25rem var(--space-s);
   border-radius: var(--radius-pill);
-  min-height: var(--space-xxl);
   font-size: var(--type-caption-size);
-  font-weight: var(--type-title-m-weight);
-  line-height: 1.2;
+  font-weight: var(--type-caption-weight);
+  line-height: var(--type-caption-lh);
   white-space: nowrap;
 }
-.chip-lime { background: var(--accent); color: var(--accent-ink); border-color: var(--accent-border); }
-.chip-cream { background: var(--surface); color: var(--text); }
-.chip-ink { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
+/* Chip component (board 2010:509): Green = accent with deep-green text (5.2:1); Neutral = surfaceAlt with ink (16:1). */
+.chip-lime { background: var(--accent); color: var(--accent-ink); }
+.chip-cream { background: var(--surface-alt); color: var(--text); }
+.chip-ink { background: var(--primary); color: var(--primary-text); }

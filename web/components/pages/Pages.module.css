@@ -1,37 +1,80 @@
+/* Site pages · Sky: artists (2024:2597), artist profile (2024:2688), static pages (2025:2682…), 404 (2025:2886). */
+.page { display: grid; gap: var(--space-xxl); align-content: start; padding-block: calc(var(--space-xxl) * 2) var(--space-band-l); }
+@media (min-width: 64rem) { .page { padding-block: var(--space-gutter-wide) var(--space-hero); } }
+.lead { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); color: var(--color-ink-soft); max-width: 40rem; }
 .empty {
-  padding: var(--space-xxl);
-  background: var(--surface);
-  border: var(--border-thin) dashed var(--border);
-  border-radius: var(--radius-card);
-  font-weight: var(--type-title-m-weight);
+  padding: var(--space-section) var(--space-xxl);
+  background: var(--surface-alt);
+  border-radius: var(--radius-m);
+  text-align: center;
   max-width: none;
 }
-.profileHead { display: flex; flex-wrap: wrap; gap: var(--space-xl); align-items: center; }
-.profileTitle { display: grid; gap: var(--space-s); justify-items: start; }
-.studio { font-weight: var(--type-title-m-weight); font-size: var(--type-body-l-size); }
-.profileCard { display: grid; gap: var(--space-xxl); }
-@media (min-width: 48rem) { .profileCard { grid-template-columns: minmax(0, 20rem) 1fr; align-items: start; } }
-.profileVideo { width: 100%; max-width: 22rem; justify-self: center; }
-.note { color: var(--text-muted); font-size: var(--type-caption-size); }
 
-.prose { display: grid; gap: var(--space-xl); }
-.prose ul { display: grid; gap: var(--space-m); padding-left: 0; list-style: none; }
-.prose li {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-m);
-  align-items: start;
+/* Artists grid: one card per row on phones, three from 64rem (gap 26). */
+.cards { display: grid; gap: var(--space-l); list-style: none; }
+@media (min-width: 40rem) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 64rem) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--space-m) + var(--space-sm)); } }
+
+/* Artist profile */
+.profile { display: grid; gap: var(--space-block-l); }
+.profileHead { display: flex; flex-wrap: wrap; gap: var(--space-xl) var(--space-card-pad); align-items: center; }
+.profileTitle { display: grid; gap: var(--space-s); justify-items: start; }
+.studio { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); color: var(--text-muted); }
+.storyRow { display: grid; gap: var(--space-xxl); }
+.ownWords { display: grid; gap: var(--space-l); align-content: start; justify-items: start; }
+.storyText { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); color: var(--color-ink-soft); }
+.storyRow .profileVideo { aspect-ratio: 14 / 9; border-radius: var(--radius-card); }
+.note { color: var(--text-muted); font-size: var(--type-caption-size); }
+.work { display: grid; gap: var(--space-xxl); }
+@media (min-width: 64rem) {
+  .storyRow { grid-template-columns: minmax(0, 1fr) minmax(0, 35rem); gap: var(--space-band); }
+}
+.profile .work { padding-top: 0; }
+
+/* Static pages: intro + sky on the left (520), checked point cards on the right. */
+.static { display: grid; gap: var(--space-block-l); padding-block: calc(var(--space-xxl) * 2) var(--space-band-l); }
+.staticIntro { display: grid; gap: var(--space-xxl); align-content: start; }
+.staticSky.staticSky { aspect-ratio: 520 / 300; }
+.points { display: grid; gap: var(--space-l); align-content: start; }
+.pointList { display: grid; gap: var(--space-l); list-style: none; }
+.point {
+  display: flex;
+  gap: var(--space-l);
+  align-items: flex-start;
+  padding: calc(var(--space-s) + var(--space-sm)) var(--space-xxl);
+  background: var(--surface);
+  border: var(--border-thin) solid var(--border);
+  border-radius: var(--space-xxl);
   font-size: var(--type-body-l-size);
   line-height: var(--type-body-l-lh);
+  scroll-margin-top: var(--space-xxl);
 }
-.prose li::before {
-  content: "";
-  width: var(--space-m);
-  height: var(--space-m);
-  margin-top: 0.45em;
+.point:target { border-color: var(--text); }
+.check {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  margin-top: calc((var(--type-body-l-size) * var(--type-body-l-lh) - 2rem) / 2);
   border-radius: var(--radius-pill);
-  background: var(--accent);
-  border: var(--border-thin) solid var(--border);
+  background: var(--accent-ink);
+  color: var(--text-on-dark);
 }
-.staticHead { display: grid; gap: var(--space-xl); justify-items: start; }
-.staticHead .mascot { width: var(--size-record); }
+.closing {
+  padding: calc(var(--space-s) + var(--space-sm)) var(--space-xxl);
+  background: var(--surface-alt);
+  border-radius: var(--space-xxl);
+  font-size: var(--type-body-l-size);
+  line-height: var(--type-body-l-lh);
+  max-width: none;
+}
+@media (min-width: 64rem) {
+  .static { grid-template-columns: 32.5rem minmax(0, 1fr); gap: var(--space-gutter-wide); padding-block: var(--space-gutter-wide) var(--space-hero); }
+}
+
+/* 404 (2025:2886): centred sky picture, title, line, primary. */
+.notFound { display: grid; justify-items: center; gap: var(--space-xl); padding-block: calc(var(--space-xxl) * 2) var(--space-band-l); text-align: center; }
+.notFound .notFoundSky { max-width: 35rem; aspect-ratio: 560 / 320; }
+.notFoundCopy { color: var(--color-ink-soft); }
+@media (min-width: 64rem) { .notFound { padding-block: var(--space-gutter-wide) var(--space-hero); } }

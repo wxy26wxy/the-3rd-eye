@@ -1,13 +1,18 @@
 import type { ReactNode } from "react";
-import { Wordmark } from "@/components/site/Wordmark";
+import { SiteFooter } from "@/components/site/SiteFooter";
+import { SiteNav } from "@/components/site/SiteNav";
 import styles from "./StoryTag.module.css";
 
-/** Mobile-first frame for story-tag pages: wordmark bar and a narrow main column. */
+/**
+ * Story tag frame (board 2024:2428): the site nav and footer around a phone-width column that stays
+ * centred at 640 px on wider screens (ruling 6).
+ */
 export function StoryTagShell({ children }: { children: ReactNode }) {
   return (
-    <div className={styles.shell}>
-      <header className={styles.bar}><Wordmark /></header>
+    <>
+      <SiteNav />
       <main id="main" tabIndex={-1} className={styles.main}>{children}</main>
-    </div>
+      <SiteFooter />
+    </>
   );
 }

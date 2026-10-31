@@ -26,6 +26,14 @@ async function separatedArt(gap: number): Promise<Buffer> {
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
+/** Two bars (each a third of the width) with a `gap` px gap between them, centred in a w × h canvas. */
+async function twoBars(w: number, h: number, gap: number): Promise<Buffer> {
+  const bw = Math.round(w / 3), x1 = Math.round((w - 2 * bw - gap) / 2), y = Math.round(h / 4), bh = Math.round(h / 2);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
+    <rect x="${x1}" y="${y}" width="${bw}" height="${bh}" fill="#3bb273"/><rect x="${x1 + bw + gap}" y="${y}" width="${bw}" height="${bh}" fill="#e15554"/></svg>`;
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
 const subpaths = (d: string) => d.match(/M/g)?.length ?? 0;
 
 describe("sticker pipeline", () => {
@@ -131,6 +139,12 @@ describe("sticker pipeline", () => {
       const gap = Math.round(mmToPx(BORDER_MM) / 1.5); // under 2 × border once upscaled 1.5×
       const files = await composeSticker(await separatedArt(gap));
       expect(subpaths(files.cutPath)).toBe(1);
+    });
+
+    it.each([[3000, 1500, 64], [600, 600, 33]])("preview and print agree on the piece count near the merge gap (%i × %i, %i px)", async (w, h, gap) => {
+      const art = await twoBars(w, h, gap);
+      const [preview, files] = await Promise.all([previewCutPath(art), composeSticker(art)]);
+      expect(subpaths(preview)).toBe(subpaths(files.cutPath));
     });
 
     it("the preview path wraps every piece and stays inside the artwork's square (no clipped box)", async () => {

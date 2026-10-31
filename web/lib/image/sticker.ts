@@ -41,6 +41,12 @@ export async function traceOutline(mask: Mask): Promise<string> {
 /** Largest upscale ensureDpi applies; beyond this the art would print visibly soft, so the resolution check fails instead. */
 export const MAX_UPSCALE = 2;
 
+/** The factor ensureDpi applies to a w × h image (1 when the short side already reaches `minShortSide`). */
+export function printUpscale(w: number, h: number, minShortSide = MIN_SHORT_SIDE): number {
+  const short = Math.min(w, h);
+  return short <= 0 || short >= minShortSide ? 1 : Math.min(MAX_UPSCALE, minShortSide / short);
+}
+
 /**
  * Lanczos upscale (at most ×2) so the short side reaches `minShortSide` (900 px = 3 in at 300 dpi
  * by default). Alpha is kept. With `dpi`, the PNG also carries that density.
@@ -130,13 +136,16 @@ export async function composeSticker(artPng: Buffer, opts: { borderMm?: number; 
 }
 
 /**
- * The cut-line path for an artwork preview (border offset only, no bleed), normalized to a
+ * The cut-line path for an artwork preview (the print border offset, no bleed), normalized to a
  * `0 0 100 100` viewBox: the cleaned image is fitted (contain, centered) into that square. The
  * border can extend a few units past 0–100, so render the SVG with overflow visible.
  */
 export async function previewCutPath(cleanedPng: Buffer): Promise<string> {
   const mask = await maskFromAlpha(cleanedPng);
-  const borderPx = Math.max(4, Math.round(Math.min(mask.width, mask.height) * 0.03));
+  // The print border (3 mm at 300 dpi) in the cleaned PNG's own pixels: composeSticker first
+  // upscales by `k` (ensureDpi), so preview and print merge the same pieces.
+  const k = printUpscale(mask.width, mask.height);
+  const borderPx = Math.max(4, Math.round(mmToPx(BORDER_MM) / k));
   const pad = borderPx + 2;
   const cut = await offsetMask(padMask(mask, pad), borderPx);
   return normalizePath(await traceOutline(cut), mask.width, mask.height, pad);

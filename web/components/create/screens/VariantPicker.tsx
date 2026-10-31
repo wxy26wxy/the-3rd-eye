@@ -1,50 +1,32 @@
 "use client";
-import { useEffect, useState } from "react";
 import { fmt } from "@/components/messages";
-import { speak, stopSpeaking } from "@/components/speech";
 import { ArtImage } from "@/components/ui/ArtImage";
-import { PlayIcon, StopIcon } from "@/components/ui/Icons";
 import styles from "../Create.module.css";
 
-export type PickItem = { id: string; src: string | null; alt: string; spoken?: string | null };
+export type PickItem = { id: string; src: string | null; alt: string };
 
 /**
- * Grid of radio-backed picture choices. Each item can have a "hear" play bar that reads
- * its description aloud (kept outside the label so it is its own button).
+ * Picture row (Result board `2027:3091`): radio-backed tiles in one row. Selected = accent fill with
+ * the accent border and a tick before the label ("✓ Picture 1"), so the choice is not shown by colour
+ * alone. Each tile's image carries the picture's description as its alt text.
  */
-export function VariantPicker({ name, legend, items, selected, onSelect, itemLabel, hearLabel, stopLabel, placeholder }: {
+export function VariantPicker({ name, legend, items, selected, onSelect, itemLabel, placeholder, disabled }: {
   name: string; legend: string; items: PickItem[]; selected?: string; onSelect: (id: string) => void;
-  itemLabel: string; hearLabel?: string; stopLabel?: string; placeholder: string;
+  itemLabel: string; placeholder: string; disabled?: boolean;
 }) {
-  const [playing, setPlaying] = useState<string | null>(null);
-  useEffect(() => () => stopSpeaking(), []);
   return (
-    <fieldset className={styles.fieldset}>
+    <fieldset className={styles.fieldset} disabled={disabled}>
       <legend className="visually-hidden">{legend}</legend>
-      <ul role="list" className={styles.variants}>
+      <ul role="list" className={styles.tiles}>
         {items.map((it, i) => (
-          <li key={it.id} className={styles.variant}>
-            <label className={styles.pick}>
-              <input type="radio" name={name} value={it.id} checked={selected === it.id} onChange={() => onSelect(it.id)} />
-              <ArtImage src={it.src} alt={it.alt} placeholder={placeholder} />
-              <span className={styles.pickLabel}>{fmt(itemLabel, { n: i + 1 })}<span className={styles.tick} aria-hidden="true" /></span>
+          <li key={it.id}>
+            <label className={styles.tile}>
+              <input className="visually-hidden" type="radio" name={name} value={it.id} checked={selected === it.id} onChange={() => onSelect(it.id)} />
+              <ArtImage src={it.src} alt={it.alt} placeholder={placeholder} className={styles.tileArt} />
+              <span className={styles.tileLabel}>
+                {selected === it.id ? <span aria-hidden="true">✓ </span> : null}{fmt(itemLabel, { n: i + 1 })}
+              </span>
             </label>
-            {hearLabel && it.spoken ? (
-              <button
-                type="button"
-                className={styles.playbar}
-                aria-pressed={playing === it.id}
-                aria-label={`${playing === it.id ? stopLabel : hearLabel}: ${fmt(itemLabel, { n: i + 1 })}`}
-                onClick={() => {
-                  if (playing === it.id) { stopSpeaking(); setPlaying(null); return; }
-                  setPlaying(it.id);
-                  speak(it.spoken ?? "", { onEnd: () => setPlaying((p) => (p === it.id ? null : p)) });
-                }}
-              >
-                <span className={styles.playIcon} aria-hidden="true">{playing === it.id ? <StopIcon /> : <PlayIcon />}</span>
-                <span aria-hidden="true">{playing === it.id ? stopLabel : hearLabel}</span>
-              </button>
-            ) : null}
           </li>
         ))}
       </ul>

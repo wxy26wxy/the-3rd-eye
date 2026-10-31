@@ -356,6 +356,7 @@
       "youSaid": "You said",
       "groupLabel": "Choose a picture",
       "variant": "Picture {n}",
+      "shows": "What the image shows",
       "hear": "Hear what the image shows",
       "stop": "Stop",
       "change": "Change it",

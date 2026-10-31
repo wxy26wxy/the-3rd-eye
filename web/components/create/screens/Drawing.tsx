@@ -3,7 +3,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { m } from "@/components/messages";
 import { Button } from "@/components/ui/Button";
-import { Loading, Status } from "@/components/ui/Loading";
+import { Loading, SkyCard } from "@/components/ui/Loading";
+import { ErrorCard } from "../cards";
+import styles from "../Create.module.css";
 import { api, type ArtworkVariant } from "../api";
 import { CreateScreen, MissingState } from "../CreateScreen";
 import { describeError, type ScreenError } from "../errors";
@@ -34,15 +36,24 @@ export function Drawing() {
   }, [ready, shaped, hasVariants, draft.product, draft.transcript, attempt, router, update]);
 
   if (ready && !shaped) return <MissingState />;
+  // Boards 2027:3042 (drawing: the searching sky card, the line, the spinner) and 2027:3062 (error card,
+  // Try again + Say it again in the bar). A loading screen: the logo mark, no Back.
   return (
-    <CreateScreen title={m.create.drawing.title} lead={error ? undefined : m.create.drawing.copy} mascot="cheering">
-      {error ? (
+    <CreateScreen
+      title={m.create.drawing.title}
+      footer={error ? (
         <>
-          <Status tone="error">{error.message}</Status>
           <Button block onClick={() => { setError(null); setAttempt((a) => a + 1); }}>{m.common.tryAgain}</Button>
           <Button block variant="secondary" arrow={false} href="/create/speak">{m.create.speak.redo}</Button>
         </>
-      ) : <Loading label={m.create.drawing.title} />}
+      ) : null}
+    >
+      {error ? (
+        <>
+          <SkyCard className={styles.skyShort} />
+          <ErrorCard>{error.message}</ErrorCard>
+        </>
+      ) : <Loading variant="sky" label={m.create.drawing.copy} />}
     </CreateScreen>
   );
 }

@@ -130,32 +130,19 @@
 .welcomeLinks a, .welcomeLinks button { color: var(--text-on-dark); font-weight: var(--type-body-weight); }
 
 /* shared pieces */
-.listen { display: grid; justify-items: center; gap: var(--space-l); text-align: center; }
-.listenEyebrow { display: inline-flex; align-items: center; gap: var(--space-s); }
-.pulse { width: var(--space-m); height: var(--space-m); border-radius: var(--radius-pill); background: var(--danger); animation: pulse 1s ease-in-out infinite alternate; }
-@keyframes pulse { to { opacity: 0.25; } }
-@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
-.bars { display: flex; gap: var(--space-xs); align-items: center; height: var(--size-icon-button); }
-.bars span { width: var(--space-s); border-radius: var(--radius-pill); background: var(--border); height: 30%; animation: bar 0.9s var(--motion-easing) infinite alternate; }
-.bars span:nth-child(2) { animation-delay: 0.15s; }
-.bars span:nth-child(3) { animation-delay: 0.3s; }
-.bars span:nth-child(4) { animation-delay: 0.45s; }
-.bars span:nth-child(5) { animation-delay: 0.6s; }
-@keyframes bar { to { height: 100%; } }
-@media (prefers-reduced-motion: reduce) { .bars span { animation: none; height: 60%; } }
+/* Record button (84 px): ink with a mic; while recording deep green with an accent ring and Stop. */
 .record {
   display: grid; place-items: center;
   width: var(--size-record); height: var(--size-record);
   border-radius: var(--radius-pill);
   background: var(--primary); color: var(--primary-text);
-  border: var(--border-card) solid var(--border);
-  box-shadow: var(--shadow-primary);
+  border: 0;
   font-size: var(--type-display-m-size);
   justify-self: center;
 }
-.record[data-recording="true"] { background: var(--danger); border-color: var(--border); }
-.record:active { transform: translateY(var(--border-thin)); box-shadow: none; }
-.recordWrap { display: grid; justify-items: center; gap: var(--space-s); font-weight: var(--type-title-m-weight); }
+.record[data-recording="true"] { background: var(--accent-ink); box-shadow: 0 0 0 calc(var(--border-card) * 4) var(--accent); }
+.recordWrap { display: grid; justify-items: center; gap: var(--space-s); font-size: var(--type-title-m-size); font-weight: var(--type-title-m-weight); }
+.seconds { font-size: var(--type-title-m-size); font-weight: var(--type-title-m-weight); }
 .said { display: grid; gap: var(--space-s); }
 .saidText { font-size: var(--type-title-m-size); font-weight: var(--type-title-m-weight); line-height: 1.35; }
 .row { display: flex; flex-wrap: wrap; gap: var(--space-m); }
@@ -286,3 +273,30 @@
 .glyph { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .glyphTote { padding: var(--space-l); filter: drop-shadow(var(--shadow-soft)); }
 .form { display: grid; gap: var(--space-xl); }
+.body > .skyShort { aspect-ratio: 342 / 200; }
+
+/* Result (board 2027:3091): picture row, large preview, change card. */
+.tiles { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--space-s); list-style: none; }
+.tile {
+  display: grid; justify-items: center; gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-xs) var(--space-s);
+  border: var(--border-thin) solid var(--border); border-radius: var(--radius-m);
+  background: var(--surface); cursor: pointer;
+}
+.tile:has(input:checked) { background: var(--accent); border: calc(var(--border-thin) * 2) solid var(--accent-border); color: var(--accent-ink); }
+.tile:has(input:focus-visible) { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
+.tile .tileArt { background: transparent; }
+.tileLabel { font-size: var(--type-caption-size); font-weight: var(--type-caption-weight); line-height: var(--type-caption-lh); white-space: nowrap; }
+.previewCard {
+  display: grid; place-items: center;
+  padding: var(--space-xl);
+  border: var(--border-thin) solid var(--border); border-radius: var(--radius-card);
+  background: var(--surface);
+}
+.previewCard .previewArt { width: auto; height: calc(var(--size-record) * 2.6); aspect-ratio: 1; background: transparent; }
+.changeCard {
+  display: grid; gap: var(--space-l);
+  padding: var(--space-l);
+  border: var(--border-thin) solid var(--border); border-radius: var(--radius-m);
+  background: var(--surface);
+}

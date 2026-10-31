@@ -4,11 +4,10 @@ import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
 import { speak } from "@/components/speech";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { Field } from "@/components/ui/Field";
-import { KeyboardIcon, MicIcon, SpeakerIcon, StopIcon } from "@/components/ui/Icons";
-import { Loading, Status } from "@/components/ui/Loading";
-import { Eyebrow } from "@/components/ui/Text";
+import { MicIcon, StopIcon } from "@/components/ui/Icons";
+import { Loading } from "@/components/ui/Loading";
+import { ErrorCard, InfoCard } from "../cards";
 import { api, transcribe, type ShapeResult } from "../api";
 import { CreateScreen, HydratingScreen, MissingState } from "../CreateScreen";
 import { useCreate } from "../store";
@@ -19,8 +18,10 @@ import { describeError } from "../errors";
 type Phase = "idle" | "recording" | "transcribing" | "review" | "shaping" | "question";
 
 /**
- * Say it out loud: record → transcribe → review ("YOU SAID") → Done → shape the prompt.
- * If the shaper asks a clarifying question, it is spoken aloud and answered by voice or text.
+ * Say it out loud (boards `2026:3067` listening, `2026:3098` question, `2026:3135` microphone off):
+ * record → transcribe → review ("YOU SAID") → Done → shape the prompt. If the shaper asks a
+ * clarifying question, it is spoken aloud (and again with "Hear the question again") and answered
+ * by voice or text.
  */
 export function Speak() {
   const { ready, draft } = useCreate();
@@ -77,6 +78,7 @@ function SpeakFlow() {
       setAnswers(nextAnswers);
       if (res.clarifying_question) {
         setQuestion(res.clarifying_question);
+        setTyping(false); // the question opens with the mic; the typed answer comes after "Type instead"
         setPhase("question");
         speak(res.clarifying_question);
         return;
@@ -92,92 +94,112 @@ function SpeakFlow() {
 
   const micProblem = recorder.status === "denied" ? m.create.speak.micDenied : recorder.status === "unsupported" ? m.create.speak.micUnsupported : null;
   const busy = phase === "transcribing" || phase === "shaping";
+  const busyLine = busy ? <Loading inline label={phase === "transcribing" ? m.create.speak.transcribing : m.create.speak.shaping} /> : null;
+  /** "Type instead" while recording drops the recording and opens the text box. */
+  async function typeInstead() {
+    if (phase === "recording") { await recorder.stop(); setPhase(answering ? "question" : "idle"); }
+    setTyping(true);
+  }
 
-  // ---- clarifying question
+  // ---- clarifying question (board 2026:3098)
   if (phase === "question" || (phase === "recording" && answering) || (busy && question)) {
     return (
-      <CreateScreen back="/create/method" step={3} title={m.create.speak.questionTitle} mascot="listening">
-        <Card pad="l">
-          <p className={styles.saidText} aria-live="polite">{question}</p>
-        </Card>
-        <Button variant="secondary" arrow={false} icon={<SpeakerIcon />} onClick={() => question && speak(question)}>{m.create.speak.hearAgain}</Button>
-        {busy ? <Loading label={phase === "transcribing" ? m.create.speak.transcribing : m.create.speak.shaping} /> : null}
-        {!busy && phase === "recording" ? <ListeningCard seconds={recorder.seconds} onStop={stopRecording} /> : null}
+      <CreateScreen back="/create/method" step={3} title={m.create.speak.questionTitle}>
+        <InfoCard tone="green" aria-live="polite"><p>{question}</p></InfoCard>
+        <TextAction onClick={() => question && speak(question)}>{m.create.speak.hearAgain}</TextAction>
+        {transcript ? <InfoCard eyebrow={m.create.speak.youSaid}><p>{transcript}</p></InfoCard> : null}
+        {busyLine}
+        {!busy && phase === "recording" ? <Listening seconds={recorder.seconds} onStop={stopRecording} onType={() => void typeInstead()} /> : null}
         {!busy && phase === "question" ? (
           typing || micProblem ? (
             <AnswerForm onSubmit={(a) => shape(transcript, [...answers, a])} onSpeak={micProblem ? undefined : () => { setTyping(false); void startRecording(true); }} />
           ) : (
-            <div className={styles.recordWrap}>
-              <button type="button" className={styles.record} onClick={() => startRecording(true)} aria-label={m.create.speak.answerSpeak}><MicIcon /></button>
-              <span aria-hidden="true">{m.create.speak.answerSpeak}</span>
-              <Button variant="ghost" arrow={false} icon={<KeyboardIcon />} onClick={() => setTyping(true)}>{m.create.typeInstead}</Button>
-            </div>
+            <RecordControl label={m.create.speak.answerSpeak} onClick={() => startRecording(true)} onType={() => setTyping(true)} />
           )
         ) : null}
-        {micProblem ? <Status>{micProblem}</Status> : null}
-        {error ? <Status tone="error">{error}</Status> : null}
+        {micProblem ? <ErrorCard live="status">{micProblem}</ErrorCard> : null}
+        {error ? <ErrorCard>{error}</ErrorCard> : null}
       </CreateScreen>
     );
   }
 
-  // ---- idea
+  // ---- idea (boards 2026:3067 listening, 2026:3135 microphone off)
+  const typingOpen = phase === "idle" && (typing || !!micProblem);
   const footer = phase === "review" ? (
     <>
       <Button block onClick={() => shape(transcript, [])} disabled={busy}>{m.create.speak.done}</Button>
-      <Button block variant="secondary" arrow={false} icon={<MicIcon />} onClick={() => { setTranscript(""); setPhase("idle"); setTyping(false); }}>{m.create.speak.redo}</Button>
+      <Button block variant="secondary" arrow={false} onClick={() => { setTranscript(""); setPhase("idle"); setTyping(false); }}>{m.create.speak.redo}</Button>
     </>
+  ) : typingOpen ? (
+    <Button type="submit" form={IDEA_FORM} block disabled={!transcript.trim()}>{m.common.next}</Button>
   ) : null;
 
   return (
-    <CreateScreen back="/create/method" step={3} title={m.create.speak.title} lead={phase === "idle" ? m.create.speak.hint : undefined} mascot="listening" footer={footer}>
-      {phase === "recording" ? <ListeningCard seconds={recorder.seconds} onStop={stopRecording} /> : null}
-      {busy ? <Loading label={phase === "transcribing" ? m.create.speak.transcribing : m.create.speak.shaping} /> : null}
+    <CreateScreen back="/create/method" step={3} title={m.create.speak.title} lead={phase === "idle" || phase === "recording" ? m.create.speak.hint : undefined} footer={footer}>
+      {micProblem ? <ErrorCard live="status">{micProblem}</ErrorCard> : null}
+      {phase === "recording" ? <Listening seconds={recorder.seconds} onStop={stopRecording} onType={() => void typeInstead()} /> : null}
+      {busyLine}
       {phase === "review" ? (
-        <Card pad="l" className={styles.said}>
-          <Eyebrow>{m.create.speak.youSaid}</Eyebrow>
+        <InfoCard eyebrow={m.create.speak.youSaid}>
           <Field multiline rows={3} label={m.create.speak.textLabel} value={transcript} onChange={(e) => setTranscript(e.target.value)} />
-        </Card>
+        </InfoCard>
       ) : null}
       {phase === "idle" ? (
-        typing || micProblem ? (
-          <form className={styles.said} onSubmit={(e) => { e.preventDefault(); if (transcript.trim()) setPhase("review"); }}>
+        typingOpen ? (
+          <form id={IDEA_FORM} className={styles.form} onSubmit={(e) => { e.preventDefault(); if (transcript.trim()) setPhase("review"); }}>
             <Field multiline rows={4} label={m.create.speak.textLabel} placeholder={m.create.speak.textPlaceholder} value={transcript} onChange={(e) => setTranscript(e.target.value)} />
-            <Button type="submit" block disabled={!transcript.trim()}>{m.common.next}</Button>
-            {!micProblem ? <Button variant="ghost" arrow={false} icon={<MicIcon />} onClick={() => setTyping(false)}>{m.create.speakInstead}</Button> : null}
+            {!micProblem ? <TextAction onClick={() => setTyping(false)}>{m.create.speakInstead}</TextAction> : null}
           </form>
         ) : (
-          <div className={styles.recordWrap}>
-            <button type="button" className={styles.record} onClick={() => startRecording(false)} aria-label={m.create.speak.start}><MicIcon /></button>
-            <span aria-hidden="true">{m.create.speak.start}</span>
-            <Button variant="ghost" arrow={false} icon={<KeyboardIcon />} onClick={() => setTyping(true)}>{m.create.typeInstead}</Button>
-          </div>
+          <RecordControl label={m.create.speak.start} onClick={() => startRecording(false)} onType={() => setTyping(true)} />
         )
       ) : null}
-      {micProblem ? <Status>{micProblem}</Status> : null}
-      {error ? <Status tone="error">{error}</Status> : null}
+      {error ? <ErrorCard>{error}</ErrorCard> : null}
     </CreateScreen>
   );
 }
 
-function ListeningCard({ seconds, onStop }: { seconds: number; onStop: () => void }) {
+const IDEA_FORM = "speak-idea-form";
+
+/** Underlined text action, centred (44 px target). */
+function TextAction({ onClick, children }: { onClick: () => void; children: string }) {
+  return <Button variant="ghost" arrow={false} className={styles.textAction} onClick={onClick}>{children}</Button>;
+}
+
+/** The big 84 px record button with its visible label, and "Type instead" under it. */
+function RecordControl({ label, onClick, onType }: { label: string; onClick: () => void; onType: () => void }) {
   return (
-    <Card pad="l" tone="lime" className={styles.listen}>
-      <p className={styles.listenEyebrow} role="status"><span className={styles.pulse} aria-hidden="true" /><Eyebrow as="span">{m.create.speak.listening}</Eyebrow></p>
-      <span className={styles.bars} aria-hidden="true"><span /><span /><span /><span /><span /></span>
-      <p aria-hidden="true">{fmt(m.create.speak.seconds, { s: seconds })}</p>
-      <p>{m.create.speak.listeningHint}</p>
-      <button type="button" className={styles.record} data-recording="true" onClick={onStop} aria-label={m.create.speak.stop}><StopIcon /></button>
-    </Card>
+    <div className={styles.recordWrap}>
+      <button type="button" className={styles.record} onClick={onClick} aria-label={label}><MicIcon /></button>
+      <span aria-hidden="true">{label}</span>
+      <TextAction onClick={onType}>{m.create.typeInstead}</TextAction>
+    </div>
   );
 }
 
+/** Recording: the LISTENING card, the visible seconds, the green Stop button, Type instead. No bar. */
+function Listening({ seconds, onStop, onType }: { seconds: number; onStop: () => void; onType: () => void }) {
+  return (
+    <>
+      <div role="status"><InfoCard eyebrow={m.create.speak.listening}><p>{m.create.speak.listeningHint}</p></InfoCard></div>
+      <div className={styles.recordWrap}>
+        <p className={styles.seconds}>{fmt(m.create.speak.seconds, { s: seconds })}</p>
+        <button type="button" className={styles.record} data-recording="true" onClick={onStop} aria-label={m.create.speak.stop}><StopIcon /></button>
+        <span aria-hidden="true">{m.create.speak.stop}</span>
+        <TextAction onClick={onType}>{m.create.typeInstead}</TextAction>
+      </div>
+    </>
+  );
+}
+
+/** Typed answer to the clarifying question (shown after Type instead, or when the mic is off). */
 function AnswerForm({ onSubmit, onSpeak }: { onSubmit: (answer: string) => void; onSpeak?: () => void }) {
   const [value, setValue] = useState("");
   return (
-    <form className={styles.said} onSubmit={(e) => { e.preventDefault(); if (value.trim()) onSubmit(value.trim()); }}>
+    <form className={styles.form} onSubmit={(e) => { e.preventDefault(); if (value.trim()) onSubmit(value.trim()); }}>
       <Field label={m.create.speak.answerLabel} value={value} onChange={(e) => setValue(e.target.value)} />
       <Button type="submit" block disabled={!value.trim()}>{m.create.speak.answerSubmit}</Button>
-      {onSpeak ? <Button variant="ghost" arrow={false} icon={<MicIcon />} onClick={onSpeak}>{m.create.speakInstead}</Button> : null}
+      {onSpeak ? <TextAction onClick={onSpeak}>{m.create.speakInstead}</TextAction> : null}
     </form>
   );
 }

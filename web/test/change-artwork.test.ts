@@ -6,6 +6,7 @@ import { emptyMask } from "@/lib/image/mask";
 const files = new Map<string, Buffer>();
 const rows = new Map<string, Record<string, unknown>>();
 const state = {
+  editError: null as Error | null,
   edits: [] as { instruction: string; trace: { stage: string; artworkId?: string }; size: [number, number] }[],
   describes: [] as { prompt?: string; stage: string }[],
   candidatesResult: [] as { mask: Mask; bbox: [number, number, number, number]; score: number; svgPath: string }[],
@@ -38,6 +39,7 @@ vi.mock("@/lib/ai/registry", () => ({
       edit: async (image: { base64: string }, instruction: string, opts: { trace: { stage: string; artworkId?: string } }) => {
         const meta = await sharp(Buffer.from(image.base64, "base64")).metadata();
         state.edits.push({ instruction, trace: opts.trace, size: [meta.width ?? 0, meta.height ?? 0] });
+        if (state.editError) throw state.editError;
         const png = await sharp({ create: { width: 400, height: 300, channels: 3, background: "#fff" } })
           .composite([{ input: await sharp({ create: { width: 200, height: 150, channels: 3, background: "#7040c0" } }).png().toBuffer(), top: 50, left: 50 }])
           .png().toBuffer();
@@ -77,7 +79,7 @@ const parent = (over: Partial<Row> = {}): Row => ({
 
 beforeEach(async () => {
   files.clear(); rows.clear(); n = 0;
-  state.edits = []; state.describes = []; state.inserted = []; state.candidatesResult = [];
+  state.editError = null; state.edits = []; state.describes = []; state.inserted = []; state.candidatesResult = [];
   // The picked piece: a transparent 300x200 cut with an opaque centre.
   files.set("creators/c1/cleaned/p.png", await sharp({ create: { width: 300, height: 200, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite([{ input: await sharp({ create: { width: 100, height: 100, channels: 4, background: "#30a050" } }).png().toBuffer(), top: 50, left: 100 }]).png().toBuffer());
@@ -123,6 +125,15 @@ describe("changeArtwork (T111)", () => {
     expect(artwork.cleanedUrl ?? null).toBeNull();
   });
 
+  it("a failed or refused edit is 502 edit_failed and makes no child row; ApiErrors pass through", async () => {
+    state.editError = new Error("Muse Image returned no image_generation_call result");
+    await expect(changeArtwork(parent(), { instruction: "x" })).rejects.toMatchObject({ status: 502, code: "edit_failed" });
+    expect(state.inserted).toHaveLength(0);
+    const { ApiError } = await import("@/lib/http");
+    state.editError = new ApiError(503, "model_unavailable", "no key");
+    await expect(changeArtwork(parent(), { instruction: "x" })).rejects.toMatchObject({ status: 503 });
+  });
+
   it("change it again edits the child, and the next child points at it", async () => {
     const first = await changeArtwork(parent(), { instruction: "make it purple" });
     const again = await changeArtwork(first.artwork as Row, { instruction: "add stars" });
@@ -149,6 +160,12 @@ describe("cutoutArtwork (T111)", () => {
     // Described again against the change request so differencesFromPrompt stays meaningful.
     expect(state.describes[0].prompt).toBe("make it purple");
     expect((out.artwork.shapingTrace as { previewUrl?: string }).previewUrl).toBeTruthy();
+  });
+
+  it("refuses a row that is not a change result (409 not_a_change) without touching it", async () => {
+    state.candidatesResult = [seg(rect(50, 50, 250, 200), [50, 50, 250, 200], 0.8)];
+    await expect(cutoutArtwork(parent())).rejects.toMatchObject({ status: 409, code: "not_a_change" });
+    expect(rows.size).toBe(0);
   });
 
   it("422 no_drawing_found when SAM finds nothing", async () => {

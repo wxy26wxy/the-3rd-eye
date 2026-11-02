@@ -31,17 +31,19 @@ export async function TraceView({ params }: { params: Promise<{ artworkId: strin
   const chosenIndex = variants.findIndex((v) => v.chosen);
   const chosenCandidate = candidates.findIndex((c) => c.chosen);
   const said = a.transcript && !changes.length ? a.transcript : null;
+  // A change result's candidates come from the edited picture, so they go under Decision, not beside the photo.
+  const photoPieces = changes.length ? [] : candidates;
 
   const steps: { title: string; calls: AiCallRow[]; body: ReactNode }[] = [
     {
       title: m.admin.traceStepPhoto,
       calls: take("segment"),
-      body: photo.originalUrl || photo.maskUrl || candidates.length ? (
+      body: photo.originalUrl || photo.maskUrl || photoPieces.length ? (
         <>
           <ImageRow images={[
             ...(photo.originalUrl ? [{ id: "original", url: mediaHref(photo.originalUrl), altText: m.admin.traceOriginal, chosen: false, label: m.admin.traceOriginal }] : []),
             ...(photo.maskUrl ? [{ id: "mask", url: mediaHref(photo.maskUrl), altText: m.admin.traceMask, chosen: false, label: m.admin.traceMask }] : []),
-            ...candidates,
+            ...photoPieces,
           ]} />
           {photo.maskUrl ? <a href={mediaHref(photo.maskUrl)} className={styles.link}>{m.admin.traceOpenMask}</a> : null}
         </>
@@ -100,10 +102,13 @@ export async function TraceView({ params }: { params: Promise<{ artworkId: strin
       title: m.admin.traceStepDecision,
       calls: [],
       body: candidates.length ? (
+        <>
+        {changes.length ? <ImageRow images={candidates} /> : null}
         <p>
           {chosenCandidate >= 0 ? fmt(m.admin.traceChosenVariant, { n: chosenCandidate + 1 }) : m.admin.traceNoChoice}
           {!changes.length && a.source !== "text2image" ? ` ${m.admin.traceKeptOriginal}` : ""}
         </p>
+        </>
       ) : variants.length ? <p>{chosenIndex >= 0 ? fmt(m.admin.traceChosenVariant, { n: chosenIndex + 1 }) : m.admin.traceNoChoice}</p> : null,
     },
     {

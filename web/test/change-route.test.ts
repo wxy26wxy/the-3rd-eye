@@ -7,12 +7,14 @@ vi.mock("@/lib/db/queries", () => ({
   getArtworkForCreator: async (id: string, cid: string) => {
     if (cid !== "c1") return null;
     if (id === "a1") return { ...base, id: "a1" };
-    if (id === "bare") return { ...base, id: "bare", originalUrl: null, cleanedUrl: null };
+    if (id === "child1") return { ...base, id: "child1", changeInstruction: "make it purple", cleanedUrl: null };
+    if (id === "bare") return { ...base, id: "bare", originalUrl: null, cleanedUrl: null, changeInstruction: "x" };
     return null;
   },
   markArtworksFailed: async () => undefined,
 }));
-vi.mock("@/lib/pipeline/artworks", () => ({
+vi.mock("@/lib/pipeline/artworks", async (orig) => ({
+  assertChangeResult: (await orig<typeof import("@/lib/pipeline/artworks")>()).assertChangeResult,
   changeArtwork: async (p: { id: string }, input: unknown) => {
     calls.change.push(input);
     return {
@@ -55,10 +57,10 @@ describe("POST /artworks/{id}/change (T111)", () => {
 
 describe("POST /artworks/{id}/cutout (T111)", () => {
   it("returns the cut-out row, candidates without mask paths, and imageSize", async () => {
-    const res = await post(cutout, "cutout", "a1");
+    const res = await post(cutout, "cutout", "child1");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.artwork).toMatchObject({ id: "a1", cleanedUrl: "https://x/cut.png", status: "ready" });
+    expect(body.artwork).toMatchObject({ id: "child1", cleanedUrl: "https://x/cut.png", status: "ready" });
     expect(body.candidates).toEqual([{ id: "k1", bbox: [0, 0, 9, 9], score: 0.9, thumbUrl: "t1" }, { id: "k2", bbox: [0, 0, 2, 2], score: 0.99, thumbUrl: "t2" }]);
     expect(body.imageSize).toEqual({ w: 1600, h: 1600 });
     expect(JSON.stringify(body)).not.toContain("secret");
@@ -68,6 +70,12 @@ describe("POST /artworks/{id}/cutout (T111)", () => {
     const res = await post(cutout, "cutout", "bare");
     expect(res.status).toBe(400);
     expect((await res.json()).error.code).toBe("no_original");
-    expect(calls.cutout).toEqual(["a1"]);
+    expect(calls.cutout).toEqual(["child1"]);
+  });
+  it("409 not_a_change for a row that is not a change result (a picked piece or a published product is never re-cut)", async () => {
+    const res = await post(cutout, "cutout", "a1");
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.code).toBe("not_a_change");
+    expect(calls.cutout).toEqual(["child1"]);
   });
 });

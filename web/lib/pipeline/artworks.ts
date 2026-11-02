@@ -16,7 +16,7 @@ import { rebuildProductFiles } from "@/lib/pipeline/products";
 import { clientUploadPath, creatorPath, readClientUpload, storage } from "@/lib/storage";
 import { isSourceUpload } from "@/lib/storage/refs";
 import type { SamCandidate } from "@/lib/db/schema";
-import { trackArtwork } from "@/lib/deadline";
+import { DeadlineError, trackArtwork } from "@/lib/deadline";
 import { ApiError } from "@/lib/http";
 
 const MAX_CANDIDATES = 6;
@@ -252,7 +252,12 @@ export async function changeArtwork(parent: ArtworkRow, input: { instruction: st
   const source = await changeInput(parent);
   const registry = await ai();
   const id = randomUUID();
-  const img = await registry.image.edit(pngRef(source), instruction, { trace: traceFor(id, task, "edit") });
+  // A refused or failed edit (no image, model error) is the "Error" state of Change it, not a 500; no child row exists yet.
+  const img = await registry.image.edit(pngRef(source), instruction, { trace: traceFor(id, task, "edit") }).catch((err: unknown) => {
+    if (err instanceof ApiError || err instanceof DeadlineError || (err instanceof Error && err.name === "AbortError")) throw err;
+    console.warn("[artworks] edit failed:", err instanceof Error ? err.message : err);
+    throw new ApiError(502, "edit_failed", "We could not change it this time. Try different words.");
+  });
   const png = await sharp(img.png).flatten({ background: "#ffffff" }).png().toBuffer();
   const meta = await sharp(png).metadata();
   const imageSize: ImageSize = { w: meta.width ?? img.width, h: meta.height ?? img.height };
@@ -275,11 +280,22 @@ export async function changeArtwork(parent: ArtworkRow, input: { instruction: st
 }
 
 /**
+ * `cutout` only re-cuts a change result: on any other row it would replace the picked cut-out and
+ * rebuild (or unpublish) its products. "Looks good as is" on the picked piece needs no call.
+ */
+export function assertChangeResult(artwork: Pick<ArtworkRow, "id" | "changeInstruction">): void {
+  if (!artwork.changeInstruction) {
+    throw new ApiError(409, "not_a_change", "Only a changed picture needs a new cutout", { artworkId: artwork.id });
+  }
+}
+
+/**
  * Cutout of a row's stored picture (T111, after "Change it"): SAM finds every piece, they are stored
  * as the row's candidates largest first (replacing earlier ones), and the largest is cut out like a
  * picked candidate. "Your cutout" then adjusts it with cleanupArtwork.
  */
 export async function cutoutArtwork(artwork: ArtworkRow, task = "T111"): Promise<{ artwork: ArtworkRow; candidates: SamCandidate[]; imageSize: ImageSize }> {
+  assertChangeResult(artwork);
   if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
   trackArtwork(artwork.id);
   const png = await storage().read(artwork.originalUrl);

@@ -87,6 +87,12 @@ describe("Shop v3 (board 2018:1789)", () => {
     const rule = css.match(/\n\.cutout \{([^}]*)\}/)?.[1] ?? "";
     expect(rule).toMatch(/object-fit: contain/);
     expect(rule).toMatch(/padding:/);
+    // a grid-item image keeps its own aspect height unless min-height is 0: a tall sticker was cut off
+    // (review T123 I1; browser check: web/scripts/check-contained-images.js)
+    expect(rule).toMatch(/min-height: 0/);
+    expect(rule).toMatch(/min-width: 0/);
+    const shop = readFileSync(resolve(__dirname, "../components/shop/Shop.module.css"), "utf8");
+    expect(shop).toMatch(/\.phoneThumb img \{[^}]*min-height: 0[^}]*object-fit: contain/);
   });
 
   it("tile tones cycle in board order", () => {

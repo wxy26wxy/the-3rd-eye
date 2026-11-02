@@ -12,7 +12,7 @@ Optional field. Plain language, the live site, one link placeholder.
 
 **Single post** (271 characters as X counts them, with each of the two links counted as 23):
 
-> Artists with disabilities photograph a sketch, say what to change, and get a die-cut sticker with an NFC tag that plays their story. Built with Meta's SAM 3.1, Muse Image, Muse Spark, Muse Voice Transcribe and Muse Glimmer. https://the-3rd-eye.vercel.app [FOUNDER: link]
+> Artists with disabilities photograph a sketch, say what to change, and get a die-cut sticker with an NFC tag that plays their story. Built with Meta's SAM 3.1, Muse Image, Muse Spark, Muse Voice Transcribe and Muse Glimmer. https://the-3rd-eye.vercel.app [FOUNDER: video or post link, one URL]
 
 **Thread (4 posts):**
 
@@ -35,11 +35,11 @@ The 3rd Eye helps artists with disabilities turn their art into products people 
 3. **No connection between buyers and creators.**
 4. **People who can't draw well still can't finish the piece they imagine.**
 
-The artist photographs or uploads their own drawing, Meta's SAM 3.1 finds the drawings in the photo, and they pick one. They say what to change (Muse Voice Transcribe 1.0 writes it down) or type it. Muse Image 1.0 edits the picked piece, which it receives as the input image, and Muse Spark 1.3 describes the result so they can compare before and after on screen or through VoiceOver. They can change it again, go back to the original, or keep it as is. SAM 3.1 cuts it out and it becomes a die-cut sticker or tote bag in our shop, with an NFC tag that opens a short captioned video of the artist.
+The artist photographs or uploads their own drawing, Meta's SAM 3.1 finds the drawings in the photo, and they pick one. They say what to change (Muse Voice Transcribe 1.0 writes it down) or type it. Muse Image 1.0 edits the picked piece, which it receives as the input image, and Muse Spark 1.3 describes the result so they can compare before and after on screen or through VoiceOver. They can change it again, go back to the original, or keep it as is. SAM 3.1 cuts it out and it becomes a die-cut sticker or tote bag, with an NFC tag that opens a short captioned video of the artist.
 
 It is for artists with disabilities, their studios, and buyers who want to know who made what they buy.
 
-Real: every model call, both creator flows, the shop and print files. Staged: payments (no charge is taken), notifications (iOS polls about every 10 seconds) and fulfilment (we print and ship by hand from the admin page). Accessibility floor: VoiceOver, Dynamic Type and Increase Contrast on iOS, 44-point touch targets, WCAG AA text contrast except the web Welcome title (a recorded exception), and every result shown as text.
+Real: every Meta model call, the creator flow on iOS and the web, the shop and print files. Staged: payments (no charge), notifications (iOS polls about every 10 seconds) and fulfilment (by hand). Muse Glimmer runs only while our Mac serves; Muse Spark covers it on the deployed site. Example artists are fictional. Accessibility: VoiceOver, Dynamic Type, Increase Contrast, 44-point targets, WCAG AA contrast (one recorded exception), every result as text.
 
 ---
 
@@ -47,7 +47,7 @@ Real: every model call, both creator flows, the shop and print files. Staged: pa
 
 https://github.com/wxy26wxy/the-3rd-eye
 
-Start with the README section "Try it in 3 minutes", then `docs/architecture.md` (exact model ids, request shapes and the creator data flow). Every task was reviewed before merge; the reviews are in `docs/reviews/`.
+Start with the README section "Try it in 3 minutes", then `docs/architecture.md` (exact model ids, request shapes and the creator data flow). Written reviews of merged work are in `docs/reviews/`.
 
 ---
 
@@ -76,7 +76,7 @@ What the video shows (beats from `docs/demo_script.md`):
 | Change the picked piece | `muse-image-1.0` | Edit with the picked piece as `input_image` plus the instruction and a keep-the-style guard; the result is a child artwork, so the original is never lost | `web/lib/ai/meta/image.ts` (`editBody`), `web/lib/pipeline/artworks.ts` (`changeArtwork`), `web/app/api/v1/artworks/[id]/change/route.ts` |
 | Product mockups | `muse-image-1.0` | Composes the sticker or tote mockup from the cut-out | `web/lib/ai/meta/mockup.ts`, `web/lib/pipeline/products.ts` |
 | Describe each result | `muse-spark-1.3` | Vision description in strict JSON: alt text, a spoken description and what differs from the request, shown as text and read by VoiceOver | `web/lib/ai/meta/describe.ts` |
-| Listing agent and moderation | `muse-spark-1.3` | Tool loop that checks the print file, suggests a price and drafts the listing; moderation of listing text | `web/lib/ai/meta/listing-agent.ts`, `web/lib/ai/meta/tools/`, `web/lib/ai/meta/moderate.ts`, `web/app/api/v1/listings/[productId]/run/route.ts` |
+| Listing agent and moderation | `muse-spark-1.3` | Tool loop that checks the print file, suggests a price and drafts the listing; moderates the listing text (`moderate_content`) and buyers' notes to the artist (`moderate.ts`) | `web/lib/ai/meta/listing-agent.ts`, `web/lib/ai/meta/tools/` (`moderate-content.ts`), `web/lib/ai/meta/moderate.ts`, `web/app/api/v1/listings/[productId]/run/route.ts` |
 | Story drafts (open weights) | `muse-glimmer` (Muse Glimmer 30B via Ollama) | Drafts the artist's shop story from their video transcript on our development Mac; Use, Edit or Skip; Muse Spark 1.3 covers it on Vercel (`provider: "meta-fallback"`) | `web/lib/ai/meta/story.ts`, `web/lib/pipeline/story.ts`, `web/app/api/v1/story/draft/route.ts`, `web/app/api/v1/creators/me/story-video/route.ts` |
 | Trace of every call | all of the above | One `ai_calls` row per model call, readable per artwork | `web/lib/ai/trace.ts`, `web/app/admin/trace/[artworkId]/` |
 
@@ -88,7 +88,7 @@ The listing agent is a Muse Spark 1.3 tool loop (`tool_choice: "auto"`, at most 
 
 ## Why are Meta's models important to your solution?
 
-The product only works if the art stays the artist's own. Muse Image 1.0 takes the picked piece as its input image and edits it, so a change like "make the book red" keeps the artist's drawing instead of replacing it with a new picture. SAM 3.1 finds hand-drawn pieces on a page, and also objects such as a knitted toy, without the artist having to trace anything; its mask then becomes the sticker's die-cut line. Muse Spark 1.3 returns its descriptions as strict JSON (alt text, a spoken description, what differs from the request), so every result is readable by a screen reader, not only visible. Muse Glimmer runs on our own hardware, so the artist's story draft comes from open weights we host ourselves.
+The product only works if the art stays the artist's own. Muse Image 1.0 takes the picked piece as its input image and edits it, so a change like "make the book red" keeps the artist's drawing instead of replacing it with a new picture. SAM 3.1 finds hand-drawn pieces on a page, and also objects such as a knitted toy, without the artist having to trace anything; its mask then becomes the sticker's die-cut line. Muse Spark 1.3 returns its descriptions as strict JSON (alt text, a spoken description, what differs from the request), so every result is readable by a screen reader, not only visible. Muse Glimmer runs on our own Mac through Ollama, so the artist's story draft comes from open weights we host ourselves; on the deployed site, which cannot reach the Mac, Muse Spark 1.3 writes it and the response says so (`provider: "meta-fallback"`).
 
 ---
 
@@ -104,7 +104,7 @@ The product only works if the art stays the artist's own. Muse Image 1.0 takes t
 - **No text-to-speech model.** Descriptions are spoken by VoiceOver on iOS and the browser's `speechSynthesis` on the web.
 - **Image edit request shape.** We did not find an edit request shape for Muse Image, so we verified one live: the compose shape (`input_text` + `input_image` with the `image_generation` tool) edits, always returns 1600×1600 whatever `size` says, and has no transparent output, so SAM does the cut-out.
 - **SAM takes one phrase per request.** Finding both drawings and objects needs two calls per photo (about twice the SAM cost) plus our own merge. The stream does not always send `response.output_text.done`, so we stop on `response.completed`.
-- **Vercel's 4.5 MB request body cap** (not a Meta limit) meant photos and videos go to Blob storage first and images are downscaled to at most 2048 px before they reach SAM.
+- **Vercel's 4.5 MB request body cap** (a Vercel limit, not a Meta one) meant photos and videos are uploaded from the device straight to Blob storage instead of through our API.
 
 **One wish each**
 - Muse Voice Transcribe: accept M4A or WebM, and return word timestamps for captions.
@@ -117,11 +117,11 @@ The product only works if the art stays the artist's own. Muse Image 1.0 takes t
 
 ## How likely are you to build with Meta Model API?
 
-Suggested answer: "Likely: the Responses API drop-in and strict JSON made it fast to ship five models in a week; WAV-only audio and the missing edit docs were the friction." [FOUNDER: pick the scale value]
+Suggested answer: "Likely: the Responses API drop-in and strict JSON made it fast to ship five models in nine days; WAV-only audio and an edit request shape we had to find ourselves were the friction." [FOUNDER: pick the scale value]
 
 ## Overall opinion of Meta Model API
 
-Suggested answer: "Positive: SAM 3.1 and Muse Image editing with an input image are what made a photo-first creator flow possible; better docs for edits and audio formats would save the next team a day." [FOUNDER: pick the scale value]
+Suggested answer: "Positive: SAM 3.1 and Muse Image editing with an input image are what made a photo-first creator flow possible; better docs for edits and audio formats would save the next team time." [FOUNDER: pick the scale value]
 
 ---
 
@@ -132,4 +132,6 @@ Suggested answer: "Positive: SAM 3.1 and Muse Image editing with an input image 
 - [ ] The 3-minute video is uploaded and the link opens signed out; the `[FOUNDER: …]` links above are filled.
 - [ ] The judge creator code and the admin password are in the form's notes field only, never in the repository or the video.
 - [ ] README screenshots match the current build.
+- [ ] [FOUNDER: confirm the printed sticker and its NFC tag were tested at the Nov 3 physical test; if not, add "the printed NFC tag is not yet tested" to Project Description and drop "with an NFC tag" from the X post.]
+- [ ] [FOUNDER: confirm whether the VoiceOver pass on a real iPhone (`docs/accessibility.md`) has been run; if not, keep README's "not yet verified on a phone" wording in mind before calling VoiceOver support tested.]
 - [ ] `bash scripts/check_clean.sh` prints `check_clean: ok` on the submitted commit.

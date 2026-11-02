@@ -4,8 +4,8 @@ import { m } from "@/components/messages";
 import { CheckIcon } from "@/components/ui/Icons";
 import styles from "./FilterTabs.module.css";
 
-/** The shop filters (Filter tabs 2010:570, v3: "Made by voice" removed). */
-export const FILTERS: { key: Exclude<ShopFilter, "voice">; label: string }[] = [
+/** The shop filters (Filter tabs 2010:570, v3: All / Stickers / Tote bags). */
+export const FILTERS: { key: ShopFilter; label: string }[] = [
   { key: "all", label: m.shop.filterAll },
   { key: "sticker", label: m.shop.filterStickers },
   { key: "tote", label: m.shop.filterTotes },
@@ -15,7 +15,7 @@ export const FILTERS: { key: Exclude<ShopFilter, "voice">; label: string }[] = [
  * Filter tabs (board 2010:570): All / Stickers / Tote bags, 44 px pills, selected = ink fill + check. Links, so they work without
  * JavaScript; the active one carries aria-current. On phones the row scrolls sideways (ruling 4).
  */
-export function FilterTabs({ active }: { active: Exclude<ShopFilter, "voice"> }) {
+export function FilterTabs({ active }: { active: ShopFilter }) {
   return (
     <nav aria-label={m.shop.filtersLabel} className={styles.nav}>
       <ul role="list" className={styles.list}>

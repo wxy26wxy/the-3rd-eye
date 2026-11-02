@@ -35,7 +35,7 @@ export async function MeetMakers() {
 }
 
 /**
- * Maker card (4010:4412): story poster (initials, "WATCH STORY", play circle), name, studio, method chip.
+ * Maker card (4010:4412): story poster (initials, "WATCH STORY", play circle), name, studio (no method chip until a creator field backs it; the board's chips are sample data).
  * The poster is the link to the maker's page, where the story video plays with captions; its name starts
  * with the visible "Watch story" and adds the maker ("Watch story, Leo"). The initials avatar is decorative.
  */
@@ -51,10 +51,7 @@ export function MakerCard({ creator: c, tone = "soft" }: { creator: Pick<PublicC
         <h3 className={styles.makerName}>{c.displayName}</h3>
         {c.studioName ? <p className={styles.makerStudio}>{c.studioName}</p> : null}
       </div>
-      <div className={styles.makerChips}>
-        <Chip tone="cream">{m.shop.makerMethod}</Chip>
-        {c.isExample ? <Chip tone="cream">{m.common.example}</Chip> : null}
-      </div>
+      {c.isExample ? <div className={styles.makerChips}><Chip tone="cream">{m.common.example}</Chip></div> : null}
     </article>
   );
 }

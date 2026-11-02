@@ -17,6 +17,7 @@ const { Disclosures, MeetMakerCard, MoreFrom, PaysArtistNote } = await import("@
 const { ProductView, gallerySlides } = await import("@/components/product/ProductView");
 const { SIZES, clampQuantity, sizesFor, unitCents } = await import("@/components/product/sizes");
 const { placeOrder } = await import("@/app/(site)/p/[id]/actions");
+const { CheckoutSheet, isBackdropClick } = await import("@/components/product/CheckoutSheet");
 
 const html = (el: ReactElement) => renderToStaticMarkup(el);
 
@@ -45,6 +46,7 @@ const other = { ...product, id: "p2", title: "Morning Fern", creator } as unknow
 describe("Product page v3 (board 2019:2004)", () => {
   it("reading order: breadcrumb → gallery → eyebrow → h1 → maker → price → Size → Quantity → Add to bag → pays note → Meet the maker → disclosures → More from", () => {
     const out = html(createElement(ProductView, { product, more: [product as unknown as ShopProduct, other] }));
+    expect(out).not.toMatch(/by hand/i); // no method claim until a creator field exists (review M2)
     const order = [
       `aria-label="${m.product.breadcrumbLabel}"`, `aria-label="${m.product.galleryLabel}"`, m.product.eyebrowSticker, "<h1",
       fmt(m.common.by, { name: "Leo" }), "$6.00", m.product.sizeLabel, m.product.decrease, m.product.addToBag,
@@ -220,5 +222,28 @@ describe("Checkout → placeOrder (stubbed createOrder)", () => {
     fd.set("buyerName", " ");
     expect(await placeOrder("p1", {}, fd)).toMatchObject({ field: "name", error: m.product.nameRequired });
     expect(hoisted.createOrder).not.toHaveBeenCalled();
+  });
+});
+
+describe("Checkout sheet dismissal (review M1)", () => {
+  const rect = { left: 0, right: 390, top: 300, bottom: 844 };
+
+  it("isBackdropClick: only points outside the dialog's box", () => {
+    expect(isBackdropClick(rect, 8, 500)).toBe(false); // the dialog's own left padding
+    expect(isBackdropClick(rect, 200, 302)).toBe(false); // top padding
+    expect(isBackdropClick(rect, 200, 120)).toBe(true); // the scrim above the sheet
+  });
+
+  it("the dialog's click handler closes on the backdrop, not on its padding", () => {
+    type Render = { render: (p: unknown, r: unknown) => ReactElement<{ onClick: (e: unknown) => void }> };
+    const dialog = (CheckoutSheet as unknown as Render).render({ summary: "Bus", state: {}, pending: false, submitLabel: "Place order" }, null);
+    const close = vi.fn();
+    const target = { close, getBoundingClientRect: () => rect };
+    dialog.props.onClick({ target, currentTarget: target, clientX: 8, clientY: 500 });
+    expect(close).not.toHaveBeenCalled();
+    dialog.props.onClick({ target: {}, currentTarget: target, clientX: 200, clientY: 120 }); // a click inside on a field
+    expect(close).not.toHaveBeenCalled();
+    dialog.props.onClick({ target, currentTarget: target, clientX: 200, clientY: 120 });
+    expect(close).toHaveBeenCalledTimes(1);
   });
 });

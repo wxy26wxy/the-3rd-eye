@@ -118,13 +118,13 @@ describe("Shop v3 (board 2018:1789)", () => {
     expect(out).toContain("Reading Monster");
   });
 
-  it("maker card: the poster link's name starts with the visible Watch story and adds the maker; decorative initials, name, studio, method chip", () => {
+  it("maker card: the poster link's name starts with the visible Watch story and adds the maker; decorative initials, name, studio, no method chip", () => {
     const out = html(createElement(MakerCard, { creator: { slug: "rosa", displayName: "Rosa M.", studioName: "Sunny Studio", isExample: false } }));
     expect(out).toMatch(new RegExp(`<a[^>]*href="/c/rosa"[^>]*>.*<span[^>]*>${m.shop.watchStory}<span class="visually-hidden">, Rosa M\\.</span></span>`));
     expect(out).not.toMatch(/<a[^>]*aria-label=/);
     expect(out).toMatch(/aria-hidden="true">RM</);
     expect(out).toMatch(/<h3[^>]*>Rosa M\.<\/h3>/);
-    expect(out).toContain(m.shop.makerMethod);
+    expect(out).not.toMatch(/by hand/i);
     expect(out).not.toMatch(/voice/i);
   });
 

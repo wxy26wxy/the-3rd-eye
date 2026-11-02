@@ -4,8 +4,8 @@ import { m } from "@/components/messages";
 import "./tokens.css";
 import "./globals.css";
 
-// Design v3 (T110): Outfit for both roles (design/tokens.json font.display and font.body). One loader
-// (the variable font, so every weight the type scale uses); globals.css points --font-display at --nf-body too.
+// Sky v3 (T110): Outfit for both roles (design/tokens.json font.display and font.body). One loader;
+// globals.css points --font-display at --nf-body too.
 const outfit = Outfit({ subsets: ["latin"], variable: "--nf-body", display: "swap" });
 
 export const metadata: Metadata = {

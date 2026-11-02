@@ -37,7 +37,6 @@ export function ProductView({ product: p, more = [] }: { product: ProductDetail;
   const alt = p.altText ?? fmt(m.product.mockupAlt, { title: p.title, type: typeLabel });
   const action = placeOrder.bind(null, p.id);
   const byLine = fmt(m.common.by, { name: p.creator.displayName });
-  const makerLine = [p.creator.studioName, m.product.makerMethod].filter(Boolean).join(m.common.listSeparator);
   return (
     <div className={styles.page}>
       <nav aria-label={m.product.breadcrumbLabel}>
@@ -61,7 +60,7 @@ export function ProductView({ product: p, more = [] }: { product: ProductDetail;
               {p.creator.hidden
                 ? <p className={styles.by}>{byLine}</p>
                 : <p className={styles.by}><Link href={`/c/${p.creator.slug}`} className={styles.byLink}>{byLine}</Link></p>}
-              <p className={styles.makerLine}>{makerLine}</p>
+              {p.creator.studioName ? <p className={styles.makerLine}>{p.creator.studioName}</p> : null}
             </div>
             {p.creator.isExample ? <Chip tone="cream">{m.common.example}</Chip> : null}
           </div>

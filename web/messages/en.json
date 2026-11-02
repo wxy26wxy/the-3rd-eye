@@ -84,7 +84,6 @@
     "allMakers": "All makers",
     "watchStory": "Watch story",
     "watchStoryName": ", {name}",
-    "makerMethod": "Draws by hand",
     "makersEmpty": "Our first artists are getting ready. Meet them soon."
   },
   "product": {
@@ -105,7 +104,6 @@
     "tagSlide": "Every piece comes with a story tag. Tap it with your phone to meet {name}.",
     "eyebrowSticker": "Sticker · die-cut · waterproof",
     "eyebrowTote": "Tote bag · natural canvas",
-    "makerMethod": "draws by hand",
     "sizeLabel": "Size",
     "sizes": {
       "3in": "3 in",
@@ -296,6 +294,7 @@
     "traceBefore": "Before",
     "traceAfter": "After",
     "traceGuard": "Guard added to every change",
+    "traceVariant": "Picture {n}",
     "traceKeptOriginal": "No change: the picked piece was used as is.",
     "notesLabel": "Notes on this order",
     "noteFromBuyer": "Buyer",

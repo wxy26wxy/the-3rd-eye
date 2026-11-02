@@ -4,16 +4,36 @@
 `design/tokens.json`, `design/assets/`, `scripts/gen_tokens.ts` / `scripts/sync_assets.ts` / `scripts/gen_app_icon.ts` output review, `docs/design/screens.md`, this file. The design agent reads the Figma file and never writes to it.
 
 ## Source of truth
-Since 2026-10-30 (T100) the single design source is **the Figma file (key `vIOMPzc2kjP18BbgduLmc8`)**, page `0:1` "Exploration 5 · Sky", eight iPhone frames at 390×844. It replaces the designer canvas ("Direction A"); the canvas link stays out of the repo. Name the file only by its key: its title carries the old product name and `scripts/check_clean.sh` rejects it.
+Since 2026-11-01 (T110) the design source is **the designer's v3 file (key `WVJuvNJnfcNaAqOW6jWeWi`)**, page `0:1` "Exploration 5 · Sky" (sections B1–B5, Changelog `2043:4304`, Proposal `4017:4437`), Components `2004:96`, Assets `4036:4403`. The key is recorded as the newest row of the "Figma intake log" in `docs/design/screens.md`; the next version may come under a new key (the designer works in copies), and the intake compares by node id. Name the file only by its key: its title carries the old product name and `scripts/check_clean.sh` rejects it. Earlier keys: `vIOMPzc2kjP18BbgduLmc8` (T100), the user's copy `dAdjR5HFtOutFlUZi957Do` (T101–T107); node ids are the same in all three.
 
-The file has **no Figma variables**; values in `design/tokens.json` were read from node styles with `get_design_context`. The source of every value (node id, brief, ruling, accessibility floor, derived, carry-over) is in `docs/design/tokens.md`; node ids per screen are in `docs/design/screens.md`.
+Since v3 the file has **Figma variables and text styles**: tokens come from `get_variable_defs` (on `2018:1789` and `2012:387`), node styles only for values without a variable. Sources per value: `docs/design/tokens.md`; node ids per screen: `docs/design/screens.md`; copy: `docs/design/copy-v3-web.md`, `docs/design/copy-v3-ios.md`.
 
 ## Current task
-T107 done: the Sky design is applied on both platforms at v0.7 and the retired canvas is not linked anywhere. Intake-ready for the next design version (checklist below). Still open from T100:
-1. **The waving mascot.** `mascot-wave.png` stays `pending` in `tokens.json` (the waving mascot exists only inside Welcome's flattened background); ask the designer for the separate PNG, until then `welcome-bg.png` is used whole.
-2. **A 2x Welcome background** (see the intake record).
+T110 done (2026-11-01): intake of v3 (photo-first creation, Outfit, shop / product redesign, loading GIF, tote boards). Tokens v3 and the Outfit font are committed and generated; boards that changed are `pending (v3, T110)` in the node table. Implementation is T111+ (API), T112 (web: layout font switch below, shop / product / creator flow), T114 (iOS), T115 (docs and pitch). Still open:
+1. **2x sources from the designer:** `sticker-loading` (320 px, slot 342), the waving mascot (`mascot-wave.png`, pending since T100), a 2x Welcome background.
+2. **Welcome · Web body line:** the changelog (entry 5) gives "Snap or upload your art. We make the sticker or tote."; the board shows no body line. PM default: keep the sentence (copy diff); confirm with the designer.
+3. **Strings with no board** (PM defaults listed at the end of each copy diff).
 
-The user's copy of the file (key `dAdjR5HFtOutFlUZi957Do`, same page and node ids, on the user's own team with a Full seat) is the file to read from now on; another agent adds the generated boards to it (T101). Read-only for the design agent.
+### T112: web font switch (`web/app/layout.tsx`, owned by T112; apply exactly)
+```diff
+-import { Inter } from "next/font/google";
++import { Outfit } from "next/font/google";
+@@
+-// Sky (T100): Inter for both roles (design/tokens.json font.display and font.body). One loader;
++// Sky v3 (T110): Outfit for both roles (design/tokens.json font.display and font.body). One loader;
+ // globals.css points --font-display at --nf-body too.
+-const inter = Inter({ subsets: ["latin"], variable: "--nf-body", display: "swap" });
++const outfit = Outfit({ subsets: ["latin"], variable: "--nf-body", display: "swap" });
+@@
+-    <html lang="en" className={inter.variable}>
++    <html lang="en" className={outfit.variable}>
+```
+Outfit is a variable font on Google Fonts (weights 100–900), so no `weight` option is needed, like Inter. In `web/app/globals.css` change the two fallbacks `var(--nf-body, 'Inter')` → `var(--nf-body, 'Outfit')` and the comment "self-hosts Inter" → "self-hosts Outfit"; comments that say Inter in `web/components/ui/Display.module.css`, `ui/Display.tsx`, `site/Wordmark.tsx` follow. `web/app/tokens.css` already says `'Outfit'` (generated). After the switch: `pnpm -C web build` and a look at 390 and 1440 (Outfit is narrower than Inter; check one-line labels such as the 56 px CTAs and the filter chips still fit).
+
+### T114: iOS notes
+- `Outfit-Variable.ttf` replaces `Inter-Variable.ttf` (`ios/App/Resources/Fonts/`, OFL in `OFL-Outfit.txt`); `Info.plist` `UIAppFonts` lists only Outfit (written by `pnpm assets`). `Tokens.FontName` is "Outfit" (the typographic family). The default instance is **Thin** (wght 100): every `Font.custom` must carry a weight (`ThemeFont` applies `.weight(…)` from `Tokens.TypeWeight`); `UIFont(name: "Outfit")`, used for line spacing, returns a weight-400 face on the simulator, so line metrics are right. `ThemeEffectsTests` (10 tests) pass on the iOS 26 simulator with Outfit.
+- `TextRole` mirrors (by hand): `eyebrow` tracking 1 pt, line height 1.3 (also `.step`), `titleL` line height 1.3. `type.cta` (16 / 1.2 / 600) is new and has no role yet; primary action labels can use it.
+- Animation: `Bundle.main.url(forResource: Tokens.Asset.stickerLoading, withExtension: "mp4")` (checked by `ThemeEffectsTests`), the same player as `mascot-magnifier`; Reduce Motion → first frame, paused.
 
 ## Figma intake checklist (next version)
 
@@ -21,11 +41,12 @@ Trigger: the user says "new Figma version" (and the key, if it is a new file). T
 
 Budget the Figma calls: a View seat allows very few per month; a Full seat on a paid plan allows many per day. Order calls so the most valuable come first: metadata, then `get_design_context` per changed frame (it returns asset URLs too), then `download_assets` only for what `get_design_context` did not cover. Asset URLs expire after 7 days: download with `curl -L` into a scratch folder right away.
 
+0. **Key.** If the version comes with a new key, add a row to the intake log in `docs/design/screens.md` and update `design/tokens.json` `meta.source`, `docs/design/figma-rules.md` and the Source of truth above. No code or test names a key. Compare boards by **node id**.
 1. **Session.** `create_session` with the file key and a one-line task. Pass the returned id on every later call. Load the `figma-design-to-code` skill before the first `get_design_context`.
-2. **Inventory.** `get_metadata` on page `0:1`. Compare frame ids, names and sizes with the node table in `docs/design/screens.md`: new, removed, renamed, moved. Record the result in the "Figma intake log" there.
-3. **Per-board context.** `get_design_context` on each new or changed frame (the screenshot comes with it). Keep the generated code in the scratch folder only; it is a reference, not code for the repo.
+2. **Inventory.** `get_metadata` on page `0:1` (or a read-only `use_figma` script listing each section's frames: id, name, size; T110 did this in one call). Read the Changelog frame first: it lists renames, new boards and copy changes. Compare frame ids, names and sizes with the node table in `docs/design/screens.md`: new, removed, renamed, moved. Record the result in the "Figma intake log" there.
+3. **Per-board context.** `get_variable_defs` on one board per batch for the variables and text styles; `get_design_context` on each new or changed frame (the screenshot comes with it). For copy only, a read-only `use_figma` script that returns each board's text nodes in order is far cheaper (T110: 50 boards in three calls). Keep the generated code in the scratch folder only; it is a reference, not code for the repo.
 4. **Token diff.** From the returned styles, collect colours (`bg-[#…]`, `text-[#…]`, `border-[#…]`), font family / size / weight / line height / tracking, radii (`rounded-[…]`), border widths, shadows, paddings and gaps. Compare with `design/tokens.json`. Every new or changed value becomes an edit there, and its row in `docs/design/tokens.md` gets the node id. Values marked ruling, a11y or carry-over there need a decision before a board overwrites them. Values seen once on a single node (an illustration colour, an odd size) go to "Open questions" below instead of becoming tokens. Then `pnpm tokens` (writes `web/app/tokens.css`, `web/lib/brand.ts`, `web/lib/assets.ts`, `ios/App/Theme/Tokens.swift`) and `pnpm icon` if the logo or `color.accent` / `color.ink` changed. `effects` and `motion` are mirrored by hand in `ThemeEffects` (`ios/App/Theme/Theme.swift`) and checked by `ios/Tests/ThemeEffectsTests.swift`.
-5. **Asset export.** For each image or vector on a board: raw photos come from `get_design_context` image URLs (the original upload) or `download_assets` `rawImages`; vectors from the SVG URLs. Commit to `design/assets/` with the names in `tokens.json` `assets` (PNG at 2x of its largest slot on the boards, SVG as exported). A photo with a Figma mask or crop is rendered at 2x with the same geometry the node uses (T100 did this for `mascot-book.png` and `tote.png`; numbers below). Then `pnpm assets` (copies to `web/public/assets/` and `ios/App/Assets.xcassets/<name>.imageset/` with 1x and 2x, keeps SVG vector, registers Inter in `Info.plist`). Check every file is non-empty and has the expected size: `file design/assets/*`.
+5. **Asset export.** For each image or vector on a board: raw photos come from `get_design_context` image URLs (the original upload) or `download_assets` `rawImages`; vectors from the SVG URLs. Commit to `design/assets/` with the names in `tokens.json` `assets` (PNG at 2x of its largest slot on the boards, SVG as exported). A photo with a Figma mask or crop is rendered at 2x with the same geometry the node uses (T100 did this for `mascot-book.png` and `tote.png`; numbers below). Then `pnpm assets` (copies to `web/public/assets/` and `ios/App/Assets.xcassets/<name>.imageset/` with 1x and 2x, keeps SVG vector, GIF → MP4, registers Outfit in `Info.plist` and drops font files that are no longer bundled). Check every file is non-empty and has the expected size: `file design/assets/*`.
 6. **Raw-value check, both platforms.**
    - web: `grep -rnE '#[0-9a-fA-F]{3,8}\b|[0-9]+px' web/components web/app --include='*.tsx' --include='*.css' | grep -v 'app/tokens.css'`. Baseline after T100: the same 7 accepted hits as before (`1px` hairlines and visually hidden inputs: `ui/ChoiceCard.module.css:22`, `admin/Admin.module.css:7` and `:52`, `create/Create.module.css:75` and `:93`, `app/globals.css:73` and `:74`).
    - web `rem` (T106 fix round 1): the literals left after removing breakpoints, comments, icon `size` props and the allow-list in `docs/design/tokens.md` ("Web layout values that stay literal"). Baseline: **0**.
@@ -43,6 +64,16 @@ Budget the Figma calls: a View seat allows very few per month; a Full seat on a 
 10. **ADR line.** One entry in `docs/decisions.md`: date, "Figma file `<key>` intake", what changed, rejected alternatives. Never the file title.
 11. **Hand-off.** Tasks in the T10x range: tokens-only first (Web and iOS in parallel), then layout, new components, copy.
 
+## T110 intake record (2026-11-01)
+- **Calls:** `create_session`; `get_design_context` on the Changelog `2043:4304` and two boards (`2013:408`, `2012:387`); `get_variable_defs` on `2018:1789` and `2012:387`; `download_assets` on `4036:4404` and `4006:4382`; read-only `use_figma` scripts for the section inventory, the text of 50 boards and the image fills of the shop, product and Welcome boards. Nothing was written to the file.
+- **Tokens v3:** values in `docs/design/tokens.md` (source **var**). Every Changelog entry is in the intake log row of `docs/design/screens.md`.
+- **Font:** Outfit 1.1 from the Outfitio/Outfit-Fonts repository (release tag `1.1`; the GitHub releases carry no binaries, so the file is the tagged `fonts/variable/Outfit[wght].ttf`, 102,408 bytes, git blob `4acdc3faae2db8c2cf27a9b2a4b0f5db91c9f366`, checked against the GitHub API) and its `OFL.txt`, downloaded with curl, never executed. Name table: family (ID 1) "Outfit Thin", typographic family (ID 16) "Outfit", PostScript "Outfit-Thin"; one axis `wght` 100–900, default 100; 9 named instances without PostScript names. CoreText resolves "Outfit" to the family (checked on macOS and in the iOS simulator test).
+- **`sticker-loading.gif`:** the raw GIF fill of `asset/sticker-loading` `4036:4404`: 320×320, 121 frames, 5.04 s, 4.1 MB, loops. **1x; 2x pending from the designer** (slot 342×342 on `4037:4389` and `4037:4390`, radius 24). `pnpm assets` writes `sticker-loading.mp4` (114 KB, H.264) to `ios/App/Resources/Animations/` and `web/public/assets/`; the GIF is copied to `web/public/assets/` as the source, pages play the MP4 (`ASSETS.stickerLoadingVideo`). The node also holds a 320×320 PNG (the still frame); not committed, the MP4's first frame is the still.
+- **Hero photo card** (`4006:4382`, 576×560, radius 40) and the Welcome · Web fill use the same image as `hero-sky.png` (identical bytes), so no new file.
+- **Not rebuilt by the designer:** Shop · Mobile `2018:1970` and Product page · Mobile `2019:2098` keep the v2 layouts (only the voice wording changed). The 1440 boards win at every width; T112 reflows them.
+- **Raw-value baselines** (step 6) are unchanged: T110 touched no web component or iOS view code (only `ThemeFont` mirrors and comments).
+- **Checks:** `pnpm tokens`, `pnpm assets` (rerun is byte-identical for `mascot-magnifier.mp4`), `tsc --noEmit`, `pnpm -C web test` (293 passed), `pnpm -C web lint`, iOS `ThemeEffectsTests` 10/10 on the iOS 26 simulator.
+
 ## T100 intake record (2026-10-30)
 - Original file: `create_session`, `get_metadata` (page `0:1`), `get_design_context` on Welcome `21:4229`, Pick sticker or tote `45:700`, Choose how to make it `21:4340`, Sticker ready `21:4509`; then the View seat's MCP allowance ran out.
 - Copy (fix round 1): `get_design_context` on Finding drawings `21:4390`, Tap to select `21:4450`, Adjust `40:488`, You're live `21:4554`; `download_assets` on `45:813`, `45:746` (scale 2) and `21:4566`. All 8 boards are now read from node styles; new findings are in `docs/design/tokens.md` ("Seen on the boards, not tokenised").
@@ -56,17 +87,19 @@ Budget the Figma calls: a View seat allows very few per month; a Full seat on a 
 - Inter: v4.1 from the rsms/inter GitHub release, `InterVariable.ttf` saved as `ios/App/Resources/Fonts/Inter-Variable.ttf` with `OFL-Inter.txt`; it registers as "Inter Variable" (`font.*.ios` in tokens.json). The web loads Inter through one `next/font/google` loader. Bagel Fat One and Rubik are removed from iOS and the web.
 
 ## Open questions for the designer
-- **Off-token colours on the boards.** `#E4F3C8` (method icon circle, `45:751`), `#5FAE57` (selected radio border, `45:719`), `#19583C` (voice badge text, `45:770`), `#374151` (13 px message on Tap to select and Adjust, `45:690`, `45:693`), `#C6C6C6` (tote shadow colour, `45:746`; tokenised as `rgba(0,0,0,0.18)`). Tokens or one-offs? Until answered: icon circle → T102 decides (proposal `color.accentSoft`), radio border → `accentBorder`, badge text → `greenDeep`, message text → `textMuted`.
-- **Figtree on Choose how to make it.** The method names and descriptions (`45:755`, `45:756` …) and the voice badge use Figtree (Bold 18, Regular 14, ExtraBold 10). Every other board uses Inter. Tokens use Inter everywhere; confirm.
-- **Eyebrow size.** The board's badge is 10 px; tokens use 11 px caps with 0.08em tracking (ruling). It is the only text under 13 px: `caption` is 13 (ruling, the accessibility floor in `docs/accessibility.md`; the brief said 12).
-- **Method card radius** is 18 (`45:749`), product cards 28. Tokens: `radius.m` 18, `radius.card` 28.
-- **"Put it up for sale now?"** is Inter Medium 21 / −0.63 tracking (`21:4541`); tokenised as `type.displayM`.
-- **Low-resolution sources:** a separate waving mascot PNG and a 2x Welcome background; larger sources for the Finding animation (320 px) and the Live mascot (204 px). See the intake record.
-- **Card borders** `#D1D5DB` on white are 1.47:1; unselected cards rely on the radio and the white fill to read as cards. Is a darker border acceptable?
-- **Wordmark.** The brief names the wordmark "eye mark + The 3rd Eye in Inter Semi Bold". No board shows it; `brand.wordmark` stays "THE 3RD EYE" until T102/T103 (an iOS test pins the string).
+v3 (T110):
+- **2x sources:** `asset/sticker-loading` is 320 px for a 342 px slot; the waving mascot PNG and a 2x Welcome background are still pending from T100; the Finding animation (320 px) and the Live mascot (204 px) are still small.
+- **Welcome · Web body line:** changelog entry 5 names "Snap or upload your art. We make the sticker or tote."; the board shows no body line. The copy diff keeps it (PM default). Confirm.
+- **Welcome · Web contrast:** white on the bare sky (~2.7:1) is accepted at the owner's request (R5). If a later pass can bring back `color/scrimStrong` behind the text, the exception goes away.
+- **Phone boards not rebuilt:** Shop · Mobile `2018:1970` and Product page · Mobile `2019:2098` still show the v2 layout; the code reflows the 1440 boards. A 390 board for each would settle the order of sections on phones.
+- **Strings with no board:** the PM defaults at the end of `docs/design/copy-v3-web.md` and `docs/design/copy-v3-ios.md` (tote product eyebrow, quantity stepper names, the Add-to-bag sheet, the "Looks good as is" cutout wording, the iOS Welcome sentence, …).
+- **Maker method chips** ("Draws by hand", "Paints by hand") have no data field; omitted until one exists.
+- **Outfit I / l** look alike (designer's own note); kept, logged in `docs/accessibility.md`.
+
+Still open from v2 (T100): `#5FAE57` selected radio border, `#19583C` badge text, `#C6C6C6` tote shadow (`#E4F3C8` and `#374151` are now `accentSoft` and `inkSoft`); card borders `#D1D5DB` at 1.47:1; the wordmark (no board draws it). Answered by v3: Figtree is gone (Outfit everywhere); the eyebrow is 13 px SemiBold, 1 px tracking.
 
 ## Interface exposed to others
-`design/tokens.json` is the only source of design values; `design/assets/` the only source of images. Web reads `web/app/tokens.css`, `web/lib/assets.ts` (`ASSETS.<name>` → `/assets/<file>`); iOS reads `Tokens.*`, `Image(Tokens.Asset.<name>)` and, for the animation, `Bundle.main.url(forResource: Tokens.Asset.mascotMagnifier, withExtension: "mp4")`. After an intake, the node table in `docs/design/screens.md` is what Web and iOS build from.
+`design/tokens.json` is the only source of design values; `design/assets/` the only source of images. Web reads `web/app/tokens.css`, `web/lib/assets.ts` (`ASSETS.<name>` → `/assets/<file>`); iOS reads `Tokens.*`, `Image(Tokens.Asset.<name>)` and, for the animations, `Bundle.main.url(forResource: Tokens.Asset.mascotMagnifier, withExtension: "mp4")` and `Tokens.Asset.stickerLoading`. Copy changes go through `docs/design/copy-v3-web.md` and `copy-v3-ios.md`. After an intake, the node table in `docs/design/screens.md` is what Web and iOS build from.
 
 ## Last updated
-2026-10-30 (T100)
+2026-11-01 (T110)

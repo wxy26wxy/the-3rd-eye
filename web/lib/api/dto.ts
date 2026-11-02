@@ -24,9 +24,9 @@ export function toArtwork(a: ArtworkRow) {
   };
 }
 
-/** `GET /artworks` item: the artwork plus its products for status badges. */
+/** `GET /artworks` item: the artwork plus its products for status badges (`previewUrl`: bordered sticker preview, T121). */
 export function toArtworkListItem(a: ArtworkWithProducts) {
-  return { ...toArtwork(a), products: a.products.map(({ id, type, status, priceCents, title, description, mockupUrl }) => ({ id, type, status, priceCents, title, description, mockupUrl })) };
+  return { ...toArtwork(a), products: a.products.map(({ id, type, status, priceCents, title, description, mockupUrl, previewUrl }) => ({ id, type, status, priceCents, title, description, mockupUrl, previewUrl })) };
 }
 
 /** Public picture of a row: the cut-out when there is one, else the edited picture of a change result (T111). */
@@ -44,7 +44,7 @@ export function toCandidates(a: ArtworkRow) {
 
 export function toProduct(p: ProductRow) {
   return {
-    id: p.id, artworkId: p.artworkId, creatorId: p.creatorId, type: p.type, mockupUrl: p.mockupUrl,
+    id: p.id, artworkId: p.artworkId, creatorId: p.creatorId, type: p.type, mockupUrl: p.mockupUrl, previewUrl: p.previewUrl ?? null,
     printPngUrl: p.printPngUrl, printSvgUrl: p.printSvgUrl, priceCents: p.priceCents, status: p.status,
   };
 }

@@ -231,6 +231,8 @@ final class CreateFlow {
   /// The artwork the creator accepted ("Use this" on Your cutout).
   var artwork: Artwork?
   var product: Product?
+  /// The cut-out (`cleanedUrl`) `product` was made from, so a re-cut is noticed before it is reused.
+  var productCut: String?
   /// Listing title of a reused draft product (`continueFrom`), shown in Listing details.
   var productTitle: String?
   /// Listing description of that draft, when the server sent it.
@@ -287,6 +289,50 @@ final class CreateFlow {
     resetCutout(artwork: nil, candidates: [], imageSize: nil)
     artwork = nil
     product = nil
+    productCut = nil
+  }
+
+  // MARK: Product for this cut-out
+
+  /// What Making your sticker does: make the product, reuse the draft it already made for this
+  /// artwork (Back from Listing details, then Use this again), or reuse it after a re-cut, when the
+  /// server has rebuilt its print file and mockup and the client must read them again.
+  enum ProductPlan: Equatable {
+    case create
+    case reuse(Product)
+    case refresh(Product)
+  }
+
+  func productPlan(for artwork: Artwork, type: ProductType) -> ProductPlan {
+    guard let product, product.artworkId == artwork.id, product.type == type else { return .create }
+    return productCut == artwork.cleanedUrl ? .reuse(product) : .refresh(product)
+  }
+
+  /// Records the product made (or refreshed) from `artwork`'s current cut-out.
+  func useProduct(_ product: Product, madeFrom artwork: Artwork) {
+    self.product = product
+    productCut = artwork.cleanedUrl
+  }
+
+  /// The draft with the mockup and price the server has now (`GET /artworks` products), or the
+  /// draft as it was when the list does not have it.
+  static func refreshed(_ product: Product, in artworks: [Artwork]) -> Product {
+    guard let summary = artworks.lazy.compactMap({ $0.products?.first { $0.id == product.id } }).first else { return product }
+    var fresh = product
+    if let mockup = summary.mockupUrl { fresh.mockupUrl = mockup }
+    if let cents = summary.priceCents { fresh.priceCents = cents }
+    if let status = summary.status { fresh.status = status }
+    return fresh
+  }
+
+  /// A cut saved on Your cutout (`cleanup`): the flow follows it; `cutoutNotice` says when a product
+  /// made from the artwork could not be rebuilt or went back to draft (shown on Listing details).
+  func recordCut(_ result: CleanupResult) {
+    var cut = result.artwork
+    if cut.altText?.isEmpty ?? true { cut.altText = cutoutArtwork?.altText }
+    cutoutArtwork = cut
+    artwork = cut
+    cutoutNotice = result.productNotice
   }
 
 }

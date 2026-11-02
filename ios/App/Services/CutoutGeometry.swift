@@ -100,6 +100,21 @@ enum CutoutRequest {
     return CutoutPoint(x: (b[0] + b[2]) / 2, y: (b[1] + b[3]) / 2, label: .positive)
   }
 
+  /// What the VoiceOver actions on Your cutout's picture act on: the piece the cut-out was made
+  /// from, or the whole picture when there is none (no drawing found).
+  static func accessTarget(piece: Candidate?, image: ImageSize?) -> (box: [Double], point: CutoutPoint)? {
+    if let piece, let box = box(around: piece), let point = centrePoint(of: piece) { return (box, point) }
+    guard let image, image.isUsable else { return nil }
+    return ([0, 0, image.w, image.h], CutoutPoint(x: image.w / 2, y: image.h / 2, label: .positive))
+  }
+
+  /// "Use this" with nothing marked, before any cut-out and with no piece (no drawing found): a
+  /// box over the whole picture.
+  static func wholePhoto(hasCut: Bool, selected: [Candidate], image: ImageSize?) -> CleanupRequest? {
+    guard !hasCut, selected.isEmpty, let image, image.isUsable else { return nil }
+    return CleanupRequest(box: [0, 0, image.w, image.h])
+  }
+
   private static func contains(_ bbox: [Double], x: Double, y: Double) -> Bool {
     bbox.count == 4 && x >= bbox[0] && x < bbox[2] && y >= bbox[1] && y < bbox[3]
   }

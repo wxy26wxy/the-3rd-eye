@@ -81,6 +81,9 @@ struct ListingDetailsView: View {
       }
       .accessibilityElement(children: .combine)
 
+      // A re-cut that could not rebuild this draft (or sent it back to draft): said here, where the
+      // creator is about to approve it (T114 fix round 1).
+      if let notice = app.flow.cutoutNotice { ErrorCard(message: notice) }
       if let error { ErrorCard(message: error) }
     }
   }

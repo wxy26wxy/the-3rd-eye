@@ -10,6 +10,9 @@ struct ArtPreview: View {
   var photo: UIImage?
   var height: CGFloat = ThemeEffects.artPreviewHeight
   @Environment(\.themeColors) private var colors
+  @Environment(\.colorSchemeContrast) private var contrast
+  /// Grows with Dynamic Type so the label chip does not eat the picture at accessibility sizes.
+  @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
 
   var body: some View {
     let shape = RoundedRectangle(cornerRadius: ThemeEffects.artPreviewRadius, style: .continuous)
@@ -18,8 +21,10 @@ struct ArtPreview: View {
       .padding(.top, Theme.Space.section)
       .padding(.bottom, Theme.Space.m)
       .frame(maxWidth: .infinity)
-      .frame(height: height)
+      .frame(height: height * min(max(scale, 1), ThemeEffects.artPreviewMaxGrowth))
       .background(shape.fill(colors.surfaceAlt))
+      // Increase Contrast: the grey card and its white chip need an edge on the white page.
+      .overlay(shape.strokeBorder(contrast == .increased ? colors.border : .clear, lineWidth: Theme.Border.card))
       .overlay(alignment: .topLeading) {
         Text(label)
           .themeFont(.eyebrow)
@@ -28,6 +33,7 @@ struct ArtPreview: View {
           .padding(.horizontal, Theme.Space.m)
           .padding(.vertical, Theme.Space.xs)
           .background(Capsule().fill(colors.surface))
+          .overlay(Capsule().strokeBorder(contrast == .increased ? colors.border : .clear, lineWidth: Theme.Border.thin))
           .padding(Theme.Space.m)
           .accessibilityHidden(true)
       }

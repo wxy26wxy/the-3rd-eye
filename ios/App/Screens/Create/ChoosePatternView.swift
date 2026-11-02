@@ -66,8 +66,10 @@ struct ChoosePatternView: View {
   // MARK: Photo
 
   private func photoArea(size: ImageSize) -> some View {
-    photoImage
+    // The frame has the picture's own aspect whatever image loads, so taps map to `imageSize` pixels.
+    Color.clear
       .aspectRatio(size.w / size.h, contentMode: .fit)
+      .overlay { photoImage }
       .frame(maxHeight: Theme.photoMaxHeight - 2 * ThemeEffects.photoCardInset)
       .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s))
       .softShadow()

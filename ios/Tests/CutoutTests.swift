@@ -268,4 +268,66 @@ final class CutoutTests: XCTestCase {
     ])
     XCTAssertEqual(shown.map(\.id), ["p1", "ch2"], "a change with a parent and no cut-out is hidden, failed or not")
   }
+
+  // MARK: T114 fix round 1: draft reuse, VoiceOver targets, whole photo
+
+  /// Back from Listing details, then Use this again: the same cut reuses the draft; a re-cut
+  /// refreshes it; another artwork or type makes a new product.
+  func testProductPlanReusesRefreshesOrCreates() {
+    let flow = CreateFlow()
+    let cut = Artwork(id: "ch1", cleanedUrl: "cut-1")
+    XCTAssertEqual(flow.productPlan(for: cut, type: .sticker), .create, "nothing made yet")
+    let draft = Product(id: "pr1", artworkId: "ch1", type: .sticker, mockupUrl: "mock-1", priceCents: 500, status: "draft")
+    flow.useProduct(draft, madeFrom: cut)
+    XCTAssertEqual(flow.productPlan(for: cut, type: .sticker), .reuse(draft), "same cut: no second draft")
+    XCTAssertEqual(flow.productPlan(for: Artwork(id: "ch1", cleanedUrl: "cut-2"), type: .sticker), .refresh(draft), "re-cut: read it again")
+    XCTAssertEqual(flow.productPlan(for: cut, type: .tote), .create)
+    XCTAssertEqual(flow.productPlan(for: Artwork(id: "p1", cleanedUrl: "cut-1"), type: .sticker), .create)
+    flow.discardPhoto()
+    XCTAssertNil(flow.product)
+    XCTAssertNil(flow.productCut)
+  }
+
+  /// A refreshed draft takes the rebuilt mockup and price from `GET /artworks`; missing → unchanged.
+  func testRefreshedDraftTakesTheRebuiltMockup() {
+    let draft = Product(id: "pr1", artworkId: "ch1", type: .sticker, mockupUrl: "mock-1", priceCents: 500, status: "draft")
+    let list = [Artwork(id: "ch1", products: [ArtworkProduct(id: "pr1", type: .sticker, status: "draft", priceCents: 600, mockupUrl: "mock-2")])]
+    let fresh = CreateFlow.refreshed(draft, in: list)
+    XCTAssertEqual(fresh.mockupUrl, "mock-2")
+    XCTAssertEqual(fresh.priceCents, 600)
+    XCTAssertEqual(CreateFlow.refreshed(draft, in: []), draft, "not in the list: kept as it was")
+  }
+
+  /// A re-cut whose product rebuild failed leaves the notice Listing details shows.
+  func testFailedRebuildLeavesTheNotice() {
+    let flow = CreateFlow()
+    flow.cutoutArtwork = Artwork(id: "ch1", cleanedUrl: "cut-1", altText: "A bus")
+    flow.recordCut(CleanupResult(artwork: Artwork(id: "ch1", cleanedUrl: "cut-2"), failedProductIds: ["pr1"]))
+    XCTAssertEqual(flow.artwork?.cleanedUrl, "cut-2")
+    XCTAssertEqual(flow.cutoutArtwork?.altText, "A bus", "the description is kept")
+    XCTAssertNotNil(flow.cutoutNotice)
+    XCTAssertTrue(flow.cutoutNotice?.contains("could not be rebuilt") == true)
+    flow.recordCut(CleanupResult(artwork: Artwork(id: "ch1", cleanedUrl: "cut-3")))
+    XCTAssertNil(flow.cutoutNotice, "a clean re-cut clears it")
+  }
+
+  /// The VoiceOver actions act on the piece, or on the whole photo when no drawing was found.
+  func testAccessTargetsPieceOrWholePhoto() throws {
+    let onPiece = try XCTUnwrap(CutoutRequest.accessTarget(piece: one, image: size))
+    XCTAssertEqual(onPiece.box, one.bbox)
+    XCTAssertEqual(onPiece.point, CutoutPoint(x: 300, y: 426.5, label: .positive))
+    let whole = try XCTUnwrap(CutoutRequest.accessTarget(piece: nil, image: size))
+    XCTAssertEqual(whole.box, [0, 0, 1200, 1600])
+    XCTAssertEqual(whole.point, CutoutPoint(x: 600, y: 800, label: .positive))
+    XCTAssertNil(CutoutRequest.accessTarget(piece: nil, image: nil))
+  }
+
+  /// No drawing found and nothing marked: "Use this" sends the whole photo; never once a cut exists.
+  func testWholePhotoOnlyWithoutACutOrPiece() {
+    XCTAssertEqual(CutoutRequest.wholePhoto(hasCut: false, selected: [], image: size), CleanupRequest(box: [0, 0, 1200, 1600]))
+    XCTAssertNil(CutoutRequest.wholePhoto(hasCut: true, selected: [], image: size))
+    XCTAssertNil(CutoutRequest.wholePhoto(hasCut: false, selected: [one], image: size))
+    XCTAssertNil(CutoutRequest.wholePhoto(hasCut: false, selected: [], image: nil))
+  }
 }
+

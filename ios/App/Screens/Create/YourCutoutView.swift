@@ -173,8 +173,11 @@ struct YourCutoutView: View {
     flow.cutoutArtwork?.id == flow.photoArtwork?.id ? flow.photo : nil
   }
 
+  /// What the creator composed; with nothing marked and no cut-out yet (no drawing found), the
+  /// whole photo (ruling, T114 fix round 1).
   private var currentRequest: CleanupRequest? {
     CutoutRequest.make(selected: selected, points: flow.points, box: flow.box)
+      ?? CutoutRequest.wholePhoto(hasCut: flow.cutoutArtwork?.cleanedUrl != nil, selected: selected, image: imageSize)
   }
 
   /// The cut the server has matches the marks and box on screen.
@@ -207,8 +210,22 @@ struct YourCutoutView: View {
   }
 
   private func photoArea(size: ImageSize) -> some View {
-    photoImage
+    // The frame has the picture's own aspect whatever image loads (a placeholder, a picture of
+    // another size), so view points map to `imageSize` pixels exactly (`CutoutGeometry.fitRect`).
+    Color.clear
       .aspectRatio(size.w / size.h, contentMode: .fit)
+      .overlay { photoImage }
+      // The picture is one VoiceOver element with the actions the taps do (T114 fix round 1): on
+      // the piece the cut-out was made from, or on the whole photo when no drawing was found.
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel(Text("Your photo"))
+      .accessibilityAddTraits(.isImage)
+      .accessibilityActions {
+        if let target = CutoutRequest.accessTarget(piece: selected.first, image: size) {
+          Button("Box around your art") { setBox(target.box) }
+          Button("Add the area around your art") { addMark(target.point) }
+        }
+      }
       .frame(maxHeight: Theme.photoMaxHeight - 2 * ThemeEffects.photoCardInset)
       // Only the picture is clipped: a mark at the edge stays whole, overhanging the frame.
       .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s))
@@ -233,14 +250,7 @@ struct YourCutoutView: View {
         }
       }
       .accessibilityElement(children: .contain)
-      .accessibilityLabel(Text("Your photo"))
       .accessibilityIdentifier("cutout-photo")
-      .accessibilityActions {
-        if let piece = selected.first {
-          Button("Box around your art") { if let box = CutoutRequest.box(around: piece) { setBox(box) } }
-          Button("Add the area around your art") { if let point = CutoutRequest.centrePoint(of: piece) { addMark(point) } }
-        }
-      }
       .frame(maxWidth: .infinity)
       // Figma `Photo card`: the picture on the green card.
       .padding(ThemeEffects.photoCardInset)
@@ -500,12 +510,8 @@ struct YourCutoutView: View {
 
   /// Written to the flow the request started with, even if the screen or tab changed meanwhile.
   private func record(_ result: CleanupResult, in flow: CreateFlow) {
-    var cut = result.artwork
-    if cut.altText?.isEmpty ?? true { cut.altText = flow.cutoutArtwork?.altText }
-    flow.cutoutArtwork = cut
-    flow.artwork = cut
-    flow.cutoutNotice = result.productNotice
-    if origin == .designs { app.designs.replace(cut) }
+    flow.recordCut(result)
+    if origin == .designs, let cut = flow.cutoutArtwork { app.designs.replace(cut) }
   }
 
   private func show(_ error: Error, for request: CleanupRequest?) {

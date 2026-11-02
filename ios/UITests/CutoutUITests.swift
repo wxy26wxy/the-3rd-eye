@@ -186,6 +186,22 @@ final class CutoutUITests: XCTestCase {
     XCTAssertEqual(try lastBody("cleanup")["candidateIds"] as? [String], ["cand-1"])
   }
 
+  /// No drawing found (mock NONE…): Choose a pattern's "Use this" opens Your cutout on the whole
+  /// photo, which is one VoiceOver image (its actions act on the whole photo; XCUITest cannot run
+  /// custom actions, `CutoutTests.testAccessTargetsPieceOrWholePhoto` covers them); "Use this" sends
+  /// a box over the whole photo and goes on to the sticker.
+  func testNoDrawingUsesTheWholePhoto() throws {
+    let app = launchPhotoFlow(code: "NONE-CODE")
+    let line = "We couldn't find a drawing in your photo. Use this to draw a box around it, or take the photo again."
+    XCTAssertTrue(app.staticTexts[line].waitForExistence(timeout: 20))
+    tap(app, "Use this")
+    XCTAssertTrue(app.otherElements["cutout-photo"].waitForExistence(timeout: 10), "Your cutout on the whole photo")
+    XCTAssertTrue(app.images["Your photo"].exists, "the photo is one VoiceOver image")
+    tap(app, "Use this")
+    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 20), "cut out, then the sticker")
+    XCTAssertEqual(try lastBody("cleanup")["box"] as? [Double], [0, 0, 1200, 1600], "the whole photo")
+  }
+
   /// Start over drops everything and opens the photo picker again.
   func testStartOverTakesANewPhoto() {
     let app = openYourCutout(code: "TEST-CODE")

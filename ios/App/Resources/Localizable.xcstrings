@@ -226,9 +226,6 @@
     "Different from what you asked: %@" : {
 
     },
-    "Done" : {
-
-    },
     "Draft" : {
 
     },
@@ -1061,6 +1058,9 @@
     "Your product" : {
 
     },
+    "Your sticker is ready!" : {
+
+    },
     "Your story" : {
 
     },
@@ -1068,6 +1068,9 @@
 
     },
     "YOUR THANK-YOU" : {
+
+    },
+    "Your tote bag is ready!" : {
 
     },
     "Your video was longer than 30 seconds, so we kept the first 30." : {

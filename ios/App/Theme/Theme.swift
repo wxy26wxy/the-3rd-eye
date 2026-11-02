@@ -122,6 +122,8 @@ enum ThemeEffects {
   static let artPreviewHeight: CGFloat = 240
   static let artPreviewCompactHeight: CGFloat = 160
   static let artPreviewRadius: CGFloat = 24
+  /// How much the preview may grow with Dynamic Type (×1.6 at the largest sizes).
+  static let artPreviewMaxGrowth: CGFloat = 1.6
   /// Before and after (`2012:344`): the two previews side by side.
   static let beforeAfterHeight: CGFloat = 240
   /// Making your sticker / tote bag (`4037:4389`): the loading animation is a 342 × 342 square.

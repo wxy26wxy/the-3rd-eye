@@ -30,14 +30,19 @@ struct MakingProductView: View {
       error = String(localized: "The design is missing. Go back and pick it again.")
       return
     }
-    // Back from Listing details and "Use this" again: the draft made for this cut-out is reused
-    // (a new cut of the same artwork rebuilds its products on the server).
-    if let product = flow.product, product.artworkId == artwork.id, product.type == type {
-      if app.createPath.last == .makingProduct { app.replaceTop(with: .listingDetails) }
-      return
-    }
     do {
-      flow.product = try await app.api.createProduct(artworkId: artwork.id, type: type)
+      switch flow.productPlan(for: artwork, type: type) {
+      case .create:
+        flow.useProduct(try await app.api.createProduct(artworkId: artwork.id, type: type), madeFrom: artwork)
+      case .reuse:
+        // Back from Listing details and "Use this" again, same cut: the draft is reused.
+        break
+      case .refresh(let draft):
+        // Re-cut: the server rebuilt the draft's print file and mockup; read them again.
+        flow.useProduct(CreateFlow.refreshed(draft, in: try await app.api.myArtworks()), madeFrom: artwork)
+      }
+      UIAccessibility.post(notification: .announcement,
+                           argument: type == .tote ? String(localized: "Your tote bag is ready!") : String(localized: "Your sticker is ready!"))
       if app.createPath.last == .makingProduct { app.replaceTop(with: .listingDetails) }
     } catch is CancellationError {
       return

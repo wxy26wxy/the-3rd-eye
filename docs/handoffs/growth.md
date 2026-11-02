@@ -1,14 +1,15 @@
 # Handoff · growth
 
 ## Owns
-`README.md`, `docs/demo_script.md`, the review of `docs/accessibility.md`, `docs/handoffs/growth.md`.
+`README.md`, `docs/demo_script.md`, `docs/submission.md`, the review of `docs/accessibility.md`, `docs/handoffs/growth.md`.
 
 ## Current task
-T093 · demo script, README refresh, accessibility test scripts (docs only). Done on branch `feat/growth-T093`.
+T125 · submission materials draft (docs only): `docs/submission.md`, one section per form field in form order, ready to paste, plus a checklist before submitting. Branch `feat/growth-T125`. Every `[FOUNDER: …]` placeholder in that file is for the founder (video and post links, the two rating scale values). The draft below ("Submission form") is superseded by `docs/submission.md` for the form fields it covers.
 
 ## Interface exposed to others
 - `docs/demo_script.md` is the recording plan; if a screen label changes, update the narration and steps there.
 - The README's model map and "real vs staged" list must match `docs/architecture.md`; change both together.
+- `docs/submission.md` restates the model map, file paths, real vs staged and the demo beats; change it with the README, `docs/architecture.md` and `docs/demo_script.md`.
 
 ## Footage still needed from the founder (phone shots)
 All on a real iPhone, VoiceOver on unless noted. Record 2 takes each, plus the fallback take named in `docs/demo_script.md`.
@@ -42,4 +43,4 @@ All on a real iPhone, VoiceOver on unless noted. Record 2 takes each, plus the f
 - iOS: the Change it, Before and after, Your cutout and My designs scripts have not been run with VoiceOver on a device.
 
 ## Last updated
-2026-11-02 (T115: v0.8 photo-first flow)
+2026-11-02 (T125: submission materials draft)

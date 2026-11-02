@@ -162,6 +162,8 @@ enum Tokens {
     static let tote = "tote"
     static let heroSky = "hero-sky"
     static let stickerLoading = "sticker-loading"
+    static let mascotCard = "mascot-card"
+    static let mascotShop = "mascot-shop"
     static let iconCamera = "icon-camera"
     static let iconImage = "icon-image"
     static let iconMic = "icon-mic"

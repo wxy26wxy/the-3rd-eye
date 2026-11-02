@@ -12,11 +12,15 @@ import { ProductBuy } from "./ProductBuy";
 import { Disclosures, MeetMakerCard, MoreFrom, PaysArtistNote } from "./ProductParts";
 import styles from "./Product.module.css";
 
-/** Gallery pictures in board order (4011:4378): the piece on the accent, the art on a white card, the photo, the story tag. */
-export function gallerySlides(p: Pick<ProductDetail, "type" | "artworkUrl" | "mockupUrl" | "creator">): GallerySlide[] {
+/**
+ * Gallery pictures in board order (4011:4378): the sticker as it will look (the bordered preview, R1;
+ * the cutout until it exists) on the accent, the art on a white card, the photo, the story tag.
+ */
+export function gallerySlides(p: Pick<ProductDetail, "type" | "artworkUrl" | "mockupUrl" | "previewUrl" | "creator">): GallerySlide[] {
+  const first = p.previewUrl ?? p.artworkUrl;
   const slides: (GallerySlide | null)[] = p.type === "sticker"
     ? [
-        p.artworkUrl ? { kind: "image", src: p.artworkUrl, fit: "contain", tone: "accent" } : null,
+        first ? { kind: "image", src: first, fit: "contain", tone: "accent", sticker: !!p.previewUrl } : null,
         p.artworkUrl ? { kind: "image", src: p.artworkUrl, fit: "contain", tone: "alt", card: true } : null,
         p.mockupUrl ? { kind: "image", src: p.mockupUrl, fit: "cover", tone: "alt" } : null,
       ]

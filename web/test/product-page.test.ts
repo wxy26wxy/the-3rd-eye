@@ -85,6 +85,13 @@ describe("Product page v3 (board 2019:2004)", () => {
     expect(out.match(/<button[^>]*><span[^>]*aria-hidden="true">/g)).toHaveLength(4);
   });
 
+  it("R1: gallery slide 1 of a sticker is the bordered preview (contained), the cutout until it exists", () => {
+    const withPreview = gallerySlides({ ...product, previewUrl: "https://blob.example/preview.png" });
+    expect(withPreview[0]).toMatchObject({ kind: "image", src: "https://blob.example/preview.png", fit: "contain", sticker: true });
+    expect(gallerySlides({ ...product, previewUrl: null })[0]).toMatchObject({ kind: "image", src: product.artworkUrl, fit: "contain" });
+    expect(html(createElement(Gallery, { slides: withPreview, alt: "x" }))).toMatch(/<img src="https:\/\/blob\.example\/preview\.png"[^>]*class="[^"]*slideContain[^"]*slideSticker/);
+  });
+
   it("gallery without pictures still shows the story tag card; a tote leads with its mockup", () => {
     expect(gallerySlides({ ...product, artworkUrl: null, mockupUrl: null }).map((s) => s.kind)).toEqual(["tag"]);
     const tote = gallerySlides({ ...product, type: "tote" });

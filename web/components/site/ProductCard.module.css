@@ -24,10 +24,12 @@
 .white { background: var(--surface); border: var(--border-thin) solid var(--border); }
 .soft { background: var(--color-accent-soft); }
 .alt { background: var(--surface-alt); }
+/* The sticker's white border shows on every tint (also white) through the soft shadow. */
 .cutout {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  filter: drop-shadow(var(--shadow-soft));
   padding: calc(var(--space-xxl) + var(--space-l)) var(--space-xxl) var(--space-xxl);
 }
 .photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }

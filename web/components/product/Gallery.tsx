@@ -4,7 +4,7 @@ import { fmt, m } from "@/components/messages";
 import styles from "./Product.module.css";
 
 export type GallerySlide =
-  | { kind: "image"; src: string; fit: "contain" | "cover"; tone: "accent" | "white" | "soft" | "alt"; card?: boolean }
+  | { kind: "image"; src: string; fit: "contain" | "cover"; tone: "accent" | "white" | "soft" | "alt"; card?: boolean; sticker?: boolean }
   | { kind: "tag"; text: string };
 
 /**
@@ -54,6 +54,6 @@ function Slide({ slide, alt, main }: { slide: GallerySlide; alt: string; main?: 
     );
   }
   // eslint-disable-next-line @next/next/no-img-element
-  const img = <img src={slide.src} alt={alt} loading={main ? "eager" : "lazy"} decoding="async" className={slide.fit === "cover" ? styles.slideCover : styles.slideContain} />;
+  const img = <img src={slide.src} alt={alt} loading={main ? "eager" : "lazy"} decoding="async" className={[slide.fit === "cover" ? styles.slideCover : styles.slideContain, slide.sticker ? styles.slideSticker : ""].filter(Boolean).join(" ")} />;
   return slide.card ? <span className={styles.slideCard}>{img}</span> : img;
 }

@@ -47,6 +47,8 @@
 .tone_soft { background: var(--color-accent-soft); }
 .tone_alt { background: var(--surface-alt); }
 .slideContain { width: 100%; height: 100%; object-fit: contain; padding: 12%; }
+/* The bordered sticker preview: contained, never cropped; the soft shadow keeps the white border visible. */
+.slideSticker { filter: drop-shadow(var(--shadow-soft)); }
 .slideCover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .slideCard {
   position: relative;

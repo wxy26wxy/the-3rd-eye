@@ -131,7 +131,7 @@ struct StoryDraft: Codable, Equatable {
   }
 }
 
-/// `Artwork`; `ArtworkVariant` is the same shape plus `previewUrl`.
+/// `Artwork` (docs/api.md). A changed picture is a child row: `parentArtworkId` and `changeInstruction`.
 struct Artwork: Codable, Identifiable, Equatable, Hashable {
   let id: String
   var creatorId: String?
@@ -147,6 +147,8 @@ struct Artwork: Codable, Identifiable, Equatable, Hashable {
   var differencesFromPrompt: String?
   var genResponseId: String?
   var parentArtworkId: String?
+  /// What the creator asked to change (child artworks from `POST /artworks/{id}/change`).
+  var changeInstruction: String?
   var status: String?
   var createdAt: String?
   var previewUrl: String?
@@ -159,9 +161,15 @@ struct Artwork: Codable, Identifiable, Equatable, Hashable {
   var displayURL: URL? {
     [previewUrl, cleanedUrl].compactMap { $0 }.first.flatMap(URL.init(string:))
   }
-}
 
-typealias ArtworkVariant = Artwork
+  /// What the picture shows, for the "WHAT THE IMAGE SHOWS" card: the spoken description when
+  /// there is one, else the alt text.
+  var shownDescription: String? {
+    [spokenDescription, altText]
+      .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+      .first { !$0.isEmpty }
+  }
+}
 
 /// `ArtworkProduct` on a `GET /artworks` item: enough for a status badge.
 struct ArtworkProduct: Codable, Identifiable, Equatable, Hashable {
@@ -337,34 +345,6 @@ struct TranscribeResponse: Decodable {
   var language: String?
 }
 
-struct ShapePromptRequest: Encodable {
-  let transcript: String
-  var answers: [String]?
-  let product: ProductType
-}
-
-struct ShapePromptResponse: Decodable, Equatable {
-  let prompt: String
-  var styleNotes: String?
-  var clarifyingQuestion: String?
-  var spokenConfirmation: String?
-
-  enum CodingKeys: String, CodingKey {
-    case prompt
-    case styleNotes = "style_notes"
-    case clarifyingQuestion = "clarifying_question"
-    case spokenConfirmation = "spoken_confirmation"
-  }
-}
-
-struct TextToImageRequest: Encodable {
-  let source = "text2image"
-  let prompt: String
-  var transcript: String?
-  let product: ProductType
-  var n: Int?
-}
-
 struct PhotoArtworkRequest: Encodable {
   /// "photo" | "canvas"
   let source: String
@@ -372,7 +352,6 @@ struct PhotoArtworkRequest: Encodable {
   let product: ProductType
 }
 
-struct ArtworkVariantsResponse: Decodable { let artworks: [ArtworkVariant] }
 struct PhotoArtworkResponse: Decodable { let artwork: Artwork; let candidates: [Candidate]; var imageSize: ImageSize? }
 /// `POST /artworks/{id}/cleanup` answer: the `Artwork` plus `details` about products already made
 /// from it: `failedProductIds` could not be rebuilt, `unpublishedProductIds` went back to draft
@@ -406,8 +385,48 @@ struct CleanupResult: Decodable, Equatable {
 /// `GET /artworks/{id}`; `originalUrl` is presigned for 10 minutes (do not store it).
 struct ArtworkDetailResponse: Decodable { let artwork: Artwork; let candidates: [Candidate]; var imageSize: ImageSize?; var originalUrl: String? }
 struct SelectCandidateRequest: Encodable { let candidateId: String }
-struct RefineRequest: Encodable { let instruction: String }
-struct RefineResponse: Decodable { let artwork: ArtworkVariant }
+/// `POST /artworks/{id}/change`: what to change, typed or spoken (`transcript` is the words heard).
+struct ChangeRequest: Encodable {
+  let instruction: String
+  var transcript: String?
+}
+
+/// `POST /artworks/{id}/change` answer: the changed picture is a new child artwork
+/// (`parentArtworkId` = the one it was made from) with a description of the result.
+struct ChangeResponse: Decodable, Equatable {
+  let artwork: Artwork
+  var description: ChangeDescription?
+}
+
+/// Muse Spark's description of a changed picture; `differences` says how it differs from the request.
+struct ChangeDescription: Decodable, Equatable, Hashable {
+  var alt: String?
+  var spoken: String?
+  var differences: String?
+}
+
+/// `POST /artworks/{id}/cutout` answer: the artwork with its cut-out (the largest piece SAM found
+/// on the changed picture), the pieces and the picture's size, for "Your cutout".
+struct CutoutResponse: Decodable {
+  let artwork: Artwork
+  var candidates: [Candidate] = []
+  var imageSize: ImageSize?
+
+  private enum Keys: String, CodingKey { case artwork, candidates, imageSize }
+
+  init(artwork: Artwork, candidates: [Candidate] = [], imageSize: ImageSize? = nil) {
+    self.artwork = artwork
+    self.candidates = candidates
+    self.imageSize = imageSize
+  }
+
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: Keys.self)
+    artwork = try c.decode(Artwork.self, forKey: .artwork)
+    candidates = try c.decodeIfPresent([Candidate].self, forKey: .candidates) ?? []
+    imageSize = try c.decodeIfPresent(ImageSize.self, forKey: .imageSize)
+  }
+}
 struct ArtworksResponse: Decodable { let artworks: [Artwork] }
 
 struct CreateProductRequest: Encodable { let artworkId: String; let type: ProductType }

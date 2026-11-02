@@ -7,10 +7,15 @@ final class FixRoundTests: XCTestCase {
 
   func testReplaceTopSwapsTheLoadingScreen() {
     let app = AppState(api: APIClient(baseURL: base, transport: StubTransport(body: "{}"), token: nil))
-    app.push(.speak)
-    app.push(.drawingYourIdea)
-    app.replaceTop(with: .voiceResult)
-    XCTAssertEqual(app.createPath, [.speak, .voiceResult], "Back from Voice result skips the loading screen")
+    app.push(.changeIt)
+    app.push(.changing)
+    app.replaceTop(with: .beforeAfter)
+    XCTAssertEqual(app.createPath, [.changeIt, .beforeAfter], "Back from Before and after skips Changing your art")
+    app.push(.makingCutout)
+    app.replaceTop(with: .yourCutout)
+    app.push(.makingProduct)
+    app.replaceTop(with: .listingDetails)
+    XCTAssertEqual(app.createPath, [.changeIt, .beforeAfter, .yourCutout, .listingDetails], "no loading screen is left behind")
   }
 
   func testOrdersResetClearsPreviousAccount() {

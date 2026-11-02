@@ -112,7 +112,7 @@ struct DesignDetailView: View {
 
   /// Shown after Re-do the cutout when a product could not be rebuilt or went back to draft.
   private var cutoutNotice: String? {
-    app.designFlow.photoArtwork?.id == artworkId ? app.designFlow.cutoutNotice : nil
+    app.designFlow.cutoutArtwork?.id == artworkId ? app.designFlow.cutoutNotice : nil
   }
 
   // MARK: Actions
@@ -164,7 +164,7 @@ struct DesignDetailView: View {
   }
 
   private func redoButton(_ artwork: Artwork, kind: PillButtonStyle.Kind) -> some View {
-    PillButton(openingRedo ? "Opening your photo…" : "Re-do the cutout", hint: "Pick other pieces or change the cutout",
+    PillButton(openingRedo ? "Opening your photo…" : "Re-do the cutout", hint: "Fix the edges of the cutout",
                kind: kind, showsArrow: kind == .primary) {
       Task { await openRedo(artwork) }
     }
@@ -236,10 +236,9 @@ struct DesignDetailView: View {
         return
       }
       let flow = CreateFlow()
-      flow.photoArtwork = detail.artwork
       flow.artwork = detail.artwork
-      // Like a new photo: a single piece starts selected, so "Use this" without changes cuts nothing.
-      flow.resetCutout(candidates: detail.candidates, imageSize: size)
+      // A single piece starts selected, so "Use this" without changes cuts nothing.
+      flow.resetCutout(artwork: detail.artwork, candidates: detail.candidates, imageSize: size)
       flow.productType = artwork.liveProducts.first?.type
       app.designFlow = flow
       if app.designsPath.last == .detail(artworkId) { app.designsPath.append(.redoCutout) }

@@ -51,7 +51,7 @@ enum CutoutGeometry {
   }
 }
 
-/// What the Adjust cutout screen sends.
+/// What Your cutout sends (`cleanup`), and what Choose a pattern sends for a single pick (`select`).
 enum CutoutRequest {
   /// The API takes at most 10 points.
   static let maxPoints = 10
@@ -122,10 +122,10 @@ extension CleanupResult {
   /// Said when a "Remove area" mark would leave nothing, and for a cleanup with "Remove area"
   /// marks answered 422.
   static var removeAdvice: String {
-    String(localized: "Tap a piece to leave it out of the cutout. To trim one piece, draw a box around what should stay.")
+    String(localized: "To trim the edges, draw a box around what should stay, then tap the parts to leave out.")
   }
 
-  /// What Adjust cutout shows for a failed request: the advice only when a 422 followed marks that
+  /// What Your cutout shows for a failed request: the advice only when a 422 followed marks that
   /// leave something out, otherwise the server's reason. Nil for a cancelled request.
   static func errorMessage(for error: Error, request: CleanupRequest?) -> String? {
     if APIError.isCancellation(error) { return nil }

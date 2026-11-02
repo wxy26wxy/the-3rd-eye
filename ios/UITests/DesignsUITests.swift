@@ -136,18 +136,19 @@ final class DesignsUITests: XCTestCase {
     XCTAssertEqual(edits["description"] as? String, "A blue bird singing on a branch.")
   }
 
-  /// Re-do the cutout opens Adjust cutout on the saved photo; "Use this" saves and comes back.
+  /// Re-do the cutout opens Your cutout on the saved photo; a mark, "Use this" saves and comes back.
   func testRedoCutoutReturnsToTheDesign() throws {
     let app = openDesigns()
     open(app, "Red flower, Didn't work")
     tap(app, "Re-do the cutout")
-    let piece = app.buttons["Piece 1"]
-    XCTAssertTrue(piece.waitForExistence(timeout: 10), "Adjust cutout shows the saved photo's pieces")
-    XCTAssertFalse(app.buttons["Retake"].exists, "a redo has no Retake")
-    piece.tap()
+    let photo = app.otherElements["cutout-photo"]
+    XCTAssertTrue(photo.waitForExistence(timeout: 10), "Your cutout shows the saved photo (no cut-out yet)")
+    XCTAssertFalse(app.buttons["Start over"].exists, "a redo has no Start over")
+    photo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    XCTAssertTrue(app.buttons["Added area, mark 1"].waitForExistence(timeout: 3))
     tap(app, "Use this")
     XCTAssertTrue(app.buttons["Re-do the cutout"].waitForExistence(timeout: 10), "back on the design")
-    XCTAssertEqual(try lastBody("cleanup")["candidateIds"] as? [String], ["cand-1"], "one piece is sent as cleanup")
+    XCTAssertNotNil(try lastBody("cleanup")["points"], "the mark is sent as cleanup")
     XCTAssertTrue(app.buttons["Make a sticker"].waitForExistence(timeout: 5), "the new cutout can be made into products")
   }
 

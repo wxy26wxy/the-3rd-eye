@@ -1,13 +1,13 @@
 import SwiftUI
 
-/// Board "Choose how to make it · Cloud studio" (`21:4340`): three method rows; the first is the
-/// green one on the board; the voice row carries the eyebrow "NO DRAWING SKILL NEEDED".
+/// Board "Choose how to add your art" (`21:4340`, v3): two method rows, the first green as on the
+/// board. Voice-only creation is gone (photo first); the voice comes back on Change it.
 struct ChooseMethodView: View {
   @Environment(AppState.self) private var app
 
   var body: some View {
     FlowScreen(
-      title: "How do you want to make it?",
+      title: "How do you want to add your art?",
       subtitle: "Choose how you want to bring your drawing into the studio.",
       step: (2, 3)
     ) {
@@ -17,10 +17,6 @@ struct ChooseMethodView: View {
         }
         MethodRow(icon: Tokens.Asset.iconImage, name: "Upload a picture", detail: "Pick one you already have") {
           app.push(.camera(.library))
-        }
-        MethodRow(icon: Tokens.Asset.iconMic, name: "Say it out loud", detail: "Describe it, we draw it for you",
-                  eyebrow: "NO DRAWING SKILL NEEDED") {
-          app.push(.speak)
         }
       }
     }

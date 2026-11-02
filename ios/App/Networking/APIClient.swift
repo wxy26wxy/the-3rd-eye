@@ -138,15 +138,6 @@ final class APIClient: @unchecked Sendable {
 
   // MARK: Create
 
-  func shapePrompt(transcript: String, answers: [String]?, product: ProductType) async throws -> ShapePromptResponse {
-    try await post("prompts/shape", ShapePromptRequest(transcript: transcript, answers: answers, product: product))
-  }
-
-  func generateArtworks(prompt: String, transcript: String?, product: ProductType, n: Int) async throws -> [ArtworkVariant] {
-    let res: ArtworkVariantsResponse = try await post("artworks", TextToImageRequest(prompt: prompt, transcript: transcript, product: product, n: n), timeout: Self.longTimeout)
-    return res.artworks
-  }
-
   func artworkFromPhoto(imageUrl: String, product: ProductType, source: String = "photo") async throws -> PhotoArtworkResponse {
     try await post("artworks", PhotoArtworkRequest(source: source, imageUrl: imageUrl, product: product), timeout: Self.longTimeout)
   }
@@ -166,9 +157,15 @@ final class APIClient: @unchecked Sendable {
     try await get("artworks/\(id)")
   }
 
-  func refine(artworkId: String, instruction: String) async throws -> ArtworkVariant {
-    let res: RefineResponse = try await post("artworks/\(artworkId)/refine", RefineRequest(instruction: instruction), timeout: Self.longTimeout)
-    return res.artwork
+  /// "Change it": Muse Image edits the picture with the instruction; the answer is a new child
+  /// artwork (the original stays as it was) with a description of the result.
+  func change(artworkId: String, instruction: String, transcript: String?) async throws -> ChangeResponse {
+    try await post("artworks/\(artworkId)/change", ChangeRequest(instruction: instruction, transcript: transcript), timeout: Self.longTimeout)
+  }
+
+  /// Cuts out a changed picture: SAM finds its pieces and the largest one becomes the cut-out.
+  func cutout(artworkId: String) async throws -> CutoutResponse {
+    try await send(request("POST", "artworks/\(artworkId)/cutout", body: try Self.encoder.encode(Empty()), timeout: Self.longTimeout))
   }
 
   func myArtworks() async throws -> [Artwork] {

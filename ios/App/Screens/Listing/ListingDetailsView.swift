@@ -21,7 +21,7 @@ struct ListingDetailsView: View {
       if creatingProduct {
         VStack(spacing: Theme.Space.l) {
           SkyCard(pose: .book)
-          Text(app.flow.productType == .tote ? "Putting your art on a tote bag. This can take up to a minute." : "Making your sticker. This can take up to a minute.")
+          Text(app.flow.productType == .tote ? "Making your tote bag. This can take up to a minute." : "Making your sticker. This can take up to a minute.")
             .themeFont(.bodyL)
             .foregroundStyle(colors.text)
             .multilineTextAlignment(.center)

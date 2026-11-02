@@ -1,7 +1,7 @@
 import Observation
 import SwiftUI
 
-/// Record → upload to /transcribe → text. Used by the idea path (SpeakView) and "Say what to change" (VoiceResultView).
+/// Record → upload to /transcribe → text. Used by "Say what to change" (ChangeItView).
 @MainActor
 @Observable
 final class VoiceCapture {

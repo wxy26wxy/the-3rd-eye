@@ -10,16 +10,6 @@
     "%@ is in the shop." : {
 
     },
-    "%@, picture %lld of %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@, picture %2$lld of %3$lld"
-          }
-        }
-      }
-    },
     "%lld" : {
 
     },
@@ -36,9 +26,6 @@
 
     },
     "A few words about it" : {
-
-    },
-    "A happy frog wearing a crown" : {
 
     },
     "A second product gets its own listing, and it replaces the design you're making in Create. To change the one in the shop, use Edit listing." : {
@@ -65,22 +52,19 @@
     "Add area" : {
 
     },
-    "Add the area around this piece" : {
+    "Add the area around your art" : {
 
     },
     "Added area, mark %lld" : {
 
     },
+    "Adding the white border and getting it ready to print." : {
+
+    },
     "Adds a picture from your library" : {
 
     },
-    "Adds it to the cutout" : {
-
-    },
-    "Adjust cutout" : {
-
-    },
-    "Answer out loud" : {
+    "After" : {
 
     },
     "Apply cutout" : {
@@ -101,13 +85,22 @@
     "Back" : {
 
     },
-    "Back to photo" : {
+    "Back to my art" : {
+
+    },
+    "Back to my original" : {
+
+    },
+    "Back to your original art" : {
+
+    },
+    "Before" : {
 
     },
     "Bought by %@" : {
 
     },
-    "Box around this piece" : {
+    "Box around your art" : {
 
     },
     "Box drawn" : {
@@ -134,10 +127,7 @@
     "Cancel" : {
 
     },
-    "Change" : {
-
-    },
-    "Change it" : {
+    "Change it again" : {
 
     },
     "Change the name, description or price" : {
@@ -146,7 +136,16 @@
     "Change the words before saving" : {
 
     },
-    "Changing it…" : {
+    "Change your art?" : {
+
+    },
+    "Changes your art the way you asked" : {
+
+    },
+    "Changing your art" : {
+
+    },
+    "Changing your art now. This can take up to a minute." : {
 
     },
     "Check the name and price, then list it." : {
@@ -161,7 +160,7 @@
     "Choose from my photos" : {
 
     },
-    "Choose how to make your art" : {
+    "Choose how to add your art" : {
 
     },
     "Choose how you want to bring your drawing into the studio." : {
@@ -179,7 +178,16 @@
     "Create" : {
 
     },
+    "Cuts it out again with your marks and shows it" : {
+
+    },
     "Cutting it out…" : {
+
+    },
+    "Cutting out your art. This takes a few seconds." : {
+
+    },
+    "Cutting out your art…" : {
 
     },
     "Cutting out…" : {
@@ -200,9 +208,6 @@
     "Deleting…" : {
 
     },
-    "Describe it, we draw it for you" : {
-
-    },
     "Description" : {
 
     },
@@ -218,7 +223,7 @@
     "Die-cut, waterproof" : {
 
     },
-    "Different from what you said: %@" : {
+    "Different from what you asked: %@" : {
 
     },
     "Done" : {
@@ -236,13 +241,19 @@
     "Draw a box" : {
 
     },
+    "Draw a box around what should stay, then tap the parts to leave out." : {
+
+    },
+    "Draw a box around your art, or tap it, then tap Apply cutout." : {
+
+    },
     "Draw it or say it. We make the sticker or tote." : {
 
     },
-    "Drawing your idea" : {
+    "Draws a new version with your change" : {
 
     },
-    "Draws a new version with your change" : {
+    "Drops the changes and shows your art as it was" : {
 
     },
     "Edit it" : {
@@ -272,7 +283,16 @@
     "Finish the listing and put it in the shop" : {
 
     },
+    "Fix the edges" : {
+
+    },
+    "Fix the edges of the cutout" : {
+
+    },
     "Go back" : {
+
+    },
+    "Goes on to change it or keep it as it is" : {
 
     },
     "Goes on to your sticker draft" : {
@@ -284,34 +304,28 @@
     "Goes to the previous screen" : {
 
     },
-    "Got %lld pieces. They are cut out together." : {
-
-    },
-    "Got piece %lld! Tap another piece to add it too." : {
-
-    },
     "Happy Frog Sticker" : {
 
     },
     "Here's a story we drafted from your video" : {
 
     },
-    "Here's your idea" : {
+    "Here's the change" : {
 
     },
-    "Hide the keyboard box" : {
+    "Here's the cutout of your art. Fix the edges if you need to." : {
 
     },
-    "How do you want to make it?" : {
+    "Here's the cutout of your changed art. Fix the edges if you need to." : {
+
+    },
+    "How do you want to add your art?" : {
 
     },
     "I already have an account" : {
 
     },
     "I didn't catch that. Try again, or type instead." : {
-
-    },
-    "I HEARD" : {
 
     },
     "I wrote a listing called %@, for %@. You earn %@ per sale. Check it, then tap Approve and list it." : {
@@ -342,13 +356,13 @@
     "Keep the name to 80 letters or fewer." : {
 
     },
-    "Keeps the design and goes to My designs" : {
+    "Keeps the change and makes the cutout" : {
 
     },
     "Keeps the listing as it is" : {
 
     },
-    "Keeps this picture for your product" : {
+    "Keeps your art as it is and goes on" : {
 
     },
     "Keeps your story as it is" : {
@@ -358,15 +372,6 @@
 
     },
     "Leave empty to keep it" : {
-
-    },
-    "Leave this piece out" : {
-
-    },
-    "Leaves it out of the cutout" : {
-
-    },
-    "Left out" : {
 
     },
     "Left out, mark %lld" : {
@@ -396,6 +401,9 @@
     "Loading your designs" : {
 
     },
+    "Looks good as is" : {
+
+    },
     "Make a sticker" : {
 
     },
@@ -411,22 +419,28 @@
     "Make another tote" : {
 
     },
-    "Make the change" : {
+    "Make the book red" : {
 
     },
-    "Make the frog green" : {
+    "Make the change" : {
 
     },
     "Makes a sticker and writes its listing" : {
 
     },
-    "Makes the product and writes the listing" : {
+    "Making your cutout" : {
 
     },
-    "Making your picture now. This can take up to a minute." : {
+    "Making your sticker" : {
 
     },
     "Making your sticker. This can take up to a minute." : {
+
+    },
+    "Making your tote bag" : {
+
+    },
+    "Making your tote bag. This can take up to a minute." : {
 
     },
     "Mark added" : {
@@ -468,16 +482,10 @@
     "No designs yet. Make one in Create." : {
 
     },
-    "NO DRAWING SKILL NEEDED" : {
-
-    },
     "No messages yet." : {
 
     },
     "No orders yet. We'll check every few seconds and show them here." : {
-
-    },
-    "Not now" : {
 
     },
     "Not selected" : {
@@ -490,9 +498,6 @@
 
     },
     "One product went back to draft because the new cutout is too small to print. Open My designs to fix it." : {
-
-    },
-    "One quick question" : {
 
     },
     "Open Settings" : {
@@ -534,22 +539,19 @@
     "Orders" : {
 
     },
-    "People can buy it on %@. It's also saved in My designs, so you can list it later too." : {
-
-    },
     "Pick a photo of your drawing." : {
 
     },
     "Pick one you already have" : {
 
     },
-    "Pick other pieces or change the cutout" : {
-
-    },
-    "Pick your art" : {
+    "Picks this drawing" : {
 
     },
     "Piece %lld" : {
+
+    },
+    "Placing your art on the bag and getting it ready to print." : {
 
     },
     "Please sign in again with your code." : {
@@ -558,19 +560,10 @@
     "Price in dollars" : {
 
     },
-    "Put it up for sale now?" : {
-
-    },
     "Puts it in the shop" : {
 
     },
     "Puts it on a tote bag and writes its listing" : {
-
-    },
-    "Putting your art on a tote bag. This can take up to a minute." : {
-
-    },
-    "QUESTION" : {
 
     },
     "Re-do the cutout" : {
@@ -621,13 +614,7 @@
     "Saves it as the story buyers read" : {
 
     },
-    "Saves this cutout to your design and shows it" : {
-
-    },
     "Saves your changes as your story" : {
-
-    },
-    "Saving the cutout…" : {
 
     },
     "Saving your video…" : {
@@ -636,7 +623,7 @@
     "Saving…" : {
 
     },
-    "Say it out loud" : {
+    "Say or type what to change. Your original stays safe." : {
 
     },
     "Say thank you" : {
@@ -684,16 +671,10 @@
     "Sent with a picture or video." : {
 
     },
-    "Show the cutout" : {
-
-    },
-    "Shows the saved cutout on its own" : {
+    "Shows the picture so you can add marks or a box" : {
 
     },
     "Shows your live product" : {
-
-    },
-    "Shows your photo with the marks again" : {
 
     },
     "Sign in" : {
@@ -745,10 +726,16 @@
     "Start creating" : {
 
     },
+    "Start over" : {
+
+    },
     "Start talking" : {
 
     },
     "Starts a new design" : {
+
+    },
+    "Starts again from the camera" : {
 
     },
     "Status: %@" : {
@@ -782,9 +769,6 @@
     "Story saved" : {
 
     },
-    "Swipe left or right for other pictures" : {
-
-    },
     "Take a photo" : {
 
     },
@@ -794,25 +778,13 @@
     "Takes a photo of your drawing" : {
 
     },
-    "Tap a piece below to pick it." : {
-
-    },
-    "Tap a piece to leave it out of the cutout. To trim one piece, draw a box around what should stay." : {
-
-    },
-    "Tap the big button and talk. Your words will show up here." : {
+    "Tap the one you want." : {
 
     },
     "Tap the photo where the cutout should include more. Tap a mark again to remove it." : {
 
     },
     "Tell buyers your story" : {
-
-    },
-    "Tell me what to change" : {
-
-    },
-    "Tell me what you want to see. Colors, animals, words, anything." : {
 
     },
     "Thank you so much for buying my art!" : {
@@ -836,10 +808,7 @@
     "The photo is missing. Go back and take it again." : {
 
     },
-    "Then tap or drag on the photo. With VoiceOver, use the actions on each piece in the list." : {
-
-    },
-    "Thinking…" : {
+    "Then tap or drag on the photo. With VoiceOver, use the actions on the photo." : {
 
     },
     "This continues your sticker draft and replaces the design you're making in Create. To change the one in the shop, use Edit listing." : {
@@ -881,25 +850,16 @@
     "This video has no sound, so it won't have captions." : {
 
     },
+    "To trim the edges, draw a box around what should stay, then tap the parts to leave out." : {
+
+    },
     "Tote bag" : {
 
     },
     "Try again" : {
 
     },
-    "Turns your words into a picture" : {
-
-    },
-    "Type instead" : {
-
-    },
-    "Type your answer" : {
-
-    },
     "Type your code here" : {
-
-    },
-    "Type your idea" : {
 
     },
     "Updates the listing in the shop" : {
@@ -920,7 +880,10 @@
     "Use this story" : {
 
     },
-    "Uses this cutout and goes on" : {
+    "Uses this cutout and makes your product" : {
+
+    },
+    "Uses this cutout for your design" : {
 
     },
     "Version %@ (%@), %@" : {
@@ -939,16 +902,22 @@
     "Video saved!" : {
 
     },
-    "We couldn't find a drawing. Draw a box around it or tap on it." : {
+    "We couldn't find a drawing in your photo. Use this to draw a box around it, or take the photo again." : {
 
     },
     "We filled in your code from the link. Tap Sign in." : {
 
     },
-    "We found %lld pieces. Pick one, or several to combine them." : {
+    "We found %lld drawings in your photo. Pick one to change and turn into a sticker." : {
 
     },
-    "We found one piece. Change the cutout with the tools below." : {
+    "We found %lld drawings in your photo. Pick one to change and turn into a tote bag." : {
+
+    },
+    "We found one drawing in your photo. Use it to change and turn into a sticker." : {
+
+    },
+    "We found one drawing in your photo. Use it to change and turn into a tote bag." : {
 
     },
     "We kept the first 15 seconds of your video." : {
@@ -978,6 +947,9 @@
     "WHAT THE IMAGE SHOWS" : {
 
     },
+    "What to change" : {
+
+    },
     "When buyers send you a note, it shows up here." : {
 
     },
@@ -987,16 +959,10 @@
     "Why do you make art?" : {
 
     },
-    "With VoiceOver, use the actions on each piece in the list instead." : {
-
-    },
     "Working" : {
 
     },
     "Write a reply" : {
-
-    },
-    "Write your idea instead of saying it" : {
 
     },
     "Writes a name, description and price for you to check" : {
@@ -1014,13 +980,13 @@
     "Yes, continue the draft" : {
 
     },
-    "Yes, list it!" : {
-
-    },
     "You already have this sticker in the shop" : {
 
     },
     "You already have this tote in the shop" : {
+
+    },
+    "YOU ASKED" : {
 
     },
     "You can add up to 10 marks. Tap a mark to remove it." : {
@@ -1038,9 +1004,6 @@
     "You have a design in progress in the Create tab. Going on replaces it." : {
 
     },
-    "YOU SAID" : {
-
-    },
     "You said: %@" : {
 
     },
@@ -1056,10 +1019,13 @@
     "You're live! Your art is in the shop." : {
 
     },
-    "Your answer" : {
+    "Your art" : {
 
     },
     "Your art is in the shop." : {
+
+    },
+    "Your art is missing. Go back and pick it again." : {
 
     },
     "Your art, on things people love." : {
@@ -1074,7 +1040,7 @@
     "Your cutout" : {
 
     },
-    "Your cutout is saved. Here it is." : {
+    "Your cutout is ready. Here it is." : {
 
     },
     "Your cutout is saved. One product could not be rebuilt; try again later." : {
@@ -1083,31 +1049,16 @@
     "Your design" : {
 
     },
-    "Your idea" : {
-
-    },
-    "YOUR IDEA" : {
-
-    },
-    "Your idea is missing. Go back and say it again." : {
-
-    },
     "Your message" : {
 
     },
     "Your photo" : {
 
     },
-    "Your picture" : {
+    "Your photo with the drawings we found" : {
 
     },
     "Your product" : {
-
-    },
-    "Your sticker is ready!" : {
-
-    },
-    "Your sticker is ready! Put it up for sale now?" : {
 
     },
     "Your story" : {
@@ -1117,12 +1068,6 @@
 
     },
     "YOUR THANK-YOU" : {
-
-    },
-    "Your tote bag is ready!" : {
-
-    },
-    "Your tote bag is ready! Put it up for sale now?" : {
 
     },
     "Your video was longer than 30 seconds, so we kept the first 30." : {

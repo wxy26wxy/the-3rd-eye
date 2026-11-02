@@ -11,11 +11,11 @@ struct FindingDrawingsView: View {
     LoadingScreen(
       title: "Finding your drawings…",
       detail: "This takes a few seconds…",
-      pose: .magnifier,
+      media: .animation(resource: Tokens.Asset.mascotMagnifier, aspect: ThemeEffects.tallSkyCardAspect),
       error: error,
       retry: { error = nil; attempt += 1 },
-      cardAspect: ThemeEffects.tallSkyCardAspect,
-      showsSpinner: false
+      showsSpinner: false,
+      mutedDetail: true
     )
     .task(id: attempt) { await run() }
   }
@@ -30,13 +30,14 @@ struct FindingDrawingsView: View {
       guard let creatorId = app.creator?.id else { throw APIError.unauthorized }
       let uploaded = try await BlobUploader(api: app.api).upload(data, creatorId: creatorId, kind: .photo, contentType: "image/jpeg", fileExtension: "jpg")
       let res = try await app.api.artworkFromPhoto(imageUrl: uploaded.url, product: product)
-      app.flow.photoArtwork = res.artwork
-      app.flow.resetCutout(candidates: res.candidates, imageSize: res.imageSize)
+      app.flow.setPhoto(artwork: res.artwork, candidates: res.candidates, imageSize: res.imageSize)
       if res.candidates.count <= 1, res.artwork.cleanedUrl != nil {
-        app.flow.artwork = res.artwork
-        app.replaceTop(with: .designReady)
+        // One drawing, already cut out: nothing to choose, straight to Change it.
+        app.flow.pieceArtwork = res.artwork
+        app.flow.pieceCutFrom = res.candidates.first?.id
+        app.replaceTop(with: .changeIt)
       } else {
-        app.replaceTop(with: .adjustCutout)
+        app.replaceTop(with: .choosePattern)
       }
     } catch is CancellationError {
       return

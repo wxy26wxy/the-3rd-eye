@@ -69,7 +69,7 @@ final class DesignsTests: XCTestCase {
   func testContinueFromSetsFlowAndRoute() {
     let app = AppState(api: APIClient(baseURL: base, transport: StubTransport(body: "{}"), token: "t"))
     app.selectedTab = .designs
-    app.createPath = [.chooseMethod, .speak]
+    app.createPath = [.chooseMethod, .choosePattern, .changeIt]
     app.designsPath = [.detail("d1")]
     let old = app.flow
     let design = artwork(products: [product("p-tote", .tote, "published")])

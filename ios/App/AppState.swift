@@ -3,17 +3,27 @@ import SwiftUI
 
 enum HomeTab: Hashable { case create, designs, orders, messages }
 
-/// Pushed screens of the creator flow (root is PickProductView).
+/// Pushed screens of the creator flow (root is PickProductView). Photo first (v3 boards):
+/// camera → Finding drawings → Choose a pattern → Change it (→ Changing your art → Before and after)
+/// → Making your cutout → Your cutout → Making your sticker / tote bag → Listing details.
 enum CreateRoute: Hashable {
   case chooseMethod
   case camera(PhotoSource)
   case findingDrawings
-  /// Pick one or more candidates and refine the cut-out (also opened from Design ready to redo it).
-  case adjustCutout
-  case speak
-  case drawingYourIdea
-  case voiceResult
-  case designReady
+  /// Pick one of the drawings SAM found on the photo.
+  case choosePattern
+  /// Say or type what to change, or keep the art as it is.
+  case changeIt
+  /// Loading screen while Muse Image changes the art.
+  case changing
+  /// The change next to the art it was made from.
+  case beforeAfter
+  /// Loading screen while the changed art is cut out.
+  case makingCutout
+  /// The cut-out with the edge tools (marks and box).
+  case yourCutout
+  /// Loading screen while the sticker or tote bag is made.
+  case makingProduct
   case listingDetails
   case storyVideo
   case videoSaved
@@ -25,7 +35,7 @@ enum PhotoSource: Hashable { case camera, library }
 /// Pushed screens of the My designs tab.
 enum DesignRoute: Hashable {
   case detail(String)
-  /// Adjust cutout for a saved design (`AppState.designFlow`); "Use this" comes back to the detail.
+  /// Your cutout for a saved design (`AppState.designFlow`); "Use this" comes back to the detail.
   case redoCutout
 }
 
@@ -189,22 +199,36 @@ final class CreateFlow {
   var productType: ProductType?
   var photo: UIImage?
   var photoSource: PhotoSource = .camera
+  /// The photo's artwork (`POST /artworks`), its drawings and the stored original's size.
   var photoArtwork: Artwork?
+  var photoCandidates: [Candidate] = []
+  var photoImageSize: ImageSize?
+  /// Choose a pattern: the drawing picked.
+  var pieceCandidateId: String?
+  /// The picked drawing, cut out (`select`), or the whole photo when none was found, and the
+  /// drawing it was cut from.
+  var pieceArtwork: Artwork?
+  var pieceCutFrom: String?
+  /// The latest change (a child artwork); nil while the art is as it was picked.
+  var changedArtwork: Artwork?
+  /// The art the latest change was made from ("Before").
+  var changeBase: Artwork?
+  /// What to change, as typed or heard, and the words heard when it was spoken.
+  var changeInstruction = ""
+  var changeTranscript: String?
+  /// How the change differs from the request (`description.differences`).
+  var changeDifferences: String?
+  /// The artwork "Your cutout" works on, with its pieces, the picture's size, the chosen piece,
+  /// marks and box (pixels of that picture).
+  var cutoutArtwork: Artwork?
   var candidates: [Candidate] = []
-  /// Size of the stored original (`POST /artworks` / `GET /artworks/{id}`); cut-out coordinates use it.
   var imageSize: ImageSize?
-  /// Adjust cutout: chosen candidates (in candidate order), marks and box, kept for a redo.
   var selectedCandidateIds: [String] = []
   var points: [CutoutPoint] = []
   var box: [Double]?
-  /// Shown on Design ready after a re-cut that could not rebuild an existing product.
+  /// Shown after a re-cut (My designs) that could not rebuild an existing product.
   var cutoutNotice: String?
-  var transcript = ""
-  var answers: [String] = []
-  var shaped: ShapePromptResponse?
-  var variants: [ArtworkVariant] = []
-  var selectedVariant = 0
-  /// The artwork the creator accepted ("Use this").
+  /// The artwork the creator accepted ("Use this" on Your cutout).
   var artwork: Artwork?
   var product: Product?
   /// Listing title of a reused draft product (`continueFrom`), shown in Listing details.
@@ -215,24 +239,54 @@ final class CreateFlow {
   /// The picked story video was longer than 30 s and only its start was kept.
   var storyVideoTrimmed = false
 
-  /// Starts the cut-out state for a new photo answer.
-  func resetCutout(candidates: [Candidate], imageSize: ImageSize?) {
+  /// The art the creator sees now: the latest change, else the picked drawing.
+  var currentArt: Artwork? { changedArtwork ?? pieceArtwork }
+
+  /// A new photo answer: its drawings; a single one starts picked.
+  func setPhoto(artwork: Artwork, candidates: [Candidate], imageSize: ImageSize?) {
+    photoArtwork = artwork
+    photoCandidates = candidates
+    photoImageSize = imageSize
+    pieceCandidateId = candidates.count == 1 ? candidates.first?.id : nil
+    pieceArtwork = nil
+    pieceCutFrom = nil
+    resetChange()
+  }
+
+  /// Back to the art as it was picked (no change yet).
+  func resetChange() {
+    changedArtwork = nil
+    changeBase = nil
+    changeInstruction = ""
+    changeTranscript = nil
+    changeDifferences = nil
+  }
+
+  /// Starts the cut-out state for `artwork` ("Your cutout"): its pieces with `selected` chosen,
+  /// no marks, no box.
+  func resetCutout(artwork: Artwork?, candidates: [Candidate], imageSize: ImageSize?, selected: [String]? = nil) {
+    cutoutArtwork = artwork
     self.candidates = candidates
     self.imageSize = imageSize
-    selectedCandidateIds = candidates.count == 1 ? candidates.map(\.id) : []
+    selectedCandidateIds = selected ?? (candidates.count == 1 ? candidates.map(\.id) : [])
     points = []
     box = nil
     cutoutNotice = nil
   }
 
-  /// Retake: the photo, its pieces, marks and box go, so the next photo starts clean.
+  /// Retake / Start over: the photo, its drawings, changes and cut-out go, so the next photo starts clean.
   func discardPhoto() {
     photo = nil
     photoArtwork = nil
-    resetCutout(candidates: [], imageSize: nil)
+    photoCandidates = []
+    photoImageSize = nil
+    pieceCandidateId = nil
+    pieceArtwork = nil
+    pieceCutFrom = nil
+    resetChange()
+    resetCutout(artwork: nil, candidates: [], imageSize: nil)
+    artwork = nil
+    product = nil
   }
 
-  var currentVariant: ArtworkVariant? {
-    variants.indices.contains(selectedVariant) ? variants[selectedVariant] : nil
-  }
 }

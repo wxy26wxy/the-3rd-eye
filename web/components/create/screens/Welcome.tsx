@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import { m } from "@/components/messages";
 import { ASSETS } from "@/lib/assets";
 import { Button } from "@/components/ui/Button";
 import { Display } from "@/components/ui/Display";
 import { LogoMark } from "@/components/ui/LogoMark";
+import { WelcomeAccount } from "../SignOut";
 import styles from "../Create.module.css";
 
 /** " / " in a board string is a forced line break (docs/design/copy-v3-web.md conventions). */
@@ -11,7 +13,8 @@ const LINES = m.create.welcome.title.split(" / ");
 /**
  * Welcome (board `2026:2865`, v3): the open sky photo with no panels (ruling R5: the white title on
  * the bare sky is the accepted contrast exception, docs/accessibility.md); the white "Start creating"
- * pill and the ink text action "I already have an account" at the bottom.
+ * pill and the ink text action at the bottom: "I already have an account", or Sign out when a
+ * creator session exists.
  */
 export function Welcome() {
   return (
@@ -26,9 +29,7 @@ export function Welcome() {
       </div>
       <div className={styles.welcomeBottom}>
         <Button href="/create/product" variant="white" block>{m.create.welcome.cta}</Button>
-        <div className={styles.welcomeLinks}>
-          <Button href="/create/code" variant="ghost" arrow={false}>{m.create.welcome.haveAccount}</Button>
-        </div>
+        <Suspense fallback={null}><WelcomeAccount /></Suspense>
       </div>
     </div>
   );

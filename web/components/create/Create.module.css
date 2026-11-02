@@ -107,7 +107,7 @@
 .welcomeTitle { text-wrap: wrap; }
 .welcomeLine { display: block; }
 .welcomeLinks { display: flex; justify-content: center; }
-.welcomeLinks a { color: var(--text); }
+.welcomeLinks a, .welcomeLinks button { color: var(--text); }
 
 /* shared pieces */
 /* Record button (84 px): ink with a mic; while recording deep green with an accent ring and Stop. */

@@ -12,6 +12,7 @@ import { BeforeAfterView, type BeforeAfterViewProps } from "@/components/create/
 import { MakingCutoutView } from "@/components/create/screens/MakingCutoutView";
 import { MakingProductView } from "@/components/create/screens/MakingProductView";
 import { Welcome } from "@/components/create/screens/Welcome";
+import { WelcomeAccountView } from "@/components/create/SignOut";
 
 const t = m.create.select;
 const noop = () => {};
@@ -409,15 +410,28 @@ describe("Making your sticker / tote bag view (T113, boards 4031:4378 / 4038:462
 });
 
 describe("Welcome (T113, board 2026:2865 v3)", () => {
-  it("the title on the bare sky in three lines, Start creating, I already have an account; no panels or promises", () => {
+  it("the title on the bare sky in three lines, then Start creating; no panels or promises", () => {
     const out = html(createElement(Welcome));
     expect(text(out)).toContain("Your art, on things people love.");
     expect(out.match(/class="[^"]*welcomeLine/g)?.length).toBe(3);
     before(out, "people love.", m.create.welcome.cta);
-    before(out, m.create.welcome.cta, m.create.welcome.haveAccount);
-    expect(out).toContain('href="/create/code"');
     expect(out).not.toMatch(/class="[^"]*scrim/);
     expect(out).not.toContain("<ol");
+  });
+
+  it("signed out: the ink text action I already have an account, linking to the code screen", () => {
+    const out = html(createElement(WelcomeAccountView, { signedIn: false }));
+    expect(out).toContain(m.create.welcome.haveAccount);
+    expect(out).toContain('href="/create/code"');
+    expect(out).not.toContain(m.create.signOut);
+  });
+
+  it("signed in: Sign out, a form POST to the session route with the signout intent", () => {
+    const out = html(createElement(WelcomeAccountView, { signedIn: true }));
+    expect(out).toContain(m.create.signOut);
+    expect(out).toMatch(/<form[^>]*method="post"[^>]*action="\/create\/code\/session"|<form[^>]*action="\/create\/code\/session"[^>]*method="post"/);
+    expect(out).toContain('name="intent" value="signout"');
+    expect(out).not.toContain(m.create.welcome.haveAccount);
   });
 });
 

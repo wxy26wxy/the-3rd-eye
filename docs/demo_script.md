@@ -10,7 +10,7 @@ Shot-by-shot script for the submission video. Narration is plain, first person p
   - **Leo**: his bus sticker is the product in shot 4. Use a tester creator for rehearsals so the demo creators' data stays clean (a change makes a new draft artwork each time).
 - **Mac:** Ollama running with `muse-glimmer`, the app pointed at the Mac only for the story-draft shot. On Vercel the same stage falls back to Muse Spark 1.3.
 - **Phone:** VoiceOver on, Settings > Accessibility > VoiceOver > Speech volume up, Do Not Disturb on, screen recording ready (Control Centre). Over-the-shoulder camera on a tripod for the three phone shots.
-- **Props:** one rough pencil sketch on paper (a character with a book works well with the change "make the book red"), one printed die-cut sticker with an NFC tag written to `/t/<token>` of a test order (to do: print, cut and write it at the physical test before the freeze, Nov 3 9:00 AM; method: a standard NFC writer app), a second phone to play the buyer.
+- **Props:** one rough pencil sketch on paper (a character with a book works well with the change "make the book red"), one printed die-cut sticker with an NFC tag written to `/t/<token>` of a test order (to do: print, cut and write it at the physical test before the freeze, Nov 3, 18:00; method: a standard NFC writer app), a second phone to play the buyer.
 - **Pre-recorded safety takes:** record each live step once in rehearsal and keep the clip, named `fallback-<shot>.mov`.
 
 ## Screens on camera (iOS, in order; v0.8 copy from `docs/design/copy-v3-ios.md` and the feedback-round-2 changes in `docs/design/copy-v4.md`)

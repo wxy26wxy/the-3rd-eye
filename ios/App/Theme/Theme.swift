@@ -62,7 +62,7 @@ enum ThemeEffects {
   /// Checkerboard squares behind a cut-out preview: `border` at this opacity on `surface`
   /// (visible in high contrast too, where surface and surfaceAlt are the same).
   static let checkerOpacity: Double = 0.12
-  /// font.display.weightOnPhoto (Inter Bold for titles on the Welcome photo).
+  /// font.display.weightOnPhoto (Outfit Bold for titles on the Welcome photo).
   static let displayWeightOnPhoto: Int = 700
   /// Primary action insets: 28 pt before the label, 4 pt around the arrow circle (56 − 48) / 2.
   static let ctaLeading: CGFloat = 28

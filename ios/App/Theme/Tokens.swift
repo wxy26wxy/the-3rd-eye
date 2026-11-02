@@ -10,17 +10,19 @@ enum Tokens {
   enum Palette {
     static let page = Color(red: 0.9882, green: 0.9882, blue: 0.9882)
     static let ink = Color(red: 0.0667, green: 0.0941, blue: 0.1529)
-    static let inkSoft = Color(red: 0.1490, green: 0.2275, blue: 0.2078)
+    static let inkSoft = Color(red: 0.2157, green: 0.2549, blue: 0.3176)
     static let textMuted = Color(red: 0.4196, green: 0.4471, blue: 0.5020)
     static let border = Color(red: 0.8196, green: 0.8353, blue: 0.8588)
     static let surfaceAlt = Color(red: 0.9529, green: 0.9569, blue: 0.9647)
     static let accent = Color(red: 0.3961, green: 0.7647, blue: 0.3804)
     static let accentBorder = Color(red: 0.1843, green: 0.6510, blue: 0.2784)
+    static let accentSoft = Color(red: 0.8941, green: 0.9529, blue: 0.7843)
     static let greenDeep = Color(red: 0.0902, green: 0.2392, blue: 0.1686)
     static let white = Color(red: 1.0000, green: 1.0000, blue: 1.0000)
     static let danger = Color(red: 0.7020, green: 0.1490, blue: 0.1176)
     static let focus = Color(red: 0.1176, green: 0.2275, blue: 0.1412)
     static let scrim = Color(red: 0.0667, green: 0.0941, blue: 0.1529, opacity: 0.55)
+    static let scrimStrong = Color(red: 0.0667, green: 0.0941, blue: 0.1529, opacity: 0.72)
   }
   enum Semantic {
     static let bg = Color(red: 0.9882, green: 0.9882, blue: 0.9882)
@@ -53,8 +55,8 @@ enum Tokens {
     static let border = Color(red: 0.0667, green: 0.0941, blue: 0.1529)
   }
   enum FontName {
-    static let display = "Inter Variable"
-    static let body = "Inter Variable"
+    static let display = "Outfit"
+    static let body = "Outfit"
   }
   enum TypeScale {
     static let webDisplay: CGFloat = 72
@@ -64,6 +66,7 @@ enum Tokens {
     static let titleL: CGFloat = 18
     static let cardTitle: CGFloat = 22
     static let titleM: CGFloat = 16
+    static let cta: CGFloat = 16
     static let bodyL: CGFloat = 16
     static let body: CGFloat = 15
     static let bodyS: CGFloat = 13
@@ -78,11 +81,12 @@ enum Tokens {
     static let titleL = 600
     static let cardTitle = 600
     static let titleM = 600
+    static let cta = 600
     static let bodyL = 400
     static let body = 400
     static let bodyS = 400
     static let caption = 500
-    static let eyebrow = 800
+    static let eyebrow = 600
   }
   enum Space {
     static let xs: CGFloat = 6
@@ -157,6 +161,7 @@ enum Tokens {
     static let sky = "sky"
     static let tote = "tote"
     static let heroSky = "hero-sky"
+    static let stickerLoading = "sticker-loading"
     static let iconCamera = "icon-camera"
     static let iconImage = "icon-image"
     static let iconMic = "icon-mic"

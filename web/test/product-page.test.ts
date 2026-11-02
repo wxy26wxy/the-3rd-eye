@@ -15,7 +15,7 @@ const { QuantityStepper } = await import("@/components/product/QuantityStepper")
 const { ProductBuy } = await import("@/components/product/ProductBuy");
 const { Disclosures, MeetMakerCard, MoreFrom, PaysArtistNote } = await import("@/components/product/ProductParts");
 const { ProductView, gallerySlides } = await import("@/components/product/ProductView");
-const { STICKER_SIZES, clampQuantity, sizesFor, unitCents } = await import("@/components/product/sizes");
+const { SIZES, clampQuantity, sizesFor, unitCents } = await import("@/components/product/sizes");
 const { placeOrder } = await import("@/app/(site)/p/[id]/actions");
 
 const html = (el: ReactElement) => renderToStaticMarkup(el);
@@ -88,19 +88,20 @@ describe("Product page v3 (board 2019:2004)", () => {
   });
 
   it("size options: a labelled radio group named size, the first checked; a tote has none", () => {
-    const out = html(createElement(SizeOptions, { sizes: STICKER_SIZES, value: "3in", onChange: () => {} }));
+    const out = html(createElement(SizeOptions, { sizes: SIZES.sticker, value: "3in", onChange: () => {} }));
     expect(out).toMatch(new RegExp(`<fieldset[^>]*><legend[^>]*>${m.product.sizeLabel}</legend>`));
     expect(out.match(/<input type="radio"[^>]*name="size"/g)).toHaveLength(3);
     expect(out).toMatch(/<input type="radio"[^>]*name="size" checked="" value="3in"/);
-    for (const s of [m.product.size3in, m.product.size4in, m.product.sizeSheet]) expect(out).toContain(s);
+    for (const s of Object.values(m.product.sizes)) expect(out).toContain(s);
     expect(sizesFor("tote")).toEqual([]);
   });
 
   it("size prices: 3 in = listed, 4 in = +$2, sheet = +$6 (R1)", () => {
-    expect(unitCents(600, "3in")).toBe(600);
-    expect(unitCents(600, "4in")).toBe(800);
-    expect(unitCents(600, "sheet")).toBe(1200);
-    expect(unitCents(2400, null)).toBe(2400);
+    const sticker = { type: "sticker" as const, priceCents: 600 };
+    expect(unitCents(sticker, "3in")).toBe(600);
+    expect(unitCents(sticker, "4in")).toBe(800);
+    expect(unitCents(sticker, "sheet")).toBe(1200);
+    expect(unitCents({ type: "tote", priceCents: 2400 }, null)).toBe(2400);
   });
 
   it("quantity stepper: labelled group, Decrease disabled at 1, value announced, hidden quantity field; buttons step within 1–10", () => {
@@ -124,7 +125,7 @@ describe("Product page v3 (board 2019:2004)", () => {
     expect(form).toMatch(new RegExp(`<button type="button"[^>]*aria-haspopup="dialog"[^>]*aria-controls="checkout"[^>]*>.*${m.product.addToBag}`));
     const dialog = form.slice(form.indexOf("<dialog"));
     expect(dialog).toMatch(/<dialog id="checkout"[^>]*aria-labelledby="checkout-title"/);
-    expect(dialog).toContain(fmt(m.product.orderSummary, { title: "Reading Buddy", size: m.product.size3in, quantity: 1 }));
+    expect(dialog).toContain(fmt(m.product.orderSummary, { title: "Reading Buddy", size: m.product.sizes["3in"], quantity: 1 }));
     for (const name of ["buyerName", "buyerEmail", "shipNote"]) expect(dialog).toContain(`name="${name}"`);
     expect(dialog).toContain(m.product.buyStaged);
     expect(dialog).toMatch(/<button type="submit"[^>]*>.*Place order · \$6\.00/);

@@ -106,9 +106,11 @@
     "eyebrowTote": "Tote bag · canvas · printed to order",
     "makerMethod": "draws by hand",
     "sizeLabel": "Size",
-    "size3in": "3 in",
-    "size4in": "4 in",
-    "sizeSheet": "Sticker sheet",
+    "sizes": {
+      "3in": "3 in",
+      "4in": "4 in",
+      "sheet": "Sticker sheet"
+    },
     "quantityLabel": "Quantity",
     "decrease": "Decrease quantity",
     "increase": "Increase quantity",

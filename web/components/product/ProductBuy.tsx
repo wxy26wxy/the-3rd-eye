@@ -7,7 +7,7 @@ import type { BuyState } from "@/app/(site)/p/[id]/actions";
 import { CheckoutSheet } from "./CheckoutSheet";
 import { QuantityStepper } from "./QuantityStepper";
 import { SizeOptions } from "./SizeOptions";
-import { sizesFor, unitCents, type SizeKey } from "./sizes";
+import { DEFAULT_SIZE, sizeLabel, sizesFor, unitCents, type SizeKey } from "./sizes";
 import styles from "./Product.module.css";
 
 /**
@@ -19,12 +19,11 @@ export function ProductBuy({ action, type, title, priceCents }: {
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   const sizes = sizesFor(type);
-  const [size, setSize] = useState<SizeKey | null>(sizes[0]?.key ?? null);
+  const [size, setSize] = useState<SizeKey | null>(DEFAULT_SIZE[type]);
   const [quantity, setQuantity] = useState(1);
   const sheet = useRef<HTMLDialogElement>(null);
-  const unit = unitCents(priceCents, size);
-  const sizeLabel = sizes.find((s) => s.key === size)?.label;
-
+  const unit = unitCents({ type, priceCents }, size);
+  
   const open = () => {
     const d = sheet.current;
     if (!d || d.open) return;
@@ -45,8 +44,8 @@ export function ProductBuy({ action, type, title, priceCents }: {
       </div>
       <CheckoutSheet
         ref={sheet}
-        summary={sizeLabel
-          ? fmt(m.product.orderSummary, { title, size: sizeLabel, quantity })
+        summary={size
+          ? fmt(m.product.orderSummary, { title, size: sizeLabel(size), quantity })
           : fmt(m.product.orderSummaryNoSize, { title, quantity })}
         state={state}
         pending={pending}

@@ -8,7 +8,6 @@ const FILTERS: { key: ShopFilter; label: string }[] = [
   { key: "all", label: m.shop.filterAll },
   { key: "sticker", label: m.shop.filterStickers },
   { key: "tote", label: m.shop.filterTotes },
-  { key: "voice", label: m.shop.filterVoice },
 ];
 
 /**

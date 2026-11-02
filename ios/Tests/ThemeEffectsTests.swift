@@ -51,9 +51,9 @@ final class ThemeEffectsTests: XCTestCase {
     XCTAssertEqual(Double(Tokens.ShadowBlur.soft), try number(t, "shadow", "soft", "blur"))
   }
 
-  /// Inter-Variable.ttf is bundled and registered (Info.plist UIAppFonts) under the name Tokens.FontName uses.
-  func testInterIsRegistered() {
-    XCTAssertNotNil(UIFont(name: Tokens.FontName.body, size: 15), "Inter not registered as \(Tokens.FontName.body)")
+  /// Outfit-Variable.ttf is bundled and registered (Info.plist UIAppFonts) under the name Tokens.FontName uses.
+  func testOutfitIsRegistered() {
+    XCTAssertNotNil(UIFont(name: Tokens.FontName.body, size: 15), "Outfit not registered as \(Tokens.FontName.body)")
     XCTAssertNotNil(UIFont(name: Tokens.FontName.display, size: 48))
   }
 
@@ -116,6 +116,8 @@ final class ThemeEffectsTests: XCTestCase {
     XCTAssertNotNil(UIImage(named: Tokens.Asset.sky))
     XCTAssertNotNil(UIImage(named: Tokens.Asset.logoMark))
     XCTAssertNotNil(Bundle.main.url(forResource: Tokens.Asset.mascotMagnifier, withExtension: "mp4"))
+    // T110: Making your sticker / tote bag (2014:733, 4038:4494).
+    XCTAssertNotNil(Bundle.main.url(forResource: Tokens.Asset.stickerLoading, withExtension: "mp4"))
   }
 
   /// Outfit's variable TTF defaults to Thin (100): every role must ask for Regular (400) or heavier.

@@ -1,6 +1,6 @@
 # Working in the Figma file (rules for designers and their agents)
 
-The Figma copy (key `dAdjR5HFtOutFlUZi957Do`, page `0:1`) is the single design source. Code is generated from it in two steps: tokens (`design/tokens.json` → `pnpm tokens`) and per-board implementation (board → screen file or route, mapped in `docs/design/screens.md` and the board table). These rules keep that mapping intact so a design pass lands in code within the hour.
+The designer's file (key `WVJuvNJnfcNaAqOW6jWeWi` since v3, 2026-11-01; the current key is always the newest row of the intake log in `docs/design/screens.md`), page `0:1`, is the single design source. Code is generated from it in two steps: tokens (`design/tokens.json` → `pnpm tokens`) and per-board implementation (board → screen file or route, mapped in `docs/design/screens.md` and the board table). These rules keep that mapping intact so a design pass lands in code within the hour.
 
 ## 1. Edit in place, keep node ids
 - Change existing boards instead of deleting and recreating them. The node id is the link between the board and its screen; a new id means re-mapping.
@@ -8,13 +8,13 @@ The Figma copy (key `dAdjR5HFtOutFlUZi957Do`, page `0:1`) is the single design s
 - Do not rename or delete the Components page or its components.
 
 ## 2. Change values through variables and styles
-- Colours: edit the `Sky` variable collection (`color/page`, `color/ink`, `color/accent`, `color/danger`, …). A new colour is a new variable named `color/<name>`; never a raw hex on a layer.
-- Type: edit the text styles (`displayXL`, `body`, `caption`, …). Inter only.
+- Colours: edit the `Sky` variable collection (`color/page`, `color/ink`, `color/accent`, `color/accentSoft`, `color/scrimStrong`, `color/danger`, …). A new colour is a new variable named `color/<name>`; never a raw hex on a layer.
+- Type: edit the text styles (`displayXL`, `displayL`, `webDisplay`, `titleL`, `bodyL`, `body`, `bodyS`, `caption`, `eyebrow`, `cta`). Outfit only.
 - Spacing, radius, shadows: edit the component, not its instances. Shared changes go into the component (Primary action, Secondary action, Product option, Creation option, Photo card, Tab bar, Nav drawer…).
 - Anything that cannot be expressed as a variable or a component change (a new layout) is fine; it just costs implementer time, so say so in the changelog.
 
 ## 3. Accessibility floor (checked in every review)
-Inter only · 24 px side padding · primary action 56 px, secondary 50 px, every target ≥ 44 px · text ≥ 15 px, captions 13 px minimum · contrast ≥ 4.5:1 for text (ink on white; muted `#6B7280` on white; `#173D2B` on the green card), white text on photos only over the scrim · Back chevron (44 px) top-left on screens with a back action, logo mark on first screens · no meaning by colour alone (status badges carry text; destructive actions use `color/danger` and the word) · visible focus ring (`focus/ring`) on interactive components · VoiceOver/landmark order = visual order (keep the order annotations).
+Outfit only · 24 px side padding · primary action 56 px, secondary 50 px, every target ≥ 44 px · text ≥ 15 px, captions 13 px minimum · contrast ≥ 4.5:1 for text (ink on white; muted `#6B7280` on white; `#173D2B` on the green card), white text on photos only over the scrim (`color/scrim` or `color/scrimStrong`; the web Welcome on the bare sky is the one recorded exception) · Back chevron (44 px) top-left on screens with a back action, logo mark on first screens · no meaning by colour alone (status badges carry text; destructive actions use `color/danger` and the word) · visible focus ring (`focus/ring`) on interactive components · VoiceOver/landmark order = visual order (keep the order annotations).
 
 ## 4. Copy changes are explicit
 Strings live in `web/messages/en.json` and `ios/App/Resources/Localizable.xcstrings`, and the iOS UI tests find controls by label. When a board changes wording, add a line to the changelog (`board · old → new`). Sample data (names, prices, transcripts) is not copy.
@@ -29,5 +29,6 @@ Put the source file of any new image or animation on the `Assets` page as a fram
 
 ## 7. Never
 - Never write the file's title anywhere in the repo; refer to it by key.
+- A new version may come as a **new file** (a copy has a new key). That is fine: keep the node ids (duplicate the file, do not rebuild boards), say the new key with the link, and the intake compares by node id. No code or test names a key, so nothing in the apps changes when the key does.
 - Never edit `design/tokens.json`, `web/app/tokens.css` or `ios/App/Theme/Tokens.swift` by hand; the token diff comes through the intake.
 - Never move boards between sections, and never put real personal data on boards.

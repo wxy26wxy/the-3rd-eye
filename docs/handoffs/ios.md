@@ -166,3 +166,7 @@ Design v3 (Figma key in `docs/design/figma-rules.md`; boards B1 `2011:94`, B2 `2
 
 ## Xcode Cloud (added 2026-10-31)
 The project file is generated and git-ignored, so an Xcode Cloud workflow fails with "Project The3rdEye.xcodeproj does not exist" unless `ios/ci_scripts/ci_post_clone.sh` runs first: it installs XcodeGen with Homebrew and runs `xcodegen generate`. With that script committed, a workflow on `main` with the action "Archive · iOS" and the post-action "TestFlight Internal Testing" uploads a build on every push without the Organizer. The build number still comes from `project.yml` (`ios/scripts/bump_build.sh`), so bump and commit before a push that should produce a new TestFlight build.
+
+## Requirements from the design v3 intake (T110, for T114)
+- **Outfit's default instance is Thin (wght 100).** The bundled `Outfit-Variable.ttf` registers the family "Outfit" with Thin as its default; any text that reaches the font without a weight renders Thin. T114 must (1) apply `ThemeFont.body` (the `TextRole.body` font) as the environment default font at the app root, so a `Text` without an explicit role still gets Outfit Regular, and (2) add a unit test that asserts every `ThemeFont` / `TextRole` role resolves with a weight ≥ 400 (`Font.Weight.regular` or heavier, via `TextRole.weight` and `Tokens.TypeWeight`). `ThemeEffectsTests.testOutfitIsRegistered` stays as is (registration only).
+- Font, `TextRole` mirrors and the `stickerLoading` animation: `docs/handoffs/design.md` ("T114: iOS notes"). Copy: `docs/design/copy-v3-ios.md`.

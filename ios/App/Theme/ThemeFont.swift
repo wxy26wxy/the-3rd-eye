@@ -43,8 +43,8 @@ enum TextRole: CaseIterable {
     }
   }
 
-  /// Weight for the role: `type.<role>.weight` in tokens.json (Tokens.TypeWeight), on the variable
-  /// font's axis. Every role names its weight: Outfit's variable TTF falls back to Thin (100) without one.
+  /// Outfit weight for the role: `type.<role>.weight` in tokens.json (Tokens.TypeWeight), on the
+  /// variable font's axis. Every role names its weight: the variable TTF falls back to Thin (100) without one.
   var cssWeight: Int {
     switch self {
     case .displayXL: return Tokens.TypeWeight.displayXL
@@ -83,7 +83,7 @@ enum TextRole: CaseIterable {
   /// letterSpacing in tokens.json is em-based; converted to points here.
   var tracking: CGFloat {
     switch self {
-    case .eyebrow, .step: return size * 0.08
+    case .eyebrow, .step: return 1  // type.eyebrow.letterSpacing 1px (v3)
     case .displayXL, .displayL: return size * -0.04
     case .displayM: return size * -0.03
     default: return 0
@@ -96,6 +96,7 @@ enum TextRole: CaseIterable {
     switch self {
     case .displayXL, .displayL: return 1.13
     case .displayM: return 1.2
+    case .titleL, .eyebrow, .step: return 1.3
     case .bodyL, .body: return 1.5
     case .bodyS, .caption: return 1.4
     default: return nil
@@ -103,7 +104,7 @@ enum TextRole: CaseIterable {
   }
 
   /// Extra space between lines so the line height reaches `lineHeight` (SwiftUI cannot tighten lines,
-  /// so the tighter display heights keep Inter's own). Scales with Dynamic Type like the font.
+  /// so the tighter display heights keep Outfit's own). Scales with Dynamic Type like the font.
   var lineSpacing: CGFloat {
     guard let lineHeight,
           let font = UIFont(name: isDisplay ? Tokens.FontName.display : Tokens.FontName.body, size: size)

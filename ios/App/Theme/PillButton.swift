@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Sky actions (Figma `Primary action` / `Secondary action`).
-/// - `.primary`: 56 pt ink pill, white Inter Semi Bold 16 label, a 48 pt ink arrow circle at the right.
+/// - `.primary`: 56 pt ink pill, white Outfit SemiBold 16 label, a 48 pt ink arrow circle at the right.
 /// - `.onPhoto`: the same pill in white with ink text (Welcome, on the sky photo).
 /// - `.secondary`: 50 pt white pill with a 1 pt border, centred ink label, no arrow.
 /// - `.destructive`: the secondary pill with `color.danger` border, label and a trash glyph

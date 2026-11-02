@@ -1,11 +1,11 @@
 /**
  * Who may read `/media/<pathname>` (pure; docs/api.md "Clarifications" 1):
- * - anyone: public kinds (`creators/<id>/{mockups|cleaned|thumbs|avatar|story-video}/…`) and a creator's current story video;
+ * - anyone: public kinds (`creators/<id>/{mockups|cleaned|thumbs|previews|avatar|story-video}/…`) and a creator's current story video;
  * - admin (basic auth): everything, including print PNG / die-cut SVG;
  * - a creator: their own files;
  * - `?tag=<nfc token>`: only that order's thank-you media.
  */
-export const PUBLIC_KINDS = new Set(["mockups", "cleaned", "thumbs", "avatar", "story-video"]);
+export const PUBLIC_KINDS = new Set(["mockups", "cleaned", "thumbs", "previews", "avatar", "story-video"]);
 
 export type MediaRequest = {
   pathname: string;

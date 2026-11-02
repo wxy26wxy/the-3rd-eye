@@ -99,6 +99,7 @@
 .thumb .slideCard { height: 80%; border-radius: var(--space-sm); }
 .thumb .tagSlide { padding: 0; }
 .thumb .tagPill { max-width: 90%; padding-inline: var(--space-s); font-size: var(--type-caption-size); letter-spacing: 0; white-space: normal; text-align: center; border-radius: var(--radius-m); }
+@media (min-width: 48rem) { .thumb .tagPill { max-width: none; white-space: nowrap; border-radius: var(--radius-pill); } }
 
 /* Details column (2019:2040): 24 px rhythm. */
 .details { display: grid; gap: var(--space-xxl); align-content: start; justify-items: stretch; min-width: 0; }

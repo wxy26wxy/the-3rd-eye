@@ -373,6 +373,16 @@
       "toteCopy": "Cream canvas bag with your art on the front.",
       "groupLabel": "Choose a product"
     },
+    "myStory": {
+      "row": "My story video",
+      "title": "My story video",
+      "saved": "Buyers see it when they tap your story tag.",
+      "none": "No story video yet",
+      "watch": "Watch",
+      "recordAgain": "Record again",
+      "replaceNote": "Your new video replaces this one on all your products.",
+      "missing": "We couldn't load your video. Try again later."
+    },
     "method": {
       "title": "How do you want to add your art?",
       "photo": "Take a photo",
@@ -436,50 +446,43 @@
       "preview": "Your picture",
       "retake": "Retake",
       "drawBox": "Draw a box around your drawing",
-      "error": "We couldn't use that picture. Try another one."
+      "error": "We couldn't use that picture. Try another one.",
+      "mascotAlt": "Our green mascot holds up a drawing, with tote bags and stickers floating around."
     },
     "select": {
       "title": "Tap the one you want.",
       "copyOne": "We found one drawing in your photo. Use it to change and turn into a {product}.",
       "copyMany": "We found {n} drawings in your photo. Pick one to change and turn into a {product}.",
-      "copyNone": "We could not find your drawing by ourselves. Draw a box around it on the photo.",
       "groupLabel": "Drawings found",
       "candidate": "Piece {n}",
       "photoLabel": "Your photo with the pieces we found",
       "loadingPhoto": "Getting your photo…",
       "photoMissing": "We couldn't show your photo. You can still pick pieces below.",
-      "photoMissingNone": "We couldn't show your photo. Try again later, or retake it.",
-      "modesLabel": "What a tap on the photo does",
-      "modeAdd": "Add area",
-      "modeRemove": "Remove area",
-      "modeBox": "Draw a box",
-      "instructionBoxNone": "Drag a box around your drawing. Then tap Apply cutout to see it.",
-      "keyboardHint": "With a keyboard or screen reader, use the buttons under each piece instead.",
-      "keyboardHintNone": "With a keyboard or screen reader, use the whole photo instead.",
-      "wholePhoto": "Use the whole photo",
-      "boxAround": "Box around this piece",
-      "addAround": "Add the area around this piece",
-      "markAdded": "Added area, mark {n}. Remove this mark",
-      "markRemoved": "Left out, mark {n}. Remove this mark",
-      "marksLabel": "Marks",
-      "maxMarks": "You can add up to 10 marks. Tap a mark to remove it.",
-      "clearMarks": "Clear marks",
-      "needPiece": "Add or remove an area, or draw a box, before you apply the cutout.",
-      "announceMark": "Mark added",
-      "announceUnmark": "Mark removed",
-      "announceBox": "Box drawn",
-      "announceCleared": "Marks cleared",
-      "apply": "Apply cutout",
       "applying": "Cutting out your art…",
       "applied": "Your cutout is ready. Here it is.",
-      "showCutout": "Show the cutout",
-      "backToPhoto": "Fix the edges",
       "cutoutAlt": "Your cutout",
       "failedProducts": "Your cutout is saved. One product could not be rebuilt; try again later.",
       "unpublishedProducts": "One product went back to draft because the new cutout is too small to print, so it is out of the shop for now. After a bigger or clearer cutout, publish it again from My designs in the iPhone app.",
       "retake": "Retake",
-      "use": "Use this",
-      "instruction": "Tap where the cutout should include more, or pick Remove area and tap what to leave out. To trim an edge, draw a box."
+      "use": "Use this"
+    },
+    "adjust": {
+      "title": "Adjust the area",
+      "copy": "Drag the corners so the frame covers your drawing.",
+      "copyNone": "We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it.",
+      "photoLabel": "Your photo",
+      "use": "Use this area",
+      "reset": "Reset",
+      "resetDone": "Frame reset",
+      "applying": "Cutting out your art…",
+      "keyboardHint": "With a keyboard: arrow keys move the frame, Shift and arrow keys change its size.",
+      "frameLabel": "Area frame",
+      "frameRole": "area frame",
+      "frameSize": "Frame covers {w} by {h} percent of the photo",
+      "atEdge": "The frame is at the edge of the photo",
+      "tooSmall": "The frame can't get smaller",
+      "notFound": "We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again.",
+      "photoMissing": "We couldn't show your photo. Go back and try again, or retake it."
     },
     "ready": {
       "titleSticker": "Your sticker is ready!",
@@ -491,7 +494,7 @@
     },
     "listing": {
       "title": "Get it ready for the shop",
-      "drafting": "Writing a title and price for you…",
+      "drafting": "Writing your listing…",
       "name": "Name",
       "description": "Description",
       "price": "Price (dollars)",
@@ -509,7 +512,8 @@
       "submitting": "Listing it…",
       "nameRequired": "Please give it a name.",
       "priceInvalid": "Please enter a price like 5 or 5.50.",
-      "traceNote": "note"
+      "traceNote": "note",
+      "draftingHint": "We'll show the name, price and description when it's ready."
     },
     "story": {
       "title": "Make your story video!",
@@ -543,7 +547,8 @@
       "copy": "{title} is now in the shop.",
       "another": "Make another",
       "buyerView": "See what buyers see",
-      "spoken": "You're live! {title} is now in the shop."
+      "spoken": "You're live! {title} is now in the shop.",
+      "mascotAlt": "Our green mascot points at a shop page full of stickers and tote bags."
     },
     "errors": {
       "printCheck": "This won't print well yet: {reason}",
@@ -555,9 +560,7 @@
     },
     "cutout": {
       "title": "Your cutout",
-      "adjustCopy": "Fix the edges if you need to. Tap the photo to add or remove an area.",
-      "copy": "Here's the cutout of your changed art.",
-      "copyOriginal": "Here's the cutout of your art.",
+      "copy": "Here's your cutout.",
       "makingTitle": "Making your cutout",
       "makingCopy": "Cutting out your changed art.",
       "makingCopyOriginal": "Cutting out your art."

@@ -7,6 +7,7 @@ import { CheckIcon, SparkleIcon, WarningIcon } from "@/components/ui/Icons";
 import { Loading } from "@/components/ui/Loading";
 import { Title } from "@/components/ui/Text";
 import type { AgentStep } from "../api";
+import { StickerLoading } from "../art";
 import { CreateScreen } from "../CreateScreen";
 import { ErrorNotice, type ScreenError } from "../errors";
 import styles from "../Create.module.css";
@@ -15,8 +16,9 @@ export const LISTING_FORM = "listing-form";
 
 export type ListingViewProps = {
   uid: string;
-  mockup: { src: string | null; alt: string };
-  /** The agent is writing the first draft: only the mockup and the loading line show. */
+  /** The product picture; `shadow` for a sticker preview (its white border reads on the grey card). */
+  mockup: { src: string | null; alt: string; shadow?: boolean };
+  /** The agent is writing the first draft: the picture, the creating-cutout animation and the writing line; no fields. */
   drafting: boolean;
   /** "Improve with AI" is running (the form stays). */
   improving: boolean;
@@ -47,9 +49,10 @@ export type ListingViewProps = {
 
 /**
  * Get it ready for the shop (boards `2030:3752`, drafting `2030:3804`, error `2030:3832`). Element order
- * follows the board (ruling): mockup → Improve with AI → Name → Description → Price → You earn per sale
+ * follows the board (ruling): the product picture (sticker preview or tote art, never the AI mockup, R1) → Improve with AI → Name → Description → Price → You earn per sale
  * → print check → Show how the AI decided (disclosure) → error card; Put it in the shop in the bar,
- * which submits the form through its `form` attribute. Field errors sit under their field.
+ * which submits the form through its `form` attribute. Field errors sit under their field. While the
+ * agent drafts (R5) the form is not rendered: the animation (still under reduced motion) and the line.
  */
 export function ListingView({ uid, mockup, drafting, improving, submitting, title, description, price, errors, earnCents, printOk, trace, showTrace, error, errorRef, on }: ListingViewProps) {
   const traceId = `${uid}-trace`;
@@ -60,9 +63,15 @@ export function ListingView({ uid, mockup, drafting, improving, submitting, titl
       footer={<Button type="submit" form={LISTING_FORM} block disabled={drafting || improving || submitting}>{submitting ? m.create.listing.submitting : m.create.listing.submit}</Button>}
     >
       <div className={styles.mockup}>
-        <ArtImage src={mockup.src} alt={mockup.alt} placeholder={m.common.imageMissing} ratio="auto" eager className={styles.mockupArt} />
+        <ArtImage src={mockup.src} alt={mockup.alt} placeholder={m.common.imageMissing} ratio="auto" eager className={[styles.mockupArt, mockup.shadow ? styles.stickerShadow : ""].filter(Boolean).join(" ")} />
       </div>
-      {drafting ? <Loading label={m.create.listing.drafting} /> : (
+      {drafting ? (
+        <>
+          <StickerLoading />
+          <Loading inline label={m.create.listing.drafting} />
+          <p className={styles.keyboardHint}>{m.create.listing.draftingHint}</p>
+        </>
+      ) : (
         <form id={LISTING_FORM} onSubmit={on.submit} className={styles.form} noValidate>
           <Button block variant="secondary" arrow={false} icon={<SparkleIcon />} onClick={on.improve} disabled={improving}>
             {improving ? m.create.listing.improving : m.create.listing.improve}

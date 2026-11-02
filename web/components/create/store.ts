@@ -1,11 +1,13 @@
 "use client";
 /**
  * Creator-flow draft, kept in sessionStorage so a refresh or a back/forward does not lose
- * work. Exposed through useSyncExternalStore; the server snapshot has `ready: false` so
- * screens can wait for hydration instead of flashing "missing" states.
+ * work, and tied to the current sign-in (`ms_creator_session`), so another creator never sees it.
+ * Exposed through useSyncExternalStore; the server snapshot has `ready: false` so screens can wait
+ * for hydration instead of flashing "missing" states.
  */
 import { useCallback, useEffect, useSyncExternalStore } from "react";
-import type { AppliedCutout, ImageSize } from "./cutout";
+import type { Box, ImageSize } from "./cutout";
+import { CREATOR_SESSION_COOKIE } from "./constants";
 import { api, type AgentStep, type Candidate, type Creator, type ListingDraft, type Product, type ProductType } from "./api";
 
 /** One "Change it" result: a child artwork of the piece (or of the previous change). */
@@ -22,7 +24,7 @@ export type ChangeStep = {
   differences: string;
 };
 
-/** The artwork whose cut-out "Your cutout" shows and adjusts, with its SAM pieces. */
+/** The artwork whose cut-out "Your cutout" shows, with its SAM pieces. */
 export type CutoutState = {
   artworkId: string;
   candidates: Candidate[];
@@ -41,12 +43,20 @@ export type Draft = {
   candidates?: Candidate[];
   /** Pixels of the stored original for `photoArtworkId` (the space of `Candidate.bbox`). */
   imageSize?: ImageSize | null;
-  /** The piece picked on Choose a pattern (`select`); the same row as `photoArtworkId`. */
+  /**
+   * What Adjust the area frames (R2): the photo artwork and the piece (picked on Choose a pattern,
+   * `fromPattern`, or the single piece the server found); no `candidateId` when no drawing was
+   * found: the frame starts at the whole photo.
+   */
+  area?: { artworkId: string; candidateId?: string; fromPattern?: boolean };
+  /** The cut piece (Adjust the area's `cleanup`); the same row as `photoArtworkId`. */
   pieceArtworkId?: string;
   pieceCandidateId?: string;
   pieceUrl?: string | null;
   pieceAlt?: string | null;
   pieceSpoken?: string | null;
+  /** The frame the piece was cut with on Adjust the area (image pixels). */
+  pieceBox?: Box;
   /** Every change made in this draft, oldest first. */
   changes?: ChangeStep[];
   /** The change on screen; unset = the picked piece itself ("Back to my original" moves it to the parent). */
@@ -62,8 +72,6 @@ export type Draft = {
   /** The row that "Your cutout" works on (the piece, or the change result after `cutout`). */
   cutoutArtworkId?: string;
   cutout?: CutoutState;
-  /** The cut saved by "Apply cutout" on Your cutout (survives a reload). */
-  appliedCutout?: AppliedCutout;
   /** Product trouble reported by the last cleanup, shown on Ready. */
   cutoutNotice?: string;
   /** The artwork the product was made from. */
@@ -81,20 +89,47 @@ const SERVER: State = { ready: false, draft: {}, creator: null };
 let state: State | null = null;
 const listeners = new Set<() => void>();
 
+/** The sign-in id in `document.cookie` (null when signed out or never set). */
+export function sessionMarker(cookie: string): string | null {
+  for (const part of cookie.split(";")) {
+    const [k, ...v] = part.trim().split("=");
+    if (k === CREATOR_SESSION_COOKIE) return decodeURIComponent(v.join("=")) || null;
+  }
+  return null;
+}
+
+/**
+ * The cached draft and profile, only when they were saved under the current sign-in id; after a
+ * sign-in as someone else (or a sign-out) the cache belongs to another creator and is dropped (T127).
+ */
+export function restore(raw: string | null, marker: string | null): { draft: Draft; creator: Creator | null } {
+  if (!raw) return { draft: {}, creator: null };
+  try {
+    const saved = JSON.parse(raw) as { draft?: Draft; creator?: Creator | null; session?: string | null };
+    if ((saved.session ?? null) !== marker) return { draft: {}, creator: null };
+    return { draft: saved.draft ?? {}, creator: saved.creator ?? null };
+  } catch {
+    return { draft: {}, creator: null };
+  }
+}
+
+function currentMarker(): string | null {
+  try { return typeof document === "undefined" ? null : sessionMarker(document.cookie); } catch { return null; }
+}
+
 function load(): State {
   if (state) return state;
   let draft: Draft = {};
   let creator: Creator | null = null;
   try {
-    const raw = sessionStorage.getItem(KEY);
-    if (raw) ({ draft = {}, creator = null } = JSON.parse(raw) as Partial<State>);
+    ({ draft, creator } = restore(sessionStorage.getItem(KEY), currentMarker()));
   } catch { /* storage blocked */ }
   state = { ready: true, draft, creator };
   return state;
 }
 function save(next: State) {
   state = next;
-  try { sessionStorage.setItem(KEY, JSON.stringify({ draft: next.draft, creator: next.creator })); } catch { /* storage blocked */ }
+  try { sessionStorage.setItem(KEY, JSON.stringify({ draft: next.draft, creator: next.creator, session: currentMarker() })); } catch { /* storage blocked */ }
   listeners.forEach((l) => l());
 }
 function subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
@@ -184,3 +219,12 @@ export function pieceCutout(d: Draft): CutoutState | null {
   };
 }
 
+
+/**
+ * The product picture creator screens show (R1): the bordered sticker preview, else the cut-out art
+ * (always for a tote). Never the AI mockup: it re-draws the art and changes its proportions.
+ */
+export function productPicture(p: Pick<Product, "type" | "previewUrl"> | null | undefined, cut: Pick<CutoutState, "cleanedUrl"> | null | undefined): string | null {
+  if (p && p.type !== "tote" && p.previewUrl) return p.previewUrl;
+  return cut?.cleanedUrl ?? null;
+}

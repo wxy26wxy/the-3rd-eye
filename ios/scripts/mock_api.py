@@ -10,7 +10,7 @@ NONE...: no drawing found, 0 candidates; T114).
 Sign-in NOCUT... makes cleanup answer 422, DETAILS... gives cleanup non-empty details, SLOW... makes
 cleanup take 4 s (switching tabs meanwhile must not lose the cut).
 GET /__mock/last/<cleanup|select|artworks|products|approve|delete> returns the last body the app sent there
-(for delete: {"id": ...}).
+(for delete: {"id": ...}). Cleanup accepts clipToBox (boolean, needs box; T126) and echoes it there.
 My designs (T083): GET /artworks lists four designs, d1 in the shop (photo, published sticker),
 d2 a draft (sticker draft with a listing title), d3 failed (lastError, no cutout), d4 still cutting
 (made just now), d5 in the shop as a tote from an older server (no price in the summary).
@@ -240,7 +240,10 @@ class MockError(Exception):
 def check_cleanup(body):
     """The CleanupBody rules of docs/api.md (T080 §2); the server answers 400 like this."""
     bad = MockError(400, "invalid_request", "cleanup body does not match the contract")
-    if not any(k in body for k in ("candidateIds", "points", "box")) or set(body) - {"candidateIds", "points", "box"}:
+    if not any(k in body for k in ("candidateIds", "points", "box")) or set(body) - {"candidateIds", "points", "box", "clipToBox"}:
+        raise bad
+    # T126: clipToBox is a boolean and needs a box (the "Adjust the area" screens send it with the frame).
+    if "clipToBox" in body and (not isinstance(body["clipToBox"], bool) or (body["clipToBox"] and "box" not in body)):
         raise bad
     ids = body.get("candidateIds")
     if ids is not None:

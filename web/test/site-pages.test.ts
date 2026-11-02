@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -73,6 +75,24 @@ describe("Shop v3 (board 2018:1789)", () => {
     // A tote shows its mockup photo.
     const tote = html(createElement(ProductCard, { product: { ...product, type: "tote" } as ShopProduct }));
     expect(tote).toMatch(/<img src="https:\/\/blob\.example\/mock\.png"[^>]*class="[^"]*photo/);
+  });
+
+  it("R1: a sticker tile shows the bordered preview when it exists, contained (never cropped), the cutout until then", () => {
+    const out = html(createElement(ProductCard, { product: { ...product, previewUrl: "https://blob.example/preview.png" } }));
+    expect(out).toMatch(/<img src="https:\/\/blob\.example\/preview\.png"[^>]*class="[^"]*cutout/);
+    expect(html(createElement(ProductCard, { product: { ...product, previewUrl: null } }))).toContain('src="https://blob.example/art.png"');
+    // a tote never uses a preview
+    expect(html(createElement(ProductCard, { product: { ...product, type: "tote", previewUrl: "https://blob.example/preview.png" } }))).toContain('src="https://blob.example/mock.png"');
+    const css = readFileSync(resolve(__dirname, "../components/site/ProductCard.module.css"), "utf8");
+    const rule = css.match(/\n\.cutout \{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toMatch(/object-fit: contain/);
+    expect(rule).toMatch(/padding:/);
+    // a grid-item image keeps its own aspect height unless min-height is 0: a tall sticker was cut off
+    // (review T123 I1; browser check: web/scripts/check-contained-images.js)
+    expect(rule).toMatch(/min-height: 0/);
+    expect(rule).toMatch(/min-width: 0/);
+    const shop = readFileSync(resolve(__dirname, "../components/shop/Shop.module.css"), "utf8");
+    expect(shop).toMatch(/\.phoneThumb img \{[^}]*min-height: 0[^}]*object-fit: contain/);
   });
 
   it("tile tones cycle in board order", () => {

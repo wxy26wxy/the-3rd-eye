@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  afterPhoto, busyWhile, changeItBack, changeRequest, changingEntry, changingVisit, choosePiece, drawBoxOnPhoto, leaveChanging, runChange, skipChange, submitChange, type FlowDeps,
+  STORY_REDO_RETURN, storyVideoDone, adjustBack, adjustWholePhoto, afterPhoto, areaRequest, busyWhile, changeItBack, changeRequest, changingEntry, changingVisit, cutArea, leaveChanging, pickPiece, runChange, skipChange, submitChange, type FlowDeps,
 } from "@/components/create/flow";
+import { dragFrame, initialFrame, keyFrame, moveFrame, resizeFrame, frameSize } from "@/components/create/area";
+import { ApiError } from "@/components/create/api";
+import { areaError } from "@/components/create/screens/AdjustArea";
+import { m } from "@/components/messages";
 import { addChange, backToOriginal, currentArtworkId, once, type ChangeStep, type Draft } from "@/components/create/store";
 
 /** A draft held in memory, a router that records calls, and an api answering by path. */
@@ -33,11 +37,16 @@ const change = (id: string, parentId: string): ChangeStep => ({ artworkId: id, p
 const changeAnswer = { artwork: { ...artwork({ id: "k2", parentArtworkId: "k1" }), previewUrl: "/k2.png" }, description: { alt: "A fern, bigger", spoken: "A big fern.", differences: "" } };
 
 describe("Photo routing (T113)", () => {
-  it("one piece already cut → Change it with that piece; earlier changes are dropped", () => {
+  it("one piece the server already cut → Adjust the area on that piece (R2, always); earlier changes are dropped", () => {
     const h = harness({ ...piece, changes: [change("k1", "p1")], changedArtworkId: "k1" });
     afterPhoto(h.deps, { artwork: artwork({ id: "p9", cleanedUrl: "/p9.png" }), candidates: [candidates[0]], imageSize: { w: 50, h: 60 } });
-    expect(h.calls.at(-1)).toBe("push /create/change");
-    expect(h.draft).toMatchObject({ photoArtworkId: "p9", pieceArtworkId: "p9", pieceCandidateId: "c1", pieceUrl: "/p9.png", imageSize: { w: 50, h: 60 } });
+    expect(h.calls.at(-1)).toBe("push /create/adjust");
+    expect(h.draft).toMatchObject({ photoArtworkId: "p9", area: { artworkId: "p9", candidateId: "c1" }, imageSize: { w: 50, h: 60 } });
+    expect(h.draft.area?.fromPattern).toBeUndefined();
+    // the piece comes from Use this area, not from the server's cut
+    expect(h.draft.pieceArtworkId).toBeUndefined();
+    // never showed Choose a pattern: Back goes to the photo screen
+    expect(adjustBack(h.draft)).toBe("/create/photo?mode=camera");
     expect(h.draft.changes).toBeUndefined();
     expect(h.draft.changedArtworkId).toBeUndefined();
   });
@@ -50,33 +59,108 @@ describe("Photo routing (T113)", () => {
     expect(h.draft.candidates).toHaveLength(2);
   });
 
-  it("zero pieces, Draw a box → Your cutout in box mode on that photo", () => {
-    const h = harness(piece);
-    drawBoxOnPhoto(h.deps, "p9");
-    expect(h.calls.at(-1)).toBe("push /create/cutout");
-    expect(h.draft).toMatchObject({ cutoutArtworkId: "p9", cutout: { artworkId: "p9", candidates: [], selectedIds: [] } });
+  it("zero pieces, Draw a box → Adjust the area on that photo, no piece (the frame starts at the whole photo)", () => {
+    const h = harness({ ...piece, area: { artworkId: "p1", candidateId: "c1" } });
+    adjustWholePhoto(h.deps, "p9");
+    expect(h.calls.at(-1)).toBe("push /create/adjust");
+    expect(h.draft).toMatchObject({ photoArtworkId: "p9", candidates: [], area: { artworkId: "p9" } });
+    expect(h.draft.area?.candidateId).toBeUndefined();
     expect(h.draft.pieceArtworkId).toBeUndefined();
+    expect(adjustBack(h.draft)).toBe("/create/photo?mode=camera");
+  });
+
+  it("a new photo forgets the earlier area", () => {
+    const h = harness({ ...piece, area: { artworkId: "p1", candidateId: "c1" } });
+    afterPhoto(h.deps, { artwork: artwork({ id: "p9" }), candidates });
+    expect(h.draft.area).toBeUndefined();
   });
 });
 
-describe("Choose a pattern (T113)", () => {
-  it("another piece → POST select, the new piece goes on screen", async () => {
-    const h = harness({ ...piece, changes: [change("k1", "p1")], changedArtworkId: "k1" }, { "/select": artwork({ cleanedUrl: "/c2-cut.png", altText: "A flower" }) });
-    await choosePiece(h.deps, "p1", "c2");
-    expect(h.calls[0]).toBe('api artworks/p1/select {"candidateId":"c2"}');
-    expect(h.calls.at(-1)).toBe("push /create/change");
-    expect(h.draft).toMatchObject({ pieceCandidateId: "c2", pieceUrl: "/c2-cut.png", pieceAlt: "A flower" });
-    expect(h.draft.changedArtworkId).toBeUndefined();
+describe("Choose a pattern → Adjust the area (R2)", () => {
+  it("Use this opens Adjust the area on the picked piece, with no call", () => {
+    const h = harness({ ...piece, pieceArtworkId: undefined, pieceUrl: undefined });
+    pickPiece(h.deps, "p1", "c2");
+    expect(h.api).not.toHaveBeenCalled();
+    expect(h.draft.area).toEqual({ artworkId: "p1", candidateId: "c2", fromPattern: true });
+    expect(h.calls.at(-1)).toBe("push /create/adjust");
+    expect(adjustBack(h.draft)).toBe("/create/pattern");
   });
 
-  it("the same piece again → no call, and Change it opens on the piece, not on an earlier change (review M5)", async () => {
-    const h = harness({ ...piece, changes: [change("k1", "p1")], changedArtworkId: "k1" });
-    await choosePiece(h.deps, "p1", "c1");
+  it("Use this area → POST cleanup {candidateIds:[piece], box}; the cut piece goes on to Change it", async () => {
+    const h = harness({ ...piece, area: { artworkId: "p1", candidateId: "c2" }, changes: [change("k1", "p1")], changedArtworkId: "k1" },
+      { "/cleanup": { ...artwork({ cleanedUrl: "/c2-cut.png", altText: "A flower" }), details: { failedProductIds: [], unpublishedProductIds: [] } } });
+    await cutArea(h.deps, [8, 9, 22, 21]);
+    expect(h.calls[0]).toBe('api artworks/p1/cleanup {"candidateIds":["c2"],"box":[8,9,22,21],"clipToBox":true}');
+    expect(h.calls.at(-1)).toBe("push /create/change");
+    expect(h.draft).toMatchObject({ pieceArtworkId: "p1", pieceCandidateId: "c2", pieceBox: [8, 9, 22, 21], pieceUrl: "/c2-cut.png", pieceAlt: "A flower" });
+    expect(h.draft.changedArtworkId).toBeUndefined();
+    expect(h.draft.cutoutNotice).toBeUndefined();
+    expect(changeItBack(h.draft)).toBe("/create/adjust");
+  });
+
+  it("no drawing found: only the box is sent", async () => {
+    expect(areaRequest({ artworkId: "p9" }, [0, 0, 100, 80])).toEqual({ box: [0, 0, 100, 80], clipToBox: true });
+    const h = harness({ ...piece, candidates: [], pieceArtworkId: undefined, area: { artworkId: "p9" } }, { "/cleanup": artwork({ id: "p9", cleanedUrl: "/p9.png" }) });
+    await cutArea(h.deps, [0, 0, 100, 80]);
+    expect(h.calls[0]).toBe('api artworks/p9/cleanup {"box":[0,0,100,80],"clipToBox":true}');
+    expect(h.draft).toMatchObject({ pieceArtworkId: "p9", pieceUrl: "/p9.png" });
+    expect(h.draft.pieceCandidateId).toBeUndefined();
+  });
+
+  it("the same piece and frame again → no call, and Change it opens on the piece, not on an earlier change (review M5)", async () => {
+    const h = harness({ ...piece, area: { artworkId: "p1", candidateId: "c1" }, pieceBox: [1, 2, 3, 4], changes: [change("k1", "p1")], changedArtworkId: "k1" }, { "/cleanup": artwork({ cleanedUrl: "/again.png" }) });
+    await cutArea(h.deps, [1, 2, 3, 4]);
     expect(h.api).not.toHaveBeenCalled();
     expect(h.calls.at(-1)).toBe("push /create/change");
-    expect(h.calls.findIndex((c) => c.startsWith("update"))).toBeLessThan(h.calls.indexOf("push /create/change"));
     expect(h.draft.changedArtworkId).toBeUndefined();
     expect(currentArtworkId(h.draft)).toBe("p1");
+    // a moved frame cuts again
+    await cutArea(h.deps, [1, 2, 3, 5]);
+    expect(h.api).toHaveBeenCalledTimes(1);
+  });
+
+  it("a frame with no drawing in it (or one that clips everything away, T126 422): the advice to move or grow the frame (not Retake)", () => {
+    expect(areaError(new ApiError(422, "no_drawing_found", "Nothing found"))).toEqual({ message: m.create.adjust.notFound, action: "none" });
+    expect(areaError(new ApiError(504, "deadline_exceeded", "late")).action).toBe("retry");
+  });
+});
+
+describe("Adjust the area geometry (R2)", () => {
+  const img = { w: 1000, h: 800 };
+  it("starts on the bbox grown by 8 % (centred, clamped), or on the whole photo", () => {
+    expect(initialFrame([100, 100, 600, 500], img)).toEqual([80, 84, 620, 516]);
+    expect(initialFrame([0, 0, 1000, 800], img)).toEqual([0, 0, 1000, 800]);
+    expect(initialFrame(null, img)).toEqual([0, 0, 1000, 800]);
+    expect(initialFrame([5, 5, 5, 9], img)).toEqual([0, 0, 1000, 800]);
+  });
+
+  it("corners move two sides, edges one, the inside moves the frame; never off the photo or inside out", () => {
+    const b: [number, number, number, number] = [100, 100, 500, 400];
+    expect(dragFrame(b, "se", 50, 20, img)).toEqual([100, 100, 550, 420]);
+    expect(dragFrame(b, "nw", -200, -200, img)).toEqual([0, 0, 500, 400]);
+    expect(dragFrame(b, "e", 10, 99, img)).toEqual([100, 100, 510, 400]);
+    expect(dragFrame(b, "n", 0, 900, img)).toEqual([100, 200, 500, 400]); // minimum 25 % of 800 = 200 (review M2)
+    expect(dragFrame(b, "move", 900, 900, img)).toEqual([600, 500, 1000, 800]);
+    expect(moveFrame(b, -500, 0, img)).toEqual([0, 100, 400, 400]);
+  });
+
+  it("keyboard: arrows move by 5 %, Shift + arrows resize around the centre; other keys are left alone", () => {
+    const b: [number, number, number, number] = [100, 100, 500, 400];
+    expect(keyFrame(b, "ArrowRight", false, img)).toEqual([150, 100, 550, 400]);
+    expect(keyFrame(b, "ArrowUp", false, img)).toEqual([100, 60, 500, 360]);
+    expect(keyFrame(b, "ArrowRight", true, img)).toEqual([50, 100, 550, 400]);
+    expect(keyFrame(b, "ArrowUp", true, img)).toEqual([100, 140, 500, 360]);
+    expect(keyFrame(b, "Enter", false, img)).toBeNull();
+    expect(resizeFrame([0, 0, 1000, 800], 100, 100, img)).toEqual([0, 0, 1000, 800]);
+    // at the edge (or the smallest size) a key changes nothing: the frame announces the limit instead
+    expect(keyFrame([0, 0, 400, 300], "ArrowLeft", false, img)).toEqual([0, 0, 400, 300]);
+    expect(keyFrame([0, 0, 200, 200], "ArrowLeft", true, img)).toEqual([0, 0, 200, 200]);
+    // a smaller start is lifted to the minimum, so the inside stays large enough to drag
+    expect(initialFrame([10, 10, 20, 20], img)).toEqual([10, 10, 210, 210]);
+  });
+
+  it("the size is said in whole percentages of the photo", () => {
+    expect(frameSize([100, 80, 600, 480], img)).toEqual({ width: 50, height: 50, left: 10, top: 10 });
   });
 });
 
@@ -195,11 +279,11 @@ describe("T117: kept-mounted routes (cacheComponents) never re-send or come back
     expect(changingVisit(h.draft, nonce)).toBe("change");
   });
 
-  it("busy flags (Choose a pattern busy, Photo phase, Your cutout work) are clear after a navigation and after a failure", async () => {
+  it("busy flags (Adjust the area busy, Photo phase) are clear after a navigation and after a failure", async () => {
     const seen: (string | boolean | null)[] = [];
-    const h = harness(piece, { "/select": artwork({ cleanedUrl: "/c2.png" }) });
+    const h = harness({ ...piece, area: { artworkId: "p1", candidateId: "c2" } }, { "/cleanup": artwork({ cleanedUrl: "/c2.png" }) });
     let busy = false;
-    await busyWhile((v: boolean) => { busy = v; seen.push(v); }, true, false, () => choosePiece(h.deps, "p1", "c2"));
+    await busyWhile((v: boolean) => { busy = v; seen.push(v); }, true, false, () => cutArea(h.deps, [1, 1, 9, 9]));
     expect(h.calls.at(-1)).toBe("push /create/change");
     expect(busy).toBe(false);
     let work: string | null = null;
@@ -209,17 +293,25 @@ describe("T117: kept-mounted routes (cacheComponents) never re-send or come back
   });
 });
 
-describe("T118: Back from Change it", () => {
-  it("goes to Choose a pattern even with a change on screen, and leaves the change chain intact", () => {
-    const d: Draft = { ...piece, ...addChange(piece, change("k1", "p1")) };
+describe("T118 / R2: Back from Change it", () => {
+  it("goes to Adjust the area even with a change on screen, and leaves the change chain intact", () => {
+    const d: Draft = { ...piece, area: { artworkId: "p1", candidateId: "c1" }, ...addChange(piece, change("k1", "p1")) };
     d.changes = [...(d.changes ?? []), change("k2", "k1")];
     d.changedArtworkId = "k2";
     const before = JSON.stringify(d);
-    expect(changeItBack(d)).toBe("/create/pattern");
+    expect(changeItBack(d)).toBe("/create/adjust");
     expect(JSON.stringify(d)).toBe(before);
     expect(currentArtworkId(d)).toBe("k2");
-    // a single piece the server cut out never showed Choose a pattern: back to the photo screen
-    expect(changeItBack({ ...piece, candidates: [candidates[0]], method: "upload" })).toBe("/create/photo?mode=upload");
-    expect(changeItBack({ ...piece, candidates: [candidates[0]] })).toBe("/create/photo?mode=camera");
+    // a draft without an area (an old session) goes back to the photo screen
+    expect(changeItBack({ ...piece, method: "upload" })).toBe("/create/photo?mode=upload");
+    expect(changeItBack(piece)).toBe("/create/photo?mode=camera");
+  });
+});
+
+describe("Story video return (R6)", () => {
+  it("after the first listing → You're live; Record again (redo) → back to Choose a product", () => {
+    expect(storyVideoDone(false)).toBe("/create/live");
+    expect(storyVideoDone(true)).toBe("/create/product");
+    expect(STORY_REDO_RETURN).toBe("/create/product");
   });
 });

@@ -171,6 +171,39 @@ describe("cleanupArtwork", () => {
     expect(state.deleted).toEqual([]);
   });
 
+  it("clipToBox: a frame inside the piece trims it to the frame (T126)", async () => {
+    const artwork = await setup();
+    const box: [number, number, number, number] = [40.4, 40, 80, 99.6]; // fractional: floor the start, ceil the end
+    const out = await cleanupArtwork(artwork, { candidateIds: ["k1"], box, clipToBox: true });
+    expect(state.segmentCalls).toEqual([{ points: undefined, box }]); // the SAM object is still asked for and unioned first
+    const cleaned = files.get((out.artwork as unknown as { cleanedUrl: string }).cleanedUrl)!;
+    const meta = await sharp(cleaned).metadata();
+    // k1 is 20..120 square; the frame keeps 40..80 × 40..100 (40×60), upscaled 2×, nothing past the frame
+    expect(meta.width).toBe(80);
+    expect(meta.height).toBe(120);
+    const alpha = await maskFromAlpha(cleaned);
+    expect(alpha.data[60 * alpha.width + 40]).toBe(1); // middle of the kept area is opaque
+  });
+
+  it("clipToBox unset or false: the box only adds, the piece is not trimmed", async () => {
+    for (const clipToBox of [undefined, false]) {
+      const artwork = await setup();
+      const out = await cleanupArtwork(artwork, { candidateIds: ["k1"], box: [40, 40, 80, 100], clipToBox });
+      const meta = await sharp(files.get((out.artwork as unknown as { cleanedUrl: string }).cleanedUrl)!).metadata();
+      expect(Math.abs(meta.width! - 200)).toBeLessThanOrEqual(6); // the whole of k1 (100×100) at 2×
+      expect(Math.abs(meta.height! - 200)).toBeLessThanOrEqual(6);
+    }
+  });
+
+  it("clipToBox with a frame outside every piece → 422 no_drawing_found, nothing stored", async () => {
+    const artwork = await setup();
+    await expect(cleanupArtwork(artwork, { candidateIds: ["k1"], box: [200, 10, 240, 60], clipToBox: true }))
+      .rejects.toMatchObject({ status: 422, code: "no_drawing_found" });
+    await expect(cleanupArtwork(artwork, { candidateIds: ["k1"], box: [500, 400, 600, 500], clipToBox: true })) // past the image: clamped to nothing
+      .rejects.toMatchObject({ status: 422, code: "no_drawing_found" });
+    expect(state.updates).toEqual([]);
+  });
+
   it("unknown candidate → 400 invalid_candidate; nothing found → 422", async () => {
     const artwork = await setup();
     await expect(cleanupArtwork(artwork, { candidateIds: ["nope"] })).rejects.toMatchObject({ status: 400, code: "invalid_candidate" });
@@ -199,5 +232,11 @@ describe("CleanupBody", () => {
     expect(ok({ points: [{ x: -1, y: 2 }] })).toBe(false);
     expect(ok({ candidateIds: [] })).toBe(false);
     expect(ok({ points: Array.from({ length: 11 }, () => ({ x: 1, y: 1 })) })).toBe(false);
+  });
+  it("clipToBox is a boolean and needs a box (T126)", () => {
+    expect(ok({ candidateIds: ["a"], box: [0, 0, 5, 5], clipToBox: true })).toBe(true);
+    expect(ok({ candidateIds: ["a"], clipToBox: true })).toBe(false);
+    expect(ok({ candidateIds: ["a"], clipToBox: false })).toBe(true);
+    expect(ok({ box: [0, 0, 5, 5], clipToBox: "yes" })).toBe(false);
   });
 });

@@ -13,6 +13,7 @@ import { api, extFor, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid, type Creator, type
 import { InfoCard } from "../cards";
 import { CreateScreen } from "../CreateScreen";
 import { describeError, ErrorNotice, type ScreenError } from "../errors";
+import { STORY_REDO_RETURN, storyVideoDone } from "../flow";
 import { useCreator } from "../store";
 import { FilePicker } from "./Photo";
 import styles from "../Create.module.css";
@@ -35,13 +36,20 @@ async function soundtrackWav(file: File): Promise<Blob | null> {
   }
 }
 
-/** First listing only: record (or choose) a short story video; captions are made by the backend. */
-export function StoryVideo() {
+/**
+ * Record (or choose) a short story video; captions are made by the backend. After the first listing
+ * it goes on to You're live; in `redo` mode ("Record again" on My story video, R6) it replaces the
+ * video on every product and returns to Choose a product.
+ */
+export function StoryVideo({ redo = false }: { redo?: boolean }) {
   const router = useRouter();
+  const done = storyVideoDone(redo);
   const { creator, refresh } = useCreator();
   const [prompts, setPrompts] = useState<string[]>(FALLBACK);
   const [file, setFile] = useState<File | null>(null);
-  const [mention, setMention] = useState(false);
+  // Record again starts from the creator's current choice; the first video starts with it off.
+  const [mentionPick, setMention] = useState<boolean | null>(null);
+  const mention = mentionPick ?? (redo ? creator?.mentionDisability ?? false : false);
   const [phase, setPhase] = useState<"pick" | "uploading" | "processing" | "draft" | "editing" | "saving">("pick");
   const [draft, setDraft] = useState<StoryDraft | null>(null);
   const [storyText, setStoryText] = useState("");
@@ -80,7 +88,7 @@ export function StoryVideo() {
         setPhase("draft");
         return;
       }
-      router.push("/create/live");
+      router.push(done);
     } catch (err) {
       setError(describeError(err));
       setPhase("pick");
@@ -93,7 +101,7 @@ export function StoryVideo() {
     try {
       await api("creators/me", { method: "PUT", json: { storyText: text.trim(), ...(draft?.bio_short ? { bioShort: draft.bio_short } : {}) } });
       void refresh();
-      router.push("/create/live");
+      router.push(done);
     } catch (err) {
       setError(describeError(err));
       setPhase("editing");
@@ -101,7 +109,7 @@ export function StoryVideo() {
   }
   function skipStory() {
     void api("creators/me", { method: "PUT", json: { dismissStoryDraft: true } }).catch(() => undefined);
-    router.push("/create/live");
+    router.push(done);
   }
 
   // Draft (boards 2030:3931, editing 2038:4510): the story drafted from the creator's own words.
@@ -141,16 +149,18 @@ export function StoryVideo() {
     );
   }
 
-  // Record or choose (boards 2030:3884, video selected 2038:4469). Logo, no Back (first listing only).
+  // Record or choose (boards 2030:3884, video selected 2038:4469). First listing: logo, no Back.
+  // Record again: Back returns to Choose a product.
   const busy = phase !== "pick";
   return (
     <CreateScreen
-      title={m.create.story.title}
-      lead={m.create.story.copy}
+      back={redo && !busy ? STORY_REDO_RETURN : undefined}
+      title={redo ? m.create.myStory.title : m.create.story.title}
+      lead={redo ? m.create.myStory.replaceNote : m.create.story.copy}
       footer={(
         <>
           <Button block onClick={submit} disabled={!file || busy}>{m.create.story.submit}</Button>
-          {busy ? null : <Button block variant="secondary" arrow={false} href="/create/live">{m.create.story.skip}</Button>}
+          {busy || redo ? null : <Button block variant="secondary" arrow={false} href={done}>{m.create.story.skip}</Button>}
         </>
       )}
     >

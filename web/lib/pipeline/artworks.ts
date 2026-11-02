@@ -10,7 +10,7 @@ import { ai } from "@/lib/ai/registry";
 import type { Description, GeneratedImage, Mask, Segment, SegmentPoint, Trace } from "@/lib/ai/types";
 import { cutUpscale, ensureDpi, previewCutPath, removeBackground } from "@/lib/image/sticker";
 import { pngRef } from "@/lib/image/ref";
-import { alphaToMask, alphaToPng, area, bboxOf, emptyMask, finishMask, maskFromPng, maskToPng, removePiecesAt, unionMasks } from "@/lib/image/mask";
+import { alphaToMask, alphaToPng, area, bboxOf, clampBox, clipToBox, emptyMask, finishMask, maskFromPng, maskToPng, removePiecesAt, unionMasks, type BBox } from "@/lib/image/mask";
 import { insertArtwork, listProductsForArtwork, updateArtwork, type ArtworkRow } from "@/lib/db/queries";
 import { rebuildProductFiles } from "@/lib/pipeline/products";
 import { clientUploadPath, creatorPath, readClientUpload, storage } from "@/lib/storage";
@@ -44,7 +44,7 @@ export type ImageSize = { w: number; h: number };
  * specks, anti-aliased edge) by `finishMask` at that size.
  */
 async function finishArtwork(
-  artwork: ArtworkRow, original: Buffer, parts: Mask[], opts: { prompt?: string; task: string },
+  artwork: ArtworkRow, original: Buffer, parts: Mask[], opts: { prompt?: string; task: string; clip?: BBox },
 ): Promise<ArtworkRow> {
   const trace = traceFor(artwork.id, opts.task, "describe");
   // `parts` are at the original's size (callers guarantee it).
@@ -55,6 +55,7 @@ async function finishArtwork(
   const tw = Math.round(W * k), th = Math.round(H * k);
   const source = tw === W && th === H ? original : await sharp(original).resize(tw, th, { kernel: "lanczos3", fit: "fill" }).png().toBuffer();
   const alpha = await finishMask(parts, { width: tw, height: th });
+  if (opts.clip) clipAlpha(alpha, opts.clip, k);
   if (!bboxOf(alphaToMask(alpha))) {
     throw new ApiError(422, "no_drawing_found", "That selection is too small to cut out. Try a box around the whole thing.", { artworkId: artwork.id });
   }
@@ -73,6 +74,14 @@ async function finishArtwork(
   });
 }
 
+/** Clears the soft alpha outside `box` (original pixels; the alpha is the original × `k`) so the finished edge cannot spill past it. */
+function clipAlpha(alpha: { width: number; height: number; alpha: Uint8Array }, box: BBox, k: number): void {
+  const b = clampBox(box.map((v) => v * k) as BBox, alpha.width, alpha.height) ?? [0, 0, 0, 0];
+  for (let y = 0; y < alpha.height; y++) {
+    for (let x = 0; x < alpha.width; x++) if (x < b[0] || x >= b[2] || y < b[1] || y >= b[3]) alpha.alpha[y * alpha.width + x] = 0;
+  }
+}
+
 export type RecutResult = { artwork: ArtworkRow; failedProductIds: string[]; unpublishedProductIds: string[] };
 
 /**
@@ -80,7 +89,7 @@ export type RecutResult = { artwork: ArtworkRow; failedProductIds: string[]; unp
  * rebuild fails keeps its old files and is reported in `failedProductIds` (the cut itself stands);
  * one whose print check now fails is moved back to draft (`unpublishedProductIds`).
  */
-async function recut(artwork: ArtworkRow, original: Buffer, parts: Mask[], opts: { prompt?: string; task: string }): Promise<RecutResult> {
+async function recut(artwork: ArtworkRow, original: Buffer, parts: Mask[], opts: { prompt?: string; task: string; clip?: BBox }): Promise<RecutResult> {
   const row = await finishArtwork(artwork, original, parts, opts);
   const products = await listProductsForArtwork(artwork.id);
   const results = await Promise.allSettled(products.map((p) => rebuildProductFiles(p.id, opts.task)));
@@ -333,13 +342,14 @@ export async function selectCandidate(artwork: ArtworkRow, candidateId: string, 
   return (await cleanupArtwork(artwork, { candidateIds: [candidateId] }, task)).artwork;
 }
 
-export type CleanupHint = { candidateIds?: string[]; points?: SegmentPoint[]; box?: [number, number, number, number] };
+export type CleanupHint = { candidateIds?: string[]; points?: SegmentPoint[]; box?: [number, number, number, number]; clipToBox?: boolean };
 
 /**
  * Re-cut. Candidate pieces: the chosen candidates' stored masks, minus every connected piece that
  * holds a negative point (no model call). SAM piece: with a box or a positive point, one SAM
- * object prompted with the box and all points. The cut is the union of both. Products made from
- * the artwork are rebuilt.
+ * object prompted with the box and all points. The cut is the union of both; with `clipToBox` (and a
+ * box) it is then cut to the box, so a frame smaller than the piece trims it (T126, "Adjust the
+ * area"). Products made from the artwork are rebuilt.
  */
 export async function cleanupArtwork(artwork: ArtworkRow, hint: CleanupHint, task = "T080"): Promise<RecutResult> {
   if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
@@ -358,10 +368,13 @@ export async function cleanupArtwork(artwork: ArtworkRow, hint: CleanupHint, tas
     const seg = await (await ai()).segmenter.segment(pngRef(original), { points: hint.points, box: hint.box }, { trace: traceFor(artwork.id, task, "segment") });
     if (seg && area(seg.mask) > 0) parts.push(await toSize(seg.mask, W, H));
   }
-  if (!parts.length) {
+  // Clipping each part equals clipping their union, and keeps finishMask's per-part speck rule.
+  const clip = hint.clipToBox && hint.box ? hint.box : undefined;
+  const kept = clip ? parts.map((m) => clipToBox(m, clip)).filter((m) => area(m) > 0) : parts;
+  if (!kept.length) {
     throw new ApiError(422, "no_drawing_found", "We could not find anything there. Try a box around the whole thing, or tap on it.", { artworkId: artwork.id });
   }
-  return recut(artwork, original, parts, { prompt: artwork.shapedPrompt ?? artwork.changeInstruction ?? undefined, task });
+  return recut(artwork, original, kept, { prompt: artwork.shapedPrompt ?? artwork.changeInstruction ?? undefined, task, clip });
 }
 
 /** Stored masks are at the original's size; guard against older rows that are not. */

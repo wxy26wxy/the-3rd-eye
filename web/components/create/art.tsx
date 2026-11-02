@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type Ref } from "react";
+import Image from "next/image";
 import { fmt, m } from "@/components/messages";
 import { ArtImage } from "@/components/ui/ArtImage";
 import { Button } from "@/components/ui/Button";
@@ -43,6 +44,21 @@ export function StickerLoading() {
     return () => mq.removeEventListener("change", apply);
   }, []);
   return <video ref={ref} className={styles.stickerLoading} src={ASSETS.stickerLoadingVideo} muted loop playsInline preload="auto" aria-hidden="true" />;
+}
+
+const MASCOTS = {
+  card: { src: ASSETS.mascotCard, width: 1200, height: 1023, alt: m.create.photo.mascotAlt },
+  shop: { src: ASSETS.mascotShop, width: 1200, height: 1200, alt: m.create.live.mascotAlt },
+} as const;
+
+/**
+ * The mascot picture cards (R7): `card` on Take a photo / Upload a picture (the mascot holding up a
+ * drawing), `shop` on You're live (the mascot pointing at a shop page). Full-width card, radius 28,
+ * served through next/image (at most 1200 px); described, since it is the only picture on the screen.
+ */
+export function MascotPicture({ kind }: { kind: keyof typeof MASCOTS }) {
+  const a = MASCOTS[kind];
+  return <Image src={a.src} width={a.width} height={a.height} alt={a.alt} sizes="(max-width: 35rem) 100vw, 35rem" priority className={styles.mascotPicture} />;
 }
 
 /** Underlined text action, centred (44 px target). */

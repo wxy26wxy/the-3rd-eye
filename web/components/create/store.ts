@@ -6,24 +6,63 @@
  */
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { AppliedCutout, ImageSize } from "./cutout";
-import { api, type AgentStep, type ArtworkVariant, type Candidate, type Creator, type ListingDraft, type Product, type ProductType, type ShapeResult } from "./api";
+import { api, type AgentStep, type Candidate, type Creator, type ListingDraft, type Product, type ProductType } from "./api";
+
+/** One "Change it" result: a child artwork of the piece (or of the previous change). */
+export type ChangeStep = {
+  artworkId: string;
+  /** The row it was made from: the piece, or the previous change ("Change it again"). */
+  parentId: string;
+  instruction: string;
+  transcript?: string;
+  /** Public URL of the edited picture (shown on Before and after). */
+  previewUrl: string | null;
+  alt: string | null;
+  spoken: string | null;
+  differences: string;
+};
+
+/** The artwork whose cut-out "Your cutout" shows and adjusts, with its SAM pieces. */
+export type CutoutState = {
+  artworkId: string;
+  candidates: Candidate[];
+  imageSize: ImageSize | null;
+  /** The pieces in the current cut (the picked piece, or the largest one after `cutout`). */
+  selectedIds: string[];
+  cleanedUrl: string | null;
+  altText: string | null;
+};
 
 export type Draft = {
   product?: ProductType;
-  method?: "photo" | "upload" | "voice";
-  transcript?: string;
-  answers?: string[];
-  shaped?: ShapeResult;
-  variants?: ArtworkVariant[];
-  artworkId?: string;
+  method?: "photo" | "upload";
+  /** The photo artwork (POST /artworks) and its SAM pieces. */
   photoArtworkId?: string;
   candidates?: Candidate[];
   /** Pixels of the stored original for `photoArtworkId` (the space of `Candidate.bbox`). */
   imageSize?: ImageSize | null;
-  /** The cut saved by "Apply cutout" on Select for `photoArtworkId` (survives a reload). */
+  /** The piece picked on Choose a pattern (`select`); the same row as `photoArtworkId`. */
+  pieceArtworkId?: string;
+  pieceCandidateId?: string;
+  pieceUrl?: string | null;
+  pieceAlt?: string | null;
+  pieceSpoken?: string | null;
+  /** Every change made in this draft, oldest first. */
+  changes?: ChangeStep[];
+  /** The change on screen; unset = the picked piece itself ("Back to my original" moves it to the parent). */
+  changedArtworkId?: string;
+  /** The request being made on "Changing your art" (typed, or the transcript when spoken). */
+  changeInstruction?: string;
+  changeTranscript?: string;
+  /** The row that "Your cutout" works on (the piece, or the change result after `cutout`). */
+  cutoutArtworkId?: string;
+  cutout?: CutoutState;
+  /** The cut saved by "Apply cutout" on Your cutout (survives a reload). */
   appliedCutout?: AppliedCutout;
   /** Product trouble reported by the last cleanup, shown on Ready. */
   cutoutNotice?: string;
+  /** The artwork the product was made from. */
+  artworkId?: string;
   productRecord?: Product;
   listing?: ListingDraft;
   trace?: AgentStep[];
@@ -55,6 +94,8 @@ function save(next: State) {
 }
 function subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
 
+/** The draft as it is now (for callbacks that finish after a render). */
+export function getDraft(): Draft { return load().draft; }
 export function updateDraft(patch: Partial<Draft>) { const s = load(); save({ ...s, draft: { ...s.draft, ...patch } }); }
 /** Start a new piece; keeps the signed-in creator. */
 export function resetDraft(keep: Partial<Draft> = {}) { const s = load(); save({ ...s, draft: { ...keep } }); }
@@ -91,9 +132,50 @@ export function once<T>(key: string, run: () => Promise<T>): Promise<T> {
   return p;
 }
 
-/** POST /products for the chosen artwork and remember it. */
-export async function makeProduct(artworkId: string, type: ProductType): Promise<Product> {
-  const product = await once(`product:${artworkId}:${type}`, () => api<Product>("products", { json: { artworkId, type } }));
+/** POST /products for the chosen artwork and remember it (`attempt` makes a retry a new request). */
+export async function makeProduct(artworkId: string, type: ProductType, attempt = 0): Promise<Product> {
+  const product = await once(`product:${artworkId}:${type}:${attempt}`, () => api<Product>("products", { json: { artworkId, type } }));
   updateDraft({ productRecord: product, artworkId, listing: undefined, trace: undefined });
   return product;
 }
+
+/** The change on screen, when there is one. */
+export function currentChange(d: Draft): ChangeStep | null {
+  return d.changedArtworkId ? d.changes?.find((c) => c.artworkId === d.changedArtworkId) ?? null : null;
+}
+
+/** The row "Change it" edits next and "Looks good as is" cuts out: the change on screen, else the piece. */
+export function currentArtworkId(d: Draft): string | undefined {
+  return currentChange(d)?.artworkId ?? d.pieceArtworkId;
+}
+
+/** "Back to my original": the change's parent (the previous change, or the piece). No API call. */
+export function backToOriginal(d: Draft): Partial<Draft> {
+  const step = currentChange(d);
+  if (!step) return {};
+  const parent = d.changes?.find((c) => c.artworkId === step.parentId);
+  return { changedArtworkId: parent?.artworkId };
+}
+
+/** Records a change result and puts it on screen. */
+export function addChange(d: Draft, step: ChangeStep): Partial<Draft> {
+  return { changes: [...(d.changes ?? []).filter((c) => c.artworkId !== step.artworkId), step], changedArtworkId: step.artworkId };
+}
+
+/**
+ * "Looks good as is" / "Use this": the cut-out to show on Your cutout. For the picked piece it exists
+ * already (from `select`, no call); for a change result it is made by `POST /artworks/{id}/cutout`
+ * on the cutout screen (returns null here).
+ */
+export function pieceCutout(d: Draft): CutoutState | null {
+  if (currentChange(d) || !d.pieceArtworkId) return null;
+  return {
+    artworkId: d.pieceArtworkId,
+    candidates: d.candidates ?? [],
+    imageSize: d.imageSize ?? null,
+    selectedIds: d.pieceCandidateId ? [d.pieceCandidateId] : [],
+    cleanedUrl: d.pieceUrl ?? null,
+    altText: d.pieceAlt ?? null,
+  };
+}
+

@@ -4,21 +4,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { m } from "@/components/messages";
 import type { BuyState } from "@/app/(site)/p/[id]/actions";
 
-// The form reads its state from useActionState; feed it a chosen state so each placement renders.
 const hoisted = vi.hoisted(() => ({ state: {} as BuyState, createOrder: vi.fn() }));
-vi.mock("react", async (orig) => {
-  const react = await orig<typeof import("react")>();
-  return { ...react, useActionState: () => [hoisted.state, () => {}, false] };
-});
 vi.mock("@/lib/db/queries.contract", () => ({ createOrder: hoisted.createOrder }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn(() => { throw new Error("NEXT_REDIRECT"); }) }));
 
-const { BuyForm } = await import("@/components/product/BuyForm");
+const { BuyFields } = await import("@/components/product/BuyForm");
 const { placeOrder } = await import("@/app/(site)/p/[id]/actions");
 
 const render = (state: BuyState) => {
   hoisted.state = state;
-  return renderToStaticMarkup(createElement(BuyForm, { action: async () => ({}), priceLabel: "Buy for $5.00" }));
+  return renderToStaticMarkup(createElement(BuyFields, { state: hoisted.state, pending: false, submitLabel: "Place order · $5.00" }));
 };
 const fd = (v: Record<string, string>) => {
   const f = new FormData();
@@ -28,7 +23,7 @@ const fd = (v: Record<string, string>) => {
 /** Index of the first role="alert" after the given field label, or -1. */
 const alertAt = (out: string, text: string) => out.indexOf(`role="alert">${text}`);
 
-describe("BuyForm error placement (T108, from the action's field)", () => {
+describe("Checkout fields error placement (T108, kept in the v3 checkout sheet)", () => {
   it("a note error renders under the note field, before the demo line", () => {
     const out = render({ error: m.product.noteRejected, field: "note" });
     const at = alertAt(out, m.product.noteRejected);

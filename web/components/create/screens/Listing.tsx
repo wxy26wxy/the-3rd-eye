@@ -101,7 +101,7 @@ function ListingForm() {
     }
   }
 
-  const art = draft.variants?.find((v) => v.id === p?.artworkId);
+  const art = draft.cutout?.artworkId === p?.artworkId ? draft.cutout : null;
   const tote = p?.type === "tote";
   return (
     <ListingView

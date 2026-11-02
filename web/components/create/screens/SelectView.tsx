@@ -16,10 +16,12 @@ const MODE_ICON: Record<TapMode, ReactNode> = { add: <PlusIcon />, remove: <Minu
 export type SelectViewProps = {
   /** Prefix for ids inside the view (useId of the screen). */
   uid: string;
+  title: string;
   lead: string;
+  /** Back target (hidden while a request runs). */
+  back: string;
+  /** Where "Retake the photo" goes when the error calls for it. */
   retake: string;
-  /** "sticker" / "tote bag", for "Making your …". */
-  productWord: string;
   /** The request in flight: Apply cutout ("apply") or Use this ("use"). */
   work: "apply" | "use" | null;
   /** Text for the one permanent polite live region. */
@@ -64,15 +66,18 @@ export type SelectViewProps = {
     use: () => void;
     apply: () => void;
     retry: () => void;
+    startOver: () => void;
   };
 };
 
 /**
- * Pick your art (boards `2027:3254` select, `2038:4092` marks, `2038:4233` applied, `2038:4369` saving).
- * Order follows the board: the photo on the green photo card, the piece strip (checkboxes), per-piece
- * "Box around this piece" / "Add the area around this piece", the tool picker, the instruction and
- * keyboard hint, the marks list, notices and errors, Clear marks; Use this / Apply cutout / Retake in
- * the bar. While a request runs, Back and every control are locked and only Use this shows (dimmed).
+ * Your cutout (boards `2038:4233` the cut, `2038:4092` Fix the edges). The cut: the checkerboard
+ * cut-out, "Your cutout is ready", Fix the edges, the product notice; Use this / Start over in the bar.
+ * Fix the edges: the photo on the green photo card, the piece strip (checkboxes) with per-piece
+ * "Box around this piece" / "Add the area around this piece" (the keyboard path), the tool picker,
+ * the instruction and keyboard hint, the marks list, notices and errors, Clear marks; Use this /
+ * Apply cutout / Start over in the bar. While a request runs, Back and every control are locked and
+ * only Use this shows (dimmed).
  */
 export function SelectView({ resultRef, errorRef, on, ...p }: SelectViewProps) {
   const busy = p.work !== null;
@@ -83,13 +88,13 @@ export function SelectView({ resultRef, errorRef, on, ...p }: SelectViewProps) {
     <>
       <Button block onClick={on.use} disabled={!p.canUse}>{t.use}</Button>
       {showing ? null : <Button block variant="secondary" arrow={false} onClick={on.apply} disabled={!p.canApply}>{t.apply}</Button>}
-      <Button block variant="secondary" arrow={false} href={p.retake}>{t.retake}</Button>
+      <Button block variant="secondary" arrow={false} onClick={on.startOver}>{m.common.startOver}</Button>
     </>
   );
   const tools = p.photo !== null && !showing;
 
   return (
-    <CreateScreen back={busy ? undefined : p.retake} step={3} title={t.title} lead={p.lead} footer={footer}>
+    <CreateScreen back={busy ? undefined : p.back} title={p.title} lead={p.lead} footer={footer}>
       <p className="visually-hidden" role="status" aria-live="polite">{p.announce}</p>
 
       {showing && p.applied ? (
@@ -104,7 +109,7 @@ export function SelectView({ resultRef, errorRef, on, ...p }: SelectViewProps) {
         <div className={[styles.photoCard, busy ? styles.photoCardBusy : ""].filter(Boolean).join(" ")}>{p.photo}</div>
       ) : p.photoState === "loading" ? <Loading label={t.loadingPhoto} /> : <NoticeCard>{p.noPieces ? t.photoMissingNone : t.photoMissing}</NoticeCard>}
 
-      {busy ? <Loading inline label={p.work === "apply" ? t.applying : fmt(m.create.result.making, { product: p.productWord })} /> : null}
+      {busy ? <Loading inline label={t.applying} /> : null}
 
       {!busy && p.canShowApplied ? (
         <Button block variant="secondary" arrow={false} onClick={on.toggleApplied}>{showing ? t.backToPhoto : t.showCutout}</Button>

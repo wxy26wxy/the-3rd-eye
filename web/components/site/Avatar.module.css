@@ -10,6 +10,8 @@
   line-height: 1;
   object-fit: cover;
 }
+.s { width: var(--size-min-target); height: var(--size-min-target); font-size: var(--type-title-m-size); }
+.deep { background: var(--accent-ink); color: var(--text-on-dark); }
 .m { width: var(--size-avatar); height: var(--size-avatar); font-size: var(--type-caption-size); }
 .l { width: var(--size-cta); height: var(--size-cta); font-size: var(--type-title-l-size); }
 .xl { width: 5rem; height: 5rem; font-size: 1.8rem; }

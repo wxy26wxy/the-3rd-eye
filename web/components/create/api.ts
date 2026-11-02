@@ -14,11 +14,17 @@ export type Artwork = {
   id: string; creatorId: string; source: "text2image" | "canvas" | "photo"; transcript: string | null; shapedPrompt: string | null;
   originalUrl: string | null; cleanedUrl: string | null; altText: string | null; spokenDescription: string | null;
   differencesFromPrompt: string | null; parentArtworkId: string | null; status: string;
+  /** Set on a "Change it" result (T111). */
+  changeInstruction?: string | null;
 };
 export type ArtworkVariant = Artwork & { previewUrl: string | null };
+/** `POST /artworks/{id}/change` (T111): the new child row and what the edited picture shows. */
+export type ChangeResult = { artwork: ArtworkVariant; description: { alt: string; spoken: string; differences: string } };
 export type Candidate = { id: string; bbox: [number, number, number, number]; score: number; thumbUrl: string };
 /** `GET /artworks/{id}`: `originalUrl` is presigned for 10 minutes (fetch directly, do not store). */
 export type ArtworkDetail = { artwork: Artwork; candidates: Candidate[]; imageSize: { w: number; h: number } | null; originalUrl: string | null };
+/** `POST /artworks/{id}/cutout` (T111): the largest piece of the artwork's picture, cut out. `candidates[0]` is that piece. */
+export type CutoutResult = { artwork: Artwork; candidates: Candidate[]; imageSize: { w: number; h: number } };
 /** `POST /artworks/{id}/cleanup`: the saved cut plus products that could not follow it. */
 export type CleanupResult = Artwork & { details?: { failedProductIds: string[]; unpublishedProductIds: string[] } };
 export type Product = { id: string; artworkId: string; creatorId: string; type: ProductType; mockupUrl: string | null; printPngUrl: string | null; printSvgUrl: string | null; priceCents: number; status: string };

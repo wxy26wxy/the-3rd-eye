@@ -6,11 +6,11 @@ Since T110 (2026-11-01) the design source is the designer's v3 file; its key is 
 
 Web creator boards (batch B4, section `2026:2864`) were implemented by T105; their rows follow the eight designed frames. The public site (B3) and admin (B5) boards are implemented by T106; their rows close the table. Board screenshots and the 390 px comparison shots live outside the repo.
 
-Status: **pending (v4, T120)** = changed or new in feedback round 2 (2026-11-03; edits listed in "Feedback round 2" below), not implemented yet; **pending (v3, T110)** = the board changed or is new in v3 and the screen does not follow it yet (status reset at the T110 intake; the implementing task sets it back to implemented); **designed** = a board exists in the Figma file; **generated** = drawn by the design agent in the duplicated file (T101), waiting for the user's review; **pending** = no board yet; **implemented (T1xx)** = the screen follows the board in code. iOS views are in `ios/App/Screens/`.
+Status: **implemented (T122)** / **implemented (T123)** = changed or new in feedback round 2 (2026-11-03; edits listed in "Feedback round 2" below) and now in the iOS app (T122) or on the web (T123); the product page and shop card previews also carry T127 fixes; before those merged the rows read **pending (v4, T120)**; **pending (v3, T110)** = the board changed or is new in v3 and the screen does not follow it yet (status reset at the T110 intake; the implementing task sets it back to implemented); **designed** = a board exists in the Figma file; **generated** = drawn by the design agent in the duplicated file (T101), waiting for the user's review; **pending** = no board yet; **implemented (T1xx)** = the screen follows the board in code. iOS views are in `ios/App/Screens/`.
 
 | Figma node | Board | Screen | Web route | iOS view | Status |
 |---|---|---|---|---|---|
-| `21:4229` | Welcome · Cloud studio | Welcome (full-bleed sky photo, white text, white pill CTA, "I already have an account") (v4: subtitle removed, item 1) | `/create` | `Onboarding/WelcomeView` | designed; iOS pending (v4, T120) |
+| `21:4229` | Welcome · Cloud studio | Welcome (full-bleed sky photo, white text, white pill CTA, "I already have an account") (v4: subtitle removed, item 1) | `/create` | `Onboarding/WelcomeView` | designed; iOS implemented (T122) |
 | `45:700` | Pick sticker or tote · Cloud studio | Choose product (two cards, radio, "Next") | `/create/product` | `Create/PickProductView` | designed; iOS implemented (T104) |
 | `21:4340` | Choose how to make it · Cloud studio | Choose method (photo / upload / say it, "NO DRAWING SKILL NEEDED") | `/create/method` | `Create/ChooseMethodView` | designed; iOS implemented (T104) |
 | `21:4390` | Finding drawings · Cloud studio | Finding your drawings (dreamscape, "This takes a few seconds...") | `/create/select` (loading) | `Create/FindingDrawingsView` | designed; iOS implemented (T104) |
@@ -30,41 +30,41 @@ Status: **pending (v4, T120)** = changed or new in feedback round 2 (2026-11-03;
 | `2027:3042` | Changing your art · Web · Sky (was Drawing your idea) | Changing your art (Art preview instead of the sky card) | `/create/changing` · `Changing` | — (web board) | implemented (T113) |
 | `2027:3062` | Changing your art · Error · Web · Sky | The change did not work this time; Try again, Back to my art | `/create/changing` · `Changing` | — (web board) | implemented (T113) |
 | `2027:3091` | Change it · Before and after · Web · Sky (was Result) | Here's the change: You asked, Before / After row, What the image shows, Hear, Use this, Change it again, Back to my original | `/create/compare` · `BeforeAfter`, `BeforeAfterView` | — (web board) | implemented (T113) |
-| `2027:3138` | Change it · Web · Sky (entry; was Result · Change it) | Change your art?: Your art, What the image shows, What should change?, Start talking, Make the change, Looks good as is (v4: Make the change and Looks good as is in one row in the card, no pinned bar, R4) | `/create/change` · `ChangeIt`, `ChangeItView` | — (web board) | pending (v4, T120) |
+| `2027:3138` | Change it · Web · Sky (entry; was Result · Change it) | Change your art?: Your art, What the image shows, What should change?, Start talking, Make the change, Looks good as is (v4: Make the change and Looks good as is in one row in the card, no pinned bar, R4) | `/create/change` · `ChangeIt`, `ChangeItView` | — (web board) | implemented (T123) |
 | `2038:4035` | Change it · Changing · Web · Sky | Changing it… / This can take a minute. | `/create/changing` · `Changing` | — (web board) | implemented (T113) |
 | `2038:4060` | Change it · Error · Web · Sky | Error card: Try again, Looks good as is, Try a different change | `/create/changing`, `/create/change` · `Changing`, `ChangeItView`, `errors#ErrorNotice` | — (web board) | implemented (T113) |
-| `2027:3184` | Photo · Web · Sky | Take / upload a photo (sky card) (v4: Sky card → `mascotCard` image card, R7) | `/create/photo?mode=camera|upload` · `Photo` | — (web board) | pending (v4, T120) |
-| `2027:3207` | Photo · Finding your drawing · Web · Sky | Photo, uploading → finding (MP4 card) (v4: new Finding animation via Sky card · Scene=Searching `2030:4015`, R7) | `/create/photo` · `Photo` | — (web board) | pending (v4, T120) |
+| `2027:3184` | Photo · Web · Sky | Take / upload a photo (sky card) (v4: Sky card → `mascotCard` image card, R7) | `/create/photo?mode=camera|upload` · `Photo` | — (web board) | implemented (T123) |
+| `2027:3207` | Photo · Finding your drawing · Web · Sky | Photo, uploading → finding (MP4 card) (v4: new Finding animation via Sky card · Scene=Searching `2030:4015`, R7) | `/create/photo` · `Photo` | — (web board) | implemented (T123) |
 | `2027:3226` | Photo · Error (no drawing found) · Web · Sky | Photo, no drawing (Retake the photo, Draw a box) | `/create/photo` · `Photo` | — (web board) | implemented (T105) |
 | `2038:4419` | Photo · Error (other) · Web · Sky | Photo, time-out / other (Try again) | `/create/photo` · `Photo` | — (web board) | implemented (T105) |
-| `2027:3254` | Choose a pattern · Web · Sky (was Select (Adjust cutout)) | Tap the one you want.: photo, pieces, single pick, Use this / Retake; no cutout tools (v4: Use this → Adjust the area; no-drawing path goes straight to Adjust the area) | `/create/pattern` · `ChoosePattern`, `ChoosePatternView` | — (web board) | pending (v4, T120) |
-| `6004:4689` | Adjust the area · Web · Sky (new, v4) | Adjust the area: photo, resizable frame on the picked piece (bbox + 8 %), 4 corner handles, keyboard hint, Use this area / Reset | `/create/adjust` (name owned by the web task) | — (web board) | pending (v4, T120) |
+| `2027:3254` | Choose a pattern · Web · Sky (was Select (Adjust cutout)) | Tap the one you want.: photo, pieces, single pick, Use this / Retake; no cutout tools (v4: Use this → Adjust the area; no-drawing path goes straight to Adjust the area) | `/create/pattern` · `ChoosePattern`, `ChoosePatternView` | — (web board) | implemented (T123) |
+| `6004:4689` | Adjust the area · Web · Sky (new, v4) | Adjust the area: photo, resizable frame on the picked piece (bbox + 8 %), 4 corner handles, keyboard hint, Use this area / Reset | `/create/adjust` (name owned by the web task) | — (web board) | implemented (T123) |
 | `2038:4092` | Your cutout · Adjust · Web · Sky (was Select · Marks) | Edge tools (Add area / Remove area / Draw a box, marks, Clear marks, Apply cutout), Start over | `/create/cutout` (adjust) · `Cutout` (`YourCutout`), `SelectView` | — (web board) | retired (v4, T120): replaced by Adjust the area `6004:4689` |
-| `2038:4233` | Your cutout · Web · Sky (was Select · Applied) | Your cutout is ready, Fix the edges, Use this, Start over (v4: Fix the edges removed; "Here's your cutout.") | `/create/cutout` · `Cutout` (`YourCutout`), `SelectView` | — (web board) | pending (v4, T120) |
-| `2038:4369` | Making your cutout · Web · Sky (was Select · Saving) | Cutting out your changed art (v4: cutout making shows `stickerLoading`, R7) | `/create/cutout` (making) · `MakingCutoutView` | — (web board) | pending (v4, T120) |
-| `4031:4378` | Making your sticker · Web · Sky (new) | Making your sticker: loading animation `4037:4390` (342×342, radius 24, `stickerLoading`), Adding the white border… (v4: new `stickerLoading` file, R7) | `/create/making` · `MakingProduct`, `MakingProductView` | — (web board) | pending (v4, T120) |
+| `2038:4233` | Your cutout · Web · Sky (was Select · Applied) | Your cutout is ready, Fix the edges, Use this, Start over (v4: Fix the edges removed; "Here's your cutout.") | `/create/cutout` · `Cutout` (`YourCutout`), `SelectView` | — (web board) | implemented (T123) |
+| `2038:4369` | Making your cutout · Web · Sky (was Select · Saving) | Cutting out your changed art (v4: cutout making shows `stickerLoading`, R7) | `/create/cutout` (making) · `MakingCutoutView` | — (web board) | implemented (T123) |
+| `4031:4378` | Making your sticker · Web · Sky (new) | Making your sticker: loading animation `4037:4390` (342×342, radius 24, `stickerLoading`), Adding the white border… (v4: new `stickerLoading` file, R7) | `/create/making` · `MakingProduct`, `MakingProductView` | — (web board) | implemented (T123) |
 | `4038:4573` | Choose product · Tote bag selected · Web · Sky (new) | Choose product with Tote bag selected | `/create/product` · `ChooseProduct` | — (web board) | implemented (T113) |
 | `4038:4628` | Making your tote bag · Web · Sky (new) | Making your tote bag (tote wording) | `/create/making` (tote) · `MakingProduct` | — (web board) | implemented (T113) |
 | `4038:4644` | Ready · Tote bag · Web · Sky (new) | Your tote bag is ready! | `/create/ready` · `Ready` | — (web board) | implemented (T113) |
 | `4038:4662` | Listing · Tote bag · Web · Sky (new) | Listing for a tote (sample $24.00, earn $12.00) | `/create/listing` · `Listing` | — (web board) | implemented (T113) |
-| `4038:4713` | Live · Tote bag · Web · Sky (new) | You're live! with the tote on the sky photo (v4: `mascotShop`, R7) | `/create/live` · `Live` | — (web board) | pending (v4, T120) |
+| `4038:4713` | Live · Tote bag · Web · Sky (new) | You're live! with the tote on the sky photo (v4: `mascotShop`, R7) | `/create/live` · `Live` | — (web board) | implemented (T123) |
 | `2030:3726` | Ready · Web · Sky | Your sticker is ready! | `/create/ready` · `Ready` | — (web board) | implemented (T105) |
 | `2038:4443` | Ready · Notice · Web · Sky | Ready with the cutout notice | `/create/ready` · `Ready` | — (web board) | implemented (T105) |
 | `2030:3752` | Listing · Web · Sky | Get it ready for the shop (board order) | `/create/listing` · `Listing`, `ListingView` | — (web board) | implemented (T105) |
-| `2030:3804` | Listing · Drafting · Web · Sky | Listing, drafting (v4: loader → `stickerLoading` animation, "Writing your listing…" + hint, R5) | `/create/listing` · `ListingView` | — (web board) | pending (v4, T120) |
+| `2030:3804` | Listing · Drafting · Web · Sky | Listing, drafting (v4: loader → `stickerLoading` animation, "Writing your listing…" + hint, R5) | `/create/listing` · `ListingView` | — (web board) | implemented (T123) |
 | `2030:3832` | Listing · Error · Web · Sky | Listing, 409 print check / moderation | `/create/listing` · `ListingView` | — (web board) | implemented (T105) |
-| `2030:3884` | Story video · Web · Sky | Make your story video! (v4: redo mode from My story video, R6) | `/create/story-video` · `StoryVideo` | — (web board) | pending (v4, T120) |
+| `2030:3884` | Story video · Web · Sky | Make your story video! (v4: redo mode from My story video, R6) | `/create/story-video` · `StoryVideo` | — (web board) | implemented (T123) |
 | `2038:4469` | Story video · Video selected · Web · Sky | Story video, file chosen | `/create/story-video` · `StoryVideo` | — (web board) | implemented (T105) |
 | `2030:3931` | Story video · Draft · Web · Sky | Story draft | `/create/story-video` · `StoryVideo` | — (web board) | implemented (T105) |
 | `2038:4510` | Story video · Draft editing · Web · Sky | Story draft, editing | `/create/story-video` · `StoryVideo` | — (web board) | implemented (T105) |
-| `2030:3958` | Live · Web · Sky | You're live! (v4: Sky card → `mascotShop`, R7) | `/create/live` · `Live` | — (web board) | pending (v4, T120) |
+| `2030:3958` | Live · Web · Sky | You're live! (v4: Sky card → `mascotShop`, R7) | `/create/live` · `Live` | — (web board) | implemented (T123) |
 | — | — | Home, My designs (status badges), Design detail, Messages, Orders | — | `Home/*`, `Orders/*` | pending |
-| `2018:1789` | Shop · Sky (1440, v3: redesigned) | Shop: hero copy left + rounded photo card right (`4006:4382`, `heroSky`); filter chips + New this week + View all + 2×4 tiles (card Size=Tile `4006:4357`); green story-tag band (3 steps, phone preview, See a story tag in action); Meet the makers (3 cards, All makers) (v4: tiles show the bordered sticker preview, contain, card Size=Tile `4006:4357`, R1) | `/` · `shop/{Hero,Collection,HowSteps,MeetArtist}`, `site/{ProductCard,FilterTabs}` | — (web board) | pending (v4, T120) |
+| `2018:1789` | Shop · Sky (1440, v3: redesigned) | Shop: hero copy left + rounded photo card right (`4006:4382`, `heroSky`); filter chips + New this week + View all + 2×4 tiles (card Size=Tile `4006:4357`); green story-tag band (3 steps, phone preview, See a story tag in action); Meet the makers (3 cards, All makers) (v4: tiles show the bordered sticker preview, contain, card Size=Tile `4006:4357`, R1) | `/` · `shop/{Hero,Collection,HowSteps,MeetArtist}`, `site/{ProductCard,FilterTabs}` | — (web board) | implemented (T123) |
 | `2018:1970` | Shop · Mobile · Sky (390) | Not rebuilt in v3; voice wording removed (entry 3). The 390 layout follows `2018:1789` reflowed | `/` | — (web board) | implemented (T112) |
 | `2025:2929` | Shop · Empty collection · Sky | Grey empty card; Filter tabs swapped to Selected=All (entry 3); headings follow `2018:1789` | `shop/Collection`, `shop/MeetArtist` | — (web board) | implemented (T112) |
 | `2033:3991` | Shop · Mobile · Menu open · Sky | Nav drawer (component `2032:4004`): modal `<dialog>`, 60 px rows, Close, Esc, Tab wraps, page inert under the scrim | `site/{SiteNav,NavMenu}` | — (web board) | implemented (T106) |
 | `2033:4035` | Shop · Skip link focused · Sky | Skip link (component `2032:4002`), 48 px ink pill with the ring | `app/layout.tsx` (`.skip-link` in `globals.css`) | — (web board) | implemented (T106) |
-| `2019:2004` | Product page · Sky (1440, v3: redesigned) | Product: breadcrumb, gallery + 4 thumbnails, eyebrow, artist row, price, Size (3 in / 4 in / Sticker sheet), quantity stepper + Add to bag (opens the order sheet, R1), pays-the-artist note, Meet the maker card, 3 disclosures, More from + Visit studio; die-cut preview, buy form and story section removed (v4: gallery slide 1 = sticker preview; AI mockup only as a later slide, R1) | `/p/[id]` · `product/{ProductView,BuyForm}` | — (web board) | pending (v4, T120) |
+| `2019:2004` | Product page · Sky (1440, v3: redesigned) | Product: breadcrumb, gallery + 4 thumbnails, eyebrow, artist row, price, Size (3 in / 4 in / Sticker sheet), quantity stepper + Add to bag (opens the order sheet, R1), pays-the-artist note, Meet the maker card, 3 disclosures, More from + Visit studio; die-cut preview, buy form and story section removed (v4: gallery slide 1 = sticker preview; AI mockup only as a later slide, R1) | `/p/[id]` · `product/{ProductView,BuyForm}` | — (web board) | implemented (T123) |
 | `2019:2098` | Product page · Mobile · Sky (390) | Not rebuilt in v3 (voice chip and wording removed only). The 390 layout follows `2019:2004` in one column | `/p/[id]` | — (web board) | implemented (T112) |
 | `2019:2189` | Order success · Sky | Success card: sky picture, Thank you!, notified, link row with Copy, Open the story tag, Keep shopping; missing order = h1 + Keep shopping | `/buy/success` · `product/OrderSuccess` | — (web board) | implemented (T106) |
 | `2024:2428` | Story tag · Sky (390) | Story tag: site nav and footer, video, Read aloud (secondary), Follow / Share, grey sheet (thank-you Info card, notes with sender lines, Send a note, About me, More from); 640 px column on desktop | `/t/[token]` · `storytag/*`, `site/StoryVideo` | — (web board) | implemented (T106) |
@@ -87,8 +87,8 @@ The B1 / B2 boards that changed in v3 (renamed in place, node ids kept, Changelo
 
 | Figma node | Board (v3 name) | Was | iOS view | Status |
 |---|---|---|---|---|
-| `2013:408` | Choose a pattern · Sky | Adjust cutout (`AdjustCutoutView`, pick step) | `Create/ChoosePatternView` | pending (v4, T120) |
-| `2012:387` | Change it · Sky (entry, after Choose a pattern › Use this) | Voice result · Change it | `Create/ChangeItView` | pending (v4, T120) |
+| `2013:408` | Choose a pattern · Sky | Adjust cutout (`AdjustCutoutView`, pick step) | `Create/ChoosePatternView` | implemented (T122) |
+| `2012:387` | Change it · Sky (entry, after Choose a pattern › Use this) | Voice result · Change it | `Create/ChangeItView` | implemented (T122) |
 | `2011:208` | Change it · Listening · Sky | Speak · Listening | `Create/ChangeItView` | implemented (T114) |
 | `2011:246` | Change it · Typing · Sky | Speak · Type instead | `Create/ChangeItView` | implemented (T114) |
 | `2011:293` | Change it · Clarifying question · Sky | Speak · Clarifying question | `Create/ChangeItView` (no question on iOS) | implemented (T114) |
@@ -98,18 +98,18 @@ The B1 / B2 boards that changed in v3 (renamed in place, node ids kept, Changelo
 | `2012:276` | Changing your art · Sky | Drawing your idea | `Create/ChangingView` | implemented (T114) |
 | `2012:307` | Changing your art · Error · Sky | Drawing your idea · Error | `Create/ChangingView` | implemented (T114) |
 | `2012:344` | Change it · Before and after · Sky | Voice result | `Create/BeforeAfterView` | implemented (T114) |
-| `4030:4482` | Making your cutout · Sky (new) | — (clone of Changing your art) | `Create/MakingCutoutView` | pending (v4, T120) |
-| `2013:618` | Your cutout · Sky (v4: simplified per R3: preview, status line, Use this, Start over; edge tools removed) | Adjust cutout · Preview (v3: edge tools kept) | `Create/YourCutoutView` | pending (v4, T120) |
-| `2014:733` | Making your sticker · Sky (logo mark, no Back; animation `4037:4389`) | Listing details · Making your sticker | `Create/MakingProductView` | pending (v4, T120) |
-| `4038:4494` | Making your tote bag · Sky (new) | — | `Create/MakingProductView` | pending (v4, T120) |
+| `4030:4482` | Making your cutout · Sky (new) | — (clone of Changing your art) | `Create/MakingCutoutView` | implemented (T122) |
+| `2013:618` | Your cutout · Sky (v4: simplified per R3: preview, status line, Use this, Start over; edge tools removed) | Adjust cutout · Preview (v3: edge tools kept) | `Create/YourCutoutView` | implemented (T122) |
+| `2014:733` | Making your sticker · Sky (logo mark, no Back; animation `4037:4389`) | Listing details · Making your sticker | `Create/MakingProductView` | implemented (T122) |
+| `4038:4494` | Making your tote bag · Sky (new) | — | `Create/MakingProductView` | implemented (T122) |
 | `4038:4517` | Listing details · Tote bag · Sky (new) | — | `Listing/ListingDetailsView` | implemented (T114) |
 | `4038:4389` | Home · Create tab · Tote bag selected · Sky (new, B2) | — | `Create/PickProductView` | implemented (T114) |
-| `2014:678` | Listing details · Sky | unchanged; now reached after Making your sticker | `Listing/ListingDetailsView` | pending (v4, T120) |
-| `6004:4576` | Adjust the area · Sky (new, v4) | — (after Choose a pattern › Use this; also Design detail › Re-do the cutout) | `Create/AdjustAreaView` (new) | pending (v4, T120) |
-| `6004:4792` | Listing details · Drafting · Sky (new, v4) | — (drafting state of `2014:678`) | `Listing/ListingDetailsView` | pending (v4, T120) |
-| `2015:783` | Home · Create tab · Sky (v4: My story video row `6004:4853`) | unchanged since T104 | `Create/PickProductView` | pending (v4, T120) |
-| `4038:4389` | Home · Create tab · Tote bag selected · Sky (v4: row `6004:4860`) | — | `Create/PickProductView` | pending (v4, T120) |
-| `6004:4867` | My story video · Sky (new, v4, B2) | — | `Create/StoryVideoLibraryView` (new) | pending (v4, T120) |
+| `2014:678` | Listing details · Sky | unchanged; now reached after Making your sticker | `Listing/ListingDetailsView` | implemented (T122) |
+| `6004:4576` | Adjust the area · Sky (new, v4) | — (after Choose a pattern › Use this; also Design detail › Re-do the cutout) | `Create/AdjustAreaView` (new) | implemented (T122) |
+| `6004:4792` | Listing details · Drafting · Sky (new, v4) | — (drafting state of `2014:678`) | `Listing/ListingDetailsView` | implemented (T122) |
+| `2015:783` | Home · Create tab · Sky (v4: My story video row `6004:4853`) | unchanged since T104 | `Create/PickProductView` | implemented (T122) |
+| `4038:4389` | Home · Create tab · Tote bag selected · Sky (v4: row `6004:4860`) | — | `Create/PickProductView` | implemented (T122) |
+| `6004:4867` | My story video · Sky (new, v4, B2) | — | `Create/StoryVideoLibraryView` (new) | implemented (T122) |
 
 Removed from the flow in v3: "Say it out loud" (Choose method), the voice idea path, Drawing your idea as an idea generator, the 3-picture chooser and page dots. The Cloud studio frames outside the sections (`21:4229` … `21:4554`) did not change; `21:4229` (iOS Welcome) keeps its scrim (R5).
 

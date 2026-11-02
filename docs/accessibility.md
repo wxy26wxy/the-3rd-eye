@@ -107,7 +107,7 @@ Safari or Chrome with VoiceOver, or keyboard only, at `/create/adjust` after Cho
 6. Pass: a keyboard-only user can frame a drawing and continue without a pointer. Known gap to confirm on a screen reader: the web frame has no separate Grow / Shrink / Move buttons (iOS has those as actions); a screen-reader user uses the arrow keys in focus mode. Note the exact reading and any key the screen reader swallows.
 
 ### Keyboard and screen-reader script (web: My story video)
-At `/create`, signed in, under the product choice. Not yet run.
+At `/create/product` (the first signed-in screen), under the product choice. Not yet run.
 1. The section "My story video" (heading level 2) says "Buyers see it when they tap your story tag." or "No story video yet". The thumbnail is hidden from assistive technology. The web row does not show a recorded date (the API has no `storyVideoAt` yet).
 2. With a video: "Watch" (collapsed; `aria-expanded` false) and "Record again". Without one: only "Record a video".
 3. Activate "Watch": the player appears (expanded true) labelled "My story video" with captions from the stored VTT, on by default; it is operable by keyboard (Space plays). Activate "Watch" again to hide it. A load error reads "We couldn't load your video. Try again later." in a status region.

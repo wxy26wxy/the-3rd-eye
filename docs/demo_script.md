@@ -42,7 +42,7 @@ Creator: **June Park** (signed in beforehand). Capture: phone over the shoulder 
 Steps and what the viewer sees:
 1. Create tab > Sticker > Next > "Take a photo" (detail line "Snap your drawing") > "Open the camera". "Finding your drawings…" shows while SAM 3.1 finds the pieces.
 2. **Choose a pattern:** "Tap the one you want." June picks the sketch ("Piece 1") and taps "Use this".
-3. **Adjust the area:** "Drag the corners so the frame covers your drawing." The frame already sits on her sketch; she drags one corner to tighten it (a keyboard or VoiceOver user does the same with the frame's actions, "Grow 10 %" and "Shrink 10 %", and hears "Frame covers … percent of the photo") and taps "Use this area". Keep this to about 4 seconds.
+3. **Adjust the area:** "Drag the corners so the frame covers your drawing." The frame already sits on her sketch; she drags one corner to tighten it (a VoiceOver user does the same with the frame's actions, "Grow 10 %" and "Shrink 10 %", and hears "Frame covers … percent of the photo") and taps "Use this area". Keep this to about 4 seconds.
 4. **Change it:** "Change your art?" shows her piece as "Your art" with "WHAT THE IMAGE SHOWS". She taps "Say what to change" and says "make the book red, and give him a yellow raincoat". Muse Voice Transcribe 1.0 writes it down ("Writing down what you said…"), the words land in the "What to change" field, and VoiceOver announces "You said: …". She can fix the words in the field, then taps "Make the change".
 5. The iOS app asks no follow-up question; the words in the field are what is sent.
 6. **Changing your art:** the "YOU ASKED" card shows her words while Muse Image 1.0 edits her own piece (the picture is the input image; nothing is drawn from words alone).
@@ -90,7 +90,7 @@ Fallback: if Ollama is down, the stage uses Muse Spark 1.3 and the response says
 Capture: over the shoulder for the print and tap; screen recordings for the page and the creator app.
 
 Steps:
-1. Show the printed die-cut sticker (print PNG and die SVG downloaded from `/admin`). Show the NFC tag on the back. The physical sticker and tag are done at the physical test before the freeze (Nov 3, 9:00 AM) (method: a standard NFC writer app); until they exist, use the QR route in the fallback and do not narrate a tap.
+1. Show the printed die-cut sticker (print PNG and die SVG downloaded from `/admin`). Show the NFC tag on the back. The physical sticker and tag are done at the physical test before the freeze (Nov 3, 18:00) (method: a standard NFC writer app); until they exist, use the QR route in the fallback and do not narrate a tap.
 2. **Tap the sticker with the buyer phone.** `/t/<token>` opens: the artist's captioned video, the thank-you, the note box.
 3. Buyer types a reply and sends it.
 4. **Switch to the creator app, Messages tab: the reply arrives** (within about 10 seconds of polling). Show it.

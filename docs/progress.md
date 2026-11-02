@@ -276,7 +276,7 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - `ImageProvider.edit()` (Muse Image with the picked piece as `input_image`, the white-background guard, trace stage `edit`); one live call recorded the fixture; the compose request shape works unchanged (docs/architecture.md "Live findings T111").
 - `POST /artworks/{id}/change` → child artwork (`parentArtworkId`, `changeInstruction`, `transcript`, preview) with a description for "Before and after"; `POST /artworks/{id}/cutout` → SAM on the edited picture, largest piece cut out; "Your cutout" keeps `cleanup`.
 - Orders: `size` (sticker 3 in / 4 in +$2 / sheet +$6, sample pricing) and `quantity` (1–10); total = unit × quantity; admin shows "size × qty". "Made by voice" shop filter removed (`madeByVoice` dormant). Admin AI trace in the v0.8 step order.
-- Migration 0004 generated, not applied: the product owner runs `pnpm migrate drizzle/0004_t111_change_and_sizes.sql` from `web/` before this branch is deployed.
+- Migration 0004 generated; applied by the product owner on 2026-11-03 (it was to be run `pnpm migrate drizzle/0004_t111_change_and_sizes.sql` from `web/` before this branch is deployed).
 - Text-to-image routes (`prompts/shape`, `artworks {source:"text2image"}`, `refine`) kept and tested, marked "not used by the apps since v0.8".
 
 ## T115 docs · Pitch, accessibility, demo script, architecture for Design v3 (2026-11-02)
@@ -309,9 +309,9 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Fix round 1 (review of `a6a966a`): Glimmer described as on our Mac with the logged Spark fallback on the deployed site; real vs staged paragraph replaced (one creator flow on iOS and web, Glimmer only while the Mac serves, fictional example artists); the moderation row cites `moderate_content` (`tools/moderate-content.ts`) for listings and `moderate.ts` for buyer notes; the 4.5 MB cap and the 2048 px SAM downscale no longer linked; reviews sentence, post placeholder, "nine days" and "save the next team time" wording; two founder checklist items (NFC tag test, on-device VoiceOver pass). Project Description 250 words, single post 271 characters.
 ## T121 backend · Sticker preview (2026-11-02, feedback round 2)
 - Stickers get a public bordered preview (`products.preview_url`, migration 0005): the die-cut sticker as it will look (white border to the cut line, no bleed, transparent outside, ≤ 1200 px), built with the print file on create and on every re-cut; totes `null`. `previewUrl` is on `Product`, `GET /artworks` products, shop cards and the product page data.
-- `pnpm backfill:previews` (`--dry-run`) fills it for existing stickers from the stored cut-out: no mockup, no model calls, idempotent. Written, not run.
+- `pnpm backfill:previews` (`--dry-run`) fills it for existing stickers from the stored cut-out: no mockup, no model calls, idempotent. Run by the product owner on 2026-11-03: 17 stickers built, 0 failed.
 - Mock: `previewUrl`, `POST /listings/<id>/run` (2 s), story video and captions on `GET /creators/me` (served at `/media/…`).
-- Pending (product owner): apply migration 0005 before deploying (`pnpm migrate drizzle/0005_t121_product_preview.sql` from `web/`), then run the backfill.
+- Done by the product owner on 2026-11-03: migration 0005 applied (`pnpm migrate drizzle/0005_t121_product_preview.sql` from `web/`, `products.preview_url` present), then the backfill.
 
 ## T126 backend · Cleanup clips to the frame (2026-11-02, "Adjust the area")
 - `POST /artworks/{id}/cleanup` takes `clipToBox?: boolean` (default `false`). With `true` and a `box`, the cut is the usual union cut to the box (clamped to the image; the finished soft edge too), so shrinking the frame inside the piece trims it. `true` without `box` → `400 invalid_request`; nothing left → `422 no_drawing_found`. The "Adjust the area" screens (web + iOS) send it; every other caller is unchanged.

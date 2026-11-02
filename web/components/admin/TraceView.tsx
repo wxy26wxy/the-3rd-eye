@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { getArtworkTrace, type AiCallRow, type TraceImage } from "@/lib/db/queries.contract";
+import { KEEP_GUARD } from "@/lib/ai/guard";
 import { fmt, m } from "@/components/messages";
 import { DieCut } from "@/components/site/DieCut";
 import { ArtImage } from "@/components/ui/ArtImage";
@@ -14,28 +15,76 @@ const mediaHref = (pathname: string) => (/^https?:|^\//.test(pathname) ? pathnam
 const byTime = (a: AiCallRow, b: AiCallRow) => +a.createdAt - +b.createdAt;
 
 /**
- * The AI chain for one artwork, in pipeline order:
- * transcript → shaped prompt → variants → description → selection → mask → sticker.
- * Each step shows what the artwork rows recorded plus the matching ai_calls.
+ * The AI chain for one artwork, in the v0.8 (photo-first) order (board 2034:3995):
+ * Photo and mask → Change request → Edit instruction → Before and after → Description → Decision → Sticker.
+ * Each step shows what the artwork rows recorded plus the matching ai_calls. Text-to-image rows
+ * (not made by the apps since v0.8) show their transcript, shaped prompt and variants in the same steps.
  */
 export async function TraceView({ params }: { params: Promise<{ artworkId: string }> }) {
   const { artworkId } = await params;
   const trace = await getArtworkTrace(artworkId);
   if (!trace) return <MissingTrace />;
-  const { artwork: a, variants, candidates } = trace;
+  const { artwork: a, variants, candidates, photo, changes } = trace;
   const calls = [...trace.calls].sort(byTime);
   const used = new Set<string>();
   const take = (...stages: string[]) => calls.filter((c) => stages.includes(c.stage) && !used.has(c.id) && used.add(c.id));
   const chosenIndex = variants.findIndex((v) => v.chosen);
   const chosenCandidate = candidates.findIndex((c) => c.chosen);
+  const said = a.transcript && !changes.length ? a.transcript : null;
 
   const steps: { title: string; calls: AiCallRow[]; body: ReactNode }[] = [
-    { title: m.admin.traceTranscript, calls: take("transcribe"), body: a.transcript ? <p>{a.transcript}</p> : null },
-    { title: m.admin.tracePrompt, calls: take("shape"), body: a.shapedPrompt ? <p>{a.shapedPrompt}</p> : null },
     {
-      title: m.admin.traceVariants,
-      calls: take("generate", "refine"),
-      body: variants.length ? <ImageRow images={variants.map((v, i) => ({ ...v, label: fmt(m.create.result.variant, { n: i + 1 }) }))} /> : null,
+      title: m.admin.traceStepPhoto,
+      calls: take("segment"),
+      body: photo.originalUrl || photo.maskUrl || candidates.length ? (
+        <>
+          <ImageRow images={[
+            ...(photo.originalUrl ? [{ id: "original", url: mediaHref(photo.originalUrl), altText: m.admin.traceOriginal, chosen: false, label: m.admin.traceOriginal }] : []),
+            ...(photo.maskUrl ? [{ id: "mask", url: mediaHref(photo.maskUrl), altText: m.admin.traceMask, chosen: false, label: m.admin.traceMask }] : []),
+            ...candidates,
+          ]} />
+          {photo.maskUrl ? <a href={mediaHref(photo.maskUrl)} className={styles.link}>{m.admin.traceOpenMask}</a> : null}
+        </>
+      ) : null,
+    },
+    {
+      title: m.admin.traceStepChange,
+      calls: take("transcribe", "shape"),
+      body: changes.length || said || a.shapedPrompt ? (
+        <dl className={styles.dl}>
+          {changes.map((c, i) => (
+            <Fragment key={c.id}>
+              {c.transcript ? <><dt>{m.admin.traceSaid}{changes.length > 1 ? ` ${i + 1}` : ""}</dt><dd>{c.transcript}</dd></> : null}
+              <dt>{m.admin.traceTyped}{changes.length > 1 ? ` ${i + 1}` : ""}</dt><dd>{c.instruction}</dd>
+            </Fragment>
+          ))}
+          {said ? <><dt>{m.admin.traceTranscript}</dt><dd>{said}</dd></> : null}
+          {a.shapedPrompt ? <><dt>{m.admin.tracePrompt}</dt><dd>{a.shapedPrompt}</dd></> : null}
+        </dl>
+      ) : null,
+    },
+    {
+      title: m.admin.traceStepEdit,
+      calls: take("edit", "generate", "refine"),
+      body: changes.length ? (
+        <dl className={styles.dl}>
+          {changes.map((c, i) => <Fragment key={c.id}><dt>{fmt(m.admin.traceStep, { n: i + 1 })}</dt><dd>{c.instruction}</dd></Fragment>)}
+          <dt>{m.admin.traceGuard}</dt><dd>{KEEP_GUARD}</dd>
+        </dl>
+      ) : null,
+    },
+    {
+      title: m.admin.traceStepBeforeAfter,
+      calls: [],
+      body: changes.length ? (
+        <ImageRow images={changes.flatMap((c, i) => {
+          const n = changes.length > 1 ? ` ${i + 1}` : "";
+          return [
+            { id: `${c.id}-before`, url: c.beforeUrl, altText: m.admin.traceBefore, chosen: false, label: `${m.admin.traceBefore}${n}` },
+            { id: `${c.id}-after`, url: c.afterUrl, altText: m.admin.traceAfter, chosen: false, label: `${m.admin.traceAfter}${n}` },
+          ];
+        })} />
+      ) : variants.length ? <ImageRow images={variants.map((v, i) => ({ ...v, label: fmt(m.create.result.variant, { n: i + 1 }) }))} /> : null,
     },
     {
       title: m.admin.traceDescription,
@@ -48,27 +97,14 @@ export async function TraceView({ params }: { params: Promise<{ artworkId: strin
       ) : null,
     },
     {
-      title: m.admin.traceSelection,
+      title: m.admin.traceStepDecision,
       calls: [],
       body: candidates.length ? (
-        <>
-          <ImageRow images={candidates} />
-          <p>{chosenCandidate >= 0 ? fmt(m.admin.traceChosenVariant, { n: chosenCandidate + 1 }) : m.admin.traceNoChoice}</p>
-        </>
+        <p>
+          {chosenCandidate >= 0 ? fmt(m.admin.traceChosenVariant, { n: chosenCandidate + 1 }) : m.admin.traceNoChoice}
+          {!changes.length && a.source !== "text2image" ? ` ${m.admin.traceKeptOriginal}` : ""}
+        </p>
       ) : variants.length ? <p>{chosenIndex >= 0 ? fmt(m.admin.traceChosenVariant, { n: chosenIndex + 1 }) : m.admin.traceNoChoice}</p> : null,
-    },
-    {
-      title: m.admin.traceMask,
-      calls: take("segment"),
-      body: a.originalUrl || a.maskUrl ? (
-        <>
-          <ImageRow images={[
-            ...(a.originalUrl ? [{ id: "original", url: mediaHref(a.originalUrl), altText: m.admin.traceOriginal, chosen: false, label: m.admin.traceOriginal }] : []),
-            ...(a.maskUrl ? [{ id: "mask", url: mediaHref(a.maskUrl), altText: m.admin.traceMask, chosen: false, label: m.admin.traceMask }] : []),
-          ]} />
-          {a.maskUrl ? <a href={mediaHref(a.maskUrl)} className={styles.link}>{m.admin.traceOpenMask}</a> : null}
-        </>
-      ) : null,
     },
     {
       title: m.admin.traceSticker,

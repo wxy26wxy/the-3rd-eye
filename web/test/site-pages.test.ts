@@ -55,11 +55,12 @@ describe("Shop (T106, boards 2018:1789 / 2018:1970)", () => {
   });
 
   it("filter tabs: links in a labelled nav, the active one has aria-current and the check", () => {
-    const out = html(createElement(FilterTabs, { active: "voice" }));
+    const out = html(createElement(FilterTabs, { active: "tote" }));
     expect(out).toContain(`aria-label="${m.shop.filtersLabel}"`);
     expect(out.match(/aria-current="page"/g)).toHaveLength(1);
     expect(out).toMatch(/aria-current="page"[^>]*><svg[^>]*aria-hidden="true"/);
-    expect(out).toContain('href="/?type=voice#collection"');
+    expect(out).toContain('href="/?type=tote#collection"');
+    expect(out).not.toContain("type=voice"); // "Made by voice" filter retired (T111)
   });
 
   it("how steps: visible Step n eyebrow inside each h3; the third card is the accent card", () => {

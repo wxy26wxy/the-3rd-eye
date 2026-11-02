@@ -106,6 +106,22 @@ final class ChangeItUITests: XCTestCase {
     attachScreenshot(app, "change-it")
   }
 
+  /// T122 R4: "Make the change" and "Looks good as is" share one row at the bottom of the change
+  /// card, each at least half its width, and nothing is pinned under the content.
+  func testChangeButtonsShareOneRow() {
+    let app = launchPhotoFlow(code: "ONE-CODE")
+    let make = app.buttons["Make the change"]
+    let keep = app.buttons["Looks good as is"]
+    XCTAssertTrue(make.waitForExistence(timeout: 20))
+    for _ in 0..<3 where !keep.isHittable { app.swipeUp() }
+    XCTAssertEqual(make.frame.midY, keep.frame.midY, accuracy: 8, "one row")
+    XCTAssertLessThan(make.frame.maxX, keep.frame.minX + 1, "Make the change first")
+    XCTAssertGreaterThanOrEqual(make.frame.height, 44)
+    XCTAssertGreaterThanOrEqual(keep.frame.height, 44)
+    XCTAssertEqual(make.frame.width, keep.frame.width, accuracy: 2, "each takes half the row")
+    attachScreenshot(app, "change-it-row")
+  }
+
   // MARK: Helpers
 
   private func launchPhotoFlow(code: String, product: String = "Sticker, Die-cut, waterproof") -> XCUIApplication {
@@ -129,6 +145,8 @@ final class ChangeItUITests: XCTestCase {
     XCTAssertTrue(piece.waitForExistence(timeout: 20), "Choose a pattern shows the drawings")
     piece.tap()
     tap(app, "Use this")
+    // Adjust the area (T122): the frame on the piece as it starts.
+    tap(app, "Use this area")
   }
 
   private func changeField(_ app: XCUIApplication) -> XCUIElement {
@@ -139,11 +157,11 @@ final class ChangeItUITests: XCTestCase {
     let field = changeField(app)
     XCTAssertTrue(field.waitForExistence(timeout: 10))
     field.tap()
-    // Return closes the keyboard, so the pinned bar and the tab bar come back.
+    // Return closes the keyboard, so the tab bar comes back.
     field.typeText(text + "\n")
-    // "Make the change" sits low in the panel, partly under the pinned bar: scroll it into view.
+    // The buttons sit at the bottom of the change card: scroll them into view.
     app.swipeUp()
-    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 3), "the pinned bar is back")
+    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 3), "the buttons are back")
   }
 
   private func tap(_ app: XCUIApplication, _ label: String) {

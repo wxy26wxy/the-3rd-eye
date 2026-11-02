@@ -13,6 +13,7 @@ import { api, extFor, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid, type Creator, type
 import { InfoCard } from "../cards";
 import { CreateScreen } from "../CreateScreen";
 import { describeError, ErrorNotice, type ScreenError } from "../errors";
+import { STORY_REDO_RETURN, storyVideoDone } from "../flow";
 import { useCreator } from "../store";
 import { FilePicker } from "./Photo";
 import styles from "../Create.module.css";
@@ -35,9 +36,6 @@ async function soundtrackWav(file: File): Promise<Blob | null> {
   }
 }
 
-/** Where "Record again" (R6) came from and returns to after saving. */
-export const STORY_REDO_RETURN = "/create/product";
-
 /**
  * Record (or choose) a short story video; captions are made by the backend. After the first listing
  * it goes on to You're live; in `redo` mode ("Record again" on My story video, R6) it replaces the
@@ -45,7 +43,7 @@ export const STORY_REDO_RETURN = "/create/product";
  */
 export function StoryVideo({ redo = false }: { redo?: boolean }) {
   const router = useRouter();
-  const done = redo ? STORY_REDO_RETURN : "/create/live";
+  const done = storyVideoDone(redo);
   const { creator, refresh } = useCreator();
   const [prompts, setPrompts] = useState<string[]>(FALLBACK);
   const [file, setFile] = useState<File | null>(null);

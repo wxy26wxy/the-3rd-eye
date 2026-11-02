@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  adjustBack, adjustWholePhoto, afterPhoto, areaRequest, busyWhile, changeItBack, changeRequest, changingEntry, changingVisit, cutArea, leaveChanging, pickPiece, runChange, skipChange, submitChange, type FlowDeps,
+  STORY_REDO_RETURN, storyVideoDone, adjustBack, adjustWholePhoto, afterPhoto, areaRequest, busyWhile, changeItBack, changeRequest, changingEntry, changingVisit, cutArea, leaveChanging, pickPiece, runChange, skipChange, submitChange, type FlowDeps,
 } from "@/components/create/flow";
 import { dragFrame, initialFrame, keyFrame, moveFrame, resizeFrame, frameSize } from "@/components/create/area";
 import { ApiError } from "@/components/create/api";
@@ -139,7 +139,7 @@ describe("Adjust the area geometry (R2)", () => {
     expect(dragFrame(b, "se", 50, 20, img)).toEqual([100, 100, 550, 420]);
     expect(dragFrame(b, "nw", -200, -200, img)).toEqual([0, 0, 500, 400]);
     expect(dragFrame(b, "e", 10, 99, img)).toEqual([100, 100, 510, 400]);
-    expect(dragFrame(b, "n", 0, 900, img)).toEqual([100, 360, 500, 400]); // minimum 5 % of 800 = 40
+    expect(dragFrame(b, "n", 0, 900, img)).toEqual([100, 200, 500, 400]); // minimum 25 % of 800 = 200 (review M2)
     expect(dragFrame(b, "move", 900, 900, img)).toEqual([600, 500, 1000, 800]);
     expect(moveFrame(b, -500, 0, img)).toEqual([0, 100, 400, 400]);
   });
@@ -154,7 +154,9 @@ describe("Adjust the area geometry (R2)", () => {
     expect(resizeFrame([0, 0, 1000, 800], 100, 100, img)).toEqual([0, 0, 1000, 800]);
     // at the edge (or the smallest size) a key changes nothing: the frame announces the limit instead
     expect(keyFrame([0, 0, 400, 300], "ArrowLeft", false, img)).toEqual([0, 0, 400, 300]);
-    expect(keyFrame([0, 0, 40, 40], "ArrowLeft", true, img)).toEqual([0, 0, 40, 40]);
+    expect(keyFrame([0, 0, 200, 200], "ArrowLeft", true, img)).toEqual([0, 0, 200, 200]);
+    // a smaller start is lifted to the minimum, so the inside stays large enough to drag
+    expect(initialFrame([10, 10, 20, 20], img)).toEqual([10, 10, 210, 210]);
   });
 
   it("the size is said in whole percentages of the photo", () => {
@@ -303,5 +305,13 @@ describe("T118 / R2: Back from Change it", () => {
     // a draft without an area (an old session) goes back to the photo screen
     expect(changeItBack({ ...piece, method: "upload" })).toBe("/create/photo?mode=upload");
     expect(changeItBack(piece)).toBe("/create/photo?mode=camera");
+  });
+});
+
+describe("Story video return (R6)", () => {
+  it("after the first listing → You're live; Record again (redo) → back to Choose a product", () => {
+    expect(storyVideoDone(false)).toBe("/create/live");
+    expect(storyVideoDone(true)).toBe("/create/product");
+    expect(STORY_REDO_RETURN).toBe("/create/product");
   });
 });

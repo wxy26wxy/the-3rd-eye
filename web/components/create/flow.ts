@@ -189,3 +189,16 @@ export function artOnScreen(d: Draft): { src: string | null; alt: string | null;
     ? { src: step.previewUrl, alt: step.alt, shows: step.spoken ?? step.alt }
     : { src: d.pieceUrl ?? null, alt: d.pieceAlt ?? null, shows: d.pieceSpoken ?? d.pieceAlt ?? null };
 }
+
+// ---- Story video (R6)
+
+/** Where "Record again" (My story video on Choose a product) came from and returns to. */
+export const STORY_REDO_RETURN = "/create/product";
+
+/**
+ * Where the story video screen goes after saving (or after the drafted story is used or skipped):
+ * You're live after the first listing; back to Choose a product in redo mode (Record again).
+ */
+export function storyVideoDone(redo: boolean): string {
+  return redo ? STORY_REDO_RETURN : "/create/live";
+}

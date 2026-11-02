@@ -9,8 +9,11 @@ import type { Box, ImageSize } from "./cutout";
 export const AREA_GROWTH = 0.08;
 /** One arrow-key press moves or resizes the frame by this share of the photo. */
 export const AREA_STEP = 0.05;
-/** The frame never gets smaller than this share of the photo's shorter side. */
-export const AREA_MIN = 0.05;
+/**
+ * The frame never gets smaller than this share of the photo's shorter side, so a pointer can still
+ * grab its inside to move it (the 44 px handles sit outside the frame line; review T123 M2).
+ */
+export const AREA_MIN = 0.25;
 
 /** Which part of the frame a pointer drags: a corner, an edge, or the whole frame. */
 export type AreaHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "move";

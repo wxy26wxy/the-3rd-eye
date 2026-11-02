@@ -239,12 +239,10 @@ function pattern(over: Partial<ChoosePatternViewProps> = {}): string {
   const props: ChoosePatternViewProps = {
     lead: fmt(t.copyMany, { n: 3, product: "sticker" }),
     retake: "/create/photo?mode=camera",
-    busy: false,
     photo: createElement("div", null, "PHOTO"),
     photoState: "loading",
     candidates: [{ id: "a", thumbUrl: "/a.png" }, { id: "b", thumbUrl: "/b.png" }, { id: "c", thumbUrl: "/c.png" }],
     picked: "a",
-    error: null,
     on: { pick: noop, use: noop },
     ...over,
   };
@@ -271,14 +269,6 @@ describe("Choose a pattern view (T113, board 2027:3254)", () => {
     expect(text(pattern({ lead: fmt(t.copyMany, { n: 2, product: "tote bag" }) }))).toContain("turn into a tote bag.");
   });
 
-  it("cutting: no Back, pieces locked, the cutting line, only Use this (dimmed)", () => {
-    const out = pattern({ busy: true });
-    expect(out).not.toContain('aria-label="Back"');
-    expect(out).toMatch(/<fieldset[^>]*disabled/);
-    expect(out).toContain(t.applying);
-    expect(out).not.toContain(">" + t.retake + "<");
-    expect(out).toMatch(btnDisabled(t.use));
-  });
 });
 
 const s = m.create.speak;

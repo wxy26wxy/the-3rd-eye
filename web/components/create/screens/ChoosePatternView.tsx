@@ -7,7 +7,6 @@ import { Loading } from "@/components/ui/Loading";
 import { NoticeCard } from "../cards";
 import { CreateScreen } from "../CreateScreen";
 import { percentRect, type ImageSize } from "../cutout";
-import { ErrorNotice, type ScreenError } from "../errors";
 import type { Candidate } from "../api";
 import styles from "../Create.module.css";
 
@@ -16,38 +15,33 @@ const t = m.create.select;
 export type ChoosePatternViewProps = {
   lead: string;
   retake: string;
-  /** "Use this" is cutting the piece out. */
-  busy: boolean;
   /** The photo with the pieces outlined (PatternPhoto), when the photo and its size are known. */
   photo: ReactNode | null;
   photoState: "loading" | "missing";
   candidates: { id: string; thumbUrl: string | null }[];
   picked: string | undefined;
-  error: ScreenError | null;
   on: { pick: (id: string) => void; use: () => void };
 };
 
 /**
  * Choose a pattern (board `2027:3254`): title and copy, the photo on the green photo card, the
  * "Drawings found" strip (a radio group: one piece can be picked; 2 px ink border and the check
- * badge on the picked one), then Use this / Retake in the pinned bar. While the cut is made, Back
- * and the pieces are locked and only Use this shows (dimmed).
+ * badge on the picked one), then Use this / Retake in the pinned bar. Use this opens Adjust the area
+ * (no call here, R2).
  */
 export function ChoosePatternView({ on, ...p }: ChoosePatternViewProps) {
-  const footer = p.busy ? (
-    <Button block disabled aria-busy="true">{t.use}</Button>
-  ) : (
+  const footer = (
     <>
       <Button block onClick={on.use} disabled={!p.picked}>{t.use}</Button>
       <Button block variant="secondary" arrow={false} href={p.retake}>{t.retake}</Button>
     </>
   );
   return (
-    <CreateScreen back={p.busy ? undefined : p.retake} title={t.title} lead={p.lead} footer={footer}>
+    <CreateScreen back={p.retake} title={t.title} lead={p.lead} footer={footer}>
       {p.photo !== null ? (
-        <div className={[styles.photoCard, p.busy ? styles.photoCardBusy : ""].filter(Boolean).join(" ")}>{p.photo}</div>
+        <div className={styles.photoCard}>{p.photo}</div>
       ) : p.photoState === "loading" ? <Loading label={t.loadingPhoto} /> : <NoticeCard>{t.photoMissing}</NoticeCard>}
-      <fieldset className={styles.fieldset} disabled={p.busy}>
+      <fieldset className={styles.fieldset}>
         <legend className="visually-hidden">{t.groupLabel}</legend>
         <ul role="list" className={styles.pieces}>
           {p.candidates.map((c, i) => (
@@ -64,8 +58,6 @@ export function ChoosePatternView({ on, ...p }: ChoosePatternViewProps) {
           ))}
         </ul>
       </fieldset>
-      {p.busy ? <Loading inline label={t.applying} /> : null}
-      <ErrorNotice error={p.error} onRetry={on.use} retakeHref={p.busy ? undefined : p.retake} />
     </CreateScreen>
   );
 }
@@ -75,8 +67,8 @@ export function ChoosePatternView({ on, ...p }: ChoosePatternViewProps) {
  * outline picks that piece (pointer only: the radio strip under the photo is the keyboard and
  * screen-reader path, so the outlines are hidden from assistive tech).
  */
-export function PatternPhoto({ src, image, candidates, picked, disabled, onPick, onImageError }: {
-  src: string; image: ImageSize; candidates: Candidate[]; picked: string | undefined; disabled: boolean;
+export function PatternPhoto({ src, image, candidates, picked, onPick, onImageError }: {
+  src: string; image: ImageSize; candidates: Candidate[]; picked: string | undefined;
   onPick: (id: string) => void; onImageError?: () => void;
 }) {
   return (
@@ -92,7 +84,7 @@ export function PatternPhoto({ src, image, candidates, picked, disabled, onPick,
             return (
               <span key={c.id} aria-hidden="true" className={[styles.outline, on ? styles.outlineOn : "", styles.outlinePick].join(" ")}
                 style={{ left: `${r.left}%`, top: `${r.top}%`, width: `${r.width}%`, height: `${r.height}%` }}
-                onClick={() => { if (!disabled) onPick(c.id); }}>
+                onClick={() => onPick(c.id)}>
                 {on ? <span className={styles.outlineCheck}><CheckIcon /></span> : null}
               </span>
             );

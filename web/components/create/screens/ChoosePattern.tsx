@@ -44,14 +44,12 @@ function PatternFlow() {
     <ChoosePatternView
       lead={candidates.length === 1 ? fmt(t.copyOne, { product: productWord }) : fmt(t.copyMany, { n: candidates.length, product: productWord })}
       retake={retake}
-      busy={false}
       photo={imageSize && originalUrl ? (
-        <PatternPhoto src={originalUrl} image={imageSize} candidates={candidates} picked={picked} disabled={false} onPick={setPicked} onImageError={onImageError} />
+        <PatternPhoto src={originalUrl} image={imageSize} candidates={candidates} picked={picked} onPick={setPicked} onImageError={onImageError} />
       ) : null}
       photoState={detail.state === "loading" ? "loading" : "missing"}
       candidates={candidates.map((c) => ({ id: c.id, thumbUrl: c.thumbUrl }))}
       picked={picked}
-      error={null}
       on={{ pick: setPicked, use: choose }}
     />
   );

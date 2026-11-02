@@ -74,5 +74,5 @@ export function StoryVideoRow() {
   const [watching, setWatching] = useState(false);
   const [failed, setFailed] = useState(false);
   if (!creator) return null;
-  return <StoryVideoRowView creator={creator} watching={watching} failed={failed} onWatch={() => setWatching((w) => !w)} onFail={() => setFailed(true)} />;
+  return <StoryVideoRowView creator={creator} watching={watching} failed={failed} onWatch={() => { setFailed(false); setWatching((w) => !w); }} onFail={() => setFailed(true)} />;
 }

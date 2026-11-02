@@ -283,8 +283,8 @@
 }
 
 /* Adjust the area (R2): the photo with the frame. The photo card keeps room around the photo so the
-   44 px handles on the photo's edges are never clipped; the shade dims the photo outside the frame. */
-.areaFrame { overflow: visible; padding: calc(var(--size-min-target) / 2); }
+   44 px handles outside the photo's edges are not clipped; the shade dims the photo outside the frame. */
+.areaFrame { overflow: visible; padding: var(--size-min-target); }
 .areaShade { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .areaShade > span { position: absolute; box-shadow: 0 0 0 calc(var(--size-photo-max-height) * 4) var(--scrim); }
 .area {
@@ -294,23 +294,30 @@
 }
 .area:focus-visible { outline: var(--focus-width) solid var(--accent); outline-offset: var(--focus-width); }
 .area[aria-disabled="true"] { cursor: default; }
+/* The 44 px handles sit just outside the frame line, so the whole inside stays free for moving even at
+   the minimum size (review T123 M2). The knob is drawn centred on the corner and lets the pointer
+   through to the frame. */
 .areaEdge { position: absolute; touch-action: none; }
 .areaEdge[data-side="n"], .areaEdge[data-side="s"] { left: 0; right: 0; height: var(--size-min-target); cursor: ns-resize; }
 .areaEdge[data-side="e"], .areaEdge[data-side="w"] { top: 0; bottom: 0; width: var(--size-min-target); cursor: ew-resize; }
-.areaEdge[data-side="n"] { top: 0; transform: translateY(-50%); }
-.areaEdge[data-side="s"] { bottom: 0; transform: translateY(50%); }
-.areaEdge[data-side="e"] { right: 0; transform: translateX(50%); }
-.areaEdge[data-side="w"] { left: 0; transform: translateX(-50%); }
+.areaEdge[data-side="n"] { top: 0; transform: translateY(-100%); }
+.areaEdge[data-side="s"] { bottom: 0; transform: translateY(100%); }
+.areaEdge[data-side="e"] { right: 0; transform: translateX(100%); }
+.areaEdge[data-side="w"] { left: 0; transform: translateX(-100%); }
 .areaCorner {
   position: absolute; z-index: 1; touch-action: none;
-  display: grid; place-items: center; width: var(--size-min-target); height: var(--size-min-target);
+  display: grid; width: var(--size-min-target); height: var(--size-min-target);
 }
-.areaCorner[data-corner="nw"] { left: 0; top: 0; transform: translate(-50%, -50%); cursor: nwse-resize; }
-.areaCorner[data-corner="ne"] { right: 0; top: 0; transform: translate(50%, -50%); cursor: nesw-resize; }
-.areaCorner[data-corner="se"] { right: 0; bottom: 0; transform: translate(50%, 50%); cursor: nwse-resize; }
-.areaCorner[data-corner="sw"] { left: 0; bottom: 0; transform: translate(-50%, 50%); cursor: nesw-resize; }
+.areaCorner[data-corner="nw"] .areaKnob { transform: translate(50%, 50%); }
+.areaCorner[data-corner="ne"] .areaKnob { transform: translate(-50%, 50%); }
+.areaCorner[data-corner="se"] .areaKnob { transform: translate(-50%, -50%); }
+.areaCorner[data-corner="sw"] .areaKnob { transform: translate(50%, -50%); }
+.areaCorner[data-corner="nw"] { left: 0; top: 0; place-items: end; transform: translate(-100%, -100%); cursor: nwse-resize; }
+.areaCorner[data-corner="ne"] { right: 0; top: 0; place-items: end start; transform: translate(100%, -100%); cursor: nesw-resize; }
+.areaCorner[data-corner="se"] { right: 0; bottom: 0; place-items: start; transform: translate(100%, 100%); cursor: nwse-resize; }
+.areaCorner[data-corner="sw"] { left: 0; bottom: 0; place-items: start end; transform: translate(-100%, 100%); cursor: nesw-resize; }
 .areaKnob {
-  width: var(--space-xl); height: var(--space-xl); border-radius: var(--radius-pill);
+  width: calc(var(--space-s) * 2); height: calc(var(--space-s) * 2); border-radius: var(--radius-pill); pointer-events: none;
   background: var(--surface); border: calc(var(--border-thin) * 2) solid var(--text);
 }
 .area[aria-disabled="true"] .areaEdge, .area[aria-disabled="true"] .areaCorner { cursor: default; }

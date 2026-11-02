@@ -42,14 +42,14 @@ Creator: **June Park** (signed in beforehand). Capture: phone over the shoulder 
 Steps and what the viewer sees:
 1. Create tab > Sticker > Next > "Take a photo" (detail line "Snap your drawing") > "Open the camera". "Finding your drawings…" shows while SAM 3.1 finds the pieces.
 2. **Choose a pattern:** "Tap the one you want." June picks the sketch ("Piece 1") and taps "Use this".
-3. **Change it:** "Change your art?" shows her piece as "Your art" with "WHAT THE IMAGE SHOWS". She taps "Say what to change" and says "make the book red, and give him a yellow raincoat". Muse Voice Transcribe 1.0 writes it down; the card reads "YOU SAID, …". She taps "Make the change".
-4. If Muse Spark 1.3 asks a clarifying question, VoiceOver announces it and the "QUESTION" card shows it. Answer in one short sentence.
+3. **Change it:** "Change your art?" shows her piece as "Your art" with "WHAT THE IMAGE SHOWS". She taps "Say what to change" and says "make the book red, and give him a yellow raincoat". Muse Voice Transcribe 1.0 writes it down ("Writing down what you said…"), the words land in the "What to change" field, and VoiceOver announces "You said: …". She can fix the words in the field, then taps "Make the change".
+4. The iOS app asks no follow-up question; the words in the field are what is sent.
 5. **Changing your art:** the "YOU ASKED" card shows her words while Muse Image 1.0 edits her own piece (the picture is the input image; nothing is drawn from words alone).
 
 Narration (leave about 10 s silent for VoiceOver speech and the edit wait):
 "June is one of our example artists. She photographs her sketch, and SAM finds it. Then she says what to change. Muse Voice Transcribe writes it down, and Muse Image changes her own drawing, not a new one."
 
-Fallback: if the live edit takes more than 40 seconds or fails ("Something went wrong. Please try again."), cut to `fallback-change.mov` (the rehearsal take). If the phone microphone fails, use "Type instead" with the keyboard's dictation key and say so in the narration ("she uses dictation here"). With `AI_FIXTURES=1` on a local server the whole flow runs offline with synthetic art, but fixtures are not Meta output; do not use them for the final cut and do not narrate them as models.
+Fallback: if the live edit takes more than 40 seconds or fails ("Something went wrong. Please try again."), cut to `fallback-change.mov` (the rehearsal take). If the phone microphone fails, type in the "What to change" field (the keyboard's dictation key also works) and say so in the narration ("she uses dictation here"). With `AI_FIXTURES=1` on a local server the whole flow runs offline with synthetic art, but fixtures are not Meta output; do not use them for the final cut and do not narrate them as models.
 
 ### 3. Before and after, then the cutout (0:55-1:15)
 Creator: **June Park**, continuing shot 2. Capture: the phone's screen recording (or the simulator, which uses a photo from the library).
@@ -68,7 +68,7 @@ Fallback: if SAM returns nothing on stage, use the rehearsal take (`fallback-cut
 ### 4. A buyer finds it (1:15-1:40)
 Capture: screen recording of https://the-3rd-eye.vercel.app in a phone-sized browser window. Product: Leo's bus sticker (or the sticker just published).
 
-Steps: shop home ("Art with a story in every piece.") > "New this week" > the product page (breadcrumb Shop / Stickers / the name, "Sticker · die-cut · waterproof", "Leo earns from every sticker sold.") > **Size** "4 in" > quantity "More" once (2) > **"Add to bag"** > the order sheet "Buy this piece": enter a name, "Place order" (the sheet says "Demo checkout: no payment is taken yet.") > "Thank you!" with the "Open the story tag" link.
+Steps: shop home ("Art with a story in every piece.") > "New this week" > the product page (breadcrumb Shop / Stickers / the name, "Sticker · die-cut · waterproof", "Leo earns from every sticker sold.") > **Size** "4 in" > quantity "More" once (2) > **"Add to bag"** > the order sheet "Buy this piece": enter a name, "Place order · <price>" (the sheet says "Demo checkout: no payment is taken yet.") > "Thank you!" with the "Open the story tag" link.
 
 Narration:
 "A buyer finds the sticker in the shop and sees who made it. They pick a size and a quantity. Checkout is staged in this demo: it creates the order but takes no payment. Then they get a link to the story tag."

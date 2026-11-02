@@ -130,17 +130,26 @@ final class CutoutUITests: XCTestCase {
     }
   }
 
-  /// A cleanup answered 422 shows the server's reason and stays on the screen.
-  func testNothingFoundShowsServerReason() {
-    let app = openYourCutout(code: "NOCUT-CODE")
-    tap(app, "Fix the edges")
-    let photo = app.otherElements["cutout-photo"]
-    XCTAssertTrue(photo.waitForExistence(timeout: 10))
-    photo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+  /// The cutout of a change answered 422 (mock NOCUT…): Making your cutout shows the reason with
+  /// Try again and Back to my art; back goes to Before and after.
+  func testCutoutFailureOffersTryAgain() {
+    let app = launchPhotoFlow(code: "NOCUT-CODE")
+    let piece = app.buttons["Piece 1"]
+    XCTAssertTrue(piece.waitForExistence(timeout: 20))
+    piece.tap()
     tap(app, "Use this")
-    let reason = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Nothing was left in the cutout.")).firstMatch
-    XCTAssertTrue(reason.waitForExistence(timeout: 10), "422 shows the server's message")
-    XCTAssertFalse(app.textFields["Name"].exists, "stays on the screen")
+    let field = app.textViews["What to change"].exists ? app.textViews["What to change"] : app.textFields["What to change"]
+    XCTAssertTrue(field.waitForExistence(timeout: 10))
+    field.tap()
+    field.typeText("Make the sky purple")
+    if app.buttons["Done"].waitForExistence(timeout: 2) { app.buttons["Done"].tap() }
+    tap(app, "Make the change")
+    tap(app, "Use this")
+    let reason = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "nothing found in the edited picture")).firstMatch
+    XCTAssertTrue(reason.waitForExistence(timeout: 15), "422 shows the server's message")
+    XCTAssertTrue(app.buttons["Try again"].exists)
+    app.buttons["Back to my art"].tap()
+    XCTAssertTrue(app.staticTexts["Here's the change"].waitForExistence(timeout: 5), "back on Before and after")
   }
 
   /// Marks go right next to each other and at the photo's edge; a tap on a dot deletes that mark.
@@ -203,15 +212,23 @@ final class CutoutUITests: XCTestCase {
     return app
   }
 
-  /// Piece 1 picked, no change ("Looks good as is"): Your cutout of the drawing's own cut-out.
+  /// Piece 1 picked and changed ("Make the sky purple" → ch1), kept with "Use this": Your cutout of
+  /// the change (the mock's `cutout` answers cand-1 first, the piece the edge tools send).
   private func openYourCutout(code: String) -> XCUIApplication {
     let app = launchPhotoFlow(code: code)
     let piece = app.buttons["Piece 1"]
     XCTAssertTrue(piece.waitForExistence(timeout: 20))
     piece.tap()
     tap(app, "Use this")
-    tap(app, "Looks good as is")
-    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 15), "Your cutout")
+    let field = app.textViews["What to change"].exists ? app.textViews["What to change"] : app.textFields["What to change"]
+    XCTAssertTrue(field.waitForExistence(timeout: 10))
+    field.tap()
+    field.typeText("Make the sky purple")
+    let done = app.buttons["Done"]
+    if done.waitForExistence(timeout: 2) { done.tap() }
+    tap(app, "Make the change")
+    tap(app, "Use this")
+    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 20), "Your cutout")
     return app
   }
 

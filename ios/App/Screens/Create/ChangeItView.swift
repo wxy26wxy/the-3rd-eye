@@ -3,7 +3,8 @@ import SwiftUI
 /// Board "Change it" (`2012:387`, states `2011:208/246/334`, `2021:2169/2216`): the art as it is now
 /// ("YOUR ART"), what it shows, then the change panel: a "What to change" field, the record button
 /// ("Say what to change"; the words land in the field) and "Make the change". "Looks good as is"
-/// keeps the art and goes on to the cut-out. The original is never overwritten: a change is a new
+/// keeps the art: the picked drawing goes straight to Making your sticker with its cut-out, a change
+/// is cut out first. The original is never overwritten: a change is a new
 /// artwork (`POST /artworks/{id}/change`).
 struct ChangeItView: View {
   @Environment(AppState.self) private var app
@@ -30,7 +31,7 @@ struct ChangeItView: View {
       PillButton("Looks good as is", hint: "Keeps your art as it is and goes on") {
         capture?.cancel()
         Self.hideKeyboard()
-        app.push(.makingCutout)
+        looksGood()
       }
       .disabled(busy || flow.currentArt == nil)
     }
@@ -112,6 +113,19 @@ struct ChangeItView: View {
       UIAccessibility.post(notification: .announcement, argument: String(localized: "You said: \(text)"))
     case .transcribing:
       break
+    }
+  }
+
+  /// The picked drawing already has its cut-out (`select`): straight to Making your sticker. A
+  /// change shown here ("Change it again", then kept) is cut out first (`cutout` works on changes only).
+  private func looksGood() {
+    guard let art = flow.currentArt else { return }
+    if flow.changedArtwork == nil, art.cleanedUrl != nil {
+      flow.artwork = art
+      flow.product = nil
+      app.push(.makingProduct)
+    } else {
+      app.push(.makingCutout)
     }
   }
 

@@ -55,7 +55,7 @@ final class ChangeItUITests: XCTestCase {
   }
 
   /// "Change it again" edits the change (ch1 → ch2); "Back to my original" drops the changes, and
-  /// "Looks good as is" then uses the drawing's own cut-out with no further call.
+  /// "Looks good as is" then makes the sticker from the drawing's own cut-out (no cutout call).
   func testChangeAgainThenBackToTheOriginal() throws {
     let app = launchPhotoFlow(code: "TEST-CODE")
     pickPiece(app, "Piece 1")
@@ -77,10 +77,8 @@ final class ChangeItUITests: XCTestCase {
     XCTAssertTrue(changeField(app).waitForExistence(timeout: 5))
     XCTAssertTrue(element(app, containing: "Your art", and: "Cut-out of cand-1").exists, "the original is back")
     tap(app, "Looks good as is")
-    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 15))
+    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 20), "straight to Making your sticker, then Listing details")
     XCTAssertTrue(try lastBody("cutout").isEmpty, "the drawing's cut-out exists: no cutout call")
-    tap(app, "Use this")
-    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 20))
     XCTAssertEqual(try lastBody("products")["artworkId"] as? String, "p1", "the original drawing becomes the product")
   }
 
@@ -92,8 +90,7 @@ final class ChangeItUITests: XCTestCase {
     XCTAssertFalse(app.buttons["Piece 1"].exists)
     XCTAssertTrue(element(app, containing: "WHAT THE IMAGE SHOWS", and: "Cut-out of piece 1").exists)
     app.buttons["Looks good as is"].tap()
-    tap(app, "Use this")
-    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 20))
+    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 20), "Making your tote bag, then Listing details")
     XCTAssertEqual(try lastBody("products")["type"] as? String, "tote")
   }
 

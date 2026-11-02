@@ -1,23 +1,71 @@
-/* Web product card (Sky, 2010:510 Large / 2035:4116 Small): white, 1 px border, 28 px radius, square
-   surfaceAlt picture on top, chips, title (2 lines max), artist above price. */
+/* Web product card · Size=Tile (4006:4357, used on 2018:1835 and 4012:4410): 28 px tinted picture with
+   the STORY TAG pill top-left, then title + price (titleL) and the caption line. No card border. */
 .card {
   position: relative;
+  display: grid;
+  gap: var(--space-sm);
+  align-content: start;
   height: 100%;
   container-type: inline-size;
-  background: var(--surface);
-  border: var(--border-thin) solid var(--border);
   border-radius: var(--radius-card);
-  overflow: hidden;
 }
 .card:has(.link:focus-visible) { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
-.inner { display: flex; flex-direction: column; height: 100%; }
-.inner .image { border-radius: 0; }
-.body { display: grid; gap: var(--space-s); align-content: start; padding: var(--space-l) var(--space-m) var(--space-xl); }
-.chips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
-.title {
+
+/* 282 × 300 at 1440 (four across the 1200 column). */
+.picture {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 47 / 50;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+}
+.accent { background: var(--accent); }
+.white { background: var(--surface); border: var(--border-thin) solid var(--border); }
+.soft { background: var(--color-accent-soft); }
+.alt { background: var(--surface-alt); }
+.cutout {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: calc(var(--space-xxl) + var(--space-l)) var(--space-xxl) var(--space-xxl);
+}
+.photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.missing { padding: var(--space-l); text-align: center; color: var(--text-muted); font-size: var(--type-caption-size); }
+
+.tag {
+  position: absolute;
+  top: var(--space-m);
+  left: var(--space-m);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-s);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  color: var(--text);
+  font-size: var(--type-eyebrow-size);
+  font-weight: var(--type-eyebrow-weight);
+  letter-spacing: var(--type-eyebrow-ls);
+  line-height: var(--type-eyebrow-lh);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.dot { width: var(--size-step-dot); height: var(--size-step-dot); border-radius: 50%; background: var(--accent-border); }
+
+.info { display: grid; gap: var(--space-xs); }
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-s);
   font-size: var(--type-title-l-size);
   font-weight: var(--type-title-l-weight);
   line-height: 1.3;
+}
+.title {
+  font: inherit;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -25,17 +73,23 @@
   overflow: hidden;
   overflow-wrap: anywhere;
 }
+.price { flex: none; }
 .link { text-decoration: none; }
 .link:focus-visible { outline: none; }
-/* Whole card is the click target; the link text stays the accessible name. */
+/* Whole tile is the click target; the link text stays the accessible name. */
 .link::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius-card); }
 .link:hover { text-decoration: underline; text-underline-offset: 0.15em; }
-.meta { display: grid; gap: var(--space-xs); }
-.artist { color: var(--text-muted); font-size: var(--type-body-size); line-height: var(--type-body-lh); }
-.price { color: var(--text); font-size: var(--type-title-m-size); font-weight: var(--type-title-m-weight); line-height: 1.2; }
+.meta {
+  color: var(--text-muted);
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-caption-weight);
+  line-height: var(--type-caption-lh);
+}
+.type { text-transform: uppercase; }
 
-/* Size=Small: narrow cards (two per row at 390) stack the chips and use 12 px side padding. */
+/* Two tiles per row at 390 (163 px): smaller title, pill and price stack under the title. */
 @container (max-width: 12.5rem) {
-  .chips { flex-direction: column; align-items: flex-start; }
-  .body { padding-inline: calc(var(--space-s) + var(--border-thin) * 2); }
+  .titleRow { flex-direction: column; gap: 0; font-size: var(--type-title-m-size); }
+  .cutout { padding: calc(var(--space-xl) + var(--space-s)) var(--space-l) var(--space-l); }
+  .tag { top: var(--space-s); left: var(--space-s); }
 }

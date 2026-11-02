@@ -1,73 +1,76 @@
 import Link from "next/link";
-import type { ProductDetail } from "@/lib/db/queries.contract";
-import { fmt, m, money, sharePercent } from "@/components/messages";
+import type { ProductDetail, ShopProduct } from "@/lib/db/queries.contract";
+import { fmt, m } from "@/components/messages";
 import { placeOrder } from "@/app/(site)/p/[id]/actions";
-import { DieCut } from "@/components/site/DieCut";
-import { StoryVideo } from "@/components/site/StoryVideo";
 import { Avatar } from "@/components/site/Avatar";
-import { ArtImage } from "@/components/ui/ArtImage";
-import { Button } from "@/components/ui/Button";
-import { Display } from "@/components/ui/Display";
 import { ChevronLeftIcon } from "@/components/ui/Icons";
+import { Display } from "@/components/ui/Display";
+import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Chip } from "@/components/ui/Text";
-import { BuyForm } from "./BuyForm";
+import { Gallery, type GallerySlide } from "./Gallery";
+import { ProductBuy } from "./ProductBuy";
+import { Disclosures, MeetMakerCard, MoreFrom, PaysArtistNote } from "./ProductParts";
 import styles from "./Product.module.css";
 
+/** Gallery pictures in board order (4011:4378): the piece on the accent, the art on a white card, the photo, the story tag. */
+export function gallerySlides(p: Pick<ProductDetail, "type" | "artworkUrl" | "mockupUrl" | "creator">): GallerySlide[] {
+  const slides: (GallerySlide | null)[] = p.type === "sticker"
+    ? [
+        p.artworkUrl ? { kind: "image", src: p.artworkUrl, fit: "contain", tone: "accent" } : null,
+        p.artworkUrl ? { kind: "image", src: p.artworkUrl, fit: "contain", tone: "alt", card: true } : null,
+        p.mockupUrl ? { kind: "image", src: p.mockupUrl, fit: "cover", tone: "alt" } : null,
+      ]
+    : [
+        p.mockupUrl ? { kind: "image", src: p.mockupUrl, fit: "cover", tone: "white" } : null,
+        p.artworkUrl ? { kind: "image", src: p.artworkUrl, fit: "contain", tone: "alt", card: true } : null,
+      ];
+  return [...slides.filter((s): s is GallerySlide => s !== null), { kind: "tag", text: fmt(m.product.tagSlide, { name: p.creator.displayName }) }];
+}
+
 /**
- * Product page (boards 2019:2004 / 2019:2098). DOM order = reading order: Back to the shop → images
- * (mockup, die-cut preview) → chips → h1 → by artist → price → artist share → description → Buy this
- * piece → The story behind it. Two columns from 64rem, one column below.
+ * Product page v3 (board 2019:2004). DOM order = reading order: breadcrumb (Shop is the back link) →
+ * gallery → eyebrow → h1 → maker row → price → Size → Quantity + Add to bag (→ checkout sheet) →
+ * pays-the-artist note → Meet the maker → disclosures → More from {name}. Two columns from 64rem.
  */
-export function ProductView({ product: p }: { product: ProductDetail }) {
+export function ProductView({ product: p, more = [] }: { product: ProductDetail; more?: ShopProduct[] }) {
   const typeLabel = p.type === "sticker" ? m.common.sticker : m.common.tote;
   const alt = p.altText ?? fmt(m.product.mockupAlt, { title: p.title, type: typeLabel });
   const action = placeOrder.bind(null, p.id);
-  const story = p.creator.storyText ?? p.creator.bioShort;
   const byLine = fmt(m.common.by, { name: p.creator.displayName });
   return (
     <div className={styles.page}>
-      <Link href="/" className={styles.back}><ChevronLeftIcon size="1.25rem" />{m.product.backToShop}</Link>
+      <nav aria-label={m.product.breadcrumbLabel}>
+        <ol role="list" className={styles.breadcrumb}>
+          <li><Link href="/" className={styles.back}><ChevronLeftIcon size="1.25rem" />{m.product.breadcrumbShop}</Link></li>
+          <li aria-hidden="true">/</li>
+          <li><Link href={`/?type=${p.type}#collection`} className={styles.crumb}>{p.type === "sticker" ? m.product.breadcrumbStickers : m.product.breadcrumbTotes}</Link></li>
+          <li aria-hidden="true">/</li>
+          <li aria-current="page" className={styles.crumbCurrent}>{p.title}</li>
+        </ol>
+      </nav>
       <div className={styles.layout}>
-        <div className={styles.media}>
-          <ArtImage className={styles.mockup} ratio="auto" src={p.mockupUrl ?? p.artworkUrl} alt={alt} eager placeholder={m.common.imageMissing} />
-          {p.type === "sticker" ? <DieCut artworkUrl={p.artworkUrl} cutPathSvg={p.cutPathSvg} alt={alt} /> : null}
-        </div>
-        <div className={styles.info}>
-          <div className={styles.chips}>
-            <Chip tone="cream">{typeLabel}</Chip>
-            {p.madeByVoice ? <Chip>{m.common.madeByVoice}</Chip> : null}
-          </div>
+        <Gallery slides={gallerySlides(p)} alt={alt} />
+        <div className={styles.details}>
+          <Eyebrow tone="accent">{p.type === "sticker" ? m.product.eyebrowSticker : m.product.eyebrowTote}</Eyebrow>
           <Display as="h1" size="xl">{p.title}</Display>
-          {/* Hidden (testing) creators have no public profile; their product still opens by direct link. */}
-          {p.creator.hidden
-            ? <p className={styles.by}>{byLine}</p>
-            : <p className={styles.by}><Link href={`/c/${p.creator.slug}`} className={styles.byLink}>{byLine}</Link></p>}
-          <p className={styles.price}>{money(p.priceCents)}</p>
-          <p className={styles.share}>{fmt(m.product.artistShare, { percent: sharePercent(p.creator.split?.creator_bps) })}</p>
-          {p.description ? <p className={styles.desc}>{p.description}</p> : null}
-          <div className={styles.buyCard}>
-            <BuyForm action={action} priceLabel={fmt(m.product.buySubmit, { price: money(p.priceCents) })} />
-          </div>
-        </div>
-      </div>
-      <section aria-labelledby="story-title" className={styles.story}>
-        <Display id="story-title" size="l">{m.product.storyTitle}</Display>
-        <div className={styles.storyBody}>
-          <StoryVideo creator={p.creator} className={styles.storyVideo} />
-          <div className={styles.storyText}>
-            <div className={styles.creatorRow}>
-              <Avatar name={p.creator.displayName} src={p.creator.avatarUrl} size="l" />
-              <div>
-                <p className={styles.creatorName}>{p.creator.displayName}</p>
-                {p.creator.studioName ? <p className={styles.studio}>{p.creator.studioName}</p> : null}
-              </div>
+          <div className={styles.makerRow}>
+            <Avatar name={p.creator.displayName} src={p.creator.avatarUrl} size="s" tone="deep" />
+            <div className={styles.makerRowText}>
+              {/* Hidden (testing) creators have no public profile; their product still opens by direct link. */}
+              {p.creator.hidden
+                ? <p className={styles.by}>{byLine}</p>
+                : <p className={styles.by}><Link href={`/c/${p.creator.slug}`} className={styles.byLink}>{byLine}</Link></p>}
+              {p.creator.studioName ? <p className={styles.makerLine}>{p.creator.studioName}</p> : null}
             </div>
             {p.creator.isExample ? <Chip tone="cream">{m.common.example}</Chip> : null}
-            {story ? <p className={styles.storyCopy}>{story}</p> : null}
-            {p.creator.hidden ? null : <Button href={`/c/${p.creator.slug}`} variant="secondary" arrow={false} block>{fmt(m.product.seeWork, { name: p.creator.displayName })}</Button>}
           </div>
+          <ProductBuy action={action} type={p.type} title={p.title} priceCents={p.priceCents} />
+          <PaysArtistNote name={p.creator.displayName} type={p.type} />
+          <MeetMakerCard product={p} />
+          <Disclosures product={p} />
         </div>
-      </section>
+      </div>
+      <MoreFrom creator={p.creator} products={more.filter((x) => x.id !== p.id)} />
     </div>
   );
 }

@@ -86,7 +86,7 @@ export async function TraceView({ params }: { params: Promise<{ artworkId: strin
             { id: `${c.id}-after`, url: c.afterUrl, altText: m.admin.traceAfter, chosen: false, label: `${m.admin.traceAfter}${n}` },
           ];
         })} />
-      ) : variants.length ? <ImageRow images={variants.map((v, i) => ({ ...v, label: fmt(m.create.result.variant, { n: i + 1 }) }))} /> : null,
+      ) : variants.length ? <ImageRow images={variants.map((v, i) => ({ ...v, label: fmt(m.admin.traceVariant, { n: i + 1 }) }))} /> : null,
     },
     {
       title: m.admin.traceDescription,

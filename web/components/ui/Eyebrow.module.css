@@ -2,7 +2,7 @@
   font-size: var(--type-eyebrow-size);
   font-weight: var(--type-eyebrow-weight);
   letter-spacing: var(--type-eyebrow-ls);
-  line-height: var(--type-caption-lh);
+  line-height: var(--type-eyebrow-lh);
   text-transform: uppercase;
 }
 .muted { color: var(--text-muted); }

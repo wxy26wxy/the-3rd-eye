@@ -4,6 +4,9 @@
  */
 import "server-only";
 import type { MockupMaker, Trace } from "@/lib/ai/types";
+import { SIZES, type SizeOption } from "./sizes";
+
+export { SIZES, unitCents, resolveSize, type SizeKey, type SizeOption } from "./sizes";
 
 export type ProductKind = "sticker" | "tote";
 
@@ -16,6 +19,8 @@ export type ProductSpec = {
   printSpec: PrintSpec;
   mockupPrompt: string;
   priceRange: { min: number; max: number };
+  /** Sizes a buyer can pick, with the price step over the listed price (empty: one size). T111. */
+  sizes: readonly SizeOption[];
   build(artwork: { cleanedPng: Buffer }, deps: { mockups: MockupMaker; trace: Trace }): Promise<BuiltProduct>;
   /** Print files only (no model calls); used by build() and to repair products made before a print file existed. */
   buildPrint(cleanedPng: Buffer): Promise<{ printPng: Buffer; printSvg?: string; cutPath?: string }>;
@@ -65,8 +70,8 @@ async function buildTote(artwork: { cleanedPng: Buffer }, deps: { mockups: Mocku
 }
 
 export const PRODUCTS: Record<ProductKind, ProductSpec> = {
-  sticker: { kind: "sticker", label: "Sticker", printSpec: PRINT_SPECS.sticker, mockupPrompt: MOCKUP_PROMPTS.sticker, priceRange: PRICE_RANGES.sticker, build: buildSticker, buildPrint: stickerPrint },
-  tote: { kind: "tote", label: "Tote bag", printSpec: PRINT_SPECS.tote, mockupPrompt: MOCKUP_PROMPTS.tote, priceRange: PRICE_RANGES.tote, build: buildTote, buildPrint: totePrint },
+  sticker: { kind: "sticker", label: "Sticker", printSpec: PRINT_SPECS.sticker, mockupPrompt: MOCKUP_PROMPTS.sticker, priceRange: PRICE_RANGES.sticker, sizes: SIZES.sticker, build: buildSticker, buildPrint: stickerPrint },
+  tote: { kind: "tote", label: "Tote bag", printSpec: PRINT_SPECS.tote, mockupPrompt: MOCKUP_PROMPTS.tote, priceRange: PRICE_RANGES.tote, sizes: SIZES.tote, build: buildTote, buildPrint: totePrint },
 };
 
 export function productSpec(kind: ProductKind): ProductSpec {

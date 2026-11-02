@@ -5,8 +5,8 @@ import { m } from "@/components/messages";
 import { transcribe } from "../api";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { describeError, type ScreenError } from "../errors";
-import { artOnScreen, skipChange, submitChange } from "../flow";
-import { currentArtworkId, currentChange, getDraft, useCreate } from "../store";
+import { artOnScreen, changeItBack, skipChange, submitChange } from "../flow";
+import { currentArtworkId, getDraft, useCreate } from "../store";
 import { useRecorder } from "../useRecorder";
 import { ChangeItView, type ChangePhase } from "./ChangeItView";
 
@@ -27,7 +27,6 @@ type FocusTo = "stop" | "field" | "error";
 function ChangeFlow() {
   const router = useRouter();
   const { draft, update } = useCreate();
-  const step = currentChange(draft);
   const [phase, setPhase] = useState<ChangePhase>("idle");
   const [instruction, setInstruction] = useState("");
   /** What the microphone heard, sent along when the request was spoken (and not retyped). */
@@ -94,7 +93,7 @@ function ChangeFlow() {
   }
 
   const micOff = recorder.status === "denied" ? m.create.speak.micDenied : recorder.status === "unsupported" ? m.create.speak.micUnsupported : null;
-  const back = step ? "/create/compare" : (draft.candidates?.length ?? 0) > 1 ? "/create/pattern" : draft.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
+  const back = changeItBack(draft);
   const art = artOnScreen(draft);
   return (
     <ChangeItView

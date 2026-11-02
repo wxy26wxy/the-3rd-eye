@@ -100,6 +100,17 @@ export async function busyWhile<T>(set: (v: T) => void, busy: T, idle: T, run: (
   try { await run(); } finally { set(idle); }
 }
 
+/**
+ * Back from Change it: Choose a pattern, also while a change is on screen (Before and after's Back
+ * goes to Change it, so pointing here at Before and after made a loop). The change chain stays in
+ * the draft, so "Change it again" from Before and after still works. A photo whose single piece was
+ * cut out by the server never showed Choose a pattern: Back goes to the photo screen then.
+ */
+export function changeItBack(d: Draft): string {
+  if ((d.candidates?.length ?? 0) > 1) return "/create/pattern";
+  return d.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
+}
+
 /** "Looks good as is": the picked piece is already cut out (no call); a change result is cut on the next screen. */
 export function skipChange({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">): void {
   const d = getDraft();

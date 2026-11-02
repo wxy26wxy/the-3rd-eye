@@ -522,7 +522,6 @@ struct YourCutoutView: View {
     case .create:
       guard app.createPath.last == .yourCutout else { return }
       flow.artwork = artwork
-      flow.product = nil
       app.push(.makingProduct)
     }
   }

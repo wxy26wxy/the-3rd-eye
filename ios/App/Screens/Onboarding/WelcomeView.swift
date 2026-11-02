@@ -19,7 +19,7 @@ struct WelcomeView: View {
           LogoMark(onPhoto: true).frame(minHeight: Theme.Size.minTarget)
           VStack(alignment: .leading, spacing: Theme.Space.m) {
             DisplayText("Your art, on things people love.", onPhoto: true)
-            Text("Draw it or say it. We make the sticker or tote.")
+            Text("Snap or upload your art. We make the sticker or tote.")
               .themeFont(.body)
               .foregroundStyle(colors.textOnDark)
               .fixedSize(horizontal: false, vertical: true)
@@ -27,7 +27,7 @@ struct WelcomeView: View {
           // The app's name for VoiceOver (the logo mark is decorative).
           .accessibilityElement(children: .combine)
           .accessibilityLabel(Text(verbatim: Tokens.Brand.name + ". ") + Text("Your art, on things people love.") + Text(verbatim: " ")
-                              + Text("Draw it or say it. We make the sticker or tote."))
+                              + Text("Snap or upload your art. We make the sticker or tote."))
           .accessibilityAddTraits(.isHeader)
           .padding(usesPanel ? Theme.Space.l : 0)
           .background {

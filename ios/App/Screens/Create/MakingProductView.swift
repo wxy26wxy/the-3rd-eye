@@ -30,6 +30,12 @@ struct MakingProductView: View {
       error = String(localized: "The design is missing. Go back and pick it again.")
       return
     }
+    // Back from Listing details and "Use this" again: the draft made for this cut-out is reused
+    // (a new cut of the same artwork rebuilds its products on the server).
+    if let product = flow.product, product.artworkId == artwork.id, product.type == type {
+      if app.createPath.last == .makingProduct { app.replaceTop(with: .listingDetails) }
+      return
+    }
     do {
       flow.product = try await app.api.createProduct(artworkId: artwork.id, type: type)
       if app.createPath.last == .makingProduct { app.replaceTop(with: .listingDetails) }

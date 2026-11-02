@@ -120,7 +120,6 @@ struct ChangeItView: View {
     guard let art = flow.currentArt else { return }
     if flow.changedArtwork == nil, art.cleanedUrl != nil {
       flow.artwork = art
-      flow.product = nil
       app.push(.makingProduct)
     } else {
       app.push(.makingCutout)

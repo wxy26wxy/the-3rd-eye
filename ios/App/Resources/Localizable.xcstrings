@@ -247,9 +247,6 @@
     "Draw a box around your art, or tap it, then tap Apply cutout." : {
 
     },
-    "Draw it or say it. We make the sticker or tote." : {
-
-    },
     "Draws a new version with your change" : {
 
     },
@@ -712,6 +709,9 @@
 
     },
     "Skip for now" : {
+
+    },
+    "Snap or upload your art. We make the sticker or tote." : {
 
     },
     "Snap your drawing" : {

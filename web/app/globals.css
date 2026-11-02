@@ -1,9 +1,9 @@
 /* Global base styles. Every value comes from app/tokens.css (generated from design/tokens.json). */
 
-/* next/font self-hosts Inter as --nf-body (app/layout.tsx); both token families point at it. */
+/* next/font self-hosts Outfit as --nf-body (app/layout.tsx); both token families point at it. */
 :root {
-  --font-display: var(--nf-body, 'Inter'), system-ui, sans-serif;
-  --font-body: var(--nf-body, 'Inter'), system-ui, sans-serif;
+  --font-display: var(--nf-body, 'Outfit'), system-ui, sans-serif;
+  --font-body: var(--nf-body, 'Outfit'), system-ui, sans-serif;
   /* Focus ring (Sky ruling): 2 px ink, 2 px offset so the page shows between ring and control. */
   --focus-width: calc(var(--border-thin) * 2);
   /* Layout widths (not design tokens; relative units only). Sky web boards (T106): 24 px gutter on

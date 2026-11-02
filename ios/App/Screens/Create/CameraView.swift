@@ -18,7 +18,8 @@ struct CameraView: View {
       step: (2, 3)
     ) {
       VStack(spacing: Theme.Space.l) {
-        SkyCard(pose: .front)
+        MascotPicture(asset: Tokens.Asset.mascotCard,
+                      description: "Our green mascot holds up a drawing, with tote bags and stickers floating around.")
         if source == .camera && !MediaPicker.cameraAvailable {
           Text("This device has no camera, so you can pick a picture instead.")
             .themeFont(.bodyS)

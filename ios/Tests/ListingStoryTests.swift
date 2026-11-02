@@ -100,3 +100,41 @@ final class ListingStoryTests: XCTestCase {
     XCTAssertTrue(app.hasCreationInProgress)
   }
 }
+
+/// Ruling (T122): every photo goes through Adjust the area before Change it.
+@MainActor
+final class AdjustAreaRouteTests: XCTestCase {
+  private let size = ImageSize(w: 1200, h: 1600)
+  private let one = Candidate(id: "c1", bbox: [100, 160, 500, 693])
+  private let two = Candidate(id: "c2", bbox: [660, 896, 1060, 1429])
+
+  func testAutoCutPieceSkipsChooseAPatternButNotTheFrame() {
+    let flow = CreateFlow()
+    let cut = Artwork(id: "p1", cleanedUrl: "https://x/cut.png")
+    flow.setPhoto(artwork: cut, candidates: [one], imageSize: size)
+    XCTAssertEqual(flow.routeAfterFinding(artwork: cut), .adjustArea)
+    XCTAssertEqual(flow.pieceCandidateId, "c1")
+    XCTAssertEqual(flow.pieceArtwork?.cleanedUrl, "https://x/cut.png")
+    XCTAssertEqual(flow.pieceCutFrom, "c1")
+    XCTAssertEqual(flow.pieceBox, AreaFrame.initial(piece: one, image: size).box,
+                   "kept with its starting frame: Use this area unchanged needs no new cut")
+  }
+
+  func testNoDrawingGoesStraightToTheFrame() {
+    let flow = CreateFlow()
+    let photo = Artwork(id: "p1")
+    flow.setPhoto(artwork: photo, candidates: [], imageSize: size)
+    XCTAssertEqual(flow.routeAfterFinding(artwork: photo), .adjustArea)
+    XCTAssertNil(flow.pieceArtwork)
+  }
+
+  func testSeveralDrawingsOrAnUncutOneAreChosenFirst() {
+    let flow = CreateFlow()
+    let photo = Artwork(id: "p1")
+    flow.setPhoto(artwork: photo, candidates: [one, two], imageSize: size)
+    XCTAssertEqual(flow.routeAfterFinding(artwork: photo), .choosePattern)
+    flow.setPhoto(artwork: photo, candidates: [one], imageSize: size)
+    XCTAssertEqual(flow.routeAfterFinding(artwork: photo), .choosePattern, "one drawing not cut yet: Choose a pattern shows it picked")
+    XCTAssertNil(flow.pieceArtwork)
+  }
+}

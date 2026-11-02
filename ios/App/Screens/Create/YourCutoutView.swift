@@ -12,7 +12,7 @@ struct YourCutoutView: View {
   private var cut: Artwork? { flow.cutoutArtwork?.cleanedUrl != nil ? flow.cutoutArtwork : nil }
 
   var body: some View {
-    FlowScreen(title: "Your cutout", subtitle: subtitle, step: (3, 3)) {
+    FlowScreen(title: "Your cutout", subtitle: "Here's your cutout.", step: (3, 3)) {
       VStack(spacing: Theme.Space.l) {
         if let cut {
           cutoutImage(cut)
@@ -34,10 +34,6 @@ struct YourCutoutView: View {
         app.createPath = [.chooseMethod, .camera(source)]
       }
     }
-  }
-
-  private var subtitle: LocalizedStringKey {
-    flow.cutoutArtwork?.parentArtworkId != nil ? "Here's the cutout of your changed art." : "Here's the cutout of your art."
   }
 
   private func cutoutImage(_ artwork: Artwork) -> some View {

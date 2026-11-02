@@ -28,8 +28,8 @@ struct StoryVideoView: View {
   ]
 
   var body: some View {
-    FlowScreen(title: redo ? "Record your story again" : "Tell buyers your story",
-               subtitle: redo ? "Record a short video, about 30 seconds. It replaces your story video on every product."
+    FlowScreen(title: "Tell buyers your story",
+               subtitle: redo ? "Your new video replaces this one on all your products."
                               : "Record a short video, about 30 seconds. Buyers see it when they tap the story tag. You only do this once.") {
       VStack(alignment: .leading, spacing: Theme.Space.l) {
         ForEach(Array(prompts.enumerated()), id: \.offset) { index, prompt in

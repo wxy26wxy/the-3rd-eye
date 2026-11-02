@@ -81,6 +81,10 @@ struct ListingDetailsView: View {
         .themeFont(.bodyL)
         .foregroundStyle(colors.text)
         .multilineTextAlignment(.center)
+      Text("We'll show the name, price and description when it's ready.")
+        .themeFont(.body)
+        .foregroundStyle(colors.textMuted)
+        .multilineTextAlignment(.center)
       ProgressView().tint(colors.text).accessibilityHidden(true)
       SlowWorkHint()
     }

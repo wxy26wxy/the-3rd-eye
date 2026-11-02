@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Board "You're live · Cloud studio" (`21:4554`): centred headline, the sky card with the standing
-/// mascot and the listed sticker, "<title> is in the shop.", then Make another / See what buyers see.
+/// Board "You're live · Cloud studio" (`21:4554`): centred headline, the shop mascot (T122 R7; no
+/// product card), "<title> is in the shop.", then Make another / See what buyers see.
 struct YoureLiveView: View {
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
@@ -13,25 +13,14 @@ struct YoureLiveView: View {
       .first { !$0.isEmpty }
   }
 
-  private var pictureURL: URL? {
-    ProductPicture.url(type: app.flow.product?.type ?? app.flow.productType, product: app.flow.product, artwork: app.flow.artwork)
-  }
-
   private var isTote: Bool { (app.flow.product?.type ?? app.flow.productType) == .tote }
 
   var body: some View {
     FlowScreen(title: "You're live!", showsBack: false, titleAlignment: .center) {
       VStack(alignment: .leading, spacing: Theme.Space.xxl) {
-        // Without a picture the sky card shows only the standing mascot (no second, sample mascot).
-        SkyCard(pose: .front, mascotAlignment: pictureURL == nil ? .bottom : .bottomLeading)
-          .overlay(alignment: .topTrailing) {
-            if let pictureURL {
-              StickerCard(url: pictureURL, altText: app.flow.artwork?.altText, size: ThemeEffects.liveSticker)
-                .rotationEffect(.degrees(ThemeEffects.liveStickerTilt))
-                .padding(.top, Theme.Space.xxl)
-                .padding(.trailing, Theme.Space.section)
-            }
-          }
+        // T122 R7: the shop mascot; the product itself is one tap away ("See what buyers see").
+        MascotPicture(asset: Tokens.Asset.mascotShop,
+                      description: "Our green mascot points at a shop page full of stickers and tote bags.")
         VStack(alignment: .leading, spacing: Theme.Space.s) {
           Group {
             if let listingTitle {

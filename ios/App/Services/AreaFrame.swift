@@ -3,7 +3,7 @@ import CoreGraphics
 /// Adjust the area (T122): the frame around the art, `[x0, y0, x1, y1]` in pixels of the stored
 /// original (`ImageSize`), the space `cleanup`'s `box` uses. It starts on the picked drawing's
 /// `bbox` grown by 8 %, or on the whole photo when no drawing was found; corners and edges are
-/// dragged, VoiceOver grows, shrinks and moves it by 10 %. Every result stays inside the photo and
+/// dragged, VoiceOver grows, shrinks and moves it by 10 % of the photo. Every result stays inside the photo and
 /// at least `minSide` wide and tall.
 struct AreaFrame: Equatable {
   var x0: Double
@@ -13,7 +13,7 @@ struct AreaFrame: Equatable {
 
   /// The picked drawing's box grows by this share of its own size (half on each side).
   static let growth = 0.08
-  /// One VoiceOver step: grow / shrink by 10 % of the frame, move by 10 % of the photo.
+  /// One VoiceOver step, a share of the photo: grow / shrink by 10 % (5 % on each side), move by 10 %.
   static let step = 0.10
   /// The smallest frame side, as a share of the photo's shorter side.
   static let minShare = 0.05
@@ -96,19 +96,26 @@ struct AreaFrame: Equatable {
     return next.clamped(to: image)
   }
 
-  /// Scaled by `factor` around its centre, then kept inside the photo (it slides away from an edge
-  /// rather than being cut, so "Grow" always grows while there is room).
-  func scaled(by factor: Double, in image: ImageSize) -> AreaFrame {
-    let side = Self.minSide(image)
-    let w = min(max(width * factor, side), image.w)
-    let h = min(max(height * factor, side), image.h)
-    let cx = min(max((x0 + x1) / 2, w / 2), image.w - w / 2)
-    let cy = min(max((y0 + y1) / 2, h / 2), image.h - h / 2)
-    return AreaFrame(x0: cx - w / 2, y0: cy - h / 2, x1: cx + w / 2, y1: cy + h / 2)
+  /// "Grow 10 %" (copy v4): each side moves out 5 % of the photo, stopping at the photo's edges.
+  func grown(in image: ImageSize) -> AreaFrame {
+    let dx = image.w * Self.step / 2
+    let dy = image.h * Self.step / 2
+    return AreaFrame(x0: max(0, x0 - dx), y0: max(0, y0 - dy), x1: min(image.w, x1 + dx), y1: min(image.h, y1 + dy))
   }
 
-  func grown(in image: ImageSize) -> AreaFrame { scaled(by: 1 + Self.step, in: image) }
-  func shrunk(in image: ImageSize) -> AreaFrame { scaled(by: 1 - Self.step, in: image) }
+  /// "Shrink 10 %": each side moves in 5 % of the photo, stopping at the smallest size (around the
+  /// frame's centre).
+  func shrunk(in image: ImageSize) -> AreaFrame {
+    let side = Self.minSide(image)
+    func axis(_ lo: Double, _ hi: Double, by d: Double) -> (Double, Double) {
+      let size = max(hi - lo - 2 * d, min(side, hi - lo))
+      let centre = (lo + hi) / 2
+      return (centre - size / 2, centre + size / 2)
+    }
+    let (nx0, nx1) = axis(x0, x1, by: image.w * Self.step / 2)
+    let (ny0, ny1) = axis(y0, y1, by: image.h * Self.step / 2)
+    return AreaFrame(x0: nx0, y0: ny0, x1: nx1, y1: ny1)
+  }
 
   /// Moved by 10 % of the photo in `direction`, stopping at the edge.
   func moved(_ direction: Direction, in image: ImageSize) -> AreaFrame {

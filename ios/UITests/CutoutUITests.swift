@@ -105,13 +105,14 @@ final class CutoutUITests: XCTestCase {
     XCTAssertFalse(app.buttons["Reset"].isEnabled, "the frame did not move")
   }
 
-  /// No drawing found (mock NONE…): the frame starts on the whole photo and is sent alone.
+  /// No drawing found (mock NONE…): straight to Adjust the area (no Choose a pattern); the frame
+  /// starts on the whole photo and is sent alone.
   func testNoDrawingUsesTheWholePhoto() throws {
     let app = launchPhotoFlow(code: "NONE-CODE")
-    let line = "We couldn't find a drawing in your photo. Use this to frame it yourself, or take the photo again."
-    XCTAssertTrue(app.staticTexts[line].waitForExistence(timeout: 20))
-    tap(app, "Use this")
-    XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 10), "Adjust the area on the whole photo")
+    XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 20), "Adjust the area on the whole photo")
+    let line = "We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it."
+    XCTAssertTrue(app.staticTexts[line].exists)
+    XCTAssertFalse(app.buttons["Retake"].exists, "no Choose a pattern step")
     tap(app, "Use this area")
     XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "a cut-out exists, so Change it")
     let body = try lastBody("cleanup")

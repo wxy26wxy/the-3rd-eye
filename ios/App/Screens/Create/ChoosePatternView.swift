@@ -41,7 +41,9 @@ struct ChoosePatternView: View {
   private var subtitle: LocalizedStringKey {
     let tote = flow.productType == .tote
     switch candidates.count {
-    case 0: return "We couldn't find a drawing in your photo. Use this to frame it yourself, or take the photo again."
+    // Finding drawings sends a photo without drawings straight to Adjust the area (T122); this only
+    // shows if the drawings went missing on the way.
+    case 0: return "We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it."
     case 1: return tote ? "We found one drawing in your photo. Use it to change and turn into a tote bag."
                         : "We found one drawing in your photo. Use it to change and turn into a sticker."
     default: return tote ? "We found \(candidates.count) drawings in your photo. Pick one to change and turn into a tote bag."

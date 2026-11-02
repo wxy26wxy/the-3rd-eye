@@ -64,18 +64,20 @@ final class AreaFrameTests: XCTestCase {
 
   // MARK: VoiceOver actions
 
-  func testGrowAndShrinkByTenPercentAroundTheCentre() {
+  /// Copy v4: each side moves out (in) 5 % of the photo: 60 px across, 80 px down on 1200 × 1600.
+  func testGrowAndShrinkByFivePercentOfThePhotoOnEachSide() {
     let start = AreaFrame(x0: 400, y0: 400, x1: 800, y1: 1200)
-    assertBox(start.grown(in: size), [380, 360, 820, 1240])
-    assertBox(start.shrunk(in: size), [420, 440, 780, 1160])
+    assertBox(start.grown(in: size), [340, 320, 860, 1280])
+    assertBox(start.shrunk(in: size), [460, 480, 740, 1120])
   }
 
-  func testGrowSlidesAwayFromAnEdgeAndStopsAtThePhoto() {
+  func testGrowStopsAtThePhotoAndShrinkAtTheSmallestSize() {
     let atEdge = AreaFrame(x0: 0, y0: 0, x1: 400, y1: 400)
-    assertBox(atEdge.grown(in: size), [0, 0, 440, 440])
-    XCTAssertEqual(AreaFrame.whole(size).grown(in: size), .whole(size))
-    let tiny = AreaFrame(x0: 0, y0: 0, x1: 60, y1: 60)
-    XCTAssertEqual(tiny.shrunk(in: size).width, 60, accuracy: 0.001, "never smaller than 60 px")
+    assertBox(atEdge.grown(in: size), [0, 0, 460, 480])
+    XCTAssertEqual(AreaFrame.whole(size).grown(in: size), .whole(size), "nothing more to grow: the screen says it is at the edge")
+    let small = AreaFrame(x0: 100, y0: 100, x1: 200, y1: 200)
+    assertBox(small.shrunk(in: size), [120, 120, 180, 180], accuracy: 0.001)
+    XCTAssertEqual(small.shrunk(in: size).shrunk(in: size), small.shrunk(in: size), "60 px is the smallest")
   }
 
   func testMoveByTenPercentOfThePhoto() {

@@ -27,6 +27,9 @@ final class ListingStoryUITests: XCTestCase {
     let upload = app.buttons["Upload a picture, Pick one you already have"]
     XCTAssertTrue(upload.waitForExistence(timeout: 5))
     upload.tap()
+    let frame = app.buttons["Use this area"]
+    XCTAssertTrue(frame.waitForExistence(timeout: 20), "Adjust the area")
+    frame.tap()
     let keep = app.buttons["Looks good as is"]
     XCTAssertTrue(keep.waitForExistence(timeout: 20))
     for _ in 0..<3 where !keep.isHittable { app.swipeUp() }
@@ -56,13 +59,15 @@ final class ListingStoryUITests: XCTestCase {
     XCTAssertTrue(waitForLabel(row, containing: "Recorded"), "it says the video is recorded")
     row.tap()
     XCTAssertTrue(app.buttons["Record again"].waitForExistence(timeout: 10), "My story video")
+    XCTAssertTrue(app.buttons["Watch"].exists)
     XCTAssertTrue(app.descendants(matching: .any)["story-player"].exists, "the player")
     let setting = app.descendants(matching: .any)["story-disability"]
     XCTAssertTrue(setting.exists)
     XCTAssertTrue(setting.label.contains("Off"), "the disability setting is shown")
     attachScreenshot(app, "my-story-video")
     app.buttons["Record again"].tap()
-    XCTAssertTrue(app.staticTexts["Record your story again"].waitForExistence(timeout: 5), "Story video, redo mode")
+    XCTAssertTrue(app.staticTexts["Tell buyers your story"].waitForExistence(timeout: 5), "Story video")
+    XCTAssertTrue(app.staticTexts["Your new video replaces this one on all your products."].exists, "in its redo mode")
     XCTAssertFalse(app.buttons["Skip for now"].exists)
     app.buttons["Cancel"].tap()
     XCTAssertTrue(app.buttons["Record again"].waitForExistence(timeout: 5), "back on My story video")

@@ -82,12 +82,15 @@ final class ChangeItUITests: XCTestCase {
     XCTAssertEqual(try lastBody("products")["artworkId"] as? String, "p1", "the original drawing becomes the product")
   }
 
-  /// One drawing, already cut out (mock ONE…): no Choose a pattern; Change it comes first, and a tote
-  /// bag is made with the tote copy.
+  /// One drawing, already cut out (mock ONE…): no Choose a pattern, but Adjust the area still comes
+  /// first (ruling, T122); its frame unchanged sends no new cut. Then a tote bag with the tote copy.
   func testSingleDrawingGoesStraightToChangeIt() throws {
     let app = launchPhotoFlow(code: "ONE-CODE", product: "Tote bag, Natural canvas")
-    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 20), "Change it right after the photo")
+    XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 20), "Adjust the area right after the photo")
     XCTAssertFalse(app.buttons["Piece 1"].exists)
+    tap(app, "Use this area")
+    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "then Change it")
+    XCTAssertTrue(try lastBody("cleanup").isEmpty, "the server's cut is kept")
     XCTAssertTrue(element(app, containing: "WHAT THE IMAGE SHOWS", and: "Cut-out of piece 1").exists)
     app.buttons["Looks good as is"].tap()
     XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 20), "Making your tote bag, then Listing details")
@@ -97,6 +100,7 @@ final class ChangeItUITests: XCTestCase {
   /// "Make the change" waits for words; the mic button is there with its label.
   func testMakeTheChangeNeedsWords() {
     let app = launchPhotoFlow(code: "ONE-CODE")
+    tap(app, "Use this area")
     let make = app.buttons["Make the change"]
     XCTAssertTrue(make.waitForExistence(timeout: 20))
     XCTAssertFalse(make.isEnabled, "dimmed until there is a change")
@@ -110,6 +114,7 @@ final class ChangeItUITests: XCTestCase {
   /// card, each at least half its width, and nothing is pinned under the content.
   func testChangeButtonsShareOneRow() {
     let app = launchPhotoFlow(code: "ONE-CODE")
+    tap(app, "Use this area")
     let make = app.buttons["Make the change"]
     let keep = app.buttons["Looks good as is"]
     XCTAssertTrue(make.waitForExistence(timeout: 20))

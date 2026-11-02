@@ -10,9 +10,9 @@ import SwiftUI
 /// Coordinates: the frame is kept in pixels of the stored original and drawn with the same
 /// view ↔ image mapping as the other photo screens (`CutoutGeometry.fitRect` / `viewRect`).
 ///
-/// VoiceOver: the photo and frame are one element, "The area to cut out", whose value is its size;
-/// the actions grow, shrink and move it by 10 % (swipe up / down grows / shrinks too) and each says
-/// the new size.
+/// VoiceOver: the photo and frame are one element, "Area frame", whose value is its size; the
+/// actions grow, shrink and move it by 10 % of the photo and each says the new size (or that it is
+/// at the edge / the smallest size). Copy: docs/design/copy-v4.md.
 struct AdjustAreaView: View {
   /// The Create flow, or "Re-do the cutout" on a saved design (`AppState.designFlow`).
   enum Origin { case create, designs }
@@ -38,12 +38,11 @@ struct AdjustAreaView: View {
         if let error { ErrorCard(message: error) }
       }
     } actions: {
-      PillButton(working ? "Cutting it out…" : "Use this area",
-                 hint: isRedo ? "Cuts out what the frame holds and saves it" : "Cuts out what the frame holds and goes on") {
+      PillButton(working ? "Cutting out your art…" : "Use this area", hint: "Cuts out what is inside the frame") {
         Task { await useThisArea() }
       }
       .disabled(working || area == nil || artwork == nil)
-      PillButton("Reset", hint: "Puts the frame back where it started", kind: .secondary, showsArrow: false) {
+      PillButton("Reset", hint: "Puts the frame back around your drawing", kind: .secondary, showsArrow: false) {
         reset()
       }
       .disabled(working || area == nil || area == startArea)
@@ -87,14 +86,20 @@ struct AdjustAreaView: View {
 
   private var subtitle: LocalizedStringKey {
     piece == nil
-      ? "We couldn't find a drawing, so the frame holds the whole photo. Drag its corners or edges to fit your art."
-      : "Drag the corners or edges so the frame holds all of your art."
+      ? "We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it."
+      : "Drag the corners so the frame covers your drawing."
   }
 
-  /// "The area is 45 % of the photo's width and 33 % of its height."
+  /// "Frame covers 45 by 33 percent of the photo" (copy v4).
   static func sizeText(_ area: AreaFrame, image: ImageSize) -> String {
     let share = area.percent(of: image)
-    return String(localized: "The area is \(share.width) % of the photo's width and \(share.height) % of its height.")
+    return String(localized: "Frame covers \(share.width) by \(share.height) percent of the photo")
+  }
+
+  /// What a VoiceOver action says: the new size, or why the frame did not change.
+  static func announcement(from old: AreaFrame, to new: AreaFrame, shrinking: Bool, image: ImageSize) -> String {
+    guard new == old else { return sizeText(new, image: image) }
+    return shrinking ? String(localized: "The frame can't get smaller") : String(localized: "The frame is at the edge of the photo")
   }
 
   // MARK: Photo
@@ -126,19 +131,12 @@ struct AdjustAreaView: View {
         }
       }
       .accessibilityElement(children: .ignore)
-      .accessibilityLabel(Text("The area to cut out"))
+      .accessibilityLabel(Text("Area frame"))
       .accessibilityValue(Text(area.map { Self.sizeText($0, image: size) } ?? ""))
-      .accessibilityHint(Text("Use the actions to make it bigger, smaller or move it."))
-      .accessibilityAdjustableAction { direction in
-        switch direction {
-        case .increment: apply { $0.grown(in: size) }
-        case .decrement: apply { $0.shrunk(in: size) }
-        @unknown default: break
-        }
-      }
+      .accessibilityHint(Text("Drag a corner or an edge to change the area. Swipe up or down for more actions."))
       .accessibilityActions {
         Button("Grow 10 %") { apply { $0.grown(in: size) } }
-        Button("Shrink 10 %") { apply { $0.shrunk(in: size) } }
+        Button("Shrink 10 %") { apply(shrinking: true) { $0.shrunk(in: size) } }
         Button("Move up 10 %") { apply { $0.moved(.up, in: size) } }
         Button("Move down 10 %") { apply { $0.moved(.down, in: size) } }
         Button("Move left 10 %") { apply { $0.moved(.left, in: size) } }
@@ -218,19 +216,19 @@ struct AdjustAreaView: View {
   }
 
   /// A VoiceOver action: change the frame and say its new size.
-  private func apply(_ change: (AreaFrame) -> AreaFrame) {
+  private func apply(shrinking: Bool = false, _ change: (AreaFrame) -> AreaFrame) {
     guard !working, let current = area, let size = imageSize else { return }
     let next = change(current)
     area = next
     error = nil
-    UIAccessibility.post(notification: .announcement, argument: Self.sizeText(next, image: size))
+    UIAccessibility.post(notification: .announcement, argument: Self.announcement(from: current, to: next, shrinking: shrinking, image: size))
   }
 
   private func reset() {
-    guard let start = startArea, let size = imageSize else { return }
+    guard let start = startArea else { return }
     area = start
     error = nil
-    UIAccessibility.post(notification: .announcement, argument: Self.sizeText(start, image: size))
+    UIAccessibility.post(notification: .announcement, argument: String(localized: "Frame reset"))
   }
 
   // MARK: Requests

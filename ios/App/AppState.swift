@@ -263,6 +263,21 @@ final class CreateFlow {
     resetChange()
   }
 
+  /// Where Finding drawings goes with the photo answer (ruling, T122): Adjust the area always comes
+  /// before Change it. No drawing found, or one the server already cut out: straight to Adjust the
+  /// area (no choice to make); the auto-cut piece is kept with the frame it starts on, so "Use this
+  /// area" without a change sends nothing. Otherwise Choose a pattern first.
+  func routeAfterFinding(artwork: Artwork) -> CreateRoute {
+    if photoCandidates.isEmpty { return .adjustArea }
+    guard photoCandidates.count == 1, artwork.cleanedUrl != nil, let only = photoCandidates.first else { return .choosePattern }
+    pieceCandidateId = only.id
+    pieceArtwork = artwork
+    pieceCutFrom = only.id
+    let size = photoImageSize?.isUsable == true ? photoImageSize : photo.map { ImageSize(w: $0.size.width * $0.scale, h: $0.size.height * $0.scale) }
+    pieceBox = size.flatMap { $0.isUsable ? AreaFrame.initial(piece: only, image: $0).box : nil }
+    return .adjustArea
+  }
+
   /// Back to the art as it was picked (no change yet).
   func resetChange() {
     changedArtwork = nil

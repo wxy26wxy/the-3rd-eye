@@ -130,7 +130,7 @@ struct StoryVideoRow: View {
     .buttonStyle(.plain)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel(Text("My story video") + Text(verbatim: ", ") + Text(state.detail(recorded: date)))
-    .accessibilityHint(Text("Watch it or record it again"))
+    .accessibilityHint(Text("Opens your story video"))
     .accessibilityAddTraits(.isButton)
     .accessibilityIdentifier("story-video-row")
     .task(id: state) {
@@ -170,15 +170,19 @@ struct StoryVideoLibraryView: View {
   @Environment(\.themeColors) private var colors
   @State private var player: AVPlayer?
   @State private var caption: String?
+  @State private var failed = false
+  @State private var recordedAt: Date?
 
   private var state: StoryVideoState { .of(app.creator) }
   private var captions: Captions { Captions(vtt: app.creator?.storyVideoVtt) }
 
   var body: some View {
-    FlowScreen(title: "My story video", subtitle: "Buyers see it when they tap the story tag on your products.") {
+    FlowScreen(title: "My story video") {
       VStack(alignment: .leading, spacing: Theme.Space.l) {
         if state.url != nil {
           playerCard
+          if failed { ErrorCard(message: String(localized: "We couldn't load your video. Try again later.")) }
+          Text(state.detail(recorded: recordedAt)).themeFont(.body).foregroundStyle(colors.textMuted)
           if let caption {
             Text(caption)
               .themeFont(.bodyL)
@@ -196,16 +200,26 @@ struct StoryVideoLibraryView: View {
         } else {
           SkyCard(pose: .front)
           Text("No story video yet").themeFont(.titleL).foregroundStyle(colors.text)
-          Text("Record a short video, about 30 seconds, so buyers can meet you.")
-            .themeFont(.body)
-            .foregroundStyle(colors.textMuted)
         }
       }
     } actions: {
+      if state.url != nil {
+        PillButton("Watch", kind: .secondary, showsArrow: false) {
+          player?.seek(to: .zero)
+          player?.play()
+        }
+        .disabled(player == nil || failed)
+      }
       PillButton(state.url != nil ? "Record again" : "Record my video",
-                 hint: state.url != nil ? "Replaces your story video on every product" : "Opens the camera for up to 30 seconds") {
+                 hint: state.url != nil ? "Your new video replaces this one on all your products." : "Opens the camera for up to 30 seconds") {
         player?.pause()
         app.push(.recordStoryAgain)
+      }
+      if state.url != nil {
+        Text("Your new video replaces this one on all your products.")
+          .themeFont(.bodyS)
+          .foregroundStyle(colors.textMuted)
+          .multilineTextAlignment(.center)
       }
     }
     .task { await app.refreshCreator() }
@@ -237,7 +251,7 @@ struct StoryVideoLibraryView: View {
       HStack(alignment: .top, spacing: Theme.Space.m) {
         VStack(alignment: .leading, spacing: Theme.Space.xs) {
           Text("Mention my disability").themeFont(.titleM).foregroundStyle(colors.text)
-          Text(on ? "Your story may say it. Record again to change this." : "Your story never says it. Record again to change this.")
+          Text("Off means your story never says it. You can change this later.")
             .themeFont(.bodyS)
             .foregroundStyle(colors.textMuted)
         }
@@ -253,6 +267,8 @@ struct StoryVideoLibraryView: View {
   private func play(_ url: URL?) async {
     player?.pause()
     caption = nil
+    failed = false
+    recordedAt = nil
     guard let url else {
       player = nil
       return
@@ -260,10 +276,12 @@ struct StoryVideoLibraryView: View {
     let next = AVPlayer(url: url)
     player = next
     let cues = captions
+    Task { recordedAt = await StoryVideoPreview.load(url).date }
     while !Task.isCancelled {
       let time = next.currentTime().seconds
       let text = time.isFinite ? cues.text(at: time) : nil
       if text != caption { caption = text }
+      if next.currentItem?.status == .failed, !failed { failed = true }
       try? await Task.sleep(for: .milliseconds(250))
     }
   }

@@ -99,6 +99,7 @@ Questions for the designer, v3 (T110):
 - **Phone boards not rebuilt:** Shop · Mobile `2018:1970` and Product page · Mobile `2019:2098` still show the v2 layout; the code reflows the 1440 boards. A 390 board for each would settle the order of sections on phones.
 - **Strings with no board:** the PM defaults at the end of `docs/design/copy-v3-web.md` and `docs/design/copy-v3-ios.md` (tote product eyebrow, quantity stepper names, the Add-to-bag sheet, the "Looks good as is" cutout wording, the iOS Welcome sentence, …).
 - **Maker method chips** ("Draws by hand", "Paints by hand") have no data field; omitted until one exists.
+- **`mascot-card` naming (T120):** the brief described the card mascot as "on clouds"; the file shows the mascot on a fuzzy cactus against a flat blue sky. The alt text describes the picture as it is; the name `mascotCard` stays.
 - **Outfit I / l** look alike (designer's own note); kept, logged in `docs/accessibility.md`.
 
 Still open from v2 (T100): `#5FAE57` selected radio border, `#19583C` badge text, `#C6C6C6` tote shadow (`#E4F3C8` and `#374151` are now `accentSoft` and `inkSoft`); card borders `#D1D5DB` at 1.47:1; the wordmark (no board draws it). Answered by v3: Figtree is gone (Outfit everywhere); the eyebrow is 13 px SemiBold, 1 px tracking.

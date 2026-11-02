@@ -47,7 +47,7 @@ The space between "10" and "%" follows the brief's wording ("Grow 10 %"); keep i
 | Web key | iOS key | Old | New |
 |---|---|---|---|
 | `create.select.use` | `Use this` | Use this (→ Change it) | Use this (→ **Adjust the area**) — text unchanged, destination changed |
-| `create.select.copyNone` | `Draw a box around your art, or tap it, then tap Apply cutout.` (iOS no-drawing line) | We could not find your drawing by ourselves. Draw a box around it on the photo. | **removed** on Choose a pattern: with no drawing found the flow goes straight to Adjust the area with the whole photo (`create.adjust.copyNone`) |
+| `create.select.copyNone` | `Draw a box around your art, or tap it, then tap Apply cutout.` (in the catalogue; checked 2026-11-03: used as the no-cutout subtitle in `YourCutoutView.swift`, not on Choose a pattern; confirm the key and its users before deleting) | We could not find your drawing by ourselves. Draw a box around it on the photo. | **removed**: with no drawing found the flow goes straight to Adjust the area with the whole photo (`create.adjust.copyNone`); Your cutout no longer has a no-cutout state with tools |
 | `create.select.boxAround`, `create.select.addAround`, `create.select.keyboardHint`, `create.select.keyboardHintNone`, `create.select.wholePhoto` | — | Box around this piece / Add the area around this piece / … / Use the whole photo | **removed** (no per-piece tools; the frame replaces them) |
 | — | `Box around this piece`, `Add the area around this piece`, `Leave this piece out` (if still in the catalogue) | — | **removed** |
 

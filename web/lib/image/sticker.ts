@@ -108,12 +108,20 @@ export function cutUpscale(bbox: BBox, minShortSide = MIN_SHORT_SIDE): number {
   return Math.min(MAX_UPSCALE, minShortSide / short);
 }
 
+/** Longer side of the public sticker preview (T121). */
+export const PREVIEW_MAX_PX = 1200;
+
 export type StickerFiles = {
   printPng: Buffer; dieCutSvg: string; cutPath: string;
+  /** Public preview: art over the white border up to the cut line (no bleed), transparent outside, longer side ≤ PREVIEW_MAX_PX. */
+  previewPng: Buffer;
   widthPx: number; heightPx: number; widthMm: number; heightMm: number;
 };
 
-/** Builds the print PNG (art over white border + bleed, transparent outside) and the die-cut SVG. */
+/**
+ * Builds the print PNG (art over white border + bleed, transparent outside), the die-cut SVG and
+ * the public preview (the same art over the border up to the cut line, downscaled).
+ */
 export async function composeSticker(artPng: Buffer, opts: { borderMm?: number; bleedMm?: number } = {}): Promise<StickerFiles> {
   const art = await ensureDpi(artPng);
   const mask = await maskFromAlpha(art);
@@ -130,8 +138,10 @@ export async function composeSticker(artPng: Buffer, opts: { borderMm?: number; 
   const { width, height } = cut;
 
   const white = Buffer.alloc(width * height * 4);
+  const whiteCut = Buffer.alloc(width * height * 4);
   for (let i = 0; i < width * height; i++) {
     if (bleed.data[i]) white.writeUInt32BE(0xffffffff, i * 4);
+    if (cut.data[i]) whiteCut.writeUInt32BE(0xffffffff, i * 4);
   }
   const artPadded = await sharp(art).ensureAlpha()
     .extend({ top: pad, bottom: pad, left: pad, right: pad, background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
@@ -140,6 +150,7 @@ export async function composeSticker(artPng: Buffer, opts: { borderMm?: number; 
     .withMetadata({ density: PRINT_DPI })
     .png()
     .toBuffer();
+  const previewPng = await stickerPreview(whiteCut, artPadded, width, height);
 
   const cutPath = await traceOutline(cut);
   const widthMm = Math.round((width / PRINT_DPI) * 25.4 * 100) / 100;
@@ -147,7 +158,22 @@ export async function composeSticker(artPng: Buffer, opts: { borderMm?: number; 
   const dieCutSvg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${widthMm}mm" height="${heightMm}mm" viewBox="0 0 ${width} ${height}">` +
     `<path id="die-cut" d="${cutPath}" fill="none" stroke="#ff00ff" stroke-width="2"/></svg>`;
-  return { printPng, dieCutSvg, cutPath, widthPx: width, heightPx: height, widthMm, heightMm };
+  return { printPng, previewPng, dieCutSvg, cutPath, widthPx: width, heightPx: height, widthMm, heightMm };
+}
+
+/**
+ * The sticker as a buyer sees it: the art over its white border up to the cut line (the print
+ * file's bleed is left off), transparent outside, trimmed to the border, longer side at most
+ * PREVIEW_MAX_PX (never enlarged). Public; shown with `contain` (T121).
+ */
+async function stickerPreview(whiteCut: Buffer, artPadded: Buffer, width: number, height: number): Promise<Buffer> {
+  const flat = await sharp(whiteCut, { raw: { width, height, channels: 4 } })
+    .composite([{ input: artPadded, left: 0, top: 0 }]).png().toBuffer();
+  const trimmed = await sharp(flat).trim({ threshold: 0 }).png().toBuffer().catch(() => flat);
+  return sharp(trimmed)
+    .resize(PREVIEW_MAX_PX, PREVIEW_MAX_PX, { fit: "inside", withoutEnlargement: true, kernel: "lanczos3" })
+    .png({ compressionLevel: 9 })
+    .toBuffer();
 }
 
 /**

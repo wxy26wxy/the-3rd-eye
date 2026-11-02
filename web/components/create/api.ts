@@ -32,7 +32,7 @@ export type CleanupResult = Artwork & { details?: { failedProductIds: string[]; 
 export type Product = {
   id: string; artworkId: string; creatorId: string; type: ProductType; mockupUrl: string | null; printPngUrl: string | null; printSvgUrl: string | null; priceCents: number; status: string;
   /** Public bordered die-cut sticker PNG (R1, T121); null for a tote and before it exists. */
-  previewUrl?: string | null;
+  previewUrl: string | null;
 };
 export type ListingDraft = { title: string; description: string; tags: string[]; price_cents: number; print_ok: boolean; notes: string };
 export type AgentStep = { step: number; tool?: string; args?: unknown; result?: unknown; text?: string };

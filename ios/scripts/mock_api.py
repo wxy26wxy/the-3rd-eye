@@ -26,11 +26,21 @@ containing "nothing" gives description.differences "" (the app shows its own cop
 /artworks/<id>/cutout answers the cut-out row, the two candidates (largest first) and imageSize, only for
 a change result ch<n> (any other id: 409 not_a_change, as the server); sign-in NOCUT... makes it 422.
 change answers 201 like the server. GET /__mock/last/<change|cutout> as above.
+Sticker preview, listing run, story video (T121): every sticker product carries previewUrl
+(<base>/sticker-preview.png, a 240 px bordered die-cut sticker on transparency; totes: null).
+POST /listings/<id>/run sleeps 2 s and answers {listing, trace} (title/description/price_cents filled;
+GET /__mock/last/run has the product id). GET /creators/me returns storyVideoUrl (a pathname the mock
+serves at /media/<pathname>, a short MP4 with Range support) and storyVideoVtt; sign-in NOVIDEO...
+returns both null ("No story video yet"); POST /creators/me/story-video replaces them.
 """
 import json
+import math
+import os
 import re
+import struct
 import sys
 import time
+import zlib
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -40,6 +50,45 @@ PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d4948445200000001000000010806000000"
     "1f15c4890000000d49444154789c63f8cfc0f01f0005000201a5d8b1c9"
     "0000000049454e44ae426082")
+
+
+
+def _png_rgba(width, height, pixel):
+    """Encodes an RGBA PNG; pixel(x, y) -> (r, g, b, a)."""
+    rows = b"".join(b"\x00" + b"".join(bytes(pixel(x, y)) for x in range(width)) for y in range(height))
+
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(rows, 9)) + chunk(b"IEND", b""))
+
+
+def _sticker_pixel(x, y, size=240):
+    """A green disc with a dark outline inside a white die-cut border, transparent outside (T121 preview)."""
+    d = math.hypot(x + 0.5 - size / 2, y + 0.5 - size / 2)
+    if d > 116:
+        return (0, 0, 0, 0)
+    if d > 100:
+        return (255, 255, 255, 255)
+    if d > 92:
+        return (20, 24, 32, 255)
+    return (59, 178, 115, 255)
+
+
+# The bordered sticker preview every mock sticker product points at (previewUrl).
+STICKER_PREVIEW_PNG = _png_rgba(240, 240, _sticker_pixel)
+# Story video sample served at /media/<pathname> (any short MP4 in the repo).
+_HERE = os.path.dirname(os.path.abspath(__file__))
+STORY_MP4_PATH = os.path.join(_HERE, "..", "App", "Resources", "Animations", "sticker-loading.mp4")
+STORY_VIDEO_PATH = "creators/c-test/story-video/mock-story.mp4"
+STORY_VTT = ("WEBVTT\n\n00:00.000 --> 00:02.000\nHi, I am Test Artist.\n\n"
+             "00:02.000 --> 00:04.000\nI draw frogs with crowns.\n")
+STORY = {"url": STORY_VIDEO_PATH, "vtt": STORY_VTT}
+
+
+def preview_for(product_id, kind):
+    return f"{BASE}/sticker-preview.png?p={product_id}" if kind == "sticker" else None
+
 
 CREATOR = {
     "id": "c-test", "slug": "test", "displayName": "Test Artist", "studioName": "Mock Studio",
@@ -73,8 +122,13 @@ STORY_DRAFT = {
 def story_video(body):
     # Captions come from the WAV soundtrack; the app should always send one with the video.
     print(f"mock_api: story-video videoUrl={body.get('videoUrl')} audioUrl={body.get('audioUrl')}", file=sys.stderr, flush=True)
-    return {**CREATOR, "storyVideoUrl": body.get("videoUrl"), "storyVideoVtt": "WEBVTT\n" if body.get("audioUrl") else None,
-            "storyDraft": STORY_DRAFT}
+    STORY["url"], STORY["vtt"] = body.get("videoUrl"), (STORY_VTT if body.get("audioUrl") else None)
+    return {**CREATOR, "storyVideoUrl": STORY["url"], "storyVideoVtt": STORY["vtt"],
+            "mentionDisability": bool(body.get("mentionDisability", CREATOR["mentionDisability"])), "storyDraft": STORY_DRAFT}
+
+
+def creator_me(_body):
+    return {**CREATOR, "storyVideoUrl": STORY["url"], "storyVideoVtt": STORY["vtt"]}
 
 
 def thank_you(body):
@@ -95,7 +149,7 @@ CANDIDATES = [
 LAST = {}
 # A sign-in code starting with ONE makes photo answers carry a single, already cut-out candidate.
 # NOCUT… makes every cleanup answer 422; DETAILS… makes it carry non-empty details.
-MODE = {"single": False, "none": False, "fail": False, "details": False, "slow": False, "noprint": False}
+MODE = {"single": False, "none": False, "fail": False, "details": False, "slow": False, "noprint": False, "novideo": False}
 CUTS = {"n": 0}
 
 
@@ -237,7 +291,7 @@ def designs():
             "originalUrl": f"{BASE}/img.png", "cleanedUrl": cleaned, "maskUrl": None, "cutPathSvg": None,
             "altText": alt, "spokenDescription": None, "differencesFromPrompt": None, "genResponseId": None,
             "parentArtworkId": None, "changeInstruction": None, "status": "ready" if cleaned else "draft", "lastError": last_error,
-            "createdAt": created, "products": products,
+            "createdAt": created, "products": [{**p, "previewUrl": preview_for(p["id"], p["type"])} for p in products],
         }
     return [
         # Live price 8.00 differs from the agent's suggestion 5.00 (SUGGESTED_CENTS): an approve
@@ -299,8 +353,10 @@ def create_product(body):
     LAST["products"] = body
     if body.get("artworkId") in {d["id"] for d in DESIGNS["list"]} and not find_design(body["artworkId"])["cleanedUrl"]:
         raise MockError(409, "artwork_not_ready", "Pick and clean up the artwork first")
-    return {"id": f"pr-new-{body.get('type')}", "artworkId": body.get("artworkId"), "creatorId": "c-test",
-            "type": body.get("type"), "mockupUrl": f"{BASE}/img.png", "printPngUrl": None, "printSvgUrl": None,
+    product_id = f"pr-new-{body.get('type')}"
+    return {"id": product_id, "artworkId": body.get("artworkId"), "creatorId": "c-test",
+            "type": body.get("type"), "mockupUrl": f"{BASE}/img.png", "previewUrl": preview_for(product_id, body.get("type")),
+            "printPngUrl": None, "printSvgUrl": None,
             "priceCents": 500, "status": "draft"}
 
 
@@ -313,9 +369,11 @@ def approve(product_id, body):
     if "unkind" in words:
         raise MockError(409, "moderation_failed", "flagged: harassment (0.91)")
     price = edits.get("priceCents")
+    kind = "tote" if product_id.endswith("tote") else "sticker"
     for d in DESIGNS["list"]:
         for p in d["products"]:
             if p["id"] == product_id:
+                kind = p["type"]
                 p["status"] = "published"
                 p["title"] = edits.get("title") or p["title"]
                 p["priceCents"] = price or p.get("priceCents") or SUGGESTED_CENTS
@@ -323,13 +381,35 @@ def approve(product_id, body):
                 if "description" in edits:
                     p["description"] = edits["description"]
     title = edits.get("title") or "Listing"
-    return {"product": {"id": product_id, "artworkId": None, "creatorId": "c-test", "type": "sticker",
-                        "mockupUrl": f"{BASE}/img.png", "printPngUrl": None, "printSvgUrl": None,
+    return {"product": {"id": product_id, "artworkId": None, "creatorId": "c-test", "type": kind,
+                        "mockupUrl": f"{BASE}/img.png", "previewUrl": preview_for(product_id, kind), "printPngUrl": None, "printSvgUrl": None,
                         "priceCents": price or SUGGESTED_CENTS, "status": "published"},
             "listing": {"productId": product_id, "title": title, "description": edits.get("description"),
                         "tags": [], "priceSuggestionCents": SUGGESTED_CENTS, "approvedAt": "2026-10-30T10:00:00Z",
                         "approvedVia": body.get("approvedVia"), "madeByVoice": False},
             "storyVideoNeeded": False}
+
+
+def run_listing(product_id, _body):
+    """POST /listings/<id>/run: the listing agent's draft after about 2 s (the app shows its drafting card meanwhile)."""
+    LAST["run"] = {"productId": product_id}
+    time.sleep(2)
+    kind, title, description = ("tote" if product_id.endswith("tote") else "sticker"), None, None
+    for d in DESIGNS["list"]:
+        for p in d["products"]:
+            if p["id"] == product_id:
+                kind, title, description = p["type"], p.get("title"), p.get("description")
+    word = "Tote" if kind == "tote" else "Sticker"
+    listing = {
+        "title": title or f"Frog King {word}",
+        "description": description or "A smiling green frog wearing a small gold crown, drawn with thick dark outlines.",
+        "tags": ["frog", "crown", kind], "price_cents": 2500 if kind == "tote" else SUGGESTED_CENTS,
+        "print_ok": True, "notes": "",
+    }
+    trace = [{"step": 1, "tool": "check_resolution", "result": {"ok": True}},
+             {"step": 2, "tool": "check_contrast", "result": {"ok": True}},
+             {"step": 3, "text": "Drafted the listing."}]
+    return {"listing": listing, "trace": trace}
 
 
 # Routes with an id in the path: (method, regex) -> fn(id, body).
@@ -342,6 +422,7 @@ PATTERN_ROUTES = [
     ("POST", re.compile(r"^/api/v1/artworks/(ch\d+)/cleanup$"), lambda i, b: {**cleanup(b), "id": i, "parentArtworkId": CHANGES["rows"].get(i, {}).get("parentArtworkId")}),
     ("GET", re.compile(r"^/api/v1/artworks/(ch\d+)$"), lambda i, b: change_detail(i)),
     ("POST", re.compile(r"^/api/v1/listings/([\w-]+)/approve$"), approve),
+    ("POST", re.compile(r"^/api/v1/listings/([\w-]+)/run$"), run_listing),
 ]
 
 
@@ -360,6 +441,8 @@ def sign_in(body):
     MODE["details"] = code.startswith("DETAILS")
     MODE["slow"] = code.startswith("SLOW")
     MODE["noprint"] = code.startswith("NOPRINT")
+    MODE["novideo"] = code.startswith("NOVIDEO")
+    STORY["url"], STORY["vtt"] = (None, None) if MODE["novideo"] else (STORY_VIDEO_PATH, STORY_VTT)
     LAST.clear()
     DESIGNS["list"] = designs()
     CHANGES["n"], CHANGES["rows"] = 0, {}
@@ -369,7 +452,7 @@ def sign_in(body):
 
 ROUTES = {
     ("POST", "/api/v1/auth/code"): sign_in,
-    ("GET", "/api/v1/creators/me"): lambda b: CREATOR,
+    ("GET", "/api/v1/creators/me"): creator_me,
     ("PUT", "/api/v1/creators/me"): lambda b: {**CREATOR, **{k: v for k, v in b.items() if k in CREATOR}},
     ("POST", "/api/v1/creators/me/story-video"): story_video,
     ("GET", "/api/v1/creators/me/story-prompts"): lambda b: {
@@ -400,12 +483,47 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _send_media(self, data, ctype):
+        """Serves bytes with single-range support (AVPlayer asks for byte ranges)."""
+        rng = re.match(r"bytes=(\d*)-(\d*)$", self.headers.get("Range") or "")
+        if not rng or not (rng.group(1) or rng.group(2)):
+            self.send_response(200)
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            return self.wfile.write(data)
+        start = int(rng.group(1)) if rng.group(1) else max(0, len(data) - int(rng.group(2)))
+        end = int(rng.group(2)) if rng.group(1) and rng.group(2) else len(data) - 1
+        end = min(end, len(data) - 1)
+        if start > end:
+            self.send_response(416)
+            self.send_header("Content-Range", f"bytes */{len(data)}")
+            self.send_header("Content-Length", "0")
+            return self.end_headers()
+        part = data[start:end + 1]
+        self.send_response(206)
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Range", f"bytes {start}-{end}/{len(data)}")
+        self.send_header("Content-Length", str(len(part)))
+        self.end_headers()
+        self.wfile.write(part)
+
     def _handle(self, method):
         path, _, query = self.path.partition("?")
         length = int(self.headers.get("Content-Length") or 0)
         raw = self.rfile.read(length) if length else b""
         if path == "/img.png":
             return self._send(200, PNG, "image/png")
+        if path == "/sticker-preview.png":
+            return self._send(200, STICKER_PREVIEW_PNG, "image/png")
+        if method == "GET" and path.startswith("/media/") and path.endswith(".mp4"):
+            try:
+                with open(STORY_MP4_PATH, "rb") as f:
+                    return self._send_media(f.read(), "video/mp4")
+            except OSError:
+                return self._send(404, {"error": {"code": "not_found", "message": "no sample video"}})
         if method == "PUT" and path == "/blob/":
             return self._send(200, blob_put(None, query))
         if method == "GET" and path.startswith("/__mock/last/"):

@@ -13,7 +13,10 @@ import { creatorPath, storage } from "@/lib/storage";
 import { ApiError } from "@/lib/http";
 import { ensureDpi } from "@/lib/image/sticker";
 
-/** Builds and stores a product's print PNG (+ die-cut SVG) and mockup from the artwork's cleaned PNG. */
+/**
+ * Builds and stores a product's print PNG (+ die-cut SVG), mockup and, for a sticker, the public
+ * bordered preview (T121; totes: `previewUrl` null) from the artwork's cleaned PNG.
+ */
 async function buildProductFiles(artwork: ArtworkRow, type: ProductKind, task: string) {
   if (!artwork.cleanedUrl) throw new Error("Choose and clean up the artwork first");
   const spec = productSpec(type);
@@ -22,19 +25,23 @@ async function buildProductFiles(artwork: ArtworkRow, type: ProductKind, task: s
   const cid = artwork.creatorId;
   // Every product type gets a print PNG at its spec's minimum size (upscaled at most ×2, alpha kept).
   const printPng = await ensureDpi(built.printPng ?? cleanedPng, spec.printSpec.minShortSidePx, spec.printSpec.dpi);
-  const [png, svg, mockup] = await Promise.all([
+  const [png, svg, mockup, preview] = await Promise.all([
     storage().putPrivate(creatorPath(cid, "print", "png"), printPng, "image/png"),
     built.printSvg ? storage().putPrivate(creatorPath(cid, "print", "svg"), built.printSvg, "image/svg+xml") : null,
     storage().putPublic(creatorPath(cid, "mockups", "png"), built.mockupPng, "image/png"),
+    built.previewPng ? storage().putPublic(creatorPath(cid, "previews", "png"), built.previewPng, "image/png") : null,
   ]);
-  return { mockupUrl: mockup.url, printPngUrl: png.pathname, printSvgUrl: svg?.pathname ?? null, spec, printPng, cleanedPng };
+  return {
+    mockupUrl: mockup.url, previewUrl: preview?.url ?? null, printPngUrl: png.pathname, printSvgUrl: svg?.pathname ?? null,
+    spec, printPng, cleanedPng,
+  };
 }
 
 export async function createProduct(artwork: ArtworkRow, type: ProductKind, task = "T010"): Promise<ProductRow> {
   const files = await buildProductFiles(artwork, type, task);
   const mid = Math.round((files.spec.priceRange.min + files.spec.priceRange.max) / 2 / 50) * 50;
   return insertProduct({
-    artworkId: artwork.id, creatorId: artwork.creatorId, type, mockupUrl: files.mockupUrl,
+    artworkId: artwork.id, creatorId: artwork.creatorId, type, mockupUrl: files.mockupUrl, previewUrl: files.previewUrl,
     printPngUrl: files.printPngUrl, printSvgUrl: files.printSvgUrl, priceCents: mid, status: "draft", createdByTask: task,
   });
 }
@@ -43,7 +50,7 @@ export type RebuildResult = { product: ProductRow; printOk: boolean; unpublished
 
 /**
  * After the artwork was cut out again: rebuilds the product's print file(s) and mockup from the
- * new cleaned PNG so the shop image, print file and mockup agree, then re-runs the print check
+ * new cleaned PNG so the shop image, print file, preview and mockup agree, then re-runs the print check
  * (resolution of the new print file, contrast of the new art) into `listing.printCheck`. A
  * published product whose check now fails goes back to draft (approve re-checks before it can be
  * published again). Id, price and listing copy are unchanged.
@@ -62,7 +69,7 @@ export async function rebuildProductFiles(productId: string, task = "T080"): Pro
   const unpublished = product.status === "published" && !check.print_ok;
   if (unpublished) console.warn(`[products] ${product.id} moved back to draft after a re-cut: ${check.notes}`);
   const updated = await updateProduct(product.id, {
-    mockupUrl: files.mockupUrl, printPngUrl: files.printPngUrl, printSvgUrl: files.printSvgUrl, ...(unpublished ? { status: "draft" as const } : {}),
+    mockupUrl: files.mockupUrl, previewUrl: files.previewUrl, printPngUrl: files.printPngUrl, printSvgUrl: files.printSvgUrl, ...(unpublished ? { status: "draft" as const } : {}),
   });
   // Product first (new files + status), then the check that describes them.
   await setListingPrintCheck(product.id, check);

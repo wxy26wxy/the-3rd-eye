@@ -11,7 +11,8 @@ export { SIZES, unitCents, resolveSize, type SizeKey, type SizeOption } from "./
 export type ProductKind = "sticker" | "tote";
 
 export type PrintSpec = { dpi: number; targetInches: number; minShortSidePx: number; borderMm?: number; bleedMm?: number };
-export type BuiltProduct = { printPng?: Buffer; printSvg?: string; mockupPng: Buffer; cutPath?: string };
+/** `previewPng`: public bordered preview (stickers only, T121). */
+export type BuiltProduct = { printPng?: Buffer; printSvg?: string; previewPng?: Buffer; mockupPng: Buffer; cutPath?: string };
 
 export type ProductSpec = {
   kind: ProductKind;
@@ -23,7 +24,7 @@ export type ProductSpec = {
   sizes: readonly SizeOption[];
   build(artwork: { cleanedPng: Buffer }, deps: { mockups: MockupMaker; trace: Trace }): Promise<BuiltProduct>;
   /** Print files only (no model calls); used by build() and to repair products made before a print file existed. */
-  buildPrint(cleanedPng: Buffer): Promise<{ printPng: Buffer; printSvg?: string; cutPath?: string }>;
+  buildPrint(cleanedPng: Buffer): Promise<{ printPng: Buffer; printSvg?: string; previewPng?: Buffer; cutPath?: string }>;
 };
 
 export const PRICE_RANGES: Record<ProductKind, { min: number; max: number }> = {
@@ -48,7 +49,7 @@ export const MOCKUP_PROMPTS: Record<ProductKind, string> = {
 async function stickerPrint(cleanedPng: Buffer) {
   const { composeSticker } = await import("@/lib/image/sticker");
   const files = await composeSticker(cleanedPng, { borderMm: PRINT_SPECS.sticker.borderMm, bleedMm: PRINT_SPECS.sticker.bleedMm });
-  return { printPng: files.printPng, printSvg: files.dieCutSvg, cutPath: files.cutPath };
+  return { printPng: files.printPng, printSvg: files.dieCutSvg, previewPng: files.previewPng, cutPath: files.cutPath };
 }
 
 async function buildSticker(artwork: { cleanedPng: Buffer }, deps: { mockups: MockupMaker; trace: Trace }): Promise<BuiltProduct> {

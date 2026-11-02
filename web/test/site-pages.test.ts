@@ -87,6 +87,7 @@ describe("Shop v3 (board 2018:1789)", () => {
     expect(out).not.toMatch(/voice/i);
     expect(out.match(/aria-current="page"/g)).toHaveLength(1);
     expect(out).toMatch(/<a aria-current="page"[^>]*href="\/\?type=sticker#collection"><svg[^>]*aria-hidden="true"/);
+    expect(out).not.toContain("type=voice"); // "Made by voice" filter retired (T111)
   });
 
   it("parseFilter drops the retired voice filter", () => {

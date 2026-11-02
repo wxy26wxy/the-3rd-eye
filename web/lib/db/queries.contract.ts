@@ -21,7 +21,7 @@ export type AiCallRow = InferSelectModel<typeof aiCalls>;
 export type ProductType = "sticker" | "tote";
 export type OrderStatus = "placed" | "printing" | "shipped" | "delivered";
 export const ORDER_STATUSES: OrderStatus[] = ["placed", "printing", "shipped", "delivered"];
-export type ShopFilter = "all" | "sticker" | "tote" | "voice";
+export type ShopFilter = "all" | "sticker" | "tote";
 
 export type PublicCreator = Pick<
   CreatorRow,
@@ -69,7 +69,8 @@ export type StoryTagView = {
   /** Notes between the buyer and the creator on this order, oldest first. */
   messages: TagMessage[];
 };
-export type OrderInput = { buyerName: string; buyerEmail?: string; shipNote?: string };
+/** `size`: sticker size key (default "3in"; none for totes); `quantity` 1–10 (default 1). See lib/products/sizes.ts. */
+export type OrderInput = { buyerName: string; buyerEmail?: string; shipNote?: string; size?: string; quantity?: number };
 export type OrderConfirmation = { orderId: string; token: string; productTitle: string; creatorName: string };
 export type AdminCreator = {
   id: string; slug: string; displayName: string; studioName: string | null;
@@ -84,6 +85,9 @@ export type AdminOrder = {
   buyerName: string;
   buyerEmail: string | null;
   shipNote: string | null;
+  /** Sticker size key, null for totes and orders placed before v0.8. */
+  size: string | null;
+  quantity: number;
   amountCents: number;
   creatorShareCents: number;
   createdAt: Date;
@@ -100,12 +104,21 @@ export type AdminOrder = {
 };
 /** One image in the trace chain (a generated variant or a SAM candidate). */
 export type TraceImage = { id: string; url: string | null; altText: string | null; chosen: boolean };
+/** One "Change it" step in the chain (T111): the request and the pictures before and after it. */
+export type TraceChange = {
+  id: string; instruction: string; transcript: string | null;
+  beforeUrl: string | null; afterUrl: string | null; differences: string | null;
+};
 export type ArtworkTrace = {
   artwork: Pick<
     ArtworkRow,
     | "id" | "source" | "transcript" | "shapedPrompt" | "originalUrl" | "cleanedUrl" | "maskUrl" | "cutPathSvg"
-    | "altText" | "spokenDescription" | "differencesFromPrompt" | "parentArtworkId" | "createdAt"
+    | "altText" | "spokenDescription" | "differencesFromPrompt" | "parentArtworkId" | "changeInstruction" | "createdAt"
   >;
+  /** The photo the chain started from (the artwork itself when it is not a change result). */
+  photo: { originalUrl: string | null; maskUrl: string | null };
+  /** "Change it" steps, oldest first; empty when the artwork was not changed. */
+  changes: TraceChange[];
   /** text2image: every variant from the same generation plus refine ancestors; `chosen` marks this artwork. */
   variants: TraceImage[];
   /** photo/canvas: SAM candidates (artworks.candidates); `chosen` marks the selected one when known. */
@@ -161,7 +174,7 @@ const traceImage = (a: q.ArtworkRow, chosenId: string): TraceImage => ({
 export async function listShopProducts(filter: ShopFilter = "all"): Promise<ShopProduct[]> {
   await fresh();
   const rows = await q.listPublishedProducts(
-    filter === "voice" ? { madeByVoice: true } : filter === "all" ? {} : { type: filter },
+    filter === "all" ? {} : { type: filter },
   );
   return rows.map(toShopProduct);
 }
@@ -264,6 +277,7 @@ export async function listAdminOrders(): Promise<AdminOrder[]> {
   const msgs = await q.listMessagesForOrders(rows.map((r) => r.id));
   return rows.map((r) => ({
     id: r.id, status: r.status, buyerName: r.buyerName, buyerEmail: r.buyerEmail, shipNote: r.shipNote,
+    size: r.size, quantity: r.quantity,
     amountCents: r.amountCents, creatorShareCents: r.creatorShareCents, createdAt: r.createdAt,
     product: {
       id: r.productId, title: r.productTitle ?? "", type: r.productType, mockupUrl: r.mockupUrl,
@@ -299,13 +313,23 @@ export async function getArtworkTrace(artworkId: string): Promise<ArtworkTrace |
   const candidates = cands.map((c) => ({
     id: c.id, url: c.thumbUrl, altText: null, chosen: cands.length === 1 && Boolean(a.cleanedUrl),
   }));
+  const chain = [...t.ancestors, a];
+  const previewOf = (r: q.ArtworkRow) => (r.shapingTrace as { previewUrl?: string } | null)?.previewUrl ?? null;
+  const changes: TraceChange[] = chain.flatMap((r, i) => (r.changeInstruction ? [{
+    id: r.id, instruction: r.changeInstruction, transcript: r.transcript,
+    beforeUrl: i > 0 ? chain[i - 1].cleanedUrl ?? previewOf(chain[i - 1]) : null,
+    afterUrl: previewOf(r) ?? r.cleanedUrl, differences: r.differencesFromPrompt,
+  }] : []));
+  const photoRow = a.source === "text2image" ? a : chain.find((r) => !r.changeInstruction) ?? a;
   return {
     artwork: {
       id: a.id, source: a.source, transcript: a.transcript, shapedPrompt: a.shapedPrompt, originalUrl: a.originalUrl,
       cleanedUrl: a.cleanedUrl, maskUrl: a.maskUrl, cutPathSvg: a.cutPathSvg, altText: a.altText,
       spokenDescription: a.spokenDescription, differencesFromPrompt: a.differencesFromPrompt,
-      parentArtworkId: a.parentArtworkId, createdAt: a.createdAt,
+      parentArtworkId: a.parentArtworkId, changeInstruction: a.changeInstruction, createdAt: a.createdAt,
     },
+    photo: { originalUrl: photoRow.originalUrl, maskUrl: photoRow.maskUrl },
+    changes,
     variants,
     candidates,
     calls: t.calls,

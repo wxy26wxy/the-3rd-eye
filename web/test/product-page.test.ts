@@ -172,14 +172,47 @@ describe("Product page v3 (board 2019:2004)", () => {
 describe("Checkout → placeOrder (stubbed createOrder)", () => {
   beforeEach(() => hoisted.createOrder.mockReset());
 
-  it("the form's fields reach the action: buyer fields go to createOrder, size and quantity ride along until T111", async () => {
-    hoisted.createOrder.mockResolvedValueOnce({ orderId: "o1", token: "t" });
+  /** The fields the browser would submit from the rendered form: named inputs, checked radios only, then the typed buyer fields. */
+  function submitted(markup: string, typed: Record<string, string>) {
+    const forms = markup.match(/<form[\s\S]*?<\/form>/g) ?? [];
+    expect(forms).toHaveLength(1);
     const fd = new FormData();
-    for (const [k, v] of Object.entries({ size: "4in", quantity: "2", buyerName: "Ann", buyerEmail: "ann@example.com", shipNote: "" })) fd.set(k, v);
+    for (const tag of forms[0]!.match(/<(input|textarea)\b[^>]*>/g) ?? []) {
+      const name = tag.match(/name="([^"]+)"/)?.[1];
+      if (!name) continue;
+      if (/type="radio"/.test(tag) && !/checked=""/.test(tag)) continue;
+      fd.set(name, tag.match(/value="([^"]*)"/)?.[1] ?? "");
+    }
+    for (const [k, v] of Object.entries(typed)) fd.set(k, v);
+    return fd;
+  }
+
+  it("sheet → action: one form carries size, quantity and the sheet's buyer fields; createOrder gets them", async () => {
+    const markup = html(createElement(ProductBuy, { action: async () => ({}), type: "sticker", title: "Bus", priceCents: 600 }));
+    const fd = submitted(markup, { buyerName: "Ann", buyerEmail: "ann@example.com" });
+    expect([...fd.keys()]).toEqual(expect.arrayContaining(["size", "quantity", "buyerName", "buyerEmail", "shipNote"]));
+    hoisted.createOrder.mockResolvedValueOnce({ orderId: "o1", token: "t" });
     await expect(placeOrder("p1", {}, fd)).rejects.toThrow("NEXT_REDIRECT");
     expect(hoisted.createOrder).toHaveBeenCalledTimes(1);
     expect(hoisted.createOrder.mock.calls[0][0]).toBe("p1");
-    expect(hoisted.createOrder.mock.calls[0][1]).toMatchObject({ buyerName: "Ann", buyerEmail: "ann@example.com" });
+    expect(hoisted.createOrder.mock.calls[0][1]).toMatchObject({ buyerName: "Ann", buyerEmail: "ann@example.com", size: "3in", quantity: 1 });
+  });
+
+  it("a chosen size and quantity reach createOrder", async () => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries({ size: "4in", quantity: "2", buyerName: "Ann", buyerEmail: "", shipNote: "" })) fd.set(k, v);
+    hoisted.createOrder.mockResolvedValueOnce({ orderId: "o2", token: "t" });
+    await expect(placeOrder("p1", {}, fd)).rejects.toThrow("NEXT_REDIRECT");
+    expect(hoisted.createOrder.mock.calls[0][1]).toMatchObject({ size: "4in", quantity: 2 });
+  });
+
+  it("an unknown size or an out-of-range quantity stays on the sheet with the form error", async () => {
+    for (const bad of [{ size: "9in", quantity: "1" }, { size: "3in", quantity: "11" }]) {
+      const fd = new FormData();
+      for (const [k, v] of Object.entries({ ...bad, buyerName: "Ann", buyerEmail: "", shipNote: "" })) fd.set(k, v);
+      expect(await placeOrder("p1", {}, fd)).toMatchObject({ field: "form", error: m.product.sizeInvalid });
+    }
+    expect(hoisted.createOrder).not.toHaveBeenCalled();
   });
 
   it("a refused order returns the field so the sheet shows it", async () => {

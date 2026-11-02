@@ -1,6 +1,7 @@
 /**
  * Muse Image 1.0 via the Responses API. generate() runs n calls in parallel;
- * refine() continues with previous_response_id; compose() sends several input_image parts.
+ * refine() continues with previous_response_id; compose() sends several input_image parts;
+ * edit() sends one input_image (the picked piece) with the change instruction (T111, "Change it").
  * The PNG is the base64 `result` of the `image_generation_call` output item.
  * verified: 2026-10-28 — the `image_generation` tool entry (output_format png) is accepted;
  * native resolution is 1600×1600 whatever `size` says (docs/architecture.md "Live findings").
@@ -11,6 +12,7 @@ import type { GeneratedImage, ImageProvider, ImageRef, Trace } from "../types";
 import { traced } from "../trace";
 import { MODELS, metaResponses, type ResponsesLike } from "./client";
 import { imageResults, inputImage, responseId, userMessage } from "./responses";
+import { KEEP_GUARD } from "../guard";
 
 export const IMAGE_TOOL = { type: "image_generation", output_format: "png", size: "1024x1024" } as const;
 
@@ -20,6 +22,17 @@ export async function toGeneratedImage(resp: unknown): Promise<GeneratedImage> {
   const png = await sharp(Buffer.from(b64, "base64")).png().toBuffer();
   const meta = await sharp(png).metadata();
   return { png, responseId: responseId(resp), width: meta.width ?? 0, height: meta.height ?? 0 };
+}
+
+export { KEEP_GUARD };
+
+/** The edit request body: instruction (with the guard) and the picture as one user message. */
+export function editBody(image: ImageRef, instruction: string) {
+  return {
+    model: MODELS.image,
+    input: [userMessage([{ type: "input_text", text: `${instruction.trim()}\n${KEEP_GUARD}` }, inputImage(image)])],
+    tools: [IMAGE_TOOL],
+  };
 }
 
 export class MetaImageProvider implements ImageProvider {
@@ -39,7 +52,7 @@ export class MetaImageProvider implements ImageProvider {
     const body = {
       model: MODELS.image,
       previous_response_id: previousResponseId,
-      input: `${instruction}\nKeep the same subject, style and pure white background unless asked otherwise.`,
+      input: `${instruction}\n${KEEP_GUARD}`,
       tools: [IMAGE_TOOL],
     };
     return this.call("refine", body, opts.trace);
@@ -52,5 +65,9 @@ export class MetaImageProvider implements ImageProvider {
       tools: [IMAGE_TOOL],
     };
     return this.call("mockup", body, opts.trace);
+  }
+
+  edit(image: ImageRef, instruction: string, opts: { trace: Trace }): Promise<GeneratedImage> {
+    return this.call("edit", editBody(image, instruction), opts.trace);
   }
 }

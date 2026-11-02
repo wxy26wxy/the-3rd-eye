@@ -1,4 +1,5 @@
-export type PlaceOrderInput = { buyerName: string; buyerEmail?: string; shipNote?: string };
+/** `size`: a sticker size key (default "3in"; none for totes); `quantity`: 1–10 (default 1). T111. */
+export type PlaceOrderInput = { buyerName: string; buyerEmail?: string; shipNote?: string; size?: string; quantity?: number };
 export type PlaceOrderResult = { orderId: string; token: string };
 
 export interface PaymentProvider {

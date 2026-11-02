@@ -3,7 +3,9 @@
  * elided), and writes fixtures under web/test/fixtures/<stage>/.
  * Run from the repo root:
  *   pnpm --filter web exec dotenv -e .env.local -- tsx ../scripts/probe_meta.ts [stage ...]
- * Stages: transcribe spark image sam ollama (default: all). Never prints the key.
+ * Stages: transcribe spark image edit sam ollama (default: all but edit). Never prints the key.
+ * `edit` (T111) records test/fixtures/edit/probe-edit.json: one Muse Image edit of the generate probe PNG,
+ * the response kept whole except the image, which is re-encoded at 128 px so the fixture stays small.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -99,6 +101,37 @@ async function probeImage() {
   }
 }
 
+async function probeEdit() {
+  // Same body as MetaImageProvider.edit (web/lib/ai/meta/image.ts#editBody).
+  const { readFileSync } = await import("node:fs");
+  const input = readFileSync(join(FIXTURES, "generate", "probe.png"));
+  const guard = "Keep the same subject, style and pure white background unless asked otherwise.";
+  const instruction = "Make the circle blue.";
+  const body = {
+    model: "muse-image-1.0",
+    input: [{ role: "user", content: [
+      { type: "input_text", text: `${instruction}\n${guard}` },
+      { type: "input_image", image_url: `data:image/png;base64,${input.toString("base64")}`, detail: "auto" },
+    ] }],
+    tools: [{ type: "image_generation", output_format: "png", size: "1024x1024" }],
+  };
+  const r = await postJson("/responses", body);
+  show(`edit → ${r.status}`, r.json);
+  const json = r.json as { output?: { type?: string; result?: string }[] };
+  const item = json?.output?.find((o) => o.type === "image_generation_call" && typeof o.result === "string" && o.result.length > 100);
+  if (r.status === 200 && item?.result) {
+    const full = Buffer.from(item.result, "base64");
+    const meta = await sharp(full).metadata();
+    console.log(`  edit: ${meta.format} ${meta.width}x${meta.height}, ${full.length} bytes`);
+    const small = await sharp(full).resize(128, 128).png().toBuffer();
+    item.result = small.toString("base64");
+    (item as { id?: string }).id = "ig_redacted"; // opaque handle to the hosted image; not needed by the parser
+    save("edit", "probe-edit.png", small);
+  }
+  const request = { ...body, input: [{ role: "user", content: [body.input[0].content[0], { type: "input_image", image_url: "<data:image/png;base64 of test/fixtures/generate/probe.png>", detail: "auto" }] }] };
+  save("edit", "probe-edit.json", JSON.stringify({ status: r.status, request, response: json }, null, 2));
+}
+
 async function probeSam() {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#fff"/><circle cx="128" cy="128" r="60" fill="#000"/></svg>`;
   const png = await sharp(Buffer.from(svg)).png().toBuffer();
@@ -143,9 +176,9 @@ async function probeOllama() {
 }
 
 async function main() {
-  const all: Record<string, () => Promise<void>> = { transcribe: probeTranscribe, spark: probeSpark, image: probeImage, sam: probeSam, ollama: probeOllama };
+  const all: Record<string, () => Promise<void>> = { transcribe: probeTranscribe, spark: probeSpark, image: probeImage, edit: probeEdit, sam: probeSam, ollama: probeOllama };
   const wanted = process.argv.slice(2).filter((a) => a in all);
-  const stages = wanted.length ? wanted : Object.keys(all);
+  const stages = wanted.length ? wanted : Object.keys(all).filter((s) => s !== "edit");
   if (!KEY && stages.some((s) => s !== "ollama")) {
     console.log("META_API_KEY is not set; only the ollama probe can run.");
     if (stages.includes("ollama")) await probeOllama();

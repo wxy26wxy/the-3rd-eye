@@ -57,6 +57,14 @@ export function fixtureRegistry(): Registry {
         const png = await localMockup(refs.length > 1 ? "tote" : "sticker", first);
         return { png, responseId: "fixture_mockup", width: 1024, height: 1024 };
       }, opts.trace),
+      // Offline edit: the input picture with a tinted procedural mark, so "before" and "after" differ.
+      edit: (image, instruction, opts) => traced("edit", "fixture", "fixture", { instruction }, async () => {
+        const input = await sharp(await loadImageRef(image)).flatten({ background: "#ffffff" })
+          .resize(1024, 1024, { fit: "contain", background: "#ffffff" }).png().toBuffer();
+        const mark = await sharp(await placeholderArt(instruction)).resize(256, 256).png().toBuffer();
+        const png = await sharp(input).composite([{ input: mark, top: 32, left: 736 }]).png().toBuffer();
+        return { png, responseId: `fixture_edit_${requestHash(instruction).slice(0, 12)}`, width: 1024, height: 1024 };
+      }, opts.trace),
     },
     segmenter: {
       findAll: (image, phrase, opts) => traced("segment", "fixture", "threshold", { phrase }, async () =>

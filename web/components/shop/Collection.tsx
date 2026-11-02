@@ -7,16 +7,14 @@ import { FilterTabs } from "@/components/site/FilterTabs";
 import { Display } from "@/components/ui/Display";
 import styles from "./Shop.module.css";
 
-/** The site's filters: "Made by voice" is gone in v3 (Filter tabs 2010:570). */
-export type SiteFilter = Exclude<ShopFilter, "voice">;
-const VALID: SiteFilter[] = ["all", "sticker", "tote"];
 /** New this week shows two rows of four (2018:1835); "View all" shows the rest. */
 export const FIRST_PAGE = 8;
 
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-export function parseFilter(v: string | string[] | undefined): SiteFilter {
+const VALID: ShopFilter[] = ["all", "sticker", "tote"];
+export function parseFilter(v: string | string[] | undefined): ShopFilter {
   const s = first(v);
-  return VALID.includes(s as SiteFilter) ? (s as SiteFilter) : "all";
+  return VALID.includes(s as ShopFilter) ? (s as ShopFilter) : "all";
 }
 
 /** Product grid: two tiles per row on phones, four from 64rem (2018:1835, 24 px gaps, 28 px between rows). */
@@ -25,7 +23,7 @@ export function ProductGrid({ children }: { children: ReactNode }) {
 }
 
 /** Filters, then the "New this week" header row with View all (annotation order on 2018:1789). */
-function Header({ filter, viewAllHref }: { filter: SiteFilter; viewAllHref?: string | null }) {
+function Header({ filter, viewAllHref }: { filter: ShopFilter; viewAllHref?: string | null }) {
   return (
     <>
       <FilterTabs active={filter} />

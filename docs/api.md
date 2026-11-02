@@ -15,12 +15,16 @@ Media never goes through these routes except short audio (≤ 4 MB). Images/vide
 `POST /transcribe` multipart `file` (m4a/mp3/wav, ≤ 60 s) or JSON `{ audioUrl }` → `{ text, language?, segments? }`
 
 ## Create
+Since v0.8 the apps are photo-first: photo → `POST /artworks {source:"photo"}` → `select` → **`change`** (optional, repeatable) → **`cutout`** → `cleanup` (edge tools). See "Change it (T111)". `POST /prompts/shape`, `POST /artworks {source:"text2image"}` and `POST /artworks/{id}/refine` stay in the backend but are **not used by the apps since v0.8** (kept and tested; removal is a post-hackathon task).
+
 `POST /prompts/shape` `{ transcript, answers?: string[], product: "sticker"|"tote" }` → `{ prompt, style_notes, clarifying_question: string|null, spoken_confirmation }`
 `POST /artworks` one of:
 - `{ source: "text2image", prompt, transcript?, product, n?: 1..4 }` → `{ artworks: ArtworkVariant[] }` (one row per variant; each has `altText`, `spokenDescription`, `differencesFromPrompt`, `genResponseId`)
 - `{ source: "photo"|"canvas", imageUrl, product }` → `{ artwork: Artwork, candidates: Candidate[], imageSize: { w, h } }` (SAM finds every drawing or object; `cleanedUrl` null until a candidate is chosen when `candidates.length > 1`; `imageSize` = pixel size of the stored original, the coordinate space of `bbox`, `points` and `box`)
 `POST /artworks/{id}/select` `{ candidateId }` → `Artwork` (cleaned PNG + cut path)
-`POST /artworks/{id}/refine` `{ instruction }` → `{ artwork: ArtworkVariant }` (new row, `parentArtworkId` set)
+`POST /artworks/{id}/refine` `{ instruction }` → `{ artwork: ArtworkVariant }` (new row, `parentArtworkId` set) (not used by the apps since v0.8)
+`POST /artworks/{id}/change` `{ instruction, transcript? }` → 201 `{ artwork: ArtworkVariant, description: { alt, spoken, differences } }` (new child row; T111)
+`POST /artworks/{id}/cutout` → `{ artwork: Artwork, candidates: Candidate[], imageSize: { w, h } }` (SAM on the artwork's picture, largest piece cut out; T111)
 `POST /artworks/{id}/cleanup` `{ candidateIds?: string[], points?: { x, y, label: "positive"|"negative" }[], box?: [x0,y0,x1,y1] }` (at least one) → `Artwork` (see T080 clarifications)
 `GET /artworks` → `{ artworks: ArtworkListItem[] }` (mine, newest first; each carries `products` with `priceCents`, `title`, `description`, `mockupUrl`)
 `GET /artworks/{id}` → `{ artwork: Artwork, candidates: Candidate[], imageSize: { w, h } | null, originalUrl: string | null }` (`originalUrl` presigned, valid 10 min)
@@ -43,12 +47,12 @@ Media never goes through these routes except short audio (≤ 4 MB). Images/vide
 `POST /story/draft` `{ transcript, mentionDisability }` → `{ headline, bio_short, story_text, provider }`
 
 ## Public (web, no auth; server actions on the pages, listed for completeness)
-`placeOrder(productId, { buyerName, buyerEmail?, shipNote? })` → `{ orderId, token }` · `tap(token)` increments `tapCount` · `sendReply(token, body)`
+`placeOrder(productId, { buyerName, buyerEmail?, shipNote?, size?, quantity? })` → `{ orderId, token }` (size and quantity: T111) · `tap(token)` increments `tapCount` · `sendReply(token, body)`
 
 ## Types (JSON field names)
 ```
 Creator { id, slug, displayName, studioName, avatarUrl, bioShort, storyText, storyVideoUrl, storyVideoVtt, mentionDisability, accessPrefs, split, isExample }
-Artwork { id, creatorId, source, transcript, shapedPrompt, originalUrl, cleanedUrl, maskUrl, cutPathSvg, altText, spokenDescription, differencesFromPrompt, genResponseId, parentArtworkId, status, createdAt }
+Artwork { id, creatorId, source, transcript, shapedPrompt, originalUrl, cleanedUrl, maskUrl, cutPathSvg, altText, spokenDescription, differencesFromPrompt, genResponseId, parentArtworkId, changeInstruction, status, lastError, createdAt }
 ArtworkVariant = Artwork & { previewUrl }
 ArtworkListItem = Artwork & { products: ArtworkProduct[] }
 ArtworkProduct { id, type: "sticker"|"tote", status: "draft"|"published"|"archived", priceCents: number, title: string|null, description: string|null, mockupUrl: string|null }
@@ -59,7 +63,9 @@ Product { id, artworkId, creatorId, type, mockupUrl, printPngUrl, printSvgUrl, p
 ListingDraft { title, description, tags[], price_cents, print_ok, notes }
 Listing { productId, title, description, tags, priceSuggestionCents, approvedAt, approvedVia, madeByVoice }
 AgentStep { step, tool?, args?, result?, text? }
-OrderSummary { id, productId, productTitle, mockupUrl, buyerName, amountCents, creatorShareCents, status, createdAt, hasThankYou, unreadMessages }
+OrderSummary { id, productId, productTitle, mockupUrl, buyerName, amountCents, creatorShareCents, size, quantity, status, createdAt, hasThankYou, unreadMessages }
+ChangeDescription { alt, spoken, differences }
+StickerSize "3in" | "4in" | "sheet" /* stickers only; null for totes */
 Order = OrderSummary & { shipNote, token }
 ThankYou { id, orderId, text, imageUrl, videoUrl, createdAt }
 Message { id, orderId, direction, body, createdAt, readAt }
@@ -135,3 +141,35 @@ Not contract changes; what the iOS My designs screens rely on.
 1. A row with `cleanedUrl` set has `status: "ready"` (both are written together), so the app offers "Make a sticker / Make a tote" whenever `cleanedUrl` is set; a 409 `artwork_not_ready` is shown as an error.
 2. A row with no `cleanedUrl` and no `lastError` is "Cutting out…" only within 5 minutes of `createdAt` (long routes answer within 270 s); after that it is shown as "Needs a cutout" without a spinner.
 3. Edit listing (published products only) always sends `edits.priceCents`, because an omitted price can fall back to the listing's `priceSuggestionCents`. It prefills price and description from `ArtworkProduct.priceCents` / `description` when the server sends them (T087 adds them, with `mockupUrl`, to each `products[]` entry of `GET /artworks`); without them the creator must type the price. `edits.description` is the typed text; an emptied prefilled description is sent as `""` to clear it, and an empty field with nothing prefilled is omitted (keeps the saved text) (T091). Drafts are published through Listing details, not through this edit.
+
+## Change it, cutout, order size and quantity (T111 backend, 2026-11-01, v0.8)
+Additive: no field or path removed. The text-to-image routes keep working.
+
+1. **`POST /artworks/{id}/change`** (creator auth, own artwork else `404 not_found`). Body `{ instruction: string /* trimmed, 1–1000 */, transcript?: string /* ≤ 4000: what the creator said, when the instruction came from the mic */ }`. Muse Image **edits** the picture (the request carries it as `input_image`) with the instruction plus the guard "Keep the same subject, style and pure white background unless asked otherwise."; Muse Spark then describes the result against the instruction.
+   - **Input picture:** the artwork's cut-out (`cleanedUrl`, flattened on white) when it has one (the piece picked on Choose a pattern); otherwise, for a row that is itself a change result (`changeInstruction` set), its stored picture (this is "Change it again" before any cutout). Anything else → `409 artwork_not_ready` ("Pick a piece first").
+   - **Response 201** `{ artwork, description }`:
+     - `artwork` is a **new child row** (`ArtworkVariant`): `parentArtworkId` = `{id}`, `source: "photo"`, `changeInstruction` = the instruction, `transcript` = the sent transcript or null, `genResponseId` set, `cleanedUrl: null`, `cutPathSvg: null`, `status: "draft"`, `altText` / `spokenDescription` / `differencesFromPrompt` from the description, `originalUrl` = private pathname of the edited picture, **`previewUrl` = public URL of the edited picture** (PNG, white background, about 1024–1600 px square; show it on "Before and after").
+     - `description` = `{ alt, spoken, differences }`: `alt` ≤ 125 characters; `spoken` is at most two short sentences to read aloud; `differences` is one sentence naming what is missing or different from the request, or `""` (then show your own "Here is your change" copy).
+   - **Before and after:** before = the parent's `cleanedUrl` (or the parent's `previewUrl` when the parent is a change result), after = `artwork.previewUrl`.
+   - **"Back to my original"** = the client switches back to the parent row (no call; the child stays as an unused draft). **"Change it again"** = `POST /artworks/{childId}/change` (it edits the child, so the next child's `parentArtworkId` is the previous child). **"Looks good as is"** = go to "Your cutout" with the row you are on: for the picked piece (no change made) its cut-out already exists from `select`, no call; for a change result call `cutout` first.
+   - Time: one image edit (≈ 15–40 s) plus one describe (≈ 3–6 s). `maxDuration` 300 s; past 270 s → `504 deadline_exceeded` with `artworkId`. Rate-limited as a model route (20 / min / IP). Errors: `400 invalid_request` (empty or too long instruction), `404 not_found`, `409 artwork_not_ready`, `502 edit_failed` ("We could not change it this time. Try different words."; the edit was refused or failed, no child row was made: show the Error state and let the creator try again), `503` when the model is not configured, `500 internal` with `artworkId` only if the describe step fails after the child row exists.
+2. **`POST /artworks/{id}/cutout`** (creator auth, own artwork else `404`; body empty or `{}`). **Only for a change result** (a row with `changeInstruction`); any other artwork → `409 not_a_change` ("Only a changed picture needs a new cutout"), so a picked piece or a published product is never re-cut by accident. For "Looks good as is" on the picked piece no call is needed. Calling it again on the same change result is allowed and replaces its candidates and cut. SAM finds every piece in the artwork's stored picture (for a change result: the edited picture), stores them as the row's `candidates` (replacing earlier ones), **auto-picks the largest** and cuts it out (same finishing as `select`), describes the cut-out again (against `changeInstruction`, so `differencesFromPrompt` stays meaningful).
+   - **Response 200** `{ artwork: Artwork /* cleanedUrl, cutPathSvg, status "ready" */, candidates: Candidate[], imageSize: { w, h } }`. `candidates` and `imageSize` are the same shapes as `POST /artworks` photo, so "Your cutout" edge tools call **`POST /artworks/{id}/cleanup`** unchanged, sending the current selection as `candidateIds` with every `points` / `box` edit (T080 rule).
+   - `candidates[0]` is the auto-picked (largest by area) piece, so the initial selection is `[candidates[0].id]`; the rest follow, largest first.
+   - Errors: `409 not_a_change` (see above), `400 no_original` (row without a stored picture), `422 no_drawing_found` (nothing found; `artworkId` included, `lastError` set), `504 deadline_exceeded`. Time ≈ 10–25 s (SAM + describe).
+3. **`Artwork.changeInstruction`** (`string | null`) is on every `Artwork` (`GET /artworks`, `GET /artworks/{id}`, select/cleanup/change/cutout responses). `parentArtworkId` was already there. `GET /artworks/{id}` also returns `previewUrl` (`cleanedUrl` when set, else the public edited picture of a change result, else null). `GET /artworks` lists change children like any row (newest first); clients may hide drafts without `cleanedUrl` whose `parentArtworkId` is set.
+4. **Order size and quantity.** `POST /public/orders` and the product page's server action take `size?` and `quantity?`:
+   - `quantity`: integer 1–10, default 1 (`400 invalid_request` otherwise).
+   - `size` (stickers only): `"3in"` (default when omitted), `"4in"`, `"sheet"`. A tote takes no size (`400 invalid_size` when one is sent); an unknown size → `400 invalid_size`.
+   - `amountCents = unitCents(product, size) × quantity`; the creator / organization / production shares are computed from that total with the creator's split, as before.
+
+   | Product | `size` | Label (`en.json` `product.sizes.*`) | Unit price |
+   |---|---|---|---|
+   | Sticker | `3in` | 3 in | listed price |
+   | Sticker | `4in` | 4 in | listed price + $2.00 |
+   | Sticker | `sheet` | Sticker sheet | listed price + $6.00 |
+   | Tote bag | (none) | — | listed price |
+
+   Sample pricing (registry constants in `web/lib/products/sizes.ts`, shown on `/admin`). `OrderSummary` / `Order` (`GET /orders`, `GET /orders/{id}`) gain `size: StickerSize | null` and `quantity: number`; rows placed before v0.8 read `size: null, quantity: 1`. The confirmation page and `/t/{token}` are unchanged.
+5. **"Made by voice" retired from the shop.** The shop filter `voice` is gone (web-internal; no API change). `Listing.madeByVoice` is still written and returned; once T112 lands nothing on the site reads it (dormant; until then the product card and product page still show the chip).
+6. **Admin AI trace** labels: Photo and mask → Change request → Edit instruction → Before and after → Description → Decision → Sticker. Model calls of the new image edit are logged with stage `edit`.

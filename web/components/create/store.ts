@@ -54,6 +54,11 @@ export type Draft = {
   /** The request being made on "Changing your art" (typed, or the transcript when spoken). */
   changeInstruction?: string;
   changeTranscript?: string;
+  /**
+   * One id per "Make the change": /create/changing is kept mounted between visits (cacheComponents
+   * keeps visited routes in a hidden Activity), so its state is keyed by this, never reused.
+   */
+  changeNonce?: string;
   /** The row that "Your cutout" works on (the piece, or the change result after `cutout`). */
   cutoutArtworkId?: string;
   cutout?: CutoutState;

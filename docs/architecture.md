@@ -8,6 +8,7 @@ One Next.js app (`web/`) on Vercel serves the shop, story-tag pages, admin, and 
 | Speech → text | `muse-voice-transcribe-1.0` | `POST https://api.meta.ai/v1/asr/transcribe` (multipart; plain fetch) |
 | Shape prompt, describe images, listing agent, prompts | `muse-spark-1.3` | Responses API `POST https://api.meta.ai/v1/responses` |
 | Generate / refine / compose images | `muse-image-1.0` | Responses API (`previous_response_id` for refine) or `/v1/images/*` |
+| Change the picked piece by voice or text (v0.8 creator flow) | `muse-voice-transcribe-1.0` + `muse-image-1.0` **edit** (`input_image`) + `muse-spark-1.3` describe | `/asr/transcribe` for the spoken request; Responses API, one user message `[input_text (instruction + guard), input_image (the piece)]` with the `image_generation` tool; then Spark vision against the instruction |
 | Find & cut out drawings | `sam-3.1` | Responses API, `stream: true`, parsed with `@meta-sam/parser` |
 | Story / thank-you drafts (open weights) | `muse-glimmer` (Muse Glimmer 30B, Apache-2.0) | Ollama on the development Mac, in this order: native `POST <OLLAMA_BASE_URL without /v1>/api/chat` (JSON Schema `format`), then OpenAI-compatible `${OLLAMA_BASE_URL}/chat/completions` (default `http://localhost:11434/v1`), then `muse-spark-1.3` (`provider: "meta-fallback"`, always on Vercel) |
 
@@ -58,12 +59,18 @@ Status of request shapes: all live-verified on 2026-10-28 except where the table
   - Gap: a 37 % paper/table region is under the 40 % container threshold; it lost here only on score (0.41 vs ≥ 0.76 drawing pieces, cap 6). The single-candidate auto-select is skipped above 50 % of the frame.
 - **Mask finishing** (`finishMask` in `lib/image/mask.ts`): at ≤ 2048 px (request scale), each part → fill holes → drop pieces < 0.5 % of its main blob **and** < 0.02 % of the frame (min 64 px); union of parts; close 2 px; fill holes; blur σ 0.6 and **linear** resize to the cut size → 8-bit alpha. The original (opaque) is upscaled with lanczos before the cut when the cut's short side is under 900 px (≤ ×2); the RGBA cut is never resampled. The stored `maskUrl` PNG is that soft alpha (white = inside).
 
+## Live findings (backend, T111, 2026-11-01): Muse Image edit
+- **The compose request shape works for edits.** `POST /v1/responses` `{ model: "muse-image-1.0", input: [{ role: "user", content: [{ type: "input_text", text: "Make the circle blue.\nKeep the same subject, style and pure white background unless asked otherwise." }, { type: "input_image", image_url: "data:image/png;base64,…", detail: "auto" }] }], tools: [{ type: "image_generation", output_format: "png", size: "1024x1024" }] }` → 200, `status: "completed"`. Output items as for generate: `reasoning` (summary "Editing circle to blue … image-to-image"), an empty `message`, `image_generation_call` with the base64 PNG in `result`. Input was the 256 px probe PNG; the output is **1600×1600** (native size, whatever the input size), about 1.1 MB. Usage ≈ 16.6 k input tokens (13.8 k cached), 572 output. No `previous_response_id` is needed (the picture is the context), so a photo artwork with no `genResponseId` can be changed.
+- `MetaImageProvider.edit()` sends exactly this body (`editBody` in `lib/ai/meta/image.ts`), trace stage `edit`. The pipeline (`changeArtwork`) squares the picked piece on white with a 10 % margin and caps it at 1024 px before sending, so a tall or wide piece is not stretched to the square output.
+- Recording: `web/test/fixtures/edit/probe-edit.json` (the image re-encoded at 128 px, the hosted-image handle redacted), replayed by `web/test/image-edit.test.ts`. Re-record with `pnpm probe edit` from `web/` (one call, ≈ $0.01; not part of the default probe run).
+
 ## Verification status
 | Module | Status |
 |---|---|
 | `lib/ai/meta/transcribe.ts` (Voice Transcribe) | verified 2026-10-28 (probe + HTTP `/transcribe`, WAV and m4a→WAV via local ffmpeg) |
 | `lib/ai/meta/shape-prompt.ts` (Spark) | verified 2026-10-28 (clear and ambiguous ideas) |
 | `lib/ai/meta/image.ts` generate / refine / compose (Muse Image) | verified 2026-10-28 |
+| `lib/ai/meta/image.ts` edit (Muse Image with `input_image`, T111) | verified 2026-11-01 (one live call, recorded fixture); `changeArtwork` / `cutoutArtwork` unit-tested with stubs, not yet run end to end against Neon + Blob (migration 0004 pending) |
 | `lib/ai/meta/describe.ts` (Spark vision) | verified 2026-10-28 |
 | `lib/ai/meta/sam.ts` findAll (SAM 3.1 + parser) | verified 2026-10-28; `segment` with a box and with positive + negative points verified 2026-10-29 (T080, recordings in `web/test/fixtures/segment/probe-{box,points}-events.json`); `findCandidates` (two phrases) checked live on two object photos 2026-10-29 |
 | `lib/image/sticker.ts` (moved from `lib/ai/meta/`, pure image math) | unit-tested; print files produced for the seeded stickers; tote print PNG since T050 |

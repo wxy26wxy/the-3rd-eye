@@ -8,7 +8,8 @@ Accessibility is a requirement for every screen, not polish. This page lists wha
 - Touch targets are at least 44 pt / px; primary actions are `size.cta`, 56 points tall (Sky tokens, T100; the public Accessibility page says 56 since T106).
 - Colours and sizes come from `design/tokens.json` (tokens only, no raw values), including the high-contrast palette.
 - Motion respects reduced-motion settings.
-- Anything the app tells the person (arrival messages, questions, errors, results, the "I HEARD" confirmation while drawing) is visible on screen.
+- **Contrast:** every text meets WCAG AA (4.5:1, 3:1 for large text) except the web Welcome title, which sits on a photo by design: white on the bare sky measures a median 2.7–2.8:1 in the title band and 2.6:1 at its brightest 10 % (T110, sampled from `design/assets/hero-sky.png`). It is an accepted exception at the owner's request (ruling R5, v3 flag 1 below); the iOS Welcome keeps its scrim.
+- Anything the app tells the person (arrival messages, questions, errors, results, the "YOU ASKED" line while the art is being changed) is visible on screen.
 
 ## Web
 - Semantic elements (`button`, `label`, headings in order), visible focus rings, `prefers-reduced-motion`, alt text on every `img`.
@@ -16,11 +17,11 @@ Accessibility is a requirement for every screen, not polish. This page lists wha
 
 ## iOS
 The app uses iOS's own accessibility settings instead of copying them (decision 2026-10-29, T081):
-- **Speaking instead of typing:** the keyboard's dictation key. Text fields have no mic buttons. Since v3 (T110) the only voice feature is "Say what to change" on Change it (the voice idea path "Say it out loud" is removed); it records audio and send it to Muse Voice Transcribe; those are product features, not accessibility settings.
-- **Hearing descriptions and messages:** VoiceOver. The app has no text-to-speech. Text that matters on arrival (the drawing confirmation, the clarifying question, the image description, "Your sticker is ready!" (or "Your tote bag is ready!"), "You're live!", "Video saved!", the story talking points, the drafted story, listing messages) is on screen and posted once as a VoiceOver announcement.
+- **Speaking instead of typing:** the keyboard's dictation key. Text fields have no mic buttons. Since v3 (T110) the only voice feature is "Say what to change" on Change it (the voice idea path "Say it out loud" is removed); it records audio and sends it to Muse Voice Transcribe; those are product features, not accessibility settings.
+- **Hearing descriptions and messages:** VoiceOver. The app has no text-to-speech. Text that matters on arrival (the change being made, the clarifying question, the description on Before and after, "Your cutout is ready. Here it is.", "Your sticker is ready!" (or "Your tote bag is ready!"), "You're live!", "Video saved!", the story talking points, the drafted story, listing messages) is on screen and posted once as a VoiceOver announcement.
 - **Bigger text:** Dynamic Type, up to the largest accessibility size.
 - **Contrast:** Settings → Accessibility → Display & Text Size → Increase Contrast switches the app to the high-contrast palette.
-- **Simple mode:** still honoured. It defaults to on and no client can change it today (API or seed only); with it on the app asks for one picture, so the pager in step 6 below needs a creator with `simpleMode: false` (the mock: sign in with a code starting `MULTI`).
+- **Simple mode:** still stored. It defaults to on and no client can change it today (API or seed only). In v0.7 it limited the voice path to one picture; that path and its 3-picture pager are removed in v0.8, so no v0.8 screen is expected to change with it.
 - Pictures are single VoiceOver elements labelled with their alt text; cards that belong together (eyebrow + text) read as one element.
 
 ### VoiceOver check (iOS: Sky tab bar, T103) — to confirm by ear in test round 3
@@ -30,44 +31,49 @@ The Home tab bar is a SwiftUI drawing inside a `UITabBar` host that exposes one 
 3. Double-tap My designs: it becomes selected and the My designs screen shows. Double-tap it again on a pushed design: back to the grid.
 4. If "tab" or the position is missing, note the exact reading in the test-round notes; the fallback is to set the `.tabBar` trait on a plain container view (see the T103 decision).
 
-### VoiceOver test script (Speak → Voice result)
-Run on a phone or simulator with VoiceOver on (Settings → Accessibility → VoiceOver, or the Accessibility Inspector in the simulator), signed in.
-1. Create tab → swipe to "Sticker, Die-cut, waterproof", double-tap. Swipe to "Say it out loud, Describe it, we draw it for you", double-tap.
-2. "Say it out loud" screen: VoiceOver reaches the "YOUR IDEA" card, then "Start talking" (record button). Double-tap, say "a frog with a crown", double-tap again ("Stop"). The card now reads "YOU SAID, a frog with a crown". (Or use "Type instead" and the keyboard's dictation key.)
-3. Double-tap "Done". If a question comes back, VoiceOver announces it and the "QUESTION" card shows it; answer with "Answer out loud" or by typing, then "Done".
-4. Drawing screen: VoiceOver announces the confirmation (for example "A happy frog with a gold crown. Drawing it now."), which is also shown in the "I HEARD" card.
-5. Voice result: VoiceOver announces the description. Swipe through: "YOU SAID, …", the picture (its alt text, "Image"), then "WHAT THE IMAGE SHOWS, …" with the full description. There is no "Hear" or "Stop" button.
-6. With several pictures (`simpleMode` off), each picture reads "<alt text>, picture n of 3"; swipe left/right on it to change pictures. The description card and the announcement follow the selected picture.
-7. "Change it" → "Say what to change" (record) or the "Change" field → "Make the change". The new picture's description is announced and shown.
-8. "Use this" → "Your sticker is ready!" is announced.
-Also check once with Increase Contrast on (high-contrast colours, no grain) and with the largest Dynamic Type size (text wraps, nothing clipped).
+### VoiceOver test script (iOS: Choose a pattern → Change it → Before and after, v0.8)
+Run on a phone or simulator with VoiceOver on (Settings → Accessibility → VoiceOver, or the Accessibility Inspector in the simulator), signed in. Labels are the v3 copy (`docs/design/copy-v3-ios.md`). Not yet run on a phone.
+1. Create tab → swipe to "Sticker, Die-cut, waterproof", double-tap, "Next". "How do you want to add your art?" offers two rows only: "Take a photo" and "Upload a picture" (there is no voice row). In the simulator choose "Upload a picture" and a photo of a drawing with two or more pieces.
+2. **Choose a pattern:** VoiceOver reads the title "Tap the one you want.", then "We found n drawings in your photo. Pick one to change and turn into a sticker." Each piece is read once, "Piece 1", "Piece 2", with its selected state; picking one unpicks the other (single pick). Double-tap "Use this".
+3. **Change it:** the title "Change your art?", the picture ("Your art" and its alt text, one element), "WHAT THE IMAGE SHOWS, …", then "WHAT SHOULD I CHANGE?", the field "What to change", the record button "Say what to change", "Make the change" and the pinned "Looks good as is" (hint "Keeps your art as it is and goes on").
+4. Double-tap "Say what to change": the "Change your art" screen reads "Say or type what to change. Your original stays safe.", then the "WHAT TO CHANGE" card and "Start talking". Double-tap, say "make the book red", double-tap "Stop". "Writing down what you said…" is announced, then the card reads "YOU SAID, make the book red". (Or "Type instead" → "Type what to change" with the keyboard's dictation key.) With the microphone off, "Microphone access is off. You can turn it on in Settings, or type instead." is shown and announced.
+5. Double-tap "Make the change". If a question comes back, VoiceOver announces it and the "QUESTION" card shows it; answer with "Answer out loud" or by typing.
+6. **Changing your art:** "Changing your art now. This can take up to a minute." is announced and the "YOU ASKED" card shows the request. On an error, "Something went wrong. Please try again." with "Try again" and "Back to my art".
+7. **Before and after:** the result is announced. Swipe through: "Here's the change", "You asked: make the book red", "Before" (the picked piece, its alt text), "After" (the changed picture, its alt text), "WHAT THE IMAGE SHOWS, …" with the full description, and "Different from what you asked: …" when Muse Spark noted a difference. Then "Use this", "Change it again" (hint "Draws a new version with your change") and "Back to my original". There is no "Hear" or "Stop" button: VoiceOver is the voice.
+8. "Back to my original" returns to the picked piece with no wait (nothing is lost; the change stays a saved draft). "Change it again" goes back to Change it with the changed picture as "Your art".
+9. "Use this" → **Making your cutout**: "Making your cutout" and "Cutting out your art. This takes a few seconds." are read; the screen then moves to Your cutout (script below). From Change it, "Looks good as is" goes the same way with the picked piece.
+Also check once with Increase Contrast on (high-contrast colours, no grain) and with the largest Dynamic Type size (text wraps, nothing clipped, "Looks good as is" and "Use this" stay reachable).
 
-### VoiceOver test script (iOS: Adjust cutout)
-Needs a creator who can use the photo branch. Simulator: Create > Sticker > "Take a photo" falls back to the photo library. Use a photo of a toy or a drawing that SAM 3.1 splits into 2 or more pieces. Not yet run on a phone with VoiceOver (see docs/handoffs/ios.md).
-1. On the Adjust cutout screen VoiceOver reads the title, then "Your photo", then the mode buttons, then the pieces strip. The numbered labels on the photo are hidden from VoiceOver, so each piece is read once, as "Piece 1", "Piece 2" (checkbox behaviour).
-2. Focus "Piece 1". It reads "Piece 1, selected" (or "Not selected") with the hint "Leaves it out of the cutout" / "Adds it to the cutout". Double-tap toggles it; the state change is read.
-3. With "Piece 1" focused, swipe up or down to open the actions. Expected: "Box around this piece", "Add the area around this piece", and "Leave this piece out" (only while the piece is selected). Run "Add the area around this piece": a mark is added and "Added area, mark 1" appears as a mark that can be deleted (hint "Deletes this mark").
-   - Focus "Added area, mark 1" and double-tap: the mark is deleted and "Mark removed" is announced. This is the mark's accessibility action (T091); XCUITest cannot run it, because a test tap goes to the photo's touch layer instead, so check it here. Repeat with Switch Control if available.
-4. Select two pieces, double-tap "Apply cutout". The result is shown as text ("Your cutout") and "Use this" becomes available.
-5. The mode buttons' hint says to use the piece actions instead of dragging. Check that no step needs a drag or a tap on the photo itself.
-6. Check once with the largest Dynamic Type size: the three mode buttons stack vertically and nothing is clipped.
+### VoiceOver test script (iOS: Your cutout → Making your sticker, v0.8)
+Continues the script above. Not yet run on a phone.
+1. **Your cutout:** VoiceOver reads the title "Your cutout", then "Here's the cutout of your changed art. Fix the edges if you need to." ("Here's the cutout of your art. …" after "Looks good as is"), the cutout picture (its alt text), the edge tools "Add area", "Remove area", "Draw a box", "Clear marks", "Apply cutout", then "Use this" and "Start over" (hint "Starts again from the camera").
+2. The edge tools must work without a drag and without tapping a spot on the photo. In v0.7 that was the piece actions on the pieces strip ("Box around this piece", "Add the area around this piece"); the v3 board removes the strip from Your cutout. Check which accessible alternative the iOS build offers (for example the same actions on the photo element, swiped up or down) and write the exact reading into the test-round notes; if there is none, record it as a blocker for VoiceOver users.
+3. Add a mark through that alternative: "Added area, mark 1" appears as a mark that can be deleted (hint "Deletes this mark"); double-tap it: the mark is deleted and "Mark removed" is announced (the T091 action, which XCUITest cannot run).
+4. Double-tap "Apply cutout": "Cutting out your art…" then "Your cutout is ready. Here it is." is announced and shown.
+5. "Use this" → **Making your sticker**: "Making your sticker" and "Adding the white border and getting it ready to print." are read; the looping animation is decorative (hidden from VoiceOver) and with Reduce Motion on it shows a still frame. There is no Back while it is busy. For a tote: "Making your tote bag" and "Placing your art on the bag and getting it ready to print."
+6. "Your sticker is ready!" (or "Your tote bag is ready!") is announced, then Listing details follows as before.
+7. Check once with the largest Dynamic Type size: the three edge tools stack vertically and nothing is clipped.
 
 ### VoiceOver test script (iOS: My designs)
 Signed in as a creator who has a few designs (a draft, one in the shop, one that failed).
 1. My designs tab: each tile is a single element, read as "<alt text>, <badge>", where the badge is "In the shop", "Draft", "Didn't work", "Cutting out..." or "Needs a cutout". A tile without an image shows a symbol; no endless spinner.
 2. Hint on a tile: "Opens the design. More actions are in the actions list." Swipe up or down: "Make a sticker" (only when no sticker is in the shop) and "Delete". Run "Delete": a confirmation appears; confirm, and the tile disappears.
 3. Double-tap a tile to open the design. Swipe through: the large picture, the badge, the products (type, title, status), then the buttons ("Edit listing", "Make a sticker" or "Make a tote", "Re-do the cutout", "See it in the shop", "Delete").
-4. "Re-do the cutout" opens Adjust cutout; run the script above, then "Use this" returns to the design.
+4. "Re-do the cutout" opens Your cutout; run the edge-tool steps of the Your cutout script above, then "Use this" returns to the design.
 5. (T091) With a design in progress in Create (pick Sticker, then leave), open a design and double-tap "Make a sticker": the dialog "Replace the design you're making?" is read with its message and "Replace it" / "Cancel". On a design with a sticker in the shop and a sticker draft, the button reads "Continue the sticker draft" and its dialog says "This continues your sticker draft…" with "Yes, continue the draft".
 
-### VoiceOver test script (web: Select screen)
-Safari on iPhone with VoiceOver on, or macOS Safari with VoiceOver (Control+Option+arrows), at `/create`, signed in, Sticker > photo. Same checks work with keyboard only (Tab, Space, Enter).
-1. The heading "Pick your art" is read first, then the sentence "We found n pieces. Pick one, or several to combine them." and the group "Pieces found".
-2. Each piece is a checkbox labelled "Piece n"; Space or double-tap toggles it, and the state is read.
-3. Under each piece there is a group with the buttons "Box around this piece" and "Add the area around this piece". Activate one: the status line reads "Box drawn" or "Mark added". The hint "With a keyboard or screen reader, use the buttons under each piece instead." is on screen.
-4. The mode group "What a tap on the photo does" is a set of three radio buttons ("Add area", "Remove area", "Draw a box"); arrow keys or swipes move between them and the checked one is read.
-5. "Apply cutout" shows "Saving the cutout..." then "Your cutout is saved. Here it is." in a status region that VoiceOver reads without moving focus. "Show the cutout" and "Back to photo" toggle the picture, whose alt text is "Your cutout".
-6. Tab order follows the visual order; every focused control has a visible focus ring; with `prefers-reduced-motion` on there is no animation.
+### VoiceOver test script (web: Choose a pattern → Change it → Before and after → Your cutout, v0.8)
+Safari on iPhone with VoiceOver on, or macOS Safari with VoiceOver (Control+Option+arrows), at `/create`, signed in, Sticker > "Upload a picture". Same checks work with keyboard only (Tab, Space, Enter). Labels are the v3 copy (`docs/design/copy-v3-web.md`). Not yet run.
+1. **Welcome:** the heading "Your art, on things people love." is read as one heading (the forced line breaks are not in the accessible name), then "Start creating" and "I already have an account". The title is white on the sky photo, the accepted contrast exception (see "Designer flags (v3)" below); check it with zoom at 200 % and note how it reads.
+2. **Choose method:** "How do you want to add your art?" with two options, "Take a photo" and "Upload a picture"; no voice option.
+3. **Choose a pattern:** the heading "Tap the one you want." is read first, then "We found n drawings in your photo. Pick one to change and turn into a sticker." and the group "Drawings found". Each piece ("Piece n") is a single-choice control; the selected one is read as selected. "Use this" goes on.
+4. **Change it:** heading "Change your art?", the picture labelled "Your art", "What the image shows", the field "What should change?", "Start talking", "Make the change" and "Looks good as is". With the microphone denied, "We can't use the microphone, so type what to change. Your original stays safe." is shown and the field still works.
+5. "Make the change" → **Changing your art**: the status "Changing your art now." is read without moving focus. On an error: "The change did not work this time." with "Try again" and "Back to my art".
+6. **Before and after:** heading "Here's the change", "You asked …", the "Before" and "After" pictures (each with alt text), "What the image shows" with "Hear what the image shows" (browser `speechSynthesis`), then "Use this", "Change it again" and "Back to my original". Focus lands on the heading when the result arrives.
+7. "Use this" → **Making your cutout** ("Making your cutout", "Cutting out your changed art.") → **Your cutout**: "Your cutout", "Here's the cutout of your changed art.", "Your cutout is ready. Here it is." in a status region, then "Fix the edges", "Use this" and "Start over".
+8. "Fix the edges": "Fix the edges if you need to. Tap the photo to add or remove an area." The mode group is a set of three radio buttons ("Add area", "Remove area", "Draw a box"); arrow keys or swipes move between them and the checked one is read. Check that a keyboard-only user can add or remove an area without clicking the photo (v0.7 had buttons under each piece for this; the v3 board does not show them) and write down what the build offers. "Apply cutout" shows "Cutting out your art…" then the ready line.
+9. **Making your sticker:** "Making your sticker" and "Adding the white border and getting it ready to print."; the animation has empty alt text and, with `prefers-reduced-motion` on, shows a still frame.
+10. Tab order follows the visual order on every screen; every focused control has a visible focus ring.
 
 ## Designer flags (Sky, T100)
 Raised on the Figma file (key `vIOMPzc2kjP18BbgduLmc8`) during the T100 intake. Contrast ratios computed from the token hex values (WCAG 2.x relative luminance).
@@ -81,7 +87,7 @@ Raised on the Figma file (key `vIOMPzc2kjP18BbgduLmc8`) during the T100 intake. 
 | greenDeep `#173D2B` on accent | 5.5:1 | selected card caption, 13 px | pass |
 | greenDeep on `#E4F3C8` | 10.3:1 | method icons | pass |
 | white on accent | 2.2:1 | not used on the boards | never use for text |
-| white on the sky photo | 2.4–2.7:1 (sky), ~1.5:1 (pink cloud) | Welcome headline, body, "I already have an account" | **fails**: needs `color.scrim` |
+| white on the sky photo | 2.4–2.7:1 (sky), ~1.5:1 (pink cloud) | Welcome headline, body, "I already have an account" | **fails**: needs `color.scrim` (v3: still so on iOS; the web Welcome title is the accepted exception, see "Designer flags (v3)") |
 | white on sky under the scrim `rgba(0,0,0,0.35)` | 5.3–5.7:1 (sky), ~3.5:1 (cloud) | same | passes for the 48 px headline everywhere; body text must sit over sky, not cloud, or the scrim is a gradient that is darkest behind the text |
 | border `#D1D5DB` on white | 1.5:1 | unselected card and secondary pill outline | below 3:1 for UI boundaries; the card is still found by its label and radio, the pill by its text. Flagged to the designer |
 | text field border textMuted `#6B7280` on white / on `#F3F4F6` | 4.8:1 / 4.4:1 | web text inputs and textareas (`ui/Field`, T102 fix round 1) | pass 3:1 for input boundaries; inputs never use the `#D1D5DB` hairline because an empty field has no label inside it to find |

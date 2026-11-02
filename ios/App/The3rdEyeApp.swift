@@ -9,6 +9,9 @@ struct The3rdEyeApp: App {
     WindowGroup {
       RootView()
         .environment(app)
+        // Default for any Text not styled with `themeFont` (system controls, alerts' SwiftUI
+        // content): Outfit's variable TTF would otherwise draw at its default weight, Thin.
+        .font(TextRole.body.font)
         .onOpenURL { url in app.open(url) }
     }
     .onChange(of: scenePhase) { _, phase in app.scenePhaseChanged(phase) }

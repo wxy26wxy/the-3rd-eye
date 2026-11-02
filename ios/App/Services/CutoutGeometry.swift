@@ -51,7 +51,7 @@ enum CutoutGeometry {
   }
 }
 
-/// What the Adjust cutout screen sends.
+/// What Your cutout sends (`cleanup`), and what Choose a pattern sends for a single pick (`select`).
 enum CutoutRequest {
   /// The API takes at most 10 points.
   static let maxPoints = 10
@@ -100,6 +100,21 @@ enum CutoutRequest {
     return CutoutPoint(x: (b[0] + b[2]) / 2, y: (b[1] + b[3]) / 2, label: .positive)
   }
 
+  /// What the VoiceOver actions on Your cutout's picture act on: the piece the cut-out was made
+  /// from, or the whole picture when there is none (no drawing found).
+  static func accessTarget(piece: Candidate?, image: ImageSize?) -> (box: [Double], point: CutoutPoint)? {
+    if let piece, let box = box(around: piece), let point = centrePoint(of: piece) { return (box, point) }
+    guard let image, image.isUsable else { return nil }
+    return ([0, 0, image.w, image.h], CutoutPoint(x: image.w / 2, y: image.h / 2, label: .positive))
+  }
+
+  /// "Use this" with nothing marked, before any cut-out and with no piece (no drawing found): a
+  /// box over the whole picture.
+  static func wholePhoto(hasCut: Bool, selected: [Candidate], image: ImageSize?) -> CleanupRequest? {
+    guard !hasCut, selected.isEmpty, let image, image.isUsable else { return nil }
+    return CleanupRequest(box: [0, 0, image.w, image.h])
+  }
+
   private static func contains(_ bbox: [Double], x: Double, y: Double) -> Bool {
     bbox.count == 4 && x >= bbox[0] && x < bbox[2] && y >= bbox[1] && y < bbox[3]
   }
@@ -122,10 +137,10 @@ extension CleanupResult {
   /// Said when a "Remove area" mark would leave nothing, and for a cleanup with "Remove area"
   /// marks answered 422.
   static var removeAdvice: String {
-    String(localized: "Tap a piece to leave it out of the cutout. To trim one piece, draw a box around what should stay.")
+    String(localized: "To trim the edges, draw a box around what should stay, then tap the parts to leave out.")
   }
 
-  /// What Adjust cutout shows for a failed request: the advice only when a 422 followed marks that
+  /// What Your cutout shows for a failed request: the advice only when a 422 followed marks that
   /// leave something out, otherwise the server's reason. Nil for a cancelled request.
   static func errorMessage(for error: Error, request: CleanupRequest?) -> String? {
     if APIError.isCancellation(error) { return nil }

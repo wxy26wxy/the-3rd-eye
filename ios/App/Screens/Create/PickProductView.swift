@@ -22,7 +22,7 @@ struct PickProductView: View {
         product(.tote, name: "Tote bag", detail: "Natural canvas")
       }
     } actions: {
-      PillButton("Next", hint: "Choose how to make your art") { app.push(.chooseMethod) }
+      PillButton("Next", hint: "Choose how to add your art") { app.push(.chooseMethod) }
         .disabled(app.flow.productType == nil)
     }
   }

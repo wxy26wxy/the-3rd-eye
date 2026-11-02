@@ -92,11 +92,17 @@ final class DesignsStore {
 
   func artwork(id: String) -> Artwork? { artworks.first { $0.id == id } }
 
+  /// My designs leaves out changes that were never cut out (drafts made by "Change it" that the
+  /// creator went past, e.g. with "Back to my original"; docs/api.md T111 §3); everything else is shown.
+  static func shown(_ artworks: [Artwork]) -> [Artwork] {
+    artworks.filter { !($0.parentArtworkId != nil && $0.cleanedUrl == nil) }
+  }
+
   func load() async {
     loading = true
     defer { loading = false }
     do {
-      artworks = try await api.myArtworks()
+      artworks = Self.shown(try await api.myArtworks())
       loaded = true
       error = nil
     } catch {

@@ -25,9 +25,9 @@ final class SystemAccessibilityTests: XCTestCase {
 
   @MainActor
   func testDescriptionCardPrefersSpokenDescriptionThenAltText() throws {
-    XCTAssertEqual(VoiceResultView.description(of: try artwork(#","altText":"Frog","spokenDescription":"A smiling frog.""#)), "A smiling frog.")
-    XCTAssertEqual(VoiceResultView.description(of: try artwork(#","altText":"Frog","spokenDescription":"  ""#)), "Frog")
-    XCTAssertNil(VoiceResultView.description(of: try artwork("")))
+    XCTAssertEqual(try artwork(#","altText":"Frog","spokenDescription":"A smiling frog.""#).shownDescription, "A smiling frog.")
+    XCTAssertEqual(try artwork(#","altText":"Frog","spokenDescription":"  ""#).shownDescription, "Frog")
+    XCTAssertNil(try artwork("").shownDescription)
   }
 
   /// T091: the sign-out confirmation keeps version, git sha and server, with or without a name.

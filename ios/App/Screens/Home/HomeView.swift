@@ -86,11 +86,13 @@ private struct CreateDestination: View {
     case .chooseMethod: ChooseMethodView()
     case .camera(let source): CameraView(source: source)
     case .findingDrawings: FindingDrawingsView()
-    case .adjustCutout: AdjustCutoutView()
-    case .speak: SpeakView()
-    case .drawingYourIdea: DrawingYourIdeaView()
-    case .voiceResult: VoiceResultView()
-    case .designReady: DesignReadyView()
+    case .choosePattern: ChoosePatternView()
+    case .changeIt: ChangeItView()
+    case .changing: ChangingView()
+    case .beforeAfter: BeforeAfterView()
+    case .makingCutout: MakingCutoutView()
+    case .yourCutout: YourCutoutView()
+    case .makingProduct: MakingProductView()
     case .listingDetails: ListingDetailsView()
     case .storyVideo: StoryVideoView()
     case .videoSaved: VideoSavedView()
@@ -105,7 +107,7 @@ private struct DesignDestination: View {
   var body: some View {
     switch route {
     case .detail(let id): DesignDetailView(artworkId: id)
-    case .redoCutout: AdjustCutoutView(origin: .designs)
+    case .redoCutout: YourCutoutView(origin: .designs)
     }
   }
 }

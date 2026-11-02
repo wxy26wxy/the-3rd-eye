@@ -119,4 +119,16 @@ final class ThemeEffectsTests: XCTestCase {
     // T110: Making your sticker / tote bag (2014:733, 4038:4494).
     XCTAssertNotNil(Bundle.main.url(forResource: Tokens.Asset.stickerLoading, withExtension: "mp4"))
   }
+
+  /// Outfit's variable TTF defaults to Thin (100): every role must ask for Regular (400) or heavier.
+  func testEveryTextRoleIsAtLeastRegular() {
+    for role in TextRole.allCases {
+      XCTAssertGreaterThanOrEqual(role.cssWeight, 400, "\(role) would draw thinner than Regular")
+      XCTAssertNotEqual(role.weight, .light, "\(role)")
+      XCTAssertNotEqual(role.weight, .thin, "\(role)")
+      XCTAssertNotEqual(role.weight, .ultraLight, "\(role)")
+    }
+    XCTAssertEqual(TextRole.body.weight, .regular, "the app-wide default font (The3rdEyeApp) is body, Regular")
+  }
 }
+

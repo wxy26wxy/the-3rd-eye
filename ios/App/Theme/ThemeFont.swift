@@ -3,7 +3,7 @@ import UIKit
 
 /// Type roles from tokens.json `type`. Custom fonts scale with Dynamic Type
 /// through `relativeTo:`.
-enum TextRole {
+enum TextRole: CaseIterable {
   case displayXL, displayL, displayM, titleL, titleM, bodyL, body, bodyS, caption, eyebrow, step
 
   var size: CGFloat {
@@ -43,21 +43,24 @@ enum TextRole {
     }
   }
 
-  /// Outfit weight for the role: `type.<role>.weight` in tokens.json (Tokens.TypeWeight), on the variable font axis.
-  var weight: Font.Weight {
+  /// Outfit weight for the role: `type.<role>.weight` in tokens.json (Tokens.TypeWeight), on the
+  /// variable font's axis. Every role names its weight: the variable TTF falls back to Thin (100) without one.
+  var cssWeight: Int {
     switch self {
-    case .displayXL: return Self.fontWeight(Tokens.TypeWeight.displayXL)
-    case .displayL: return Self.fontWeight(Tokens.TypeWeight.displayL)
-    case .displayM: return Self.fontWeight(Tokens.TypeWeight.displayM)
-    case .titleL: return Self.fontWeight(Tokens.TypeWeight.titleL)
-    case .titleM: return Self.fontWeight(Tokens.TypeWeight.titleM)
-    case .bodyL: return Self.fontWeight(Tokens.TypeWeight.bodyL)
-    case .body: return Self.fontWeight(Tokens.TypeWeight.body)
-    case .bodyS: return Self.fontWeight(Tokens.TypeWeight.bodyS)
-    case .caption: return Self.fontWeight(Tokens.TypeWeight.caption)
-    case .eyebrow, .step: return Self.fontWeight(Tokens.TypeWeight.eyebrow)
+    case .displayXL: return Tokens.TypeWeight.displayXL
+    case .displayL: return Tokens.TypeWeight.displayL
+    case .displayM: return Tokens.TypeWeight.displayM
+    case .titleL: return Tokens.TypeWeight.titleL
+    case .titleM: return Tokens.TypeWeight.titleM
+    case .bodyL: return Tokens.TypeWeight.bodyL
+    case .body: return Tokens.TypeWeight.body
+    case .bodyS: return Tokens.TypeWeight.bodyS
+    case .caption: return Tokens.TypeWeight.caption
+    case .eyebrow, .step: return Tokens.TypeWeight.eyebrow
     }
   }
+
+  var weight: Font.Weight { Self.fontWeight(cssWeight) }
 
   /// CSS weight number → SwiftUI weight.
   static func fontWeight(_ css: Int) -> Font.Weight {

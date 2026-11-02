@@ -83,10 +83,10 @@ struct CameraView: View {
   }
 
   private func use(_ image: UIImage) {
+    // A new photo: whatever came from the last one (drawings, changes, cut-out) goes.
+    app.flow.discardPhoto()
     app.flow.photo = ImageTools.normalized(image)
     app.flow.photoSource = source
-    app.flow.photoArtwork = nil
-    app.flow.resetCutout(candidates: [], imageSize: nil)
     app.replaceTop(with: .findingDrawings)
   }
 }

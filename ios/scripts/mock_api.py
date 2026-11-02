@@ -5,7 +5,8 @@ Usage: python3 ios/scripts/mock_api.py [port]   (default 3999)
 Build the app against it: xcodebuild ... API_BASE_URL=http://localhost:3999
 Shapes follow docs/api.md. Images point at a 1x1 PNG served here.
 Photo flow: launch the app with UITEST_PHOTO=1 and MOCK_BLOB_API=<base>/blob/ (UI tests do);
-POST /artworks {source: photo} answers 2 candidates and imageSize 1200x1600 (sign-in code ONE...: 1).
+POST /artworks {source: photo} answers 2 candidates and imageSize 1200x1600 (sign-in code ONE...: 1,
+NONE...: no drawing found, 0 candidates; T114).
 Sign-in NOCUT... makes cleanup answer 422, DETAILS... gives cleanup non-empty details, SLOW... makes
 cleanup take 4 s (switching tabs meanwhile must not lose the cut).
 GET /__mock/last/<cleanup|select|artworks|products|approve|delete> returns the last body the app sent there
@@ -94,7 +95,7 @@ CANDIDATES = [
 LAST = {}
 # A sign-in code starting with ONE makes photo answers carry a single, already cut-out candidate.
 # NOCUT… makes every cleanup answer 422; DETAILS… makes it carry non-empty details.
-MODE = {"single": False, "fail": False, "details": False, "slow": False, "noprint": False}
+MODE = {"single": False, "none": False, "fail": False, "details": False, "slow": False, "noprint": False}
 CUTS = {"n": 0}
 
 
@@ -159,6 +160,8 @@ def change_detail(artwork_id):
 def create_artwork(body):
     if body.get("source") in ("photo", "canvas"):
         LAST["artworks"] = body
+        if MODE["none"]:
+            return {"artwork": photo_artwork(), "candidates": [], "imageSize": IMAGE_SIZE}
         if MODE["single"]:
             return {"artwork": photo_artwork(f"{BASE}/img.png?cut=0", "Cut-out of piece 1"),
                     "candidates": CANDIDATES[:1], "imageSize": IMAGE_SIZE}
@@ -220,7 +223,7 @@ def cleanup(body):
 
 
 def artwork_detail(_body):
-    cands = CANDIDATES[:1] if MODE["single"] else CANDIDATES
+    cands = [] if MODE["none"] else CANDIDATES[:1] if MODE["single"] else CANDIDATES
     return {"artwork": photo_artwork(), "candidates": cands, "imageSize": IMAGE_SIZE, "originalUrl": f"{BASE}/img.png"}
 
 
@@ -352,6 +355,7 @@ def sign_in(body):
     multi = str(body.get("code", "")).upper().startswith("MULTI")
     code = str(body.get("code", "")).upper()
     MODE["single"] = code.startswith("ONE")
+    MODE["none"] = code.startswith("NONE")
     MODE["fail"] = code.startswith("NOCUT")
     MODE["details"] = code.startswith("DETAILS")
     MODE["slow"] = code.startswith("SLOW")

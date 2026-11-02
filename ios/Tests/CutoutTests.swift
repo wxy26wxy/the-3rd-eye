@@ -166,14 +166,17 @@ final class CutoutTests: XCTestCase {
     flow.points = [CutoutPoint(x: 1, y: 1, label: .positive)]
     flow.box = [0, 0, 1, 1]
     flow.cutoutNotice = "x"
-    flow.resetCutout(candidates: [one], imageSize: size)
+    flow.resetCutout(artwork: Artwork(id: "p1"), candidates: [one], imageSize: size)
     XCTAssertEqual(flow.selectedCandidateIds, ["c1"])
+    XCTAssertEqual(flow.cutoutArtwork?.id, "p1")
     XCTAssertEqual(flow.imageSize, size)
     XCTAssertTrue(flow.points.isEmpty)
     XCTAssertNil(flow.box)
     XCTAssertNil(flow.cutoutNotice)
-    flow.resetCutout(candidates: [one, two], imageSize: size)
-    XCTAssertEqual(flow.selectedCandidateIds, [], "with several pieces the creator picks")
+    flow.resetCutout(artwork: Artwork(id: "p1"), candidates: [one, two], imageSize: size)
+    XCTAssertEqual(flow.selectedCandidateIds, [], "with several pieces and no choice, none is assumed")
+    flow.resetCutout(artwork: Artwork(id: "ch1"), candidates: [two, one], imageSize: size, selected: ["c2"])
+    XCTAssertEqual(flow.selectedCandidateIds, ["c2"], "the piece the cut-out was made from")
   }
 
   // MARK: T091: marks close together, Retake
@@ -190,18 +193,141 @@ final class CutoutTests: XCTestCase {
   func testDiscardPhotoClearsMarksAndPieces() {
     let flow = CreateFlow()
     flow.photo = UIImage()
-    flow.photoArtwork = Artwork(id: "p1", status: "draft")
-    flow.resetCutout(candidates: [one, two], imageSize: size)
+    flow.setPhoto(artwork: Artwork(id: "p1", status: "draft"), candidates: [one, two], imageSize: size)
+    flow.pieceCandidateId = "c1"
+    flow.pieceArtwork = Artwork(id: "p1", cleanedUrl: "u")
+    flow.changedArtwork = Artwork(id: "ch1", parentArtworkId: "p1")
+    flow.changeInstruction = "Make it red"
+    flow.resetCutout(artwork: Artwork(id: "ch1"), candidates: [one, two], imageSize: size)
     flow.selectedCandidateIds = ["c1"]
     flow.points = [CutoutPoint(x: 1, y: 2, label: .positive)]
     flow.box = [0, 0, 10, 10]
     flow.discardPhoto()
     XCTAssertNil(flow.photo)
     XCTAssertNil(flow.photoArtwork)
+    XCTAssertTrue(flow.photoCandidates.isEmpty)
+    XCTAssertNil(flow.pieceCandidateId)
+    XCTAssertNil(flow.pieceArtwork)
+    XCTAssertNil(flow.changedArtwork)
+    XCTAssertEqual(flow.changeInstruction, "")
+    XCTAssertNil(flow.cutoutArtwork)
     XCTAssertTrue(flow.candidates.isEmpty)
     XCTAssertTrue(flow.selectedCandidateIds.isEmpty)
     XCTAssertTrue(flow.points.isEmpty)
     XCTAssertNil(flow.box)
     XCTAssertNil(flow.imageSize)
   }
+
+  // MARK: T114: photo first, Change it
+
+  /// A new photo: a single drawing starts picked; several wait for a choice; earlier changes go.
+  func testSetPhotoPicksTheOnlyDrawingAndDropsChanges() {
+    let flow = CreateFlow()
+    flow.changedArtwork = Artwork(id: "ch1")
+    flow.changeInstruction = "x"
+    flow.setPhoto(artwork: Artwork(id: "p1"), candidates: [one], imageSize: size)
+    XCTAssertEqual(flow.pieceCandidateId, "c1")
+    XCTAssertNil(flow.changedArtwork)
+    XCTAssertEqual(flow.changeInstruction, "")
+    flow.setPhoto(artwork: Artwork(id: "p2"), candidates: [one, two], imageSize: size)
+    XCTAssertNil(flow.pieceCandidateId)
+    XCTAssertEqual(flow.photoImageSize, size)
+  }
+
+  /// The art on screen is the latest change, else the picked drawing; "Back to my original" is
+  /// only a local switch.
+  func testCurrentArtFollowsTheChange() {
+    let flow = CreateFlow()
+    flow.pieceArtwork = Artwork(id: "p1", cleanedUrl: "u")
+    XCTAssertEqual(flow.currentArt?.id, "p1")
+    flow.changeBase = flow.pieceArtwork
+    flow.changedArtwork = Artwork(id: "ch1", parentArtworkId: "p1")
+    XCTAssertEqual(flow.currentArt?.id, "ch1")
+    flow.resetChange()
+    XCTAssertEqual(flow.currentArt?.id, "p1")
+    XCTAssertNil(flow.changeBase)
+  }
+
+  /// Choose a pattern: a tap on the photo picks the smallest drawing under it.
+  @MainActor
+  func testTapOnThePhotoPicksTheDrawingUnderIt() {
+    let outer = Candidate(id: "big", bbox: [0, 0, 1000, 1000])
+    let inner = Candidate(id: "small", bbox: [100, 100, 300, 300])
+    XCTAssertEqual(ChoosePatternView.candidate(at: CGPoint(x: 200, y: 200), in: [outer, inner])?.id, "small")
+    XCTAssertEqual(ChoosePatternView.candidate(at: CGPoint(x: 600, y: 600), in: [outer, inner])?.id, "big")
+    XCTAssertNil(ChoosePatternView.candidate(at: CGPoint(x: 2000, y: 10), in: [outer, inner]))
+  }
+
+  /// My designs hides changes that were never cut out.
+  func testDesignsHideUncutChanges() {
+    let shown = DesignsStore.shown([
+      Artwork(id: "p1", cleanedUrl: "u"),
+      Artwork(id: "ch1", parentArtworkId: "p1"),
+      Artwork(id: "ch2", cleanedUrl: "u2", parentArtworkId: "p1"),
+      Artwork(id: "ch3", parentArtworkId: "p1", lastError: "x"),
+    ])
+    XCTAssertEqual(shown.map(\.id), ["p1", "ch2"], "a change with a parent and no cut-out is hidden, failed or not")
+  }
+
+  // MARK: T114 fix round 1: draft reuse, VoiceOver targets, whole photo
+
+  /// Back from Listing details, then Use this again: the same cut reuses the draft; a re-cut
+  /// refreshes it; another artwork or type makes a new product.
+  func testProductPlanReusesRefreshesOrCreates() {
+    let flow = CreateFlow()
+    let cut = Artwork(id: "ch1", cleanedUrl: "cut-1")
+    XCTAssertEqual(flow.productPlan(for: cut, type: .sticker), .create, "nothing made yet")
+    let draft = Product(id: "pr1", artworkId: "ch1", type: .sticker, mockupUrl: "mock-1", priceCents: 500, status: "draft")
+    flow.useProduct(draft, madeFrom: cut)
+    XCTAssertEqual(flow.productPlan(for: cut, type: .sticker), .reuse(draft), "same cut: no second draft")
+    XCTAssertEqual(flow.productPlan(for: Artwork(id: "ch1", cleanedUrl: "cut-2"), type: .sticker), .refresh(draft), "re-cut: read it again")
+    XCTAssertEqual(flow.productPlan(for: cut, type: .tote), .create)
+    XCTAssertEqual(flow.productPlan(for: Artwork(id: "p1", cleanedUrl: "cut-1"), type: .sticker), .create)
+    flow.discardPhoto()
+    XCTAssertNil(flow.product)
+    XCTAssertNil(flow.productCut)
+  }
+
+  /// A refreshed draft takes the rebuilt mockup and price from `GET /artworks`; missing → unchanged.
+  func testRefreshedDraftTakesTheRebuiltMockup() {
+    let draft = Product(id: "pr1", artworkId: "ch1", type: .sticker, mockupUrl: "mock-1", priceCents: 500, status: "draft")
+    let list = [Artwork(id: "ch1", products: [ArtworkProduct(id: "pr1", type: .sticker, status: "draft", priceCents: 600, mockupUrl: "mock-2")])]
+    let fresh = CreateFlow.refreshed(draft, in: list)
+    XCTAssertEqual(fresh.mockupUrl, "mock-2")
+    XCTAssertEqual(fresh.priceCents, 600)
+    XCTAssertEqual(CreateFlow.refreshed(draft, in: []), draft, "not in the list: kept as it was")
+  }
+
+  /// A re-cut whose product rebuild failed leaves the notice Listing details shows.
+  func testFailedRebuildLeavesTheNotice() {
+    let flow = CreateFlow()
+    flow.cutoutArtwork = Artwork(id: "ch1", cleanedUrl: "cut-1", altText: "A bus")
+    flow.recordCut(CleanupResult(artwork: Artwork(id: "ch1", cleanedUrl: "cut-2"), failedProductIds: ["pr1"]))
+    XCTAssertEqual(flow.artwork?.cleanedUrl, "cut-2")
+    XCTAssertEqual(flow.cutoutArtwork?.altText, "A bus", "the description is kept")
+    XCTAssertNotNil(flow.cutoutNotice)
+    XCTAssertTrue(flow.cutoutNotice?.contains("could not be rebuilt") == true)
+    flow.recordCut(CleanupResult(artwork: Artwork(id: "ch1", cleanedUrl: "cut-3")))
+    XCTAssertNil(flow.cutoutNotice, "a clean re-cut clears it")
+  }
+
+  /// The VoiceOver actions act on the piece, or on the whole photo when no drawing was found.
+  func testAccessTargetsPieceOrWholePhoto() throws {
+    let onPiece = try XCTUnwrap(CutoutRequest.accessTarget(piece: one, image: size))
+    XCTAssertEqual(onPiece.box, one.bbox)
+    XCTAssertEqual(onPiece.point, CutoutPoint(x: 300, y: 426.5, label: .positive))
+    let whole = try XCTUnwrap(CutoutRequest.accessTarget(piece: nil, image: size))
+    XCTAssertEqual(whole.box, [0, 0, 1200, 1600])
+    XCTAssertEqual(whole.point, CutoutPoint(x: 600, y: 800, label: .positive))
+    XCTAssertNil(CutoutRequest.accessTarget(piece: nil, image: nil))
+  }
+
+  /// No drawing found and nothing marked: "Use this" sends the whole photo; never once a cut exists.
+  func testWholePhotoOnlyWithoutACutOrPiece() {
+    XCTAssertEqual(CutoutRequest.wholePhoto(hasCut: false, selected: [], image: size), CleanupRequest(box: [0, 0, 1200, 1600]))
+    XCTAssertNil(CutoutRequest.wholePhoto(hasCut: true, selected: [], image: size))
+    XCTAssertNil(CutoutRequest.wholePhoto(hasCut: false, selected: [one], image: size))
+    XCTAssertNil(CutoutRequest.wholePhoto(hasCut: false, selected: [], image: nil))
+  }
 }
+

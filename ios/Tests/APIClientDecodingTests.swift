@@ -17,29 +17,46 @@ final class APIClientDecodingTests: XCTestCase {
     XCTAssertNil(creator.storyVideoUrl)
   }
 
-  func testShapePromptSnakeCaseAndNullQuestion() async throws {
-    let (api, stub) = client(Fixtures.shapeWithQuestion)
-    let res = try await api.shapePrompt(transcript: "a frog", answers: nil, product: .sticker)
-    XCTAssertEqual(res.clarifyingQuestion, "What color should the crown be?")
-    XCTAssertEqual(res.styleNotes, "bold sticker style")
-    XCTAssertEqual(stub.requests.first?.url?.path, "/api/v1/prompts/shape")
+  /// T114: "Change it" sends the instruction (and the words heard) and decodes the child artwork
+  /// with its description.
+  func testChangeSendsInstructionAndDecodesTheChild() async throws {
+    let (api, stub) = client(Fixtures.change, status: 201)
+    let res = try await api.change(artworkId: "p1", instruction: "Make the sky purple", transcript: "make the sky purple")
+    XCTAssertEqual(stub.requests.first?.url?.path, "/api/v1/artworks/p1/change")
+    XCTAssertEqual(stub.requests.first?.httpMethod, "POST")
+    XCTAssertGreaterThanOrEqual(stub.requests.first?.timeoutInterval ?? 0, 300)
     let sent = try JSONSerialization.jsonObject(with: stub.requests[0].httpBody!) as? [String: Any]
-    XCTAssertEqual(sent?["product"] as? String, "sticker")
-    XCTAssertNil(sent?["answers"], "nil answers are omitted")
+    XCTAssertEqual(sent?["instruction"] as? String, "Make the sky purple")
+    XCTAssertEqual(sent?["transcript"] as? String, "make the sky purple")
+    XCTAssertEqual(res.artwork.id, "ch1")
+    XCTAssertEqual(res.artwork.parentArtworkId, "p1")
+    XCTAssertEqual(res.artwork.changeInstruction, "Make the sky purple")
+    XCTAssertNil(res.artwork.cleanedUrl)
+    XCTAssertEqual(res.artwork.displayURL?.absoluteString, "https://blob.example/ch1-preview.png", "after = previewUrl")
+    XCTAssertEqual(res.description?.alt, "Yellow school bus under a purple sky")
+    XCTAssertEqual(res.description?.differences, "")
+    XCTAssertEqual(res.artwork.shownDescription, "A yellow school bus under a purple sky.")
 
-    let none = try JSONDecoder().decode(ShapePromptResponse.self, from: Data(Fixtures.shapeNoQuestion.utf8))
-    XCTAssertNil(none.clarifyingQuestion)
+    // A typed change sends no transcript.
+    _ = try await api.change(artworkId: "ch1", instruction: "Add a sun", transcript: nil)
+    let typed = try JSONSerialization.jsonObject(with: stub.requests[1].httpBody!) as? [String: Any]
+    XCTAssertNil(typed?["transcript"], "nil transcript is omitted")
   }
 
-  func testTextToImageVariants() async throws {
-    let (api, stub) = client(Fixtures.artworkVariants)
-    let variants = try await api.generateArtworks(prompt: "A frog", transcript: "a frog", product: .tote, n: 2)
-    XCTAssertEqual(variants.count, 2)
-    XCTAssertEqual(variants[0].spokenDescription, "A smiling green frog wears a small gold crown.")
-    XCTAssertEqual(variants[0].displayURL?.absoluteString, "https://blob.example/a1-preview.png")
-    let sent = try JSONSerialization.jsonObject(with: stub.requests[0].httpBody!) as? [String: Any]
-    XCTAssertEqual(sent?["source"] as? String, "text2image")
-    XCTAssertEqual(sent?["n"] as? Int, 2)
+  /// T114: the cut-out of a changed picture: the artwork, its pieces (the cut one first) and the size.
+  func testCutoutDecodesPiecesAndSize() async throws {
+    let (api, stub) = client(Fixtures.cutout)
+    let res = try await api.cutout(artworkId: "ch1")
+    XCTAssertEqual(stub.requests.first?.url?.path, "/api/v1/artworks/ch1/cutout")
+    XCTAssertEqual(stub.requests.first?.httpMethod, "POST")
+    XCTAssertGreaterThanOrEqual(stub.requests.first?.timeoutInterval ?? 0, 300)
+    XCTAssertEqual(res.artwork.cleanedUrl, "https://blob.example/ch1-cut.png")
+    XCTAssertEqual(res.candidates.map(\.id), ["k1", "k2"])
+    XCTAssertEqual(res.imageSize, ImageSize(w: 1024, h: 1024))
+    // Older shapes without pieces still decode.
+    let bare = try JSONDecoder().decode(CutoutResponse.self, from: Data(#"{"artwork":{"id":"ch1"}}"#.utf8))
+    XCTAssertTrue(bare.candidates.isEmpty)
+    XCTAssertNil(bare.imageSize)
   }
 
   func testPhotoArtworkCandidates() throws {
@@ -92,7 +109,7 @@ final class APIClientDecodingTests: XCTestCase {
   func testErrorEnvelopeBecomesServerError() async {
     let (api, _) = client(Fixtures.error, status: 400)
     do {
-      _ = try await api.shapePrompt(transcript: "x", answers: nil, product: .sticker)
+      _ = try await api.change(artworkId: "p1", instruction: "x", transcript: nil)
       XCTFail("expected error")
     } catch let error as APIError {
       XCTAssertEqual(error, .server(status: 400, code: "invalid_code", message: "That code didn't work."))

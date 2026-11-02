@@ -15,28 +15,20 @@ enum Fixtures {
 
   static let authCode = #"{"token":"c1.abc123","creator":\#(creator)}"#
 
-  static let shapeWithQuestion = """
-  {"prompt":"A cheerful green frog wearing a gold crown, thick outlines, white background",
-   "style_notes":"bold sticker style","clarifying_question":"What color should the crown be?",
-   "spoken_confirmation":"A happy frog with a crown. Drawing it now."}
+  static let change = """
+  {"artwork":{"id":"ch1","creatorId":"c1","source":"photo","transcript":"make the sky purple","shapedPrompt":null,
+   "originalUrl":"private/ch1.png","cleanedUrl":null,"maskUrl":null,"cutPathSvg":null,
+   "altText":"Yellow school bus under a purple sky","spokenDescription":"A yellow school bus under a purple sky.",
+   "differencesFromPrompt":null,"genResponseId":"resp_ch1","parentArtworkId":"p1","changeInstruction":"Make the sky purple",
+   "status":"draft","lastError":null,"createdAt":"2026-11-01T10:00:00.000Z","previewUrl":"https://blob.example/ch1-preview.png"},
+   "description":{"alt":"Yellow school bus under a purple sky","spoken":"A yellow school bus under a purple sky.","differences":""}}
   """
 
-  static let shapeNoQuestion = """
-  {"prompt":"A frog","style_notes":"","clarifying_question":null,"spoken_confirmation":"Drawing a frog."}
-  """
-
-  static let artworkVariants = """
-  {"artworks":[
-    {"id":"a1","creatorId":"c1","source":"text2image","transcript":"a frog with a crown","shapedPrompt":"A frog",
-     "originalUrl":null,"cleanedUrl":"https://blob.example/a1.png","maskUrl":null,"cutPathSvg":null,
-     "altText":"Green frog with a gold crown","spokenDescription":"A smiling green frog wears a small gold crown.",
-     "differencesFromPrompt":"The crown has three points.","genResponseId":"resp_1","parentArtworkId":null,
-     "status":"draft","createdAt":"2026-10-28T22:00:00.000Z","previewUrl":"https://blob.example/a1-preview.png"},
-    {"id":"a2","creatorId":"c1","source":"text2image","transcript":"a frog with a crown","shapedPrompt":"A frog",
-     "originalUrl":null,"cleanedUrl":null,"maskUrl":null,"cutPathSvg":null,
-     "altText":"Frog","spokenDescription":"A frog.","differencesFromPrompt":null,"genResponseId":"resp_2",
-     "parentArtworkId":null,"status":"draft","createdAt":"2026-10-28T22:00:01Z","previewUrl":"https://blob.example/a2.png"}
-  ]}
+  static let cutout = """
+  {"artwork":{"id":"ch1","source":"photo","cleanedUrl":"https://blob.example/ch1-cut.png","parentArtworkId":"p1",
+   "changeInstruction":"Make the sky purple","status":"ready"},
+   "candidates":[{"id":"k1","bbox":[10,10,900,900],"score":0.9,"thumbUrl":null},{"id":"k2","bbox":[0,0,50,50],"score":0.5}],
+   "imageSize":{"w":1024,"h":1024}}
   """
 
   static let photoArtwork = """

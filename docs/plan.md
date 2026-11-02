@@ -541,7 +541,7 @@ The designer worked in a copy of our Figma copy and signalled "new design versio
 - R5 **Welcome · Web as designed** (no scrim, no gradient). `docs/accessibility.md` records the exception with the measured ratio; README's contrast sentence says "every text except the web Welcome title, which sits on a photo by design". iOS Welcome keeps its scrim (its board `21:4229` is unchanged).
 - R6 **Outfit** ships as the variable TTF (OFL) on both platforms; the I/l look-alike is logged in `docs/accessibility.md` as a designer flag, no code change.
 - R7 **Pitch rewrite:** problem 4 becomes "People who can't draw well still can't finish the piece they imagine. With a photo of a sketch and their voice, they change it until it is theirs." Brief, README, demo script, `docs/design/screens.md`, `docs/architecture.md` (model map: Muse Image **edit**, not generate, in the creator flow) change in T115. No "blind creator describes an idea from nothing" claim remains anywhere.
-- R8 **Freeze Nov 3, 9:00 AM.** Everything below merges by Nov 2 evening (`v0.8-rc1`), fixes until the freeze (`v0.8`), video + README + mock-judge #2 on Nov 3, submit Nov 4 by noon ET.
+- R8 **Freeze Nov 3, 18:00 (moved from 9:00 AM for feedback round 2).** Everything below merges by Nov 2 evening (`v0.8-rc1`), fixes until the freeze (`v0.8`), video + README + mock-judge #2 on Nov 3, submit Nov 4 by noon ET.
 - R9 Boards win over `task-101-boards.md` rulings where they conflict (e.g. Pick copy); the T090/T091 cutout behaviours survive only as the "Your cutout" edge tools.
 
 ## Tasks (each: implementer → independent reviewer → fix round → scoped re-review → merge; ledger T110–T116)
@@ -573,7 +573,7 @@ Font: `ios/App/Resources/Fonts/Outfit-Variable.ttf` + OFL (Inter files removed),
 
 ### T115 · docs/pitch · `feat/docs-T115` (docs worktree, after T110) · Brief, README, demo script, accessibility, architecture (R5, R7), `docs/plan.md` mirror, `docs/deployments.md` for `v0.8-rc1`/`v0.8`; README screenshots re-taken after T112/T114 merge.
 
-### T116 · release · tag `v0.8-rc1` (Nov 2 evening) → user deploys + TestFlight 0.5.0 (3) → fixes → **freeze Nov 3 9:00** → tag `v0.8`, deploy, **mock-judge #2** (Nov 3) → video, submission.
+### T116 · release · tag `v0.8-rc1` (Nov 2 evening) → user deploys + TestFlight 0.5.0 (3) → fixes → **freeze Nov 3 18:00** → tag `v0.8`, deploy, **mock-judge #2** (Nov 3) → video, submission.
 
 ## Schedule v4 (replaces v3 from Nov 1)
 | When | Backend | Web | iOS | Design/docs | User |
@@ -581,7 +581,7 @@ Font: `ios/App/Resources/Fonts/Outfit-Variable.ttf` + OFL (Inter files removed),
 | Nov 1 afternoon | T111 (contract first hour) | T112 starts on T110 tokens | T114 starts (font, renames, mock) | **T110** (2 h) → review → merge | run migration 0004 when handed; TestFlight 0.5.0 (2) of v0.7 if not done |
 | Nov 1 evening | T111 review → merge | T112 review; **T113** starts | T114 continues | T115 | test round 3 on 0.5.0 |
 | Nov 2 | fixes | T112 merge, T113 review → merge | T114 review → merge | T115 review → merge | migration done; **v0.8-rc1** deploy + TestFlight 0.5.0 (3) |
-| Nov 3 9:00 | **freeze** | fixes only | fixes only | README shots, plan mirror | video footage; **v0.8** deploy |
+| Nov 3 18:00 | **freeze** | fixes only | fixes only | README shots, plan mirror | video footage; **v0.8** deploy |
 | Nov 3 | mock-judge #2 → top-3 fixes (docs/video only) | | | | X post draft, submission form |
 | Nov 4 | — | — | — | — | submit by noon ET |
 

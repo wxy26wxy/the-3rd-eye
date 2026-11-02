@@ -276,7 +276,7 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - `ImageProvider.edit()` (Muse Image with the picked piece as `input_image`, the white-background guard, trace stage `edit`); one live call recorded the fixture; the compose request shape works unchanged (docs/architecture.md "Live findings T111").
 - `POST /artworks/{id}/change` → child artwork (`parentArtworkId`, `changeInstruction`, `transcript`, preview) with a description for "Before and after"; `POST /artworks/{id}/cutout` → SAM on the edited picture, largest piece cut out; "Your cutout" keeps `cleanup`.
 - Orders: `size` (sticker 3 in / 4 in +$2 / sheet +$6, sample pricing) and `quantity` (1–10); total = unit × quantity; admin shows "size × qty". "Made by voice" shop filter removed (`madeByVoice` dormant). Admin AI trace in the v0.8 step order.
-- Migration 0004 generated, not applied: the product owner runs `pnpm migrate drizzle/0004_t111_change_and_sizes.sql` from `web/` before this branch is deployed.
+- Migration 0004 generated; applied by the product owner on 2026-11-03 (it was to be run `pnpm migrate drizzle/0004_t111_change_and_sizes.sql` from `web/` before this branch is deployed).
 - Text-to-image routes (`prompts/shape`, `artworks {source:"text2image"}`, `refine`) kept and tested, marked "not used by the apps since v0.8".
 
 ## T115 docs · Pitch, accessibility, demo script, architecture for Design v3 (2026-11-02)
@@ -309,9 +309,9 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Fix round 1 (review of `a6a966a`): Glimmer described as on our Mac with the logged Spark fallback on the deployed site; real vs staged paragraph replaced (one creator flow on iOS and web, Glimmer only while the Mac serves, fictional example artists); the moderation row cites `moderate_content` (`tools/moderate-content.ts`) for listings and `moderate.ts` for buyer notes; the 4.5 MB cap and the 2048 px SAM downscale no longer linked; reviews sentence, post placeholder, "nine days" and "save the next team time" wording; two founder checklist items (NFC tag test, on-device VoiceOver pass). Project Description 250 words, single post 271 characters.
 ## T121 backend · Sticker preview (2026-11-02, feedback round 2)
 - Stickers get a public bordered preview (`products.preview_url`, migration 0005): the die-cut sticker as it will look (white border to the cut line, no bleed, transparent outside, ≤ 1200 px), built with the print file on create and on every re-cut; totes `null`. `previewUrl` is on `Product`, `GET /artworks` products, shop cards and the product page data.
-- `pnpm backfill:previews` (`--dry-run`) fills it for existing stickers from the stored cut-out: no mockup, no model calls, idempotent. Written, not run.
+- `pnpm backfill:previews` (`--dry-run`) fills it for existing stickers from the stored cut-out: no mockup, no model calls, idempotent. Run by the product owner on 2026-11-03: 17 stickers built, 0 failed.
 - Mock: `previewUrl`, `POST /listings/<id>/run` (2 s), story video and captions on `GET /creators/me` (served at `/media/…`).
-- Pending (product owner): apply migration 0005 before deploying (`pnpm migrate drizzle/0005_t121_product_preview.sql` from `web/`), then run the backfill.
+- Done by the product owner on 2026-11-03: migration 0005 applied (`pnpm migrate drizzle/0005_t121_product_preview.sql` from `web/`, `products.preview_url` present), then the backfill.
 
 ## T126 backend · Cleanup clips to the frame (2026-11-02, "Adjust the area")
 - `POST /artworks/{id}/cleanup` takes `clipToBox?: boolean` (default `false`). With `true` and a `box`, the cut is the usual union cut to the box (clamped to the image; the finished soft edge too), so shrinking the frame inside the piece trims it. `true` without `box` → `400 invalid_request`; nothing left → `422 no_drawing_found`. The "Adjust the area" screens (web + iOS) send it; every other caller is unchanged.
@@ -325,3 +325,11 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Creator screens show the bordered sticker preview (`previewUrl`) or the cut-out for a tote bag, never the mockup. Create tab: "My story video" row → player with captions, Record again.
 - Mascot pictures on Take a photo / Upload and You're live; the making animation on Making your cutout. Copy v4 in the catalogue.
 - Verify: unit and UI suites (`docs/handoffs/ios.md`, "Feedback round 2 (T122)").
+
+## T124 docs · Feedback round 2 release docs (2026-11-03)
+- `docs/accessibility.md`: VoiceOver scripts for Adjust the area (iOS: the "Area frame" element with Grow / Shrink / Move 10 % actions and the size announcement) and for the listing drafting state and My story video (iOS), keyboard and screen-reader scripts for Adjust the area and My story video (web), the Your cutout scripts now say the screen has no tools, and Change it's one-row buttons. Every quoted control name was checked against `Localizable.xcstrings` and `web/messages/en.json`. Designer flag 2 corrected to what the web does (5 % per key press, Shift + Right/Down grow, no hidden action buttons).
+- `docs/demo_script.md`: Adjust the area beat between Choose a pattern and Change it, Your cutout as a preview, the listing drafting card, the My story video row, the bordered sticker tile in the buyer shot. Narration unchanged (word count and timing as before).
+- `docs/design/screens.md`: every "pending (v4, T120)" row is `implemented (T122)` (iOS) or `implemented (T123)` (web). `docs/architecture.md`: the `response.output_text.done` wording now says the stream does not always send it and the parser ends on `response.completed`; the data flow covers Adjust the area, `clipToBox` and the sticker preview. `docs/handoffs/backend.md`: `storyVideoAt` follow-up.
+- `docs/deployments.md`: entry "v0.8 (tag to follow at <sha of the docs merge>, 2026-11-03)": migrations 0004 and 0005 applied and the preview backfill run on 2026-11-03; production promotion and TestFlight 0.5.0 build 3 pending (product owner). README: Adjust the area screenshot (560 px, 96 KB, from the iOS simulator against its own mock) and the "Try it" steps follow the new flow.
+- Verify: `bash scripts/check_clean.sh` prints ok; links and image paths checked by hand.
+- Unfinished: the VoiceOver and keyboard scripts are not run by ear on a device; the tag `v0.8` and the sha in the deployments entry are filled in after the freeze; the screenshot was taken from the UI test's attachment (the screen after one corner drag) because `simctl io` cannot stop mid-test.

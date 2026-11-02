@@ -62,7 +62,7 @@
 	<string>The 3rd Eye lets you pick a picture or video of your art from your library.</string>
 	<key>UIAppFonts</key>
 	<array>
-		<string>Inter-Variable.ttf</string>
+		<string>Outfit-Variable.ttf</string>
 	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

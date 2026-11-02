@@ -1,6 +1,8 @@
-# Token provenance (Sky)
+# Token provenance (Sky v3)
 
-Where every value in `design/tokens.json` comes from. Read this before an intake changes a value: a value with a node id can be overwritten by a newer board, but a ruling, an accessibility floor or a carry-over needs a decision first.
+Where every value in `design/tokens.json` comes from.
+
+**v3 (T110, 2026-11-01):** the designer's file (key in the newest row of the intake log, `docs/design/screens.md`) has Figma variables and text styles. Values marked **var** were read with `get_variable_defs` on `2018:1789` (Shop) and `2012:387` (Change it); they win over node-style readings. Changed in v3: `inkSoft`, new `accentSoft` and `scrimStrong`, the font (Outfit), `eyebrow` (600, 1 px, line height 1.3), `titleL` line height 1.3, new `cta`. Read this before an intake changes a value: a value with a node id can be overwritten by a newer board, but a ruling, an accessibility floor or a carry-over needs a decision first.
 
 The Figma node ids are the same in the original file (key `vIOMPzc2kjP18BbgduLmc8`) and the user's copy (key `dAdjR5HFtOutFlUZi957Do`), page `0:1`. All 8 boards were read with `get_design_context`: four in the original (T100) and four in the copy (T100 fix round 1: `21:4390`, `21:4450`, `40:488`, `21:4554`).
 
@@ -16,7 +18,7 @@ Source kinds:
 ## meta, brand
 | Key | Value | Source |
 |---|---|---|
-| `meta.*` | Sky · Inter on white | T100 |
+| `meta.*` | Sky v3 · Outfit on white, version 3, source = the v3 file key | T110 (was Sky · Inter on white, T100) |
 | `brand.name`, `brand.scheme` | The 3rd Eye, the3rdeye | carry-over (T085 rename) |
 | `brand.wordmark` | THE 3RD EYE | ruling (stays until T102/T103; pinned by `ios/Tests/DeepLinkTests.swift`). No board draws the wordmark |
 
@@ -25,17 +27,19 @@ Source kinds:
 |---|---|---|
 | `page` | `#FCFCFC` | node: frame fill of `45:700`, `21:4340`, `21:4390`, `21:4450`, `40:488`, `21:4509`, `21:4554` |
 | `ink` | `#111827` | node: title `45:714`, primary CTA fill `45:738`, home indicator `45:740`, selected piece border `21:4470`, selected check `21:4468` |
-| `inkSoft` | `#263A35` | node: Welcome status text `21:4232` and home indicator `36:431` |
+| `inkSoft` | `#374151` | var: `color.inkSoft` (v3; was `#263A35` from `21:4232`). The v2 open question "`#374151` message text" is answered by this variable |
 | `textMuted` | `#6B7280` | node: descriptions `45:715`, `49:386`, `40:486`, `21:4542`, `21:4594` |
 | `border` | `#D1D5DB` | node: unselected card `45:728`, method cards `45:759`, secondary pills `21:4549`, `21:4499`, `21:4601` |
 | `surfaceAlt` | `#F3F4F6` | node: unselected radio `45:730`, selected piece fill `21:4470` |
 | `accent` | `#65C361` | node: selected card `45:717`, selected method `45:749`, photo well `21:4466` / `40:502` |
-| `accentBorder` | `#2FA647` | node: selected card border `45:717` |
+| `accentBorder` | `#2FA647` | node: selected card border `45:717`; var `color.accentBorder` (v3) |
+| `accentSoft` | `#E4F3C8` | var: `color/accentSoft` (v3, entry 2: shop and product chips; also the v2 method icon circle `45:751`). Ink on it 15.2:1, greenDeep 10.3:1, textMuted 4.1:1 (not for text) |
 | `greenDeep` | `#173D2B` | node: card caption `45:727`, selected radio `45:719`, method copy `45:754`, icon strokes `45:752` |
 | `white` | `#FFFFFF` | node: card `45:728`, Welcome CTA `36:428`, Welcome text `21:4257`, sticker card `21:4571` |
 | `danger` | `#B3261E` | carry-over: error text and destructive actions; no Sky board shows an error |
 | `focus` | `#1E3A24` | carry-over (brief: keep, re-check on white): boards have no focus state; 12.5:1 on white, 5.7:1 on accent |
 | `scrim` | `rgba(17,24,39,0.55)` (ink at 55 %) | node: the boards' `color.scrim` variable (hero panel `2018:1806`, drawer scrim `2033:3993`, Welcome panels `2026:2865`); T106 fix round 1, was `rgba(0,0,0,0.35)` (a11y + brief). Worst pixel under the shop hero panel 5.08:1 at 390 |
+| `scrimStrong` | `rgba(17,24,39,0.72)` (ink at 72 %) | var: `color/scrimStrong` (v3 entry 1; white text ≥ 7:1 over any photo). The v3 shop hero no longer puts text on the photo; kept for text on photos (e.g. a future web Welcome fix, story cards) |
 
 ## semantic
 All **derived** from `color` by the brief's mapping: `bg`←page, `surface`←white, `surfaceAlt`←surfaceAlt, `text`←ink, `textOnDark`←white, `textMuted`←textMuted, `accent`←accent, `accentBorder`←accentBorder, `accentInk`←greenDeep, `primary`←ink, `primaryText`←white, `primaryShadow`←ink (carry-over key, read by hard shadows that are now zero), `border`←border, `selected`←accent, `danger`←danger, `focusRing`←focus, `scrim`←scrim.
@@ -46,30 +50,31 @@ All **derived** from the brief rule "ink on white, borders `#111827`": `bg`, `su
 ## font
 | Key | Value | Source |
 |---|---|---|
-| `display.family`, `body.family` | Inter | node: every text node except `21:4340`'s method copy (Figtree; flagged, ruling: Inter everywhere) |
-| `display.weight` | 500 | node: titles `45:714`, `49:385`, `21:4405`, `21:4465`, `40:501`, `21:4520`, `21:4565` (Inter Medium) |
-| `display.weightOnPhoto` | 700 | node: Welcome title `21:4258` (Inter Bold) |
+| `display.family`, `body.family` | Outfit | var: all 10 text styles are Outfit (v3 entry 9; was Inter) |
+| `display.weight` | 500 | var: `displayXL`, `displayL`, `webDisplay` (Outfit Medium) |
+| `display.weightOnPhoto` | 700 | node: iOS Welcome title `21:4258` (unchanged board) |
 | `display.lineHeight`, `display.letterSpacing` | 1.13, −0.04em | node: `45:714` (48 px, tracking −1.92 px = −0.04em) |
 | `display.transform`, `display.tilt` | none, 0deg | retired (no uppercase, no tilt on any board) |
-| `*.ios` | Inter Variable | derived: registered family name of `Inter-Variable.ttf` (Inter 4.1) |
+| `*.ios` | Outfit | derived: `Outfit-Variable.ttf` (Outfit 1.1, Outfitio/Outfit-Fonts release tag `1.1`, `fonts/variable/Outfit[wght].ttf`, git blob `4acdc3fa…`) registers the typographic family "Outfit" (name ID 16; ID 1 is "Outfit Thin", PostScript `Outfit-Thin`). Its default instance is wght 100 (Thin), so every view sets a weight (`ThemeFont` does). `UIFont(name: "Outfit")` resolves on the iOS 26 simulator (`ThemeEffectsTests.testOutfitIsRegistered`) |
 | `*.fallback` | system-ui, sans-serif | carry-over |
-| `body.weights`, `googleFontsUrl` | 400–700 | derived: weights used on the boards (Regular, Medium, Semi Bold, Bold); 800 only for the eyebrow, synthesised from the variable axis |
+| `body.weights`, `googleFontsUrl` | 400–700, Outfit | derived: the styles use Regular, Medium, SemiBold; Bold on the iOS Welcome photo. Nothing uses 800 any more |
 
 ## type
 | Key | Value | Source |
 |---|---|---|
-| `displayXL` | 48 / 1.13 / 500 / −0.04em | node: `45:714` and the other titles above |
-| `displayL` | 40 / 1.13 / 500 / −0.04em | brief (no 40 px node; a step below 48 for long titles and the web) |
+| `displayXL` | 48 / 1.13 / 500 / −0.04em | var: `displayXL` (−1.92 px = −0.04em) |
+| `displayL` | 40 / 1.13 / 500 / −0.04em | var: `displayL` (−1.6 px = −0.04em) |
 | `displayM` | 21 / 1.2 / 500 / −0.03em | node: `21:4541`, `21:4593` (21 px Medium, tracking −0.63 px) |
-| `titleL` | 18 / 600 | node: product names `45:726`, `45:732` |
-| `titleM` | 16 / 600 | node: CTA labels `I45:738;7:8`, `I21:4544;7:8`, `I21:4596;7:8` |
-| `bodyL` | 16 / 400 / 1.5 | brief (no 16 px Regular node; body text one step up for the web) |
-| `body` | 15 / 400 / 1.5 | node: `45:715`, `40:486`, `21:4542`; secondary pill labels `I21:4549;7:15` |
-| `bodyS` | 13 / 400 / 1.4 | node: card captions `45:727`, `45:733`; messages `45:690`, `45:693` (13 px, line height 1.5) |
-| `caption` | 13 / 500 / 1.4 | ruling + a11y: 13 px floor (brief said 12). Nearest node: "I already have an account" `36:429` (14 px Medium) |
-| `webDisplay` | 72 / 1.05 / 500 / −0.04em | node: web page titles `2024:2613`, `2024:2708`, `2025:2699`, shop hero `2018:1808` (Bold on the photo) — T106; on phones the same headings use `displayXL` |
+| `titleL` | 18 / 1.3 / 600 | var: `titleL` (line height 1.3 new in v3) |
+| `titleM` | 16 / 600 | node: CTA labels `I45:738;7:8` (v2). Same size and weight as `cta`; kept because current code reads it |
+| `cta` | 16 / 1.2 / 600 | var: `cta` (v3 text style for primary and record-button labels, e.g. `2006:123`). New key; `TextRole` has no case for it yet (T114 may map `.titleM` labels to it) |
+| `bodyL` | 16 / 400 / 1.5 | var: `bodyL` |
+| `body` | 15 / 400 / 1.5 | var: `body` |
+| `bodyS` | 13 / 400 / 1.4 | var: `bodyS` |
+| `caption` | 13 / 500 / 1.4 | var: `caption` (and the 13 px a11y floor) |
+| `webDisplay` | 72 / 1.05 / 500 / −0.04em | var: `webDisplay` (−2.88 px = −0.04em); on phones the same headings use `displayXL` |
 | `cardTitle` | 22 / 600 / 1.3 | node: Note form title `2010:572` — T106 |
-| `eyebrow` | 13 / 800 / 0.08em caps | PM ruling 2026-10-30 (accessibility floor for captions; matches the Figma `eyebrow` text style; the brief said 11). Board: voice badge `45:770` is Figtree ExtraBold 10 px, tracking 1 px |
+| `eyebrow` | 13 / 1.3 / 600 / 1 px caps | var: `eyebrow` (Outfit SemiBold 13, tracking 1, line height 1.3; v2 was 800 / 0.08em). `letterSpacing` is `"1px"`: CSS uses it as is; iOS `TextRole.tracking` returns 1 (mirrored by hand) |
 
 ## space
 | Key | Value | Source |
@@ -144,11 +149,11 @@ Derived steps used in CSS (no token of their own): 48 = `space.xxl` × 2 (admin 
 | `motion.*` | 120 / 200 / 320 ms, easing | carry-over (the file has no prototype motion) |
 
 ## assets
-Node ids are on each entry in `tokens.json`; sizes and how each was made are in `docs/handoffs/design.md` ("T100 intake record").
+`stickerLoading` = `sticker-loading.gif` from `asset/sticker-loading` `4036:4404` (Assets page `4036:4403`), 320×320, 121 frames, 5.04 s, 1x (slot 342×342; 2x pending from the designer). `heroSky` is also the v3 hero photo card `4006:4382` and the Welcome · Web fill (same image hash). Node ids are on each entry in `tokens.json`; sizes and how each was made are in `docs/handoffs/design.md` ("T100 intake record").
 
 ## Seen on the boards, not tokenised (open questions)
-- `#374151` message text, 13 px (`45:690`, `45:693`): darker than `textMuted`. Proposal: `textMuted` (4.7:1 is enough) or a new `textSoft`.
-- `#E4F3C8` method icon circle (`45:751`), `#5FAE57` selected radio border (`45:719`), `#19583C` voice badge text (`45:770`).
+- Answered in v3: `#374151` is now `color.inkSoft`; `#E4F3C8` is `color.accentSoft`.
+- `#5FAE57` selected radio border (`45:719`), `#19583C` voice badge text (`45:770`).
 - Drawing paper: white, radius 8, rotated 3°, shadow `0 12 22 rgba(0,0,0,0.08)` (`21:4467`). Listed sticker card: rotated 9°, shadow `0 12 22 rgba(73,103,122,0.13)` (`21:4571`). Tote badge drop shadow `0 4.2 2.8 rgba(30,40,70,0.22)` (`21:4584`). Illustration-only until a second use.
 - Selected piece: 2 px ink border, radius 24, `surfaceAlt` fill (`21:4470`); selected check: 28 px ink circle with a 16 px white check (`21:4468`). T102/T103 build these from `ink`, `surfaceAlt`, `border.thin` × 2 and `radius.card`−4; a token is added if a second board repeats them.
 

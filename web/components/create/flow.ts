@@ -1,8 +1,12 @@
 /**
- * The creator flow's routing and draft decisions (photo → pattern → change → compare → cutout),
+ * The creator flow's routing and draft decisions (photo → pattern → adjust the area → change →
+ * compare → cutout),
  * kept out of the screens so they can be tested with a mocked `api` and router.
  */
-import type { Artwork, Candidate, ChangeResult } from "./api";
+import { m } from "@/components/messages";
+import type { Artwork, Candidate, ChangeResult, CleanupResult } from "./api";
+import { sameBox } from "./area";
+import { productNotice, type Box } from "./cutout";
 import { addChange, currentArtworkId, currentChange, pieceCutout, type ChangeStep, type Draft } from "./store";
 
 export type FlowRouter = { push: (href: string) => void; replace: (href: string) => void };
@@ -11,56 +15,77 @@ export type FlowDeps = { api: FlowApi; router: FlowRouter; update: (patch: Parti
 
 /** Everything picked, changed or cut for an earlier piece. */
 export const NEW_PIECE: Partial<Draft> = {
-  pieceArtworkId: undefined, pieceCandidateId: undefined, pieceUrl: undefined, pieceAlt: undefined, pieceSpoken: undefined,
+  pieceArtworkId: undefined, pieceCandidateId: undefined, pieceUrl: undefined, pieceAlt: undefined, pieceSpoken: undefined, pieceBox: undefined,
   changes: undefined, changedArtworkId: undefined, changeInstruction: undefined, changeTranscript: undefined,
-  cutoutArtworkId: undefined, cutout: undefined, appliedCutout: undefined, cutoutNotice: undefined,
+  cutoutArtworkId: undefined, cutout: undefined, cutoutNotice: undefined,
 };
 
 // ---- Take a photo / Upload a picture
 
 export type PhotoResult = { artwork: Artwork; candidates: Candidate[]; imageSize?: { w: number; h: number } | null };
 
-/** After `POST /artworks` (photo): one piece already cut → Change it; otherwise → Choose a pattern. */
+/**
+ * After `POST /artworks` (photo): one piece the server already cut → Adjust the area on that piece
+ * (R2: the area is always set there; the server's cut is replaced by the frame's); otherwise →
+ * Choose a pattern.
+ */
 export function afterPhoto({ router, update }: Pick<FlowDeps, "router" | "update">, res: PhotoResult): void {
-  const fresh = { ...NEW_PIECE, photoArtworkId: res.artwork.id, candidates: res.candidates, imageSize: res.imageSize ?? null };
+  const fresh = { ...NEW_PIECE, area: undefined, photoArtworkId: res.artwork.id, candidates: res.candidates, imageSize: res.imageSize ?? null };
   if (res.artwork.cleanedUrl) {
-    update({
-      ...fresh, pieceArtworkId: res.artwork.id, pieceCandidateId: res.candidates[0]?.id,
-      pieceUrl: res.artwork.cleanedUrl, pieceAlt: res.artwork.altText, pieceSpoken: res.artwork.spokenDescription,
-    });
-    router.push("/create/change");
+    update({ ...fresh, area: { artworkId: res.artwork.id, candidateId: res.candidates[0]?.id } });
+    router.push("/create/adjust");
     return;
   }
   update(fresh);
   router.push("/create/pattern");
 }
 
-/** Zero pieces found: Your cutout on this photo in box mode; the box cut becomes the picked piece. */
-export function drawBoxOnPhoto({ router, update }: Pick<FlowDeps, "router" | "update">, artworkId: string): void {
-  update({
-    ...NEW_PIECE, photoArtworkId: artworkId, candidates: [], imageSize: null,
-    cutoutArtworkId: artworkId, cutout: { artworkId, candidates: [], imageSize: null, selectedIds: [], cleanedUrl: null, altText: null },
-  });
-  router.push("/create/cutout");
+/** Zero pieces found ("Draw a box around your drawing"): Adjust the area on this photo, framed on the whole photo. */
+export function adjustWholePhoto({ router, update }: Pick<FlowDeps, "router" | "update">, artworkId: string): void {
+  update({ ...NEW_PIECE, photoArtworkId: artworkId, candidates: [], imageSize: null, area: { artworkId } });
+  router.push("/create/adjust");
 }
 
 // ---- Choose a pattern
 
+/** "Use this" on Choose a pattern: Adjust the area opens framed on that piece (no call yet). */
+export function pickPiece({ router, update }: Pick<FlowDeps, "router" | "update">, artworkId: string, candidateId: string): void {
+  update({ area: { artworkId, candidateId, fromPattern: true } });
+  router.push("/create/adjust");
+}
+
+// ---- Adjust the area (R2)
+
+/** Back from Adjust the area: Choose a pattern when the piece was picked there, else the photo screen. */
+export function adjustBack(d: Draft): string {
+  if (d.area?.fromPattern) return "/create/pattern";
+  return d.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
+}
+
+/** The `cleanup` body for the frame: the picked piece plus the box (only the box when no piece was found). */
+export function areaRequest(area: NonNullable<Draft["area"]>, box: Box): { candidateIds?: string[]; box: Box } {
+  return area.candidateId ? { candidateIds: [area.candidateId], box: [...box] as Box } : { box: [...box] as Box };
+}
+
 /**
- * "Use this" on Choose a pattern. The same piece as last time keeps its cut-out (no call) but starts
- * from the piece again (a change made before is no longer on screen); another piece is cut out with
- * `POST /artworks/{id}/select`.
+ * "Use this area": `POST /artworks/{id}/cleanup {candidateIds:[piece], box}` and the cut piece goes on
+ * to Change it. The same piece with the same frame as last time keeps its cut (no call) but starts
+ * from the piece again (a change made before is no longer on screen).
  */
-export async function choosePiece({ api, router, update, getDraft }: FlowDeps, artworkId: string, candidateId: string): Promise<void> {
+export async function cutArea({ api, router, update, getDraft }: FlowDeps, box: Box): Promise<void> {
   const d = getDraft();
-  if (d.pieceArtworkId === artworkId && d.pieceCandidateId === candidateId && d.pieceUrl) {
+  const area = d.area;
+  if (!area) return;
+  if (d.pieceArtworkId === area.artworkId && d.pieceCandidateId === area.candidateId && sameBox(d.pieceBox, box) && d.pieceUrl) {
     update({ changedArtworkId: undefined, changes: undefined, changeInstruction: undefined, changeTranscript: undefined, cutoutArtworkId: undefined, cutout: undefined });
     router.push("/create/change");
     return;
   }
-  const art = await api<Artwork>(`artworks/${artworkId}/select`, { json: { candidateId } });
+  const art = await api<CleanupResult>(`artworks/${area.artworkId}/cleanup`, { json: areaRequest(area, box) });
   update({
-    ...NEW_PIECE, pieceArtworkId: art.id, pieceCandidateId: candidateId, pieceUrl: art.cleanedUrl, pieceAlt: art.altText, pieceSpoken: art.spokenDescription,
+    ...NEW_PIECE, pieceArtworkId: area.artworkId, pieceCandidateId: area.candidateId, pieceBox: [...box] as Box,
+    pieceUrl: art.cleanedUrl, pieceAlt: art.altText, pieceSpoken: art.spokenDescription,
+    cutoutNotice: productNotice(art.details, { failed: m.create.select.failedProducts, unpublished: m.create.select.unpublishedProducts }) ?? undefined,
   });
   router.push("/create/change");
 }
@@ -101,13 +126,12 @@ export async function busyWhile<T>(set: (v: T) => void, busy: T, idle: T, run: (
 }
 
 /**
- * Back from Change it: Choose a pattern, also while a change is on screen (Before and after's Back
- * goes to Change it, so pointing here at Before and after made a loop). The change chain stays in
- * the draft, so "Change it again" from Before and after still works. A photo whose single piece was
- * cut out by the server never showed Choose a pattern: Back goes to the photo screen then.
+ * Back from Change it: Adjust the area (the screen before it), also while a change is on screen
+ * (Before and after's Back goes to Change it, so pointing here at Before and after made a loop). The
+ * change chain stays in the draft, so "Change it again" from Before and after still works.
  */
 export function changeItBack(d: Draft): string {
-  if ((d.candidates?.length ?? 0) > 1) return "/create/pattern";
+  if (d.area) return "/create/adjust";
   return d.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
 }
 
@@ -164,4 +188,17 @@ export function artOnScreen(d: Draft): { src: string | null; alt: string | null;
   return step
     ? { src: step.previewUrl, alt: step.alt, shows: step.spoken ?? step.alt }
     : { src: d.pieceUrl ?? null, alt: d.pieceAlt ?? null, shows: d.pieceSpoken ?? d.pieceAlt ?? null };
+}
+
+// ---- Story video (R6)
+
+/** Where "Record again" (My story video on Choose a product) came from and returns to. */
+export const STORY_REDO_RETURN = "/create/product";
+
+/**
+ * Where the story video screen goes after saving (or after the drafted story is used or skipped):
+ * You're live after the first listing; back to Choose a product in redo mode (Record again).
+ */
+export function storyVideoDone(redo: boolean): string {
+  return redo ? STORY_REDO_RETURN : "/create/live";
 }

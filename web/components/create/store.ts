@@ -5,7 +5,7 @@
  * screens can wait for hydration instead of flashing "missing" states.
  */
 import { useCallback, useEffect, useSyncExternalStore } from "react";
-import type { AppliedCutout, ImageSize } from "./cutout";
+import type { Box, ImageSize } from "./cutout";
 import { api, type AgentStep, type Candidate, type Creator, type ListingDraft, type Product, type ProductType } from "./api";
 
 /** One "Change it" result: a child artwork of the piece (or of the previous change). */
@@ -22,7 +22,7 @@ export type ChangeStep = {
   differences: string;
 };
 
-/** The artwork whose cut-out "Your cutout" shows and adjusts, with its SAM pieces. */
+/** The artwork whose cut-out "Your cutout" shows, with its SAM pieces. */
 export type CutoutState = {
   artworkId: string;
   candidates: Candidate[];
@@ -41,12 +41,20 @@ export type Draft = {
   candidates?: Candidate[];
   /** Pixels of the stored original for `photoArtworkId` (the space of `Candidate.bbox`). */
   imageSize?: ImageSize | null;
-  /** The piece picked on Choose a pattern (`select`); the same row as `photoArtworkId`. */
+  /**
+   * What Adjust the area frames (R2): the photo artwork and the piece (picked on Choose a pattern,
+   * `fromPattern`, or the single piece the server found); no `candidateId` when no drawing was
+   * found: the frame starts at the whole photo.
+   */
+  area?: { artworkId: string; candidateId?: string; fromPattern?: boolean };
+  /** The cut piece (Adjust the area's `cleanup`); the same row as `photoArtworkId`. */
   pieceArtworkId?: string;
   pieceCandidateId?: string;
   pieceUrl?: string | null;
   pieceAlt?: string | null;
   pieceSpoken?: string | null;
+  /** The frame the piece was cut with on Adjust the area (image pixels). */
+  pieceBox?: Box;
   /** Every change made in this draft, oldest first. */
   changes?: ChangeStep[];
   /** The change on screen; unset = the picked piece itself ("Back to my original" moves it to the parent). */
@@ -62,8 +70,6 @@ export type Draft = {
   /** The row that "Your cutout" works on (the piece, or the change result after `cutout`). */
   cutoutArtworkId?: string;
   cutout?: CutoutState;
-  /** The cut saved by "Apply cutout" on Your cutout (survives a reload). */
-  appliedCutout?: AppliedCutout;
   /** Product trouble reported by the last cleanup, shown on Ready. */
   cutoutNotice?: string;
   /** The artwork the product was made from. */
@@ -184,3 +190,12 @@ export function pieceCutout(d: Draft): CutoutState | null {
   };
 }
 
+
+/**
+ * The product picture creator screens show (R1): the bordered sticker preview, else the cut-out art
+ * (always for a tote). Never the AI mockup: it re-draws the art and changes its proportions.
+ */
+export function productPicture(p: Pick<Product, "type" | "previewUrl"> | null | undefined, cut: Pick<CutoutState, "cleanedUrl"> | null | undefined): string | null {
+  if (p && p.type !== "tote" && p.previewUrl) return p.previewUrl;
+  return cut?.cleanedUrl ?? null;
+}

@@ -6,6 +6,7 @@ import { ChoiceCard, ChoiceGroup } from "@/components/ui/ChoiceCard";
 import { useCreate } from "../store";
 import { CreateScreen } from "../CreateScreen";
 import { ProductGlyph } from "../glyphs";
+import { StoryVideoRow } from "../StoryVideoRow";
 
 export function ChooseProduct() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export function ChooseProduct() {
         <ChoiceCard name="product" value="sticker" title={m.create.product.sticker} description={m.create.product.stickerCopy} media={<ProductGlyph type="sticker" />} checked={draft.product === "sticker"} onChange={() => update({ product: "sticker" })} />
         <ChoiceCard name="product" value="tote" title={m.create.product.tote} description={m.create.product.toteCopy} media={<ProductGlyph type="tote" />} checked={draft.product === "tote"} onChange={() => update({ product: "tote" })} />
       </ChoiceGroup>
+      <StoryVideoRow />
     </CreateScreen>
   );
 }

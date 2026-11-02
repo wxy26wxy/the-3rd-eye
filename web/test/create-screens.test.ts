@@ -4,7 +4,12 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { fmt, m } from "@/components/messages";
-import { SelectView, type SelectViewProps } from "@/components/create/screens/SelectView";
+import { YourCutoutView, type YourCutoutViewProps } from "@/components/create/screens/YourCutoutView";
+import { AdjustAreaView, type AdjustAreaViewProps } from "@/components/create/screens/AdjustAreaView";
+import { AreaFrame } from "@/components/create/screens/AreaFrame";
+import { sizeText } from "@/components/create/screens/AdjustArea";
+import { StoryVideoRowView } from "@/components/create/StoryVideoRow";
+import { MascotPicture } from "@/components/create/art";
 import { ListingView, LISTING_FORM, type ListingViewProps } from "@/components/create/screens/ListingView";
 import { ChoosePatternView, type ChoosePatternViewProps } from "@/components/create/screens/ChoosePatternView";
 import { ChangeItView, CHANGE_FORM, type ChangeItViewProps } from "@/components/create/screens/ChangeItView";
@@ -15,10 +20,16 @@ import { Welcome } from "@/components/create/screens/Welcome";
 import { WelcomeAccountView } from "@/components/create/SignOut";
 
 const t = m.create.select;
+const btnDisabled = (label: string) => new RegExp(`<button[^>]*disabled[^>]*>(?:(?!</button>).)*${label}`);
 const noop = () => {};
 const html = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(el);
 /** Visible text in document order (tags stripped), for order checks. */
 const text = (out: string) => out.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/\s+/g, " ");
+/** Raw-markup order (tags and attributes kept), for markup checks. */
+const beforeRaw = (out: string, a: string, b: string) => {
+  expect(out.indexOf(a), `missing "${a}"`).toBeGreaterThanOrEqual(0);
+  expect(out.indexOf(a), `"${a}" should come before "${b}"`).toBeLessThan(out.indexOf(b));
+};
 const before = (out: string, a: string, b: string) => {
   const s = text(out);
   expect(s.indexOf(a), `missing "${a}"`).toBeGreaterThanOrEqual(0);
@@ -26,125 +37,139 @@ const before = (out: string, a: string, b: string) => {
   expect(s.indexOf(a), `"${a}" should come before "${b}"`).toBeLessThan(s.indexOf(b));
 };
 
-function select(over: Partial<SelectViewProps> = {}): string {
-  const props: SelectViewProps = {
-    uid: "s",
+function cutoutView(over: Partial<YourCutoutViewProps> = {}): string {
+  const props: YourCutoutViewProps = {
     title: m.create.cutout.title,
-    lead: m.create.cutout.adjustCopy,
-    back: "/create/compare",
-    retake: "/create/photo?mode=camera",
-    work: null,
-    announce: "",
-    photo: createElement("div", { "data-testid": "photo" }, "PHOTO"),
-    photoState: "loading",
-    noPieces: false,
-    applied: null,
-    canShowApplied: false,
-    candidates: [{ id: "a", thumbUrl: "/a.png" }, { id: "b", thumbUrl: "/b.png" }, { id: "c", thumbUrl: "/c.png" }],
-    selectedIds: ["a"],
-    modes: [{ id: "add", label: t.modeAdd }, { id: "remove", label: t.modeRemove }, { id: "box", label: t.modeBox }],
-    mode: "add",
-    instruction: t.instruction,
-    keyboardHint: t.keyboardHint,
-    wholePhoto: false,
-    marks: [],
-    hasMarksOrBox: false,
+    lead: m.create.cutout.copy,
+    back: "/create/change",
+    cut: { src: "/cut.png", alt: t.cutoutAlt, aspectRatio: "4 / 3" },
     notice: null,
-    stuck: false,
-    error: null,
-    canUse: true,
-    canApply: true,
-    on: { toggle: noop, boxAround: noop, addAround: noop, mode: noop, wholePhoto: noop, removeMark: noop, clearMarks: noop, toggleApplied: noop, use: noop, apply: noop, retry: noop, startOver: noop },
+    on: { use: noop, startOver: noop },
     ...over,
   };
-  return html(createElement(SelectView, props));
+  return html(createElement(YourCutoutView, props));
 }
 
-describe("Your cutout view (T113, boards 2038:4092 Fix the edges / 2038:4233 the cut)", () => {
-  it("Fix the edges: photo card, piece strip, per-piece buttons, tools, hints, then the bar in board order", () => {
-    const out = select();
+describe("Your cutout view (R3, board 2038:4233 simplified)", () => {
+  it("the cut-out on the checkerboard, the status line, then Use this / Start over; no edge tools", () => {
+    const out = cutoutView();
     expect(out).toContain('aria-label="Back"');
-    before(out, "PHOTO", fmt(t.candidate, { n: 1 }));
-    before(out, fmt(t.candidate, { n: 3 }), t.boxAround);
-    before(out, m.create.cutout.title, m.create.cutout.adjustCopy);
-    before(out, t.addAround, t.modeAdd);
-    before(out, t.modeBox, t.instruction);
-    before(out, t.instruction, t.keyboardHint);
-    before(out, t.keyboardHint, t.use);
-    before(out, t.use, t.apply);
-    before(out, t.apply, m.common.startOver);
-    expect(out).not.toContain(">" + t.retake + "<");
-    // three pieces, each with its own labelled group of two buttons
-    expect(out.match(/role="group"/g)?.length).toBe(3);
-    expect(out.match(new RegExp(t.boxAround, "g"))?.length).toBe(3);
-    // the chosen piece is a checked checkbox; the others are not
-    expect(out.match(/type="checkbox"[^>]*checked/g)?.length).toBe(1);
-    // no marks yet: no marks list, no Clear marks
-    expect(out).not.toContain(t.marksLabel);
-    expect(out).not.toContain(t.clearMarks);
-  });
-
-  it("marks: the marks list as buttons, the 10-mark note, the needPiece card and Clear marks", () => {
-    const marks = [fmt(t.markAdded, { n: 1 }), fmt(t.markRemoved, { n: 2 })];
-    const out = select({ marks, hasMarksOrBox: true, stuck: true, mode: "remove", canUse: false, canApply: false });
-    before(out, t.instruction, t.marksLabel);
-    before(out, marks[0], marks[1]);
-    before(out, marks[1], t.maxMarks);
-    before(out, t.maxMarks, t.needPiece);
-    before(out, t.needPiece, t.clearMarks);
-    expect(out.match(/<button[^>]*>(?:(?!<\/button>).)*Remove this mark/g)?.length).toBe(2);
-    // Use this and Apply cutout are off while only unsendable marks are left
-    expect(out).toMatch(new RegExp(`<button[^>]*disabled[^>]*>(?:(?!</button>).)*${t.use}`));
-  });
-
-  it("the cut (2038:4233): checkerboard cutout, the ready line, Fix the edges, the notice; Use this / Start over", () => {
-    const out = select({ lead: m.create.cutout.copy, applied: { src: "/cut.png", alt: t.cutoutAlt }, canShowApplied: true, notice: t.failedProducts });
     expect(out).toContain('alt="Your cutout"');
-    before(out, m.create.cutout.copy, t.applied);
-    before(out, t.applied, t.backToPhoto);
-    before(out, t.backToPhoto, t.failedProducts);
-    before(out, t.failedProducts, t.use);
+    before(out, m.create.cutout.title, m.create.cutout.copy);
+    beforeRaw(out, 'alt="Your cutout"', t.applied);
+    before(out, t.applied, t.use);
     before(out, t.use, m.common.startOver);
-    expect(t.backToPhoto).toBe("Fix the edges");
-    expect(out).not.toContain(t.apply);
-    expect(out).not.toContain(t.modeAdd);
+    for (const gone of ["Fix the edges", "Apply cutout", "Add area", "Remove area", "Draw a box", "Clear marks", "Box around this piece"]) expect(out).not.toContain(gone);
+    expect(out).not.toContain('type="checkbox"');
+    expect(out).not.toContain('type="radio"');
   });
 
-  it("saving: no Back, the photo dimmed, the loading line, only Use this (dimmed) in the bar", () => {
-    const out = select({ work: "apply" });
+  it("the product notice sits above the bar; without a cut-out Use this is off", () => {
+    before(cutoutView({ notice: t.failedProducts }), t.failedProducts, t.use);
+    expect(cutoutView({ cut: null })).toMatch(new RegExp(`<button[^>]*disabled[^>]*>(?:(?!</button>).)*${t.use}`));
+  });
+});
+
+const ad = m.create.adjust;
+function adjust(over: Partial<AdjustAreaViewProps> = {}): string {
+  const props: AdjustAreaViewProps = {
+    hintId: "h", sizeId: "sz", sizeText: "Frame covers 54 by 61 percent of the photo", back: "/create/pattern", retake: "/create/photo?mode=camera", none: false, busy: false,
+    photo: createElement("div", null, "PHOTO"), photoState: "loading", announce: "", canUse: true, error: null,
+    on: { use: noop, reset: noop },
+    ...over,
+  };
+  return html(createElement(AdjustAreaView, props));
+}
+
+describe("Adjust the area view (R2)", () => {
+  it("title, copy, the photo with the frame, the keyboard hint (the frame's description), then Use this area / Reset", () => {
+    const out = adjust();
+    expect(out).toContain('aria-label="Back"');
+    before(out, ad.title, ad.copy);
+    before(out, ad.copy, "PHOTO");
+    before(out, "PHOTO", ad.keyboardHint);
+    before(out, ad.keyboardHint, ad.use);
+    before(out, ad.use, ad.reset);
+    expect(out).toContain('<p id="h"');
+    expect(out).toContain('<p id="sz" class="visually-hidden">Frame covers 54 by 61 percent of the photo</p>');
+    expect(out).toMatch(/role="status" aria-live="polite"/);
+    expect([ad.title, ad.copy, ad.use, ad.reset, ad.frameLabel]).toEqual(["Adjust the area", "Drag the corners so the frame covers your drawing.", "Use this area", "Reset", "Area frame"]);
+  });
+
+  it("no drawing found: the whole-photo copy", () => {
+    expect(text(adjust({ none: true }))).toContain(ad.copyNone);
+  });
+
+  it("cutting: no Back, the cutting line, only Use this area (dimmed)", () => {
+    const out = adjust({ busy: true });
     expect(out).not.toContain('aria-label="Back"');
     expect(out).toContain(t.applying);
-    expect(out).not.toContain(t.apply + "<");
-    expect(out).not.toContain(m.common.startOver);
-    expect(out).not.toContain(t.boxAround);
-    expect(out).toMatch(new RegExp(`<button[^>]*disabled[^>]*>(?:(?!</button>).)*${t.use}`));
+    expect(out).not.toContain(">" + ad.reset + "<");
+    expect(out).toMatch(btnDisabled(ad.use));
   });
 
-  it("piece tiles: muted boundary when not chosen, 2 px ink when chosen (M8)", () => {
-    const css = readFileSync(resolve(__dirname, "../components/create/Create.module.css"), "utf8");
-    const rule = (sel: string) => css.match(new RegExp(`(?:^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
-    expect(rule(".pieceThumb")).toMatch(/border:\s*var\(--border-thin\) solid var\(--text-muted\)/);
-    expect(rule(".piece:has(input:checked) .pieceThumb")).toMatch(/solid var\(--text\)/);
-    // and the strip renders one tile per piece
-    expect(select().match(/class="[^"]*pieceThumb/g)?.length).toBe(3);
-  });
-
-  it("saving before Use this shows the cutting line", () => {
-    expect(select({ work: "use" })).toContain(t.applying);
-  });
-
-  it("unpublished notice and errors keep their copy", () => {
-    expect(select({ notice: t.unpublishedProducts })).toContain(t.unpublishedProducts);
-    const out = select({ error: { message: m.create.errors.timeout, action: "retry" } });
+  it("a frame with nothing in it: the advice and no retake", () => {
+    const out = adjust({ error: { message: ad.notFound, action: "none" } });
+    expect(text(out)).toContain(ad.notFound);
     expect(out).toContain('role="alert"');
-    expect(out).toContain(m.create.errors.retry);
+  });
+});
+
+describe("Adjust the area frame (R2)", () => {
+  it("one focusable frame (Area frame, role description area frame) described by its size and the hint; 44 px corners and edges hidden from assistive tech", () => {
+    const image = { w: 1000, h: 800 };
+    expect(sizeText([100, 80, 600, 480], image)).toBe("Frame covers 50 by 50 percent of the photo");
+    const out = html(createElement(AreaFrame, {
+      src: "/o.jpg", image, box: [100, 80, 600, 480], disabled: false, label: ad.frameLabel, describedBy: "sz h", onChange: noop, onCommit: noop,
+    }));
+    expect(out).toMatch(/role="group" tabindex="0" aria-label="Area frame" aria-roledescription="area frame" aria-describedby="sz h"/);
+    expect(out).toContain(`alt="${ad.photoLabel}"`);
+    expect(out).toContain("left:10%;top:10%;width:50%;height:50%");
+    expect(out.match(/data-corner=/g)?.length).toBe(4);
+    expect(out.match(/data-side=/g)?.length).toBe(4);
+    expect(out.match(/aria-hidden="true" data-handle/g)?.length).toBe(8);
+    const css = readFileSync(resolve(__dirname, "../components/create/Create.module.css"), "utf8");
+    expect(css).toMatch(/\.areaCorner \{[^}]*width: var\(--size-min-target\); height: var\(--size-min-target\)/);
+  });
+});
+
+describe("Mascot pictures (R7)", () => {
+  it("Take a photo shows the card mascot, You're live the shop mascot, both described, through next/image", () => {
+    const card = html(createElement(MascotPicture, { kind: "card" }));
+    expect(card).toContain(`alt="${m.create.photo.mascotAlt}"`);
+    expect(card).toMatch(/src="\/_next\/image\?url=%2Fassets%2Fmascot-card\.png/);
+    const shop = html(createElement(MascotPicture, { kind: "shop" }));
+    expect(shop).toContain(`alt="${m.create.live.mascotAlt}"`);
+    expect(shop).toMatch(/mascot-shop\.png/);
+  });
+});
+
+describe("My story video row (R6)", () => {
+  const r6 = m.create.myStory;
+  const base = { id: "cr1", storyVideoUrl: "creators/cr1/story-video/a b.mp4", storyVideoVtt: "WEBVTT" };
+  it("with a video: thumbnail, My story video, where buyers see it, Watch and Record again (redo mode)", () => {
+    const out = html(createElement(StoryVideoRowView, { creator: base, watching: false, onWatch: noop }));
+    before(out, r6.row, r6.saved);
+    before(out, r6.watch, r6.recordAgain);
+    expect(r6.saved).toBe("Buyers see it when they tap your story tag.");
+    expect(out).toContain('src="/media/creators/cr1/story-video/a%20b.mp4#t=0.1"');
+    expect(out).toContain('href="/create/story-video?redo=1"');
+    expect(out).toContain('aria-expanded="false"');
   });
 
-  it("no pieces: box mode only, the whole-photo button, no piece strip", () => {
-    const out = select({ noPieces: true, candidates: [], selectedIds: [], modes: [{ id: "add", label: t.modeAdd }, { id: "box", label: t.modeBox }], mode: "box", instruction: t.instructionBoxNone, keyboardHint: t.keyboardHintNone, wholePhoto: true });
-    expect(out).toContain(t.wholePhoto);
-    expect(out).not.toContain(t.modeRemove);
-    expect(out).not.toContain(t.boxAround);
+  it("watching: the player with the captions track; a failed load says so", () => {
+    const out = html(createElement(StoryVideoRowView, { creator: base, watching: true, onWatch: noop }));
+    expect(out).toMatch(/<video[^>]*controls/);
+    expect(out).toContain('<track kind="captions" src="/captions/cr1"');
+    expect(text(html(createElement(StoryVideoRowView, { creator: base, watching: true, failed: true, onWatch: noop })))).toContain(r6.missing);
+  });
+
+  it("no video: the icon, No story video yet, Record a video", () => {
+    const out = html(createElement(StoryVideoRowView, { creator: { ...base, storyVideoUrl: null }, watching: false, onWatch: noop }));
+    expect(out).toContain(r6.none);
+    expect(out).toContain(m.create.story.record);
+    expect(out).not.toContain(r6.watch);
+    expect(out).not.toContain("<video");
   });
 });
 
@@ -181,10 +206,16 @@ describe("Listing view (T105, board 2030:3752: element order follows the board)"
     expect(out).toMatch(new RegExp(`<button[^>]*type="submit"[^>]*form="${LISTING_FORM}"|<button[^>]*form="${LISTING_FORM}"[^>]*type="submit"`));
   });
 
-  it("drafting: mockup and the writing line only, submit dimmed", () => {
+  it("drafting (R5): the picture, the creating-cutout animation and the writing line; no fields; submit dimmed", () => {
     const out = listing({ drafting: true });
-    expect(out).toContain(m.create.listing.drafting);
+    beforeRaw(out, 'alt="Your Sticker preview"', "<video");
+    expect(out).toMatch(/<video[^>]*src="\/assets\/sticker-loading\.mp4"/);
+    beforeRaw(out, "<video", m.create.listing.drafting);
     expect(out).not.toContain(m.create.listing.improve);
+    expect(out).not.toContain(m.create.listing.name);
+    expect(out).not.toContain("<input");
+    expect(text(out)).toContain("We'll show the name, price and description when it's ready.");
+    expect(m.create.listing.drafting).toBe("Writing your listing…");
     expect(out).toMatch(new RegExp(`<button[^>]*disabled[^>]*>(?:(?!</button>).)*${m.create.listing.submit}`));
   });
 
@@ -203,18 +234,15 @@ describe("Listing view (T105, board 2030:3752: element order follows the board)"
   });
 });
 
-const btnDisabled = (label: string) => new RegExp(`<button[^>]*disabled[^>]*>(?:(?!</button>).)*${label}`);
 
 function pattern(over: Partial<ChoosePatternViewProps> = {}): string {
   const props: ChoosePatternViewProps = {
     lead: fmt(t.copyMany, { n: 3, product: "sticker" }),
     retake: "/create/photo?mode=camera",
-    busy: false,
     photo: createElement("div", null, "PHOTO"),
     photoState: "loading",
     candidates: [{ id: "a", thumbUrl: "/a.png" }, { id: "b", thumbUrl: "/b.png" }, { id: "c", thumbUrl: "/c.png" }],
     picked: "a",
-    error: null,
     on: { pick: noop, use: noop },
     ...over,
   };
@@ -234,21 +262,13 @@ describe("Choose a pattern view (T113, board 2027:3254)", () => {
     expect(out.match(/type="radio"/g)?.length).toBe(3);
     expect(out.match(/type="radio"[^>]*checked/g)?.length).toBe(1);
     expect(out).toContain(`<legend class="visually-hidden">${t.groupLabel}</legend>`);
-    for (const tool of [t.modeAdd, t.boxAround, t.apply]) expect(out).not.toContain(tool);
+    for (const tool of ["Add area", "Box around this piece", "Apply cutout"]) expect(out).not.toContain(tool);
   });
 
   it("tote: the copy names the tote bag", () => {
     expect(text(pattern({ lead: fmt(t.copyMany, { n: 2, product: "tote bag" }) }))).toContain("turn into a tote bag.");
   });
 
-  it("cutting: no Back, pieces locked, the cutting line, only Use this (dimmed)", () => {
-    const out = pattern({ busy: true });
-    expect(out).not.toContain('aria-label="Back"');
-    expect(out).toMatch(/<fieldset[^>]*disabled/);
-    expect(out).toContain(t.applying);
-    expect(out).not.toContain(">" + t.retake + "<");
-    expect(out).toMatch(btnDisabled(t.use));
-  });
 });
 
 const s = m.create.speak;
@@ -289,6 +309,20 @@ describe("Change it view (T113, boards 2027:3138 / 2026:3067 / 2026:3135 / 2038:
     expect(change({ instruction: "Make the book red" })).not.toMatch(btnDisabled(s.done));
   });
 
+  it("R4: Make the change and Looks good as is share one row at the bottom of the change card; no pinned bar", () => {
+    const out = change();
+    const card = out.match(/<div class="[^"]*changeCard[^"]*">([\s\S]*)$/)?.[1] ?? "";
+    const row = card.match(/<div class="[^"]*changeActions[^"]*">(.*?)<\/div><\/div>/)?.[1] ?? "";
+    before(row, s.done, r.skip);
+    expect(row.match(/<button/g)?.length).toBe(2);
+    expect(out).not.toMatch(/class="[^"]*footer/);
+    for (const variant of [change({ micOff: s.micDenied }), change({ phase: "error", error: { message: "x", action: "none" } })]) expect(variant).not.toMatch(/class="[^"]*footer/);
+    const css = readFileSync(resolve(__dirname, "../components/create/Create.module.css"), "utf8");
+    expect(css).toMatch(/\.changeActions \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+    expect(css).toMatch(/\.changeActions > \* \{[^}]*min-height: var\(--size-min-target\)/);
+    expect(css).toMatch(/@media \(max-width: 24rem\) \{\s*\.changeActions \{ grid-template-columns: minmax\(0, 1fr\); \}/);
+  });
+
   it("typing: the typed (or transcribed) request sits in the field", () => {
     expect(change({ instruction: "Make the book red" })).toContain(">Make the book red</textarea>");
   });
@@ -318,7 +352,7 @@ describe("Change it view (T113, boards 2027:3138 / 2026:3067 / 2026:3135 / 2038:
     expect(change({ phase: "transcribing" })).toContain(s.transcribing);
   });
 
-  it("microphone off: the mic-off hint, the notice, the field, Make the change in the bar", () => {
+  it("microphone off: the mic-off hint, the notice, the field, Make the change under it", () => {
     const out = change({ micOff: s.micDenied });
     before(out, s.hintMicOff, s.artLabel);
     before(out, s.artLabel, s.micDenied);
@@ -382,16 +416,18 @@ describe("Before and after view (T113, board 2027:3091)", () => {
 });
 
 describe("Making your cutout view (T113, board 2038:4369)", () => {
-  it("no logo or Back, title, copy, the art dimmed, the cutting line, Use this dimmed", () => {
-    const out = html(createElement(MakingCutoutView, { art: { src: "/after.png", alt: "x" }, changed: true, error: null, back: "/create/compare", onRetry: noop }));
+  it("no logo or Back, title, copy, the creating-cutout animation (R7), the cutting line, Use this dimmed", () => {
+    const out = html(createElement(MakingCutoutView, { changed: true, error: null, back: "/create/compare", onRetry: noop }));
     expect(out).not.toContain('aria-label="Back"');
     before(out, m.create.cutout.makingTitle, m.create.cutout.makingCopy);
-    before(out, m.create.cutout.makingCopy, t.applying);
+    beforeRaw(out, m.create.cutout.makingCopy, "<video");
+    expect(out).toMatch(/<video[^>]*src="\/assets\/sticker-loading\.mp4"/);
+    beforeRaw(out, "<video", t.applying);
     expect(out).toMatch(btnDisabled(t.use));
   });
 
   it("error: Back, the error card with Try again", () => {
-    const out = html(createElement(MakingCutoutView, { art: { src: null, alt: "x" }, changed: false, error: { message: m.create.errors.timeout, action: "retry" }, back: "/create/change", onRetry: noop }));
+    const out = html(createElement(MakingCutoutView, { changed: false, error: { message: m.create.errors.timeout, action: "retry" }, back: "/create/change", onRetry: noop }));
     expect(out).toContain('aria-label="Back"');
     expect(out).toContain(m.create.cutout.makingCopyOriginal);
     expect(out).toContain(m.create.errors.retry);

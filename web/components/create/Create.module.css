@@ -154,35 +154,6 @@
   display: grid; place-items: center; width: var(--size-radio); height: var(--size-radio);
   border-radius: var(--radius-pill); background: var(--text); color: var(--surface); font-size: var(--type-caption-size);
 }
-.chipHit {
-  position: absolute; pointer-events: auto; cursor: pointer;
-  display: grid; place-items: start; min-width: var(--size-min-target); min-height: var(--size-min-target);
-  padding: var(--space-xs);
-}
-.chipOff { cursor: default; }
-.chipPass { pointer-events: none; }
-.chip {
-  display: inline-grid; place-items: center; min-width: var(--size-radio); height: var(--size-radio); padding: 0 var(--space-xs);
-  border-radius: var(--radius-pill); border: calc(var(--border-thin) * 2) solid var(--text);
-  background: var(--surface); color: var(--text);
-  font-size: var(--type-caption-size); font-weight: var(--type-title-m-weight); white-space: nowrap;
-}
-.chipOn .chip { background: var(--text); color: var(--surface); }
-.drawnBox { position: absolute; pointer-events: none; border: calc(var(--border-thin) * 2) dashed var(--primary); box-shadow: 0 0 0 var(--border-thin) var(--surface); border-radius: var(--radius-s); }
-.tapLayer { position: absolute; inset: 0; cursor: crosshair; }
-.tapLayerBox { touch-action: none; }
-.markLayer { pointer-events: none; }
-.mark {
-  position: absolute; transform: translate(-50%, -50%); pointer-events: auto;
-  display: grid; place-items: center; width: var(--size-min-target); height: var(--size-min-target);
-  background: transparent; border: 0; padding: 0; cursor: pointer;
-}
-.markDot {
-  display: grid; place-items: center; width: var(--space-xl); height: var(--space-xl); border-radius: var(--radius-pill);
-  font-weight: var(--type-title-l-weight); line-height: 1; border: var(--border-thin) solid var(--text);
-}
-.markAdd .markDot { background: var(--accent); color: var(--accent-ink); }
-.markRemove .markDot { background: var(--surface); color: var(--danger); border-color: var(--danger); }
 .checker {
   position: relative; width: 100%; max-height: var(--size-photo-max-height); overflow: hidden;
   border: var(--border-thin) solid var(--border); border-radius: var(--radius-card);
@@ -208,44 +179,7 @@
 .piece:has(input:checked) .pieceCheck { display: grid; }
 .piece:has(input:focus-visible) .pieceThumb { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
 .pieceName { font-size: var(--type-body-size); font-weight: var(--type-caption-weight); }
-.pieceGroups { display: grid; gap: var(--space-s); }
-.pieceActions { display: grid; gap: var(--space-xs); }
-.pieceGroupName { font-size: var(--type-body-size); font-weight: var(--type-title-m-weight); }
-.pieceAction {
-  min-height: var(--size-min-target); padding: var(--space-xs) var(--space-s);
-  border-radius: var(--radius-pill); border: var(--border-thin) solid var(--border);
-  background: var(--surface); color: var(--text); font-size: var(--type-body-size); font-weight: var(--type-caption-weight);
-  cursor: pointer;
-}
-.pieceAction:disabled { cursor: default; opacity: var(--opacity-disabled); }
-/* Tool picker (Segmented control 2009:205): 64 px segments, the chosen one ink with white text. */
-.modes {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--space-xs);
-  padding: var(--space-xs); min-width: 0;
-  background: var(--surface-alt); border: var(--border-thin) solid var(--border); border-radius: var(--space-xxl);
-}
-.mode {
-  display: grid; justify-items: center; align-content: center; gap: var(--space-xs);
-  min-height: calc(var(--size-min-target) + var(--space-xl)); padding: var(--space-xs);
-  border-radius: var(--radius-m); text-align: center;
-  font-size: var(--type-body-size); font-weight: var(--type-caption-weight); cursor: pointer;
-}
-.modeIcon { display: inline-flex; font-size: var(--type-display-m-size); line-height: 0; }
-.mode:has(input:checked) { background: var(--primary); color: var(--primary-text); }
-.mode:has(input:focus-visible) { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
-.instruction { font-size: var(--type-body-size); line-height: var(--type-body-lh); color: var(--text-muted); text-align: center; justify-self: center; }
 .keyboardHint { font-size: var(--type-body-size); line-height: var(--type-body-lh); color: var(--color-ink-soft); text-align: center; justify-self: center; }
-.marks { display: grid; gap: var(--space-s); }
-.marksLabel { font-size: var(--type-caption-size); font-weight: var(--type-caption-weight); }
-.marksList { display: grid; gap: var(--space-s); list-style: none; }
-.markRow {
-  display: flex; align-items: center; gap: var(--space-s); width: 100%;
-  min-height: var(--size-min-target); padding: var(--space-xs) var(--space-l);
-  border-radius: var(--radius-pill); border: var(--border-thin) solid var(--border);
-  background: var(--surface); color: var(--text); font-size: var(--type-body-size); text-align: left; cursor: pointer;
-}
-.markRowIcon { display: inline-flex; flex: none; }
-.marksNote { font-size: var(--type-body-size); color: var(--text-muted); }
 .resultHeading { font-size: var(--type-body-size); font-weight: var(--type-body-weight); text-align: center; justify-self: center; }
 .resultHeading:focus-visible, .errorSpot:focus-visible { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); border-radius: var(--radius-s); }
 .errorSpot { display: grid; gap: var(--space-m); }
@@ -290,7 +224,6 @@
 /* Making your sticker / tote bag (boards 4031:4378, 4038:4628): the loading animation, 342 × 342, radius 24. */
 .stickerLoading { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: calc(var(--radius-m) + var(--space-xs)); background: var(--surface-alt); }
 /* Making your cutout (board 2038:4369): the photo card, dimmed while the cut is made. */
-.photoCard .cutArt { width: 100%; background: transparent; }
 .photoPreview { display: grid; place-items: center; padding: var(--space-l); border: var(--border-thin) solid var(--border); border-radius: var(--radius-card); background: var(--surface); }
 .photoPreview img { max-height: var(--size-photo-max-height); }
 
@@ -331,11 +264,88 @@
 }
 .byline { font-size: var(--type-body-size); color: var(--text-muted); }
 
-/* Forced colours: fills disappear, so the chosen segment / picture / piece gets a Highlight outline. */
+/* Forced colours: fills disappear, so the chosen picture / piece gets a Highlight outline. */
 @media (forced-colors: active) {
-  .mode:has(input:checked), .piece:has(input:checked) .pieceThumb {
+  .piece:has(input:checked) .pieceThumb {
     outline: calc(var(--border-thin) * 3) solid Highlight;
     outline-offset: calc(var(--border-thin) * -3);
   }
   .footer[data-stuck="true"] { border-top-color: CanvasText; }
 }
+
+/* Change it buttons (R4): one row at the bottom of the change card, each at least half the width and
+   44 px tall; stacked on narrow screens and at large text sizes (rem media queries follow the
+   reader's text size). */
+.changeActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-s); align-items: stretch; }
+.changeActions > * { min-height: var(--size-min-target); padding-inline: var(--space-m); white-space: normal; }
+@media (max-width: 24rem) {
+  .changeActions { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Adjust the area (R2): the photo with the frame. The photo card keeps room around the photo so the
+   44 px handles outside the photo's edges are not clipped; the shade dims the photo outside the frame. */
+.areaFrame { overflow: visible; padding: var(--size-min-target); }
+.areaShade { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.areaShade > span { position: absolute; box-shadow: 0 0 0 calc(var(--size-photo-max-height) * 4) var(--scrim); }
+.area {
+  position: absolute; cursor: move; touch-action: none;
+  border: calc(var(--border-thin) * 2) solid var(--surface);
+  box-shadow: 0 0 0 var(--border-thin) var(--text), inset 0 0 0 var(--border-thin) var(--text);
+}
+.area:focus-visible { outline: var(--focus-width) solid var(--accent); outline-offset: var(--focus-width); }
+.area[aria-disabled="true"] { cursor: default; }
+/* The 44 px handles sit just outside the frame line, so the whole inside stays free for moving even at
+   the minimum size (review T123 M2). The knob is drawn centred on the corner and lets the pointer
+   through to the frame. */
+.areaEdge { position: absolute; touch-action: none; }
+.areaEdge[data-side="n"], .areaEdge[data-side="s"] { left: 0; right: 0; height: var(--size-min-target); cursor: ns-resize; }
+.areaEdge[data-side="e"], .areaEdge[data-side="w"] { top: 0; bottom: 0; width: var(--size-min-target); cursor: ew-resize; }
+.areaEdge[data-side="n"] { top: 0; transform: translateY(-100%); }
+.areaEdge[data-side="s"] { bottom: 0; transform: translateY(100%); }
+.areaEdge[data-side="e"] { right: 0; transform: translateX(100%); }
+.areaEdge[data-side="w"] { left: 0; transform: translateX(-100%); }
+.areaCorner {
+  position: absolute; z-index: 1; touch-action: none;
+  display: grid; width: var(--size-min-target); height: var(--size-min-target);
+}
+.areaCorner[data-corner="nw"] .areaKnob { transform: translate(50%, 50%); }
+.areaCorner[data-corner="ne"] .areaKnob { transform: translate(-50%, 50%); }
+.areaCorner[data-corner="se"] .areaKnob { transform: translate(-50%, -50%); }
+.areaCorner[data-corner="sw"] .areaKnob { transform: translate(50%, -50%); }
+.areaCorner[data-corner="nw"] { left: 0; top: 0; place-items: end; transform: translate(-100%, -100%); cursor: nwse-resize; }
+.areaCorner[data-corner="ne"] { right: 0; top: 0; place-items: end start; transform: translate(100%, -100%); cursor: nesw-resize; }
+.areaCorner[data-corner="se"] { right: 0; bottom: 0; place-items: start; transform: translate(100%, 100%); cursor: nwse-resize; }
+.areaCorner[data-corner="sw"] { left: 0; bottom: 0; place-items: start end; transform: translate(-100%, 100%); cursor: nesw-resize; }
+.areaKnob {
+  width: calc(var(--space-s) * 2); height: calc(var(--space-s) * 2); border-radius: var(--radius-pill); pointer-events: none;
+  background: var(--surface); border: calc(var(--border-thin) * 2) solid var(--text);
+}
+.area[aria-disabled="true"] .areaEdge, .area[aria-disabled="true"] .areaCorner { cursor: default; }
+@media (forced-colors: active) {
+  .area { border-color: Highlight; }
+  .areaKnob { background: Canvas; border-color: CanvasText; }
+}
+
+/* My story video (R6): a card under the product choice on Choose a product. */
+.storyRow {
+  display: grid; gap: var(--space-m);
+  padding: var(--space-l);
+  border: var(--border-thin) solid var(--border); border-radius: var(--radius-m);
+  background: var(--surface);
+}
+.storyRowMain { display: flex; align-items: center; gap: var(--space-m); min-width: 0; }
+.storyThumb {
+  flex: none; display: grid; place-items: center; overflow: hidden;
+  width: calc(var(--size-cta) + var(--size-radio)); aspect-ratio: 1;
+  border-radius: var(--radius-m); background: var(--surface-alt); color: var(--text);
+  font-size: var(--type-display-m-size);
+}
+.storyThumb video { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.storyRowText { display: grid; gap: var(--space-xs); min-width: 0; font-size: var(--type-body-size); line-height: var(--type-body-lh); overflow-wrap: anywhere; }
+.storyRowTitle { font-size: var(--type-title-m-size); font-weight: var(--type-title-m-weight); }
+.storyRowMeta { color: var(--text-muted); }
+.storyRowActions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--size-record) * 1.6)), 1fr)); gap: var(--space-s); }
+.storyPlayer { display: block; width: 100%; border-radius: var(--radius-m); background: var(--text); }
+
+/* Mascot picture cards (R7): Take a photo / Upload a picture and You're live. */
+.mascotPicture { display: block; width: 100%; height: auto; border-radius: var(--radius-card); }

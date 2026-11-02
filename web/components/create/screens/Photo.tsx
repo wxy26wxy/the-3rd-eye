@@ -6,12 +6,13 @@ import { m } from "@/components/messages";
 import { ArtImage } from "@/components/ui/ArtImage";
 import { Button, ButtonFace } from "@/components/ui/Button";
 import { CameraIcon, ImageIcon } from "@/components/ui/Icons";
-import { Loading, SkyCard } from "@/components/ui/Loading";
+import { Loading } from "@/components/ui/Loading";
+import { MascotPicture } from "../art";
 import { api, extFor, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid, type Artwork, type Candidate } from "../api";
 import { CreateScreen, MissingState } from "../CreateScreen";
 import { boxRescueArtworkId } from "../cutout";
 import { describeError, ErrorNotice, type ScreenError } from "../errors";
-import { afterPhoto, drawBoxOnPhoto } from "../flow";
+import { adjustWholePhoto, afterPhoto } from "../flow";
 import { useCreate, useCreator } from "../store";
 import styles from "../Create.module.css";
 
@@ -84,8 +85,8 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
     }
   }
 
-  /** Zero pieces found: Your cutout on this photo in box mode (the box cut becomes the picked piece). */
-  function drawBox(id: string) { drawBoxOnPhoto({ router, update }, id); }
+  /** Zero pieces found: Adjust the area on this photo, framed on the whole photo (the cut becomes the picked piece). */
+  function drawBox(id: string) { adjustWholePhoto({ router, update }, id); }
 
   const busy = phase !== "pick";
   const busyLabel = phase === "uploading" ? m.create.photo.uploading : m.create.photo.finding;
@@ -110,7 +111,7 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
       {busy ? <Loading variant="sky" label={busyLabel} />
         : error ? <ErrorNotice error={error} />
         : preview ? <div className={styles.photoPreview}><ArtImage src={preview} alt={m.create.photo.preview} placeholder="" ratio="auto" /></div>
-        : <SkyCard />}
+        : <MascotPicture kind="card" />}
     </CreateScreen>
   );
 }

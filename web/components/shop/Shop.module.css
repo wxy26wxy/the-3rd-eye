@@ -218,7 +218,8 @@
   border-radius: var(--space-s);
   background: var(--color-accent-soft);
 }
-.phoneThumb img { width: 100%; height: 100%; object-fit: contain; }
+/* min-height/min-width 0: a grid item image otherwise keeps its own aspect height and a tall sticker spills out. */
+.phoneThumb img { width: 100%; height: 100%; min-width: 0; min-height: 0; object-fit: contain; }
 .phoneProductText { display: grid; gap: var(--border-thin); min-width: 0; }
 .phoneProductTitle { font-size: var(--type-title-m-size); font-weight: var(--type-title-m-weight); line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .phoneProductNote { font-size: var(--type-caption-size); font-weight: var(--type-caption-weight); line-height: var(--type-caption-lh); color: var(--text-muted); }

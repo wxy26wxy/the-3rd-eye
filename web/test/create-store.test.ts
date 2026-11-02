@@ -53,3 +53,13 @@ describe("creator draft v3 (T113): piece, changes, cutout", () => {
     expect(getDraft()).toEqual({ product: "tote" });
   });
 });
+
+describe("R1: the product picture on creator screens", () => {
+  it("a sticker shows its bordered preview, a tote (or a sticker without one yet) the cut-out art; never the mockup", async () => {
+    const { productPicture } = await import("@/components/create/store");
+    expect(productPicture({ type: "sticker", previewUrl: "/preview.png" }, { cleanedUrl: "/cut.png" })).toBe("/preview.png");
+    expect(productPicture({ type: "sticker", previewUrl: null }, { cleanedUrl: "/cut.png" })).toBe("/cut.png");
+    expect(productPicture({ type: "tote", previewUrl: "/x.png" }, { cleanedUrl: "/cut.png" })).toBe("/cut.png");
+    expect(productPicture(null, null)).toBeNull();
+  });
+});

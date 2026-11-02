@@ -139,10 +139,10 @@ final class ChangeItUITests: XCTestCase {
     let field = changeField(app)
     XCTAssertTrue(field.waitForExistence(timeout: 10))
     field.tap()
-    field.typeText(text)
-    // Close the keyboard (its Done) so the pinned bar and the tab bar come back.
-    let done = app.buttons["Done"]
-    if done.waitForExistence(timeout: 2) { done.tap() }
+    // Return closes the keyboard, so the pinned bar and the tab bar come back.
+    field.typeText(text + "\n")
+    // "Make the change" sits low in the panel, partly under the pinned bar: scroll it into view.
+    app.swipeUp()
     XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 3), "the pinned bar is back")
   }
 

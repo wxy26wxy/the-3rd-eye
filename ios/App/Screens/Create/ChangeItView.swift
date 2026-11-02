@@ -30,7 +30,6 @@ struct ChangeItView: View {
     } actions: {
       PillButton("Looks good as is", hint: "Keeps your art as it is and goes on") {
         capture?.cancel()
-        Self.hideKeyboard()
         looksGood()
       }
       .disabled(busy || flow.currentArt == nil)
@@ -44,12 +43,11 @@ struct ChangeItView: View {
       }
     }
     .onDisappear { capture?.cancel() }
-    .toolbar {
-      // The multiline field's Return adds a line, so the keyboard gets its own Done.
-      ToolbarItemGroup(placement: .keyboard) {
-        Spacer()
-        Button("Done") { Self.hideKeyboard() }
-      }
+    // Return closes the keyboard (a change is one line), so the pinned bar and the tab bar come back.
+    .onChange(of: instruction) { _, text in
+      guard text.contains("\n") else { return }
+      instruction = text.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
+      Self.hideKeyboard()
     }
   }
 
@@ -132,7 +130,7 @@ struct ChangeItView: View {
   private func makeTheChange() {
     guard !trimmed.isEmpty, flow.currentArt != nil else { return }
     capture?.cancel()
-    Self.hideKeyboard()
+    // No keyboard dismissal here: resigning it in the same update as the push drops the push.
     flow.changeInstruction = trimmed
     // Sent as the transcript only while the words are still the ones heard.
     flow.changeTranscript = heard?.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed ? trimmed : nil

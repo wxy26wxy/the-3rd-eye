@@ -141,8 +141,8 @@ final class CutoutUITests: XCTestCase {
     let field = app.textViews["What to change"].exists ? app.textViews["What to change"] : app.textFields["What to change"]
     XCTAssertTrue(field.waitForExistence(timeout: 10))
     field.tap()
-    field.typeText("Make the sky purple")
-    if app.buttons["Done"].waitForExistence(timeout: 2) { app.buttons["Done"].tap() }
+    field.typeText("Make the sky purple\n")
+    app.swipeUp()
     tap(app, "Make the change")
     tap(app, "Use this")
     let reason = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "nothing found in the edited picture")).firstMatch
@@ -223,9 +223,8 @@ final class CutoutUITests: XCTestCase {
     let field = app.textViews["What to change"].exists ? app.textViews["What to change"] : app.textFields["What to change"]
     XCTAssertTrue(field.waitForExistence(timeout: 10))
     field.tap()
-    field.typeText("Make the sky purple")
-    let done = app.buttons["Done"]
-    if done.waitForExistence(timeout: 2) { done.tap() }
+    field.typeText("Make the sky purple\n")
+    app.swipeUp()
     tap(app, "Make the change")
     tap(app, "Use this")
     XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 20), "Your cutout")

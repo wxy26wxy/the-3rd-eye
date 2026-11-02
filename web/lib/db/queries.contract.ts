@@ -40,6 +40,8 @@ export type ShopProduct = {
   description: string | null;
   priceCents: number;
   mockupUrl: string | null;
+  /** Public bordered sticker preview PNG (products.previewUrl, T121; null for totes and not-yet-backfilled stickers). */
+  previewUrl: string | null;
   /** Public cleaned artwork PNG (artworks.cleanedUrl). */
   artworkUrl: string | null;
   /** SVG path data of the die-cut line (artworks.cutPathSvg). */
@@ -155,6 +157,7 @@ function toShopFields(r: q.ShopProduct): Omit<ShopProduct, "creator"> {
     description: r.listing?.description ?? null,
     priceCents: r.product.priceCents,
     mockupUrl: r.product.mockupUrl,
+    previewUrl: r.product.previewUrl ?? null,
     artworkUrl: r.artwork.cleanedUrl,
     cutPathSvg: r.artwork.cutPathSvg,
     altText: r.artwork.altText,

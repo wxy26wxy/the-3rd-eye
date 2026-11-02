@@ -6,13 +6,23 @@ One Next.js app (`web/`) on Vercel serves the shop, story-tag pages, admin, and 
 | Stage | Model | Endpoint |
 |---|---|---|
 | Speech → text | `muse-voice-transcribe-1.0` | `POST https://api.meta.ai/v1/asr/transcribe` (multipart; plain fetch) |
-| Shape prompt, describe images, listing agent, prompts | `muse-spark-1.3` | Responses API `POST https://api.meta.ai/v1/responses` |
-| Generate / refine / compose images | `muse-image-1.0` | Responses API (`previous_response_id` for refine) or `/v1/images/*` |
+| Describe images, listing agent, moderation; shape prompt (text-to-image path, not used by the apps since v0.8) | `muse-spark-1.3` | Responses API `POST https://api.meta.ai/v1/responses` |
+| Compose images (product mockups); generate / refine (text-to-image path, not used by the apps since v0.8) | `muse-image-1.0` | Responses API (`previous_response_id` for refine) or `/v1/images/*` |
 | Change the picked piece by voice or text (v0.8 creator flow) | `muse-voice-transcribe-1.0` + `muse-image-1.0` **edit** (`input_image`) + `muse-spark-1.3` describe | `/asr/transcribe` for the spoken request; Responses API, one user message `[input_text (instruction + guard), input_image (the piece)]` with the `image_generation` tool; then Spark vision against the instruction |
 | Find & cut out drawings | `sam-3.1` | Responses API, `stream: true`, parsed with `@meta-sam/parser` |
 | Story / thank-you drafts (open weights) | `muse-glimmer` (Muse Glimmer 30B, Apache-2.0) | Ollama on the development Mac, in this order: native `POST <OLLAMA_BASE_URL without /v1>/api/chat` (JSON Schema `format`), then OpenAI-compatible `${OLLAMA_BASE_URL}/chat/completions` (default `http://localhost:11434/v1`), then `muse-spark-1.3` (`provider: "meta-fallback"`, always on Vercel) |
 
 Status of request shapes: all live-verified on 2026-10-28 except where the table at the bottom says otherwise. Each module records `verified: <date>` in its header comment once a live probe succeeds; `scripts/probe_*.ts` perform the probes and write fixtures.
+
+## Creator data flow (v0.8, photo-first)
+Every artwork starts from the creator's own photo; no app screen creates an image from words alone. The text-to-image routes (`POST /prompts/shape`, `POST /artworks {source:"text2image"}`, `POST /artworks/{id}/refine`) remain in the backend, unused by the apps since v0.8 and still tested (`docs/api.md`, ruling R4).
+1. **Photo:** the client uploads the picture (`POST /uploads`), then `POST /artworks {source:"photo"}` stores the original privately and SAM 3.1 finds the drawings (`findCandidates`, phrases "drawing" and "handmade object"); the candidates and their masks are stored on the row.
+2. **Choose a pattern:** `POST /artworks/{id}/select` with one candidate cuts it out (`finishMask`, `cleanedUrl` public, `cutPathSvg`) and Muse Spark describes the cut-out.
+3. **Change it** (optional, repeatable): a spoken request goes through `POST /transcribe` (Muse Voice Transcribe) and comes back as text; typed or spoken, the instruction goes to `POST /artworks/{id}/change`. `changeArtwork` squares the picked piece on white (10 % margin, at most 1024 px) and sends it to Muse Image as the `input_image` of an edit, with the instruction and the guard "Keep the same subject, style and pure white background unless asked otherwise."; Muse Spark then describes the edited picture against the instruction (`alt`, `spoken`, `differences`). The result is a **child artwork** (`parentArtworkId`, `source: "photo"`, `changeInstruction`, `transcript`, public `previewUrl`), so "Back to my original" is a client-side switch to the parent and "Change it again" edits the child.
+4. **Cutout:** for a change result, `POST /artworks/{id}/cutout` runs SAM on the edited picture, stores the pieces largest first, cuts out the largest (`cleanupArtwork`, the same finishing as `select`) and describes the cut-out again. "Looks good as is" on the picked piece needs no call: its cut-out exists from step 2. "Your cutout" edge tools call `POST /artworks/{id}/cleanup` (points, box) unchanged.
+5. **Product:** `POST /products` builds the sticker (white border, die-cut path, print PNG and SVG) or the tote print, the mockup (Muse Image compose) and the listing draft (Muse Spark listing agent), as before.
+
+**Trace (`ai_calls.stage`):** each step writes one row per model call with the artwork id: `segment` (SAM, steps 1 and 4), `describe` (Muse Spark vision, steps 2, 3 and 4), `transcribe` (the spoken request), `edit` (Muse Image with `input_image`, step 3), then `mockup`, `listing` and `moderate` for the product. `generate`, `shape` and `refine` rows only come from the unused text-to-image path. `/admin/trace/<artworkId>` shows them as Photo and mask → Change request → Edit instruction → Before and after → Description → Decision → Sticker.
 
 ## Facts that shaped the code
 - Meta Model API: `Authorization: Bearer $META_API_KEY`; OpenAI SDK works with `baseURL: https://api.meta.ai/v1`. Keys stay server-side.

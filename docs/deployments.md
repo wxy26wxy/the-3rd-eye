@@ -56,3 +56,17 @@
 ## 2026-10-31 · TestFlight · The 3rd Eye 0.5.0 builds (1) and (2) · upload pending
 - Version 0.5.0, build numbers (1) and (2) (the second only if a second upload is needed; `ios/project.yml` holds build 1 at v0.7), are uploaded by the product owner from Xcode Organizer (the command-line export cannot see the Apple sign-in). Status: pending; this entry is updated once App Store Connect shows them as "Ready to Test".
 - Rollback: expire the build in App Store Connect → TestFlight; testers keep the previous build (0.4.0 (1)).
+
+## 2026-11-02 · tag v0.8-rc1 (pending) · production promotion pending
+- Release candidate for Design v3 (photo-first): T110 design intake (tokens v3, Outfit, sticker-loading animation), T111 backend (`POST /artworks/{id}/change` with Muse Image edit, `POST /artworks/{id}/cutout`, order size and quantity, admin trace relabel), T112 site (shop and product page redesign, Add to bag → order sheet), T113 web creator flow (Choose a pattern → Change it → Before and after → Your cutout → Making your sticker), T114 iOS v3, T115 docs. Tag and sha: pending (tagged once T112–T114 are merged).
+- **Prerequisite: migration 0004 must be applied to the shared database before this build is deployed.** The product owner runs `pnpm migrate drizzle/0004_t111_change_and_sizes.sql` from `web/` (additive: `artworks.change_instruction`, `orders.size`, `orders.quantity` with default 1). Without it, `change` and `cutout` and every order with a size fail.
+- Production URL: https://the-3rd-eye.vercel.app. Deployment id: pending (the PM fills it in after `vercel deploy --yes --prod` from `web/`, run by the product owner).
+- TestFlight: The 3rd Eye 0.5.0 build 3 (the v0.8 iOS app), uploaded by the product owner from Xcode Organizer; pending.
+- Approver: the product owner. Rollback target: the v0.7 production deployment `dpl_9uvgSeEd9qW1t1vc6P2CzXWmtRfH` (Vercel instant rollback); the migration is additive, so rolling back the web does not require reverting it. For code, tag `v0.7`.
+
+## 2026-11-03 · tag v0.8 (pending) · promoted to production (pending)
+- Fixes on top of `v0.8-rc1` until the freeze (Nov 3, 9:00 AM); tag `v0.8` at the freeze. Tag and sha: pending.
+- Prerequisite as for `v0.8-rc1`: migration 0004 applied (once; it is not run again).
+- Production URL: https://the-3rd-eye.vercel.app. Deployment id: pending. Smoke after promotion (to record): `/`, `/p/<id>` (Size, quantity, Add to bag → order sheet → staged order, size × qty on `/admin`), `/t/<token>`, `/create` photo → Choose a pattern → Change it → Before and after → Your cutout → Making your sticker.
+- TestFlight: 0.5.0 build 3 if no iOS fix was needed after rc1, otherwise the next build number; pending.
+- Approver: the product owner. Rollback target: the `v0.8-rc1` deployment, then the v0.7 deployment `dpl_9uvgSeEd9qW1t1vc6P2CzXWmtRfH`; for code, tag `v0.8-rc1`.

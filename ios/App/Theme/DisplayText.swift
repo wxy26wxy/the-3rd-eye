@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Sky headline: Inter Medium (Bold on a photo), ink on the white page, no stroke, tilt or shadow.
+/// Sky headline: Outfit Medium (Bold on a photo), ink on the white page, no stroke, tilt or shadow.
 /// Left-aligned by default, as on the boards; `alignment: .center` for the celebration screens.
 struct DisplayText: View {
   private let text: Text

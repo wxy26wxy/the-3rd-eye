@@ -33,14 +33,29 @@ describe("rebuildProductFiles", () => {
 
   it("replaces print files and mockup, keeps status, writes a passing print check", async () => {
     files.set("cleaned.png", await art(1000, 1000));
-    state.product = { id: "p1", artworkId: "a1", creatorId: "c1", type: "sticker", status: "published", printPngUrl: "old.png", printSvgUrl: "old.svg", mockupUrl: "old-m.png" };
+    state.product = { id: "p1", artworkId: "a1", creatorId: "c1", type: "sticker", status: "published", printPngUrl: "old.png", printSvgUrl: "old.svg", mockupUrl: "old-m.png", previewUrl: "old-preview.png" };
     const out = await rebuildProductFiles("p1");
     expect(out.unpublished).toBe(false);
     expect(state.patch?.printPngUrl).not.toBe("old.png");
     expect(state.patch?.printSvgUrl).toMatch(/\.svg$/);
     expect(state.patch?.mockupUrl).not.toBe("old-m.png");
     expect(state.patch?.status).toBeUndefined();
+    // T121: the public bordered preview is rebuilt too (≤ 1200 px, alpha).
+    const preview = state.patch?.previewUrl as string;
+    expect(preview).toMatch(/^creators\/c1\/previews\/.*\.png$/);
+    expect(preview).not.toBe("old-preview.png");
+    const meta = await sharp(files.get(preview)!).metadata();
+    expect(meta.hasAlpha).toBe(true);
+    expect(Math.max(meta.width!, meta.height!)).toBeLessThanOrEqual(1200);
     expect((state.printCheck as { print_ok: boolean }).print_ok).toBe(true);
+  });
+
+  it("a tote gets no preview (previewUrl null)", async () => {
+    files.set("cleaned.png", await art(1600, 1600));
+    state.product = { id: "p1", artworkId: "a1", creatorId: "c1", type: "tote", status: "draft" };
+    await rebuildProductFiles("p1");
+    expect(state.patch?.previewUrl).toBeNull();
+    expect(state.patch?.mockupUrl).toBeTruthy();
   });
 
   it("a published product whose new cut is too small goes back to draft", async () => {

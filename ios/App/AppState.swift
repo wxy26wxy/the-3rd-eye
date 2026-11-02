@@ -4,14 +4,17 @@ import SwiftUI
 enum HomeTab: Hashable { case create, designs, orders, messages }
 
 /// Pushed screens of the creator flow (root is PickProductView). Photo first (v3 boards):
-/// camera → Finding drawings → Choose a pattern → Change it (→ Changing your art → Before and after)
-/// → Making your cutout → Your cutout → Making your sticker / tote bag → Listing details.
+/// camera → Finding drawings → Choose a pattern → Adjust the area → Change it (→ Changing your art →
+/// Before and after → Making your cutout → Your cutout) → Making your sticker / tote bag → Listing
+/// details. "My story video" (T122) also opens from the root.
 enum CreateRoute: Hashable {
   case chooseMethod
   case camera(PhotoSource)
   case findingDrawings
   /// Pick one of the drawings SAM found on the photo.
   case choosePattern
+  /// The frame around the picked drawing; "Use this area" cuts it out (`cleanup`).
+  case adjustArea
   /// Say or type what to change, or keep the art as it is.
   case changeIt
   /// Loading screen while Muse Image changes the art.
@@ -20,7 +23,7 @@ enum CreateRoute: Hashable {
   case beforeAfter
   /// Loading screen while the changed art is cut out.
   case makingCutout
-  /// The cut-out with the edge tools (marks and box).
+  /// The cut-out of a change, to use or start over.
   case yourCutout
   /// Loading screen while the sticker or tote bag is made.
   case makingProduct
@@ -28,6 +31,10 @@ enum CreateRoute: Hashable {
   case storyVideo
   case videoSaved
   case youreLive
+  /// "My story video" from the Create tab: watch it, record it again.
+  case storyLibrary
+  /// Story video recorded again from "My story video"; comes back there.
+  case recordStoryAgain
 }
 
 enum PhotoSource: Hashable { case camera, library }
@@ -35,8 +42,8 @@ enum PhotoSource: Hashable { case camera, library }
 /// Pushed screens of the My designs tab.
 enum DesignRoute: Hashable {
   case detail(String)
-  /// Your cutout for a saved design (`AppState.designFlow`); "Use this" comes back to the detail.
-  case redoCutout
+  /// Adjust the area for a saved design (`AppState.designFlow`); "Use this area" comes back to the detail.
+  case adjustArea
 }
 
 /// Session, preferences and navigation shared by every screen.
@@ -166,7 +173,7 @@ final class AppState {
     next.productType = productType
     if let draft = artwork.liveProducts.first(where: { $0.type == productType && !$0.isPublished }) {
       next.product = Product(id: draft.id, artworkId: artwork.id, type: productType, mockupUrl: draft.mockupUrl,
-                             priceCents: draft.priceCents, status: draft.status)
+                             previewUrl: draft.previewUrl, priceCents: draft.priceCents, status: draft.status)
       next.productTitle = draft.title
       next.productDescription = draft.description
     }
@@ -209,6 +216,8 @@ final class CreateFlow {
   /// drawing it was cut from.
   var pieceArtwork: Artwork?
   var pieceCutFrom: String?
+  /// The frame (Adjust the area) `pieceArtwork` was cut with.
+  var pieceBox: [Double]?
   /// The latest change (a child artwork); nil while the art is as it was picked.
   var changedArtwork: Artwork?
   /// The art the latest change was made from ("Before").
@@ -218,14 +227,12 @@ final class CreateFlow {
   var changeTranscript: String?
   /// How the change differs from the request (`description.differences`).
   var changeDifferences: String?
-  /// The artwork "Your cutout" works on, with its pieces, the picture's size, the chosen piece,
-  /// marks and box (pixels of that picture).
+  /// The artwork "Your cutout" shows (or a saved design's Adjust the area cuts), with its pieces,
+  /// the picture's size and the chosen piece.
   var cutoutArtwork: Artwork?
   var candidates: [Candidate] = []
   var imageSize: ImageSize?
   var selectedCandidateIds: [String] = []
-  var points: [CutoutPoint] = []
-  var box: [Double]?
   /// Shown after a re-cut (My designs) that could not rebuild an existing product.
   var cutoutNotice: String?
   /// The artwork the creator accepted ("Use this" on Your cutout).
@@ -252,6 +259,7 @@ final class CreateFlow {
     pieceCandidateId = candidates.count == 1 ? candidates.first?.id : nil
     pieceArtwork = nil
     pieceCutFrom = nil
+    pieceBox = nil
     resetChange()
   }
 
@@ -264,15 +272,13 @@ final class CreateFlow {
     changeDifferences = nil
   }
 
-  /// Starts the cut-out state for `artwork` ("Your cutout"): its pieces with `selected` chosen,
-  /// no marks, no box.
+  /// Starts the cut-out state for `artwork` (Your cutout, or Adjust the area on a saved design): its
+  /// pieces with `selected` chosen.
   func resetCutout(artwork: Artwork?, candidates: [Candidate], imageSize: ImageSize?, selected: [String]? = nil) {
     cutoutArtwork = artwork
     self.candidates = candidates
     self.imageSize = imageSize
     selectedCandidateIds = selected ?? (candidates.count == 1 ? candidates.map(\.id) : [])
-    points = []
-    box = nil
     cutoutNotice = nil
   }
 
@@ -285,6 +291,7 @@ final class CreateFlow {
     pieceCandidateId = nil
     pieceArtwork = nil
     pieceCutFrom = nil
+    pieceBox = nil
     resetChange()
     resetCutout(artwork: nil, candidates: [], imageSize: nil)
     artwork = nil
@@ -320,6 +327,7 @@ final class CreateFlow {
     guard let summary = artworks.lazy.compactMap({ $0.products?.first { $0.id == product.id } }).first else { return product }
     var fresh = product
     if let mockup = summary.mockupUrl { fresh.mockupUrl = mockup }
+    if let preview = summary.previewUrl { fresh.previewUrl = preview }
     if let cents = summary.priceCents { fresh.priceCents = cents }
     if let status = summary.status { fresh.status = status }
     return fresh

@@ -2,7 +2,8 @@ import CoreGraphics
 
 /// Maps between the photo as shown (aspect-fit inside a view) and pixels of the stored
 /// original (`ImageSize`), the space the API uses for `bbox`, `points` and `box`.
-/// docs/api.md clarification 1: `x = (tapX - imageLeft) * imageSize.w / shownWidth`.
+/// docs/api.md clarification 1: `x = (tapX - imageLeft) * imageSize.w / shownWidth`. Choose a pattern
+/// and Adjust the area draw with it.
 enum CutoutGeometry {
   /// Where an image of `image` size sits when aspect-fit into `container`.
   static func fitRect(image: ImageSize, in container: CGSize) -> CGRect {
@@ -33,90 +34,13 @@ enum CutoutGeometry {
     let b = viewPoint(x: box[2], y: box[3], shownIn: frame, image: image)
     return CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(b.x - a.x), height: abs(b.y - a.y))
   }
-
-  /// Index of the mark whose centre is nearest to `location`, if it is within `radius` (view points).
-  static func markIndex(at location: CGPoint, centres: [CGPoint], radius: CGFloat) -> Int? {
-    let distances = centres.enumerated().map { ($0.offset, hypot($0.element.x - location.x, $0.element.y - location.y)) }
-    guard let nearest = distances.min(by: { $0.1 < $1.1 }), nearest.1 <= radius else { return nil }
-    return nearest.0
-  }
-
-  /// A drag from `start` to `end` (view coordinates) → `[x0, y0, x1, y1]` in image pixels with
-  /// x0 < x1 and y0 < y1, clamped to the image; nil when the box would be empty.
-  static func imageBox(from start: CGPoint, to end: CGPoint, shownIn frame: CGRect, image: ImageSize) -> [Double]? {
-    let a = imagePoint(start, shownIn: frame, image: image)
-    let b = imagePoint(end, shownIn: frame, image: image)
-    let box = [min(a.x, b.x), min(a.y, b.y), max(a.x, b.x), max(a.y, b.y)].map { Double($0) }
-    return box[0] < box[2] && box[1] < box[3] ? box : nil
-  }
 }
 
-/// What Your cutout sends (`cleanup`), and what Choose a pattern sends for a single pick (`select`).
+/// What Adjust the area sends (`POST /artworks/{id}/cleanup`): the piece the frame was put on and
+/// the frame (docs/api.md T080 §2; T122 R2). No drawing found: the frame alone.
 enum CutoutRequest {
-  /// The API takes at most 10 points.
-  static let maxPoints = 10
-
-  enum Action: Equatable {
-    /// One candidate, no marks: `POST /artworks/{id}/select`.
-    case select(candidateId: String)
-    /// Anything else: `POST /artworks/{id}/cleanup`.
-    case cleanup(CleanupRequest)
-  }
-
-  /// Builds the request exactly as the creator composed it: the chosen candidates go with every
-  /// mark and box. On the server a "Remove area" mark drops the chosen piece it lands on; a box or
-  /// an "Add area" mark adds one SAM object, unioned with the pieces.
-  /// Nil when there is nothing to send, or when only "Remove area" marks exist with nothing to remove from.
-  static func make(selected: [Candidate], points: [CutoutPoint], box: [Double]?) -> CleanupRequest? {
-    let ids = selected.map(\.id)
-    guard !ids.isEmpty || !points.isEmpty || box != nil else { return nil }
-    if ids.isEmpty, box == nil, !points.contains(where: { $0.label == .positive }) { return nil }
-    return CleanupRequest(candidateIds: ids.isEmpty ? nil : ids, points: points.isEmpty ? nil : points, box: box)
-  }
-
-  /// `select` for a single candidate without marks, else `cleanup`. With `productsMayExist`
-  /// (a redo) it is always `cleanup`, whose answer reports products that could not be rebuilt.
-  static func action(selected: [Candidate], points: [CutoutPoint], box: [Double]?, productsMayExist: Bool = false) -> Action? {
-    if !productsMayExist, points.isEmpty, box == nil, selected.count == 1, let only = selected.first { return .select(candidateId: only.id) }
-    return make(selected: selected, points: points, box: box).map(Action.cleanup)
-  }
-
-  /// A "Remove area" mark drops the whole chosen piece it lands on (docs/api.md T080 §2).
-  /// True when the marks would drop every chosen piece and nothing else (box, "Add area") is left.
-  static func leavesNothing(selected: [Candidate], points: [CutoutPoint], box: [Double]?) -> Bool {
-    guard box == nil, !selected.isEmpty, !points.contains(where: { $0.label == .positive }) else { return false }
-    let negatives = points.filter { $0.label == .negative }
-    return selected.allSatisfy { piece in negatives.contains { contains(piece.bbox, x: $0.x, y: $0.y) } }
-  }
-
-  /// "Box around this piece": the piece's own bbox.
-  static func box(around piece: Candidate) -> [Double]? {
-    piece.bbox.count == 4 && piece.bbox[0] < piece.bbox[2] && piece.bbox[1] < piece.bbox[3] ? piece.bbox : nil
-  }
-
-  /// "Add the area around this piece": a positive point at the centre of its bbox.
-  static func centrePoint(of piece: Candidate) -> CutoutPoint? {
-    guard let b = box(around: piece) else { return nil }
-    return CutoutPoint(x: (b[0] + b[2]) / 2, y: (b[1] + b[3]) / 2, label: .positive)
-  }
-
-  /// What the VoiceOver actions on Your cutout's picture act on: the piece the cut-out was made
-  /// from, or the whole picture when there is none (no drawing found).
-  static func accessTarget(piece: Candidate?, image: ImageSize?) -> (box: [Double], point: CutoutPoint)? {
-    if let piece, let box = box(around: piece), let point = centrePoint(of: piece) { return (box, point) }
-    guard let image, image.isUsable else { return nil }
-    return ([0, 0, image.w, image.h], CutoutPoint(x: image.w / 2, y: image.h / 2, label: .positive))
-  }
-
-  /// "Use this" with nothing marked, before any cut-out and with no piece (no drawing found): a
-  /// box over the whole picture.
-  static func wholePhoto(hasCut: Bool, selected: [Candidate], image: ImageSize?) -> CleanupRequest? {
-    guard !hasCut, selected.isEmpty, let image, image.isUsable else { return nil }
-    return CleanupRequest(box: [0, 0, image.w, image.h])
-  }
-
-  private static func contains(_ bbox: [Double], x: Double, y: Double) -> Bool {
-    bbox.count == 4 && x >= bbox[0] && x < bbox[2] && y >= bbox[1] && y < bbox[3]
+  static func make(piece: Candidate?, area: AreaFrame) -> CleanupRequest {
+    CleanupRequest(candidateIds: piece.map { [$0.id] }, box: area.box)
   }
 }
 
@@ -134,18 +58,8 @@ extension CleanupResult {
     return lines.isEmpty ? nil : lines.joined(separator: "\n")
   }
 
-  /// Said when a "Remove area" mark would leave nothing, and for a cleanup with "Remove area"
-  /// marks answered 422.
-  static var removeAdvice: String {
-    String(localized: "To trim the edges, draw a box around what should stay, then tap the parts to leave out.")
-  }
-
-  /// What Your cutout shows for a failed request: the advice only when a 422 followed marks that
-  /// leave something out, otherwise the server's reason. Nil for a cancelled request.
-  static func errorMessage(for error: Error, request: CleanupRequest?) -> String? {
-    if APIError.isCancellation(error) { return nil }
-    let leftSomethingOut = request?.points?.contains { $0.label == .negative } == true
-    if case APIError.server(422, _, _) = error, leftSomethingOut { return removeAdvice }
-    return error.localizedDescription
+  /// What Adjust the area shows for a failed request: the server's reason; nil for a cancelled request.
+  static func errorMessage(for error: Error) -> String? {
+    APIError.isCancellation(error) ? nil : error.localizedDescription
   }
 }

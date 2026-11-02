@@ -1,6 +1,25 @@
 import SwiftUI
 
-/// Board "Listing details": name, price, You earn per sale; AI prefill; approve by tap.
+/// What Listing details shows (T122 R5): the product being made, the listing being written (the
+/// drafting card replaces the form, so no half-written field can be edited), or the form.
+enum ListingPhase: Equatable {
+  case makingProduct, drafting, form
+
+  static func of(creatingProduct: Bool, drafting: Bool) -> ListingPhase {
+    creatingProduct ? .makingProduct : (drafting ? .drafting : .form)
+  }
+
+  var showsFields: Bool { self == .form }
+
+  /// "Approve and list it" works only on the form, with a name and a price, while nothing is sent.
+  func canApprove(approving: Bool, title: String, priceCents: Int) -> Bool {
+    self == .form && !approving && !title.trimmingCharacters(in: .whitespaces).isEmpty && priceCents > 0
+  }
+}
+
+/// Board "Listing details" (`2014:678`): the product picture (`ProductPicture`: the bordered sticker
+/// preview, or the art for a tote bag; never the mockup), name, description, price, You earn per
+/// sale; "Improve with AI" writes the listing (the drafting card shows meanwhile); approve by tap.
 struct ListingDetailsView: View {
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
@@ -14,6 +33,7 @@ struct ListingDetailsView: View {
   @State private var error: String?
 
   private var priceCents: Int { Money.cents(from: priceText) ?? 0 }
+  private var phase: ListingPhase { .of(creatingProduct: creatingProduct, drafting: improving) }
   private var earnCents: Int { Money.creatorShareCents(priceCents: priceCents, split: app.split) }
 
   var body: some View {
@@ -28,6 +48,8 @@ struct ListingDetailsView: View {
           ProgressView().tint(colors.text).accessibilityLabel(Text("Working"))
           SlowWorkHint()
         }
+      } else if phase == .drafting {
+        draftingCard
       } else {
         form
       }
@@ -36,8 +58,8 @@ struct ListingDetailsView: View {
         PillButton(approving ? "Listing it…" : "Approve and list it", hint: "Puts it in the shop") {
           Task { await approve(via: "tap") }
         }
-        .disabled(approving || title.trimmingCharacters(in: .whitespaces).isEmpty || priceCents <= 0)
-        if !approving && (title.trimmingCharacters(in: .whitespaces).isEmpty || priceCents <= 0) {
+        .disabled(!phase.canApprove(approving: approving, title: title, priceCents: priceCents))
+        if phase == .form && !approving && (title.trimmingCharacters(in: .whitespaces).isEmpty || priceCents <= 0) {
           Text("Add a name and a price to list it, or tap Improve with AI.")
             .themeFont(.bodyS)
             .foregroundStyle(colors.textMuted)
@@ -49,24 +71,43 @@ struct ListingDetailsView: View {
     .task { await createProductIfNeeded() }
   }
 
+  /// The listing agent is writing (board `2014:678` drafting state): the making animation on a 24 pt
+  /// card (its first frame with Reduce Motion), the line under it and the 30 s hint; no fields.
+  private var draftingCard: some View {
+    VStack(spacing: Theme.Space.l) {
+      SkyCard(resource: Tokens.Asset.stickerLoading, aspect: ThemeEffects.productLoadingAspect,
+              radius: ThemeEffects.artPreviewRadius, reducedMotion: .firstFrame)
+      Text("Writing your listing…")
+        .themeFont(.bodyL)
+        .foregroundStyle(colors.text)
+        .multilineTextAlignment(.center)
+      ProgressView().tint(colors.text).accessibilityHidden(true)
+      SlowWorkHint()
+    }
+    .frame(maxWidth: .infinity)
+    .accessibilityElement(children: .combine)
+    .accessibilityIdentifier("listing-drafting")
+  }
+
   private var form: some View {
     VStack(alignment: .leading, spacing: Theme.Space.l) {
-      if let product = app.flow.product {
-        // The mockup on a grey card (board `2014:678`).
-        RemoteImage(url: product.mockupUrl.flatMap(URL.init(string:)) ?? app.flow.artwork?.displayURL, altText: app.flow.artwork?.altText)
+      if app.flow.product != nil {
+        // The bordered sticker, or the art for a tote bag, on a grey card at its own proportions.
+        RemoteImage(url: ProductPicture.url(type: app.flow.product?.type ?? app.flow.productType, product: app.flow.product, artwork: app.flow.artwork),
+                    altText: app.flow.artwork?.altText)
           .padding(Theme.Space.l)
           .frame(maxWidth: .infinity, maxHeight: ThemeEffects.mockupMaxHeight)
           .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(colors.surfaceAlt))
+          .accessibilityIdentifier("listing-picture")
       }
       Button {
         Task { await improve() }
       } label: {
-        Label(improving ? "Writing your listing…" : "Improve with AI", systemImage: "sparkles")
+        Label("Improve with AI", systemImage: "sparkles")
       }
       .buttonStyle(PillButtonStyle(kind: .secondary, showsArrow: false))
       .disabled(improving || app.flow.product == nil)
       .accessibilityHint(Text("Writes a name, description and price for you to check"))
-      SlowWorkHint(active: improving)
 
       LabeledTextField(label: "Name", text: $title, prompt: "Happy Frog Sticker")
       LabeledTextField(label: "Description", text: $description, prompt: "A few words about it", axis: .vertical)
@@ -130,6 +171,7 @@ struct ListingDetailsView: View {
     guard let product = app.flow.product else { return }
     improving = true
     error = nil
+    UIAccessibility.post(notification: .announcement, argument: String(localized: "Writing your listing…"))
     defer { improving = false }
     do {
       let res = try await app.api.runListingAgent(productId: product.id)

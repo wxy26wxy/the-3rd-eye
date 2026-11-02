@@ -14,7 +14,7 @@ struct YoureLiveView: View {
   }
 
   private var pictureURL: URL? {
-    app.flow.product?.mockupUrl.flatMap(URL.init(string:)) ?? app.flow.artwork?.displayURL
+    ProductPicture.url(type: app.flow.product?.type ?? app.flow.productType, product: app.flow.product, artwork: app.flow.artwork)
   }
 
   private var isTote: Bool { (app.flow.product?.type ?? app.flow.productType) == .tote }

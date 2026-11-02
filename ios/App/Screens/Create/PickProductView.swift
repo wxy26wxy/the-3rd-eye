@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Board "Pick sticker or tote · Cloud studio" (`45:700`): two product cards side by side (the
 /// mascot sticker and the tote photo), a radio in each, then Next. At accessibility text sizes the
-/// cards stack so their words fit.
+/// cards stack so their words fit. Under them, the "My story video" row (T122).
 struct PickProductView: View {
   @Environment(AppState.self) private var app
   @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -21,10 +21,13 @@ struct PickProductView: View {
         product(.sticker, name: "Sticker", detail: "Die-cut, waterproof")
         product(.tote, name: "Tote bag", detail: "Natural canvas")
       }
+      // T122 R6: the story video, to watch or record again.
+      StoryVideoRow(state: .of(app.creator)) { app.push(.storyLibrary) }
     } actions: {
       PillButton("Next", hint: "Choose how to add your art") { app.push(.chooseMethod) }
         .disabled(app.flow.productType == nil)
     }
+    .task { await app.refreshCreator() }
   }
 
   private func product(_ type: ProductType, name: LocalizedStringKey, detail: LocalizedStringKey) -> some View {

@@ -1,7 +1,11 @@
 import SwiftUI
 
-/// First listing only: three talking points, then a ≤ 30 s selfie video.
+/// First listing only: three talking points, then a ≤ 30 s selfie video. `redo` (T122 R6, "Record
+/// again" on My story video): the same screen with the current disability setting, "Cancel" instead
+/// of "Skip for now", and it goes back to My story video when the new video is saved (it replaces
+/// the old one on every product).
 struct StoryVideoView: View {
+  var redo = false
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
   @State private var prompts: [String] = StoryVideoView.defaultPrompts
@@ -14,6 +18,8 @@ struct StoryVideoView: View {
   @State private var draft: StoryDraft?
   /// Set once the server's prompts arrived (or failed), so the talking points are announced once.
   @State private var promptsReady = false
+  /// Recording again starts from the creator's current disability setting (once).
+  @State private var loadedSetting = false
 
   static let defaultPrompts = [
     String(localized: "Who are you?"),
@@ -22,7 +28,9 @@ struct StoryVideoView: View {
   ]
 
   var body: some View {
-    FlowScreen(title: "Tell buyers your story", subtitle: "Record a short video, about 30 seconds. Buyers see it when they tap the story tag. You only do this once.") {
+    FlowScreen(title: redo ? "Record your story again" : "Tell buyers your story",
+               subtitle: redo ? "Record a short video, about 30 seconds. It replaces your story video on every product."
+                              : "Record a short video, about 30 seconds. Buyers see it when they tap the story tag. You only do this once.") {
       VStack(alignment: .leading, spacing: Theme.Space.l) {
         ForEach(Array(prompts.enumerated()), id: \.offset) { index, prompt in
           HStack(alignment: .top, spacing: Theme.Space.m) {
@@ -67,10 +75,17 @@ struct StoryVideoView: View {
     } actions: {
       PillButton("Record my video", hint: "Opens the camera for up to 30 seconds") { Task { await startRecording() } }
         .disabled(uploading)
-      PillButton("Skip for now", hint: "We'll ask again the next time you list something", kind: .secondary, showsArrow: false) {
-        app.push(.youreLive)
+      if redo {
+        PillButton("Cancel", hint: "Keeps your story video as it is", kind: .secondary, showsArrow: false) {
+          backToLibrary()
+        }
+        .disabled(uploading)
+      } else {
+        PillButton("Skip for now", hint: "We'll ask again the next time you list something", kind: .secondary, showsArrow: false) {
+          app.push(.youreLive)
+        }
+        .disabled(uploading)
       }
-      .disabled(uploading)
     }
     .fullScreenCover(isPresented: $recording) {
       MediaPicker(mode: .video(maxSeconds: ThemeEffects.storyVideoSeconds), preferCamera: !videoFromLibrary) { picked in
@@ -81,6 +96,12 @@ struct StoryVideoView: View {
     }
     .sheet(isPresented: Binding(get: { draft != nil }, set: { if !$0 { draftDone() } })) {
       if let draft { StoryDraftSheet(draft: draft) { draftDone() } }
+    }
+    .navigationBarBackButtonHidden(uploading)
+    .onAppear {
+      guard redo, !loadedSetting else { return }
+      loadedSetting = true
+      mentionDisability = app.creator?.mentionDisability ?? false
     }
     .task {
       if let fetched = try? await app.api.storyPrompts(), fetched.count == 3 { prompts = fetched }
@@ -101,7 +122,21 @@ struct StoryVideoView: View {
   private func draftDone() {
     guard draft != nil else { return }
     draft = nil
-    app.push(.videoSaved)
+    saved()
+  }
+
+  /// The video is saved: "Video saved!", or back to My story video when recording again.
+  private func saved() {
+    if redo {
+      UIAccessibility.post(notification: .announcement, argument: String(localized: "Video saved!"))
+      backToLibrary()
+    } else {
+      app.push(.videoSaved)
+    }
+  }
+
+  private func backToLibrary() {
+    if app.createPath.last == .recordStoryAgain { app.createPath.removeLast() }
   }
 
   private func upload(_ url: URL) async {
@@ -120,7 +155,7 @@ struct StoryVideoView: View {
       if let found = creator.storyDraft, !found.text.isEmpty {
         draft = found
       } else {
-        app.push(.videoSaved)
+        saved()
       }
     } catch {
       self.error = error.localizedDescription

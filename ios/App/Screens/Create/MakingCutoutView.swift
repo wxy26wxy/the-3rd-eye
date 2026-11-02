@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Board "Making your cutout" (`4030:4482`): the changed art is cut out (`POST /artworks/{id}/cutout`,
+/// Board "Making your cutout" (`4030:4482`; the making animation since T122 R7): the changed art is cut out (`POST /artworks/{id}/cutout`,
 /// the largest piece SAM finds). Art kept as it was picked already has its cut-out from Choose a
 /// pattern, so it goes straight on. Your cutout replaces this screen, so Back skips it.
 struct MakingCutoutView: View {
@@ -12,7 +12,8 @@ struct MakingCutoutView: View {
     LoadingScreen(
       title: "Making your cutout",
       detail: "Cutting out your art. This takes a few seconds.",
-      media: .art(app.flow.currentArt, photo: app.flow.photo),
+      media: .animation(resource: Tokens.Asset.stickerLoading, aspect: ThemeEffects.productLoadingAspect,
+                        radius: ThemeEffects.artPreviewRadius, reduced: .firstFrame),
       error: error,
       retry: { error = nil; attempt += 1 },
       backLabel: "Back to my art"

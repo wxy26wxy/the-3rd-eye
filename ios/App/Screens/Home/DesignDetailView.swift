@@ -64,7 +64,7 @@ struct DesignDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: ThemeEffects.artworkMaxHeight)
         .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(colors.surfaceAlt))
         // Without an image the placeholder only repeats the badge below it.
-        .accessibilityHidden(artwork.displayURL == nil)
+        .accessibilityHidden(artwork.creatorPictureURL == nil)
       DesignBadgeView(badge: badge)
       if let explanation = explanation(for: badge) {
         Text(explanation)
@@ -164,7 +164,7 @@ struct DesignDetailView: View {
   }
 
   private func redoButton(_ artwork: Artwork, kind: PillButtonStyle.Kind) -> some View {
-    PillButton(openingRedo ? "Opening your photo…" : "Re-do the cutout", hint: "Fix the edges of the cutout",
+    PillButton(openingRedo ? "Opening your photo…" : "Re-do the cutout", hint: "Frame your art again and cut it out",
                kind: kind, showsArrow: kind == .primary) {
       Task { await openRedo(artwork) }
     }
@@ -224,7 +224,7 @@ struct DesignDetailView: View {
     artwork.liveProducts.contains { $0.type == type && !$0.isPublished }
   }
 
-  /// Loads the original and its pieces into the My designs flow, then opens Adjust cutout.
+  /// Loads the original and its pieces into the My designs flow, then opens Adjust the area.
   private func openRedo(_ artwork: Artwork) async {
     openingRedo = true
     error = nil
@@ -241,7 +241,7 @@ struct DesignDetailView: View {
       flow.resetCutout(artwork: detail.artwork, candidates: detail.candidates, imageSize: size)
       flow.productType = artwork.liveProducts.first?.type
       app.designFlow = flow
-      if app.designsPath.last == .detail(artworkId) { app.designsPath.append(.redoCutout) }
+      if app.designsPath.last == .detail(artworkId) { app.designsPath.append(.adjustArea) }
     } catch {
       if APIError.isCancellation(error) { return }
       if case APIError.server(404, _, _) = error { Task { await app.designs.load() } }

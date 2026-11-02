@@ -1,15 +1,14 @@
 import SwiftUI
 
 /// Board "Choose a pattern" (`2013:408`): the photo on the green card with the picked drawing
-/// outlined, the drawings as a strip of thumbnails (one can be picked), then "Use this" (cuts the
-/// drawing out and goes to Change it) and "Retake". A tap on a drawing in the photo picks it too.
-/// No drawing found: "Use this" opens Your cutout on the whole photo to draw a box around the art.
+/// outlined, the drawings as a strip of thumbnails (one can be picked), then "Use this" (goes on to
+/// Adjust the area, where the frame around the drawing is set and the cut is made) and "Retake". A
+/// tap on a drawing in the photo picks it too. No drawing found: Adjust the area starts on the whole photo.
 ///
 /// VoiceOver: the strip is the list of drawings ("Piece n", selected trait); the photo is one image.
 struct ChoosePatternView: View {
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
-  @State private var working = false
   @State private var error: String?
   @State private var originalURL: URL?
 
@@ -17,7 +16,7 @@ struct ChoosePatternView: View {
   private var candidates: [Candidate] { flow.photoCandidates }
 
   var body: some View {
-    FlowScreen(title: "Tap the one you want.", subtitle: subtitle, step: (2, 3), showsBack: !working) {
+    FlowScreen(title: "Tap the one you want.", subtitle: subtitle, step: (2, 3)) {
       VStack(spacing: Theme.Space.l) {
         if let size = imageSize {
           photoArea(size: size)
@@ -28,26 +27,21 @@ struct ChoosePatternView: View {
         if let error { ErrorCard(message: error) }
       }
     } actions: {
-      PillButton(working ? "Cutting it out…" : "Use this", hint: "Goes on to change it or keep it as it is") {
-        Task { await useThis() }
-      }
-      .disabled(working || (!candidates.isEmpty && flow.pieceCandidateId == nil))
+      PillButton("Use this", hint: "Goes on to set the area around your art") { useThis() }
+        .disabled(!candidates.isEmpty && flow.pieceCandidateId == nil)
       PillButton("Retake", hint: "Takes a new photo", kind: .secondary, showsArrow: false) {
         let source = flow.photoSource
         flow.discardPhoto()
         app.replaceTop(with: .camera(source))
       }
-      .disabled(working)
-      SlowWorkHint(active: working)
     }
-    .navigationBarBackButtonHidden(working)
     .task { await loadDetailIfNeeded() }
   }
 
   private var subtitle: LocalizedStringKey {
     let tote = flow.productType == .tote
     switch candidates.count {
-    case 0: return "We couldn't find a drawing in your photo. Use this to draw a box around it, or take the photo again."
+    case 0: return "We couldn't find a drawing in your photo. Use this to frame it yourself, or take the photo again."
     case 1: return tote ? "We found one drawing in your photo. Use it to change and turn into a tote bag."
                         : "We found one drawing in your photo. Use it to change and turn into a sticker."
     default: return tote ? "We found \(candidates.count) drawings in your photo. Pick one to change and turn into a tote bag."
@@ -90,7 +84,6 @@ struct ChoosePatternView: View {
               }
             }
           }
-          .disabled(working)
         }
       }
       .accessibilityElement(children: .ignore)
@@ -158,7 +151,6 @@ struct ChoosePatternView: View {
             .padding(.trailing, Theme.Space.xs)
           }
           .buttonStyle(.plain)
-          .disabled(working)
           .accessibilityElement(children: .ignore)
           .accessibilityLabel(Text("Piece \(index + 1)"))
           .accessibilityValue(on ? Text(verbatim: "") : Text("Not selected"))
@@ -168,13 +160,12 @@ struct ChoosePatternView: View {
       }
       .padding(.vertical, Theme.Space.xs)
     }
-    .opacity(working ? Theme.Opacity.disabled : 1)
   }
 
   // MARK: Actions
 
   private func pick(_ candidate: Candidate) {
-    guard !working, flow.pieceCandidateId != candidate.id else { return }
+    guard flow.pieceCandidateId != candidate.id else { return }
     flow.pieceCandidateId = candidate.id
     error = nil
   }
@@ -193,37 +184,10 @@ struct ChoosePatternView: View {
     }
   }
 
-  /// Cuts the picked drawing out (`select`) and goes to Change it. The same drawing already cut
-  /// goes on without a call; a different one starts without the earlier change.
-  private func useThis() async {
-    let flow = flow
-    guard let photoArtwork = flow.photoArtwork else { return }
-    guard let candidateId = flow.pieceCandidateId else {
-      // No drawing found: nothing to change yet (a change needs a cut-out), so the creator draws
-      // a box or marks on the whole photo in Your cutout.
-      flow.resetChange()
-      flow.pieceArtwork = nil
-      flow.pieceCutFrom = nil
-      flow.resetCutout(artwork: photoArtwork, candidates: [], imageSize: imageSize)
-      app.push(.yourCutout)
-      return
-    }
-    if let piece = flow.pieceArtwork, piece.cleanedUrl != nil, flow.pieceCutFrom == candidateId {
-      app.push(.changeIt)
-      return
-    }
-    working = true
-    error = nil
-    defer { working = false }
-    do {
-      let piece = try await app.api.selectCandidate(artworkId: photoArtwork.id, candidateId: candidateId)
-      flow.resetChange()
-      flow.pieceArtwork = piece
-      flow.pieceCutFrom = candidateId
-      if app.createPath.last == .choosePattern { app.push(.changeIt) }
-    } catch {
-      if APIError.isCancellation(error) { return }
-      self.error = CleanupResult.errorMessage(for: error, request: nil) ?? error.localizedDescription
-    }
+  /// On to Adjust the area with the picked drawing (or, when none was found, the whole photo);
+  /// the cut is made there.
+  private func useThis() {
+    guard flow.photoArtwork != nil, candidates.isEmpty || flow.pieceCandidateId != nil else { return }
+    app.push(.adjustArea)
   }
 }

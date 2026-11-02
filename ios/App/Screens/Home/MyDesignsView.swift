@@ -115,14 +115,15 @@ private struct DesignTile: View {
   }
 }
 
-/// The cut-out, or a still picture of the state when there is no image (a spinner only while cutting).
+/// The bordered sticker preview or the cut-out (`Artwork.creatorPictureURL`), or a still picture of the
+/// state when there is no image (a spinner only while cutting).
 struct DesignPicture: View {
   let artwork: Artwork
   let badge: DesignBadge
   @Environment(\.themeColors) private var colors
 
   var body: some View {
-    if let url = artwork.displayURL {
+    if let url = artwork.creatorPictureURL {
       RemoteImage(url: url, altText: artwork.altText)
     } else {
       ZStack {

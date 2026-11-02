@@ -1,7 +1,7 @@
 # Handoff · design
 
 ## Owns
-`design/tokens.json`, `design/assets/`, `scripts/gen_tokens.ts` / `scripts/sync_assets.ts` / `scripts/gen_app_icon.ts` output review, `docs/design/screens.md`, this file. The design agent reads the Figma file and never writes to it.
+`design/tokens.json`, `design/assets/`, `scripts/gen_tokens.ts` / `scripts/sync_assets.ts` / `scripts/gen_app_icon.ts` output review, `docs/design/screens.md`, this file. The design agent reads the Figma file and writes to it only when a task says so (T120: feedback round 2 edited in place, logged in the Changelog of the file).
 
 ## Source of truth
 Since 2026-11-01 (T110) the design source is **the designer's v3 file (key `WVJuvNJnfcNaAqOW6jWeWi`)**, page `0:1` "Exploration 5 · Sky" (sections B1–B5, Changelog `2043:4304`, Proposal `4017:4437`), Components `2004:96`, Assets `4036:4403`. The key is recorded as the newest row of the "Figma intake log" in `docs/design/screens.md`; the next version may come under a new key (the designer works in copies), and the intake compares by node id. Name the file only by its key: its title carries the old product name and `scripts/check_clean.sh` rejects it. Earlier keys: `vIOMPzc2kjP18BbgduLmc8` (T100), the user's copy `dAdjR5HFtOutFlUZi957Do` (T101–T107); node ids are the same in all three.
@@ -9,7 +9,12 @@ Since 2026-11-01 (T110) the design source is **the designer's v3 file (key `WVJu
 Since v3 the file has **Figma variables and text styles**: tokens come from `get_variable_defs` (on `2018:1789` and `2012:387`), node styles only for values without a variable. Sources per value: `docs/design/tokens.md`; node ids per screen: `docs/design/screens.md`; copy: `docs/design/copy-v3-web.md`, `docs/design/copy-v3-ios.md`.
 
 ## Current task
-T110 done (2026-11-01): intake of v3 (photo-first creation, Outfit, shop / product redesign, loading GIF, tote boards). Tokens v3 and the Outfit font are committed and generated; boards that changed are `pending (v3, T110)` in the node table. Implementation is T111+ (API), T112 (web: layout font switch below, shop / product / creator flow), T114 (iOS), T115 (docs and pitch). Still open:
+T120 done (2026-11-03): feedback round 2 (rulings R1–R8). Unlike the earlier intakes, this round **edited the designer's file in place** (as R8 asks; the account can edit it): Changelog entry "2026-11-03 (13) · feedback round 2", node ids kept, new boards in free slots of their sections. Record: `docs/design/screens.md` "Feedback round 2" (every node id), copy `docs/design/copy-v4.md` (web keys + iOS keys), accessibility flags `docs/accessibility.md` "Designer flags (feedback round 2, T120)", ADR in `docs/decisions.md`. Changed boards are `pending (v4, T120)` in the node table.
+- **Assets:** `sticker-loading.gif` ("creating cutout", 121 frames) and `mascot-magnifier.gif` ("finding image", 125 frames) replaced, both still 1x (320 px in 342 px slots); new `mascotCard` (`mascot-card.png`, 1200×1023, 668 KB) and `mascotShop` (`mascot-shop.png`, 1200×1200, 509 KB; fix round 0 resized the 2384 / 2048 px uploads, which stay outside the repo), RGB without alpha, photographic backgrounds, shown as full-bleed cards. `pnpm assets` outputs are committed; nothing in `web/components` or `ios/App/Screens` uses the two new images yet (T12x wire them: iOS `Image(Tokens.Asset.mascotCard)` / `.mascotShop`, web `ASSETS.mascotCard` / `ASSETS.mascotShop` through `next/image` at ≤ 1200 px). Together the two PNGs add about 1.2 MB to `web/public/assets/` and 2.4 MB (1x + 2x) to the iOS asset catalogue.
+- **New screens for the implementers:** Adjust the area (iOS `6004:4576`, web `6004:4689`), Listing details · Drafting (`6004:4792`), My story video (`6004:4867`) and the Create-tab row (`6004:4853`).
+- Still open from T110: 2x sources (`sticker-loading`, now also `mascot-magnifier`), the waving mascot, a 2x Welcome background.
+
+T110 (2026-11-01): intake of v3 (photo-first creation, Outfit, shop / product redesign, loading GIF, tote boards). Tokens v3 and the Outfit font are committed and generated. Still open from it:
 1. **2x sources from the designer:** `sticker-loading` (320 px, slot 342), the waving mascot (`mascot-wave.png`, pending since T100), a 2x Welcome background.
 2. **Welcome · Web body line:** ruled in fix round 1: the board wins, the web Welcome has no body line (see Questions for the designer).
 3. **Strings with no board** (PM defaults listed at the end of each copy diff).
@@ -99,7 +104,7 @@ Questions for the designer, v3 (T110):
 Still open from v2 (T100): `#5FAE57` selected radio border, `#19583C` badge text, `#C6C6C6` tote shadow (`#E4F3C8` and `#374151` are now `accentSoft` and `inkSoft`); card borders `#D1D5DB` at 1.47:1; the wordmark (no board draws it). Answered by v3: Figtree is gone (Outfit everywhere); the eyebrow is 13 px SemiBold, 1 px tracking.
 
 ## Interface exposed to others
-`design/tokens.json` is the only source of design values; `design/assets/` the only source of images. Web reads `web/app/tokens.css`, `web/lib/assets.ts` (`ASSETS.<name>` → `/assets/<file>`); iOS reads `Tokens.*`, `Image(Tokens.Asset.<name>)` and, for the animations, `Bundle.main.url(forResource: Tokens.Asset.mascotMagnifier, withExtension: "mp4")` and `Tokens.Asset.stickerLoading`. Copy changes go through `docs/design/copy-v3-web.md` and `copy-v3-ios.md`. After an intake, the node table in `docs/design/screens.md` is what Web and iOS build from.
+`design/tokens.json` is the only source of design values; `design/assets/` the only source of images. Web reads `web/app/tokens.css`, `web/lib/assets.ts` (`ASSETS.<name>` → `/assets/<file>`); iOS reads `Tokens.*`, `Image(Tokens.Asset.<name>)` and, for the animations, `Bundle.main.url(forResource: Tokens.Asset.mascotMagnifier, withExtension: "mp4")` and `Tokens.Asset.stickerLoading`. Copy changes go through `docs/design/copy-v3-web.md`, `copy-v3-ios.md` and, since T120, `copy-v4.md` (both platforms). After an intake, the node table in `docs/design/screens.md` is what Web and iOS build from.
 
 ## Last updated
-2026-11-01 (T110)
+2026-11-03 (T120)

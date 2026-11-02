@@ -157,7 +157,7 @@ Replaced by the "pending" rows of the Figma node table above (T100). Adjust cuto
 
 ## Removed elements (iOS, T081)
 
-Accessibility settings sheet, helper-mode button, "Hear what the image shows" play bar, per-field mic icons. Voice remains only on "Say it out loud" and "Say what to change". The canvas still draws the helper-mode button (E4 Welcome) and a "Your helper can hold the phone" line (E4 Method); web keeps the "Hear the question again" button on the clarifying question.
+Accessibility settings sheet, helper-mode button, "Hear what the image shows" play bar, per-field mic icons. Voice remains only on "Say it out loud" and "Say what to change" (v3, T110: only "Say what to change" on Change it remains; "Say it out loud" is removed). The canvas still draws the helper-mode button (E4 Welcome) and a "Your helper can hold the phone" line (E4 Method); web keeps the "Hear the question again" button on the clarifying question.
 
 ## Figma intake log
 

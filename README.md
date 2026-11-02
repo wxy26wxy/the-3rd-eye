@@ -41,7 +41,7 @@ Staged or limited:
 - **Payments.** Add to bag opens an order sheet; Place order creates one order (product, size, quantity) and takes no payment (`PAYMENTS_MODE=staged`). The size prices (sticker 3 in = listed price, 4 in +$2, sticker sheet +$6) are sample pricing.
 - **Creators.** The example artists in the shop are fictional and labelled as such. Real creators sign in with a code issued from `/admin`; this is development-grade sign-in, not production auth.
 - **Notifications.** The iOS app checks for new orders and messages about every 10 seconds. There are no push notifications.
-- **Physical sticker and NFC tag.** Printing, cutting and writing a tag are the physical test before the Nov 2 freeze (steps in `scripts/print_checklist.md`); method: a standard NFC writer app. The iOS app does not write tags. The QR code on `/admin` opens the same story page.
+- **Physical sticker and NFC tag.** Printing, cutting and writing a tag are the physical test before the freeze (Nov 3, 9:00 AM) (steps in `scripts/print_checklist.md`); method: a standard NFC writer app. The iOS app does not write tags. The QR code on `/admin` opens the same story page.
 - **Fulfilment.** We print and ship by hand from the admin page.
 - **Open-weight stage.** Muse Glimmer runs on our development Mac, so it is only available while that Mac is serving (see below).
 - **Not used by the apps:** the text-to-image routes (`POST /prompts/shape`, `POST /artworks` with `source: "text2image"`, `POST /artworks/{id}/refine`) remain in the backend, unused since v0.8 and still tested; removing them is a post-hackathon task (`docs/api.md`).

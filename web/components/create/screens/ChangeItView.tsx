@@ -1,3 +1,4 @@
+import type { Ref } from "react";
 import { m } from "@/components/messages";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -27,6 +28,10 @@ export type ChangeItViewProps = {
   instruction: string;
   seconds: number;
   error: ScreenError | null;
+  /** Text for the one persistent polite live region ("Listening"). */
+  announce: string;
+  /** Focus targets the screen moves focus to after a phase change. */
+  refs?: { field?: Ref<HTMLTextAreaElement>; stop?: Ref<HTMLButtonElement>; error?: Ref<HTMLDivElement> };
   on: {
     instruction: (v: string) => void;
     record: () => void;
@@ -41,15 +46,17 @@ export type ChangeItViewProps = {
 
 /**
  * Change it (web boards `2027:3138` entry, `2026:3067` listening, `2026:3135` microphone off,
- * `2038:4060` error; the clarifying-question board `2026:3098` has no counterpart in the change API): the art on screen ("YOUR ART"), what it shows, and
- * one panel with the text field, the record button, "Make the change" and "Looks good as is".
+ * `2038:4060` error; the clarifying-question board `2026:3098` has no counterpart in the change API):
+ * the art on screen ("YOUR ART"), what it shows, and one panel with the text field, the record button, "Make the change" and "Looks good as is".
  * Typed and spoken requests end in the same field, so the creator reads what will be sent first.
  */
-export function ChangeItView({ on, ...p }: ChangeItViewProps) {
+export function ChangeItView({ on, refs, ...p }: ChangeItViewProps) {
+  // Always the first child of every phase, so React keeps the same element (one live region).
+  const region = <p className="visually-hidden" role="status" aria-live="polite">{p.announce}</p>;
   const art = <ArtPreview label={s.artLabel} src={p.art.src} alt={p.shows ? "" : p.art.alt} />;
   const field = (
     <form id={CHANGE_FORM} className={styles.form} onSubmit={(e) => { e.preventDefault(); if (p.instruction.trim()) on.submit(); }}>
-      <Field multiline rows={3} label={s.textLabel} placeholder={s.textPlaceholder} value={p.instruction} onChange={(e) => on.instruction(e.target.value)} maxLength={1000} />
+      <Field ref={refs?.field} multiline rows={3} label={s.textLabel} placeholder={s.textPlaceholder} value={p.instruction} onChange={(e) => on.instruction(e.target.value)} maxLength={1000} />
     </form>
   );
 
@@ -63,8 +70,9 @@ export function ChangeItView({ on, ...p }: ChangeItViewProps) {
           <Button block variant="secondary" arrow={false} onClick={on.tryDifferent}>{r.tryDifferent}</Button>
         </>}
       >
+        {region}
         {art}
-        <ErrorNotice error={p.error} onRetry={on.retry} />
+        <div ref={refs?.error} tabIndex={-1} className={styles.errorSpot}><ErrorNotice error={p.error} onRetry={on.retry} /></div>
       </CreateScreen>
     );
   }
@@ -72,9 +80,10 @@ export function ChangeItView({ on, ...p }: ChangeItViewProps) {
   if (p.phase === "listening" || p.phase === "transcribing") {
     return (
       <CreateScreen back={p.back} title={s.title} lead={s.hint}>
+        {region}
         {art}
         {p.phase === "listening"
-          ? <Listening seconds={p.seconds} onStop={on.stop} onType={on.typeInstead} />
+          ? <Listening seconds={p.seconds} onStop={on.stop} onType={on.typeInstead} stopRef={refs?.stop} />
           : <Loading inline label={s.transcribing} />}
       </CreateScreen>
     );
@@ -91,6 +100,7 @@ export function ChangeItView({ on, ...p }: ChangeItViewProps) {
           <Button variant="ghost" arrow={false} className={styles.textAction} onClick={on.skip}>{r.skip}</Button>
         </>}
       >
+        {region}
         {art}
         <ErrorCard live="status">{p.micOff}</ErrorCard>
         {field}
@@ -100,6 +110,7 @@ export function ChangeItView({ on, ...p }: ChangeItViewProps) {
 
   return (
     <CreateScreen back={p.back} title={r.titleEntry}>
+      {region}
       {art}
       {p.shows ? <InfoCard eyebrow={r.shows}><p>{p.shows}</p></InfoCard> : null}
       <div className={styles.changeCard}>

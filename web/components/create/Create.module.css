@@ -27,6 +27,8 @@
 .headCenter { justify-items: center; text-align: center; }
 .titleRow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-m); width: 100%; }
 .headCenter .titleRow { justify-content: center; }
+/* The h1 takes focus on arrival (ScreenTitle); it is not a control, so no focus ring. */
+.titleRow h1:focus { outline: none; }
 .mascot { width: calc(var(--size-record) * 1.6); justify-self: center; }
 .body { flex: 1; display: grid; gap: var(--space-xl); align-content: start; }
 .body > * { min-width: 0; }

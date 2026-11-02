@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type Ref } from "react";
 import { fmt, m } from "@/components/messages";
 import { ArtImage } from "@/components/ui/ArtImage";
 import { Button } from "@/components/ui/Button";
@@ -61,14 +61,17 @@ export function RecordControl({ label, onClick, onType, disabled }: { label: str
   );
 }
 
-/** Recording: the LISTENING card, the visible seconds, the green Stop button and "Type instead". */
-export function Listening({ seconds, onStop, onType }: { seconds: number; onStop: () => void; onType: () => void }) {
+/**
+ * Recording: the LISTENING card, the visible seconds, the green Stop button and "Type instead".
+ * "Listening" is announced by the screen's persistent live region (Change it), not by this card.
+ */
+export function Listening({ seconds, onStop, onType, stopRef }: { seconds: number; onStop: () => void; onType: () => void; stopRef?: Ref<HTMLButtonElement> }) {
   return (
     <>
-      <div role="status"><InfoCard eyebrow={m.create.speak.listening}><p>{m.create.speak.listeningHint}</p></InfoCard></div>
+      <InfoCard eyebrow={m.create.speak.listening}><p>{m.create.speak.listeningHint}</p></InfoCard>
       <div className={styles.recordWrap}>
         <p className={styles.seconds}>{fmt(m.create.speak.seconds, { s: seconds })}</p>
-        <button type="button" className={styles.record} data-recording="true" onClick={onStop} aria-label={m.create.speak.stop}><StopIcon /></button>
+        <button ref={stopRef} type="button" className={styles.record} data-recording="true" onClick={onStop} aria-label={m.create.speak.stop}><StopIcon /></button>
         <span aria-hidden="true">{m.create.speak.stop}</span>
         <TextAction onClick={onType}>{m.create.typeInstead}</TextAction>
       </div>

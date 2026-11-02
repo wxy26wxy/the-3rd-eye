@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { m, fmt } from "@/components/messages";
 import { Tag, type TagPose } from "@/components/Tag";
 import { Button } from "@/components/ui/Button";
-import { Display } from "@/components/ui/Display";
 import { Loading } from "@/components/ui/Loading";
 import { IconButton } from "@/components/ui/IconButton";
 import { ChevronLeftIcon } from "@/components/ui/Icons";
@@ -10,6 +9,7 @@ import { LogoMark } from "@/components/ui/LogoMark";
 import { StepPill } from "@/components/ui/StepPill";
 import { Eyebrow, Lead } from "@/components/ui/Text";
 import { PinnedBar } from "./PinnedBar";
+import { ScreenTitle } from "./ScreenTitle";
 import styles from "./Create.module.css";
 
 /**
@@ -35,10 +35,7 @@ export function CreateScreen({ back, bare, step, eyebrow, title, lead, mascot, b
         <div className={[styles.head, align === "center" ? styles.headCenter : ""].filter(Boolean).join(" ")}>
           {mascot ? <Tag pose={mascot} decorative eager className={styles.mascot} /> : null}
           {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
-          <div className={styles.titleRow}>
-            <Display as="h1" size="xl">{title}</Display>
-            {badge}
-          </div>
+          <ScreenTitle badge={badge}>{title}</ScreenTitle>
           {lead ? <Lead>{lead}</Lead> : null}
         </div>
         {children ? <div className={styles.body}>{children}</div> : null}

@@ -2,11 +2,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
-import { api, type Artwork } from "../api";
+import { api } from "../api";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { usableSize } from "../cutout";
 import { describeError, type ScreenError } from "../errors";
-import { useCreate } from "../store";
+import { choosePiece } from "../flow";
+import { getDraft, useCreate } from "../store";
 import { useOriginal } from "../useOriginal";
 import { ChoosePatternView, PatternPhoto } from "./ChoosePatternView";
 
@@ -45,19 +46,11 @@ function PatternFlow() {
     setBusy(true);
     setError(null);
     try {
-      // Same piece as last time: its cut-out exists already.
-      if (draft.pieceArtworkId === artworkId && draft.pieceCandidateId === picked && draft.pieceUrl) {
-        router.push("/create/change");
-        return;
-      }
-      const art = await api<Artwork>(`artworks/${artworkId}/select`, { json: { candidateId: picked } });
-      if (!live.current) return;
-      update({
-        pieceArtworkId: art.id, pieceCandidateId: picked, pieceUrl: art.cleanedUrl, pieceAlt: art.altText, pieceSpoken: art.spokenDescription,
-        changes: undefined, changedArtworkId: undefined, changeInstruction: undefined, changeTranscript: undefined,
-        cutoutArtworkId: undefined, cutout: undefined, appliedCutout: undefined, cutoutNotice: undefined,
-      });
-      router.push("/create/change");
+      await choosePiece({
+        api, getDraft,
+        update: (patch) => { if (live.current) update(patch); },
+        router: { push: (h) => { if (live.current) router.push(h); }, replace: (h) => { if (live.current) router.replace(h); } },
+      }, artworkId, picked);
     } catch (err) {
       if (!live.current) return;
       setError(describeError(err));

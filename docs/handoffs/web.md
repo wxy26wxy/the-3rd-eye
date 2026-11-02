@@ -105,3 +105,9 @@ Every page now draws with the Sky look (Inter, white page, ink, accent green); s
 - `DieCut`: `cutPathSvg` may hold several `M…Z` subpaths (one per piece); the svg has `overflow: visible` so the border is not clipped (it stays inside the well's padding).
 - Separators: `common.nameStudio` "{name} · {studio}" for a name with its studio; `common.listSeparator` " · " for list joins (TraceView call line, thread sender line, orders table, page title template). `test/separators.test.ts` fails on a literal " · " in `components/` or `app/` code.
 - `BuyForm` reads `state.field` ("name" | "note" | "form") from the action; no message-text comparison.
+
+## T113 Creator flow v3 (2026-11-02)
+- Flow: photo → Choose a pattern (`/create/pattern`, `select`) → Change it (`/create/change`, typed or spoken) → Changing your art (`/create/changing`, `POST artworks/{id}/change`) → Before and after (`/create/compare`) → Your cutout (`/create/cutout`; `POST artworks/{id}/cutout` only for a change result, edge tools = `cleanup`) → Making your sticker / tote bag (`/create/making`) → Ready → Listing → Live. `/create/speak`, `/drawing`, `/result` redirect to `/create/method`; `/create/select` to `/create/pattern`.
+- Routing and draft decisions live in `components/create/flow.ts` (tested with a mocked api and router); "Back to my original" is a client switch to the parent change (`store.backToOriginal`), no API call.
+- **Kept on purpose:** the clarifying-question keys `create.speak.questionTitle`, `answerLabel`, `answerSubmit`, `answerSpeak`, `hearAgain`, `youSaid` (board `2026:3098`). The change API has no clarifying question today, so no screen uses them; they stay for the day it does.
+- Every `/create` screen focuses its h1 on arrival (`create/ScreenTitle`), since all pages share one document title.

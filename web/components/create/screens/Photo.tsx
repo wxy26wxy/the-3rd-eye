@@ -11,17 +11,12 @@ import { api, extFor, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid, type Artwork, type
 import { CreateScreen, MissingState } from "../CreateScreen";
 import { boxRescueArtworkId } from "../cutout";
 import { describeError, ErrorNotice, type ScreenError } from "../errors";
-import { useCreate, useCreator, type Draft } from "../store";
+import { afterPhoto, drawBoxOnPhoto } from "../flow";
+import { useCreate, useCreator } from "../store";
 import styles from "../Create.module.css";
 
 type Phase = "pick" | "uploading" | "finding";
 
-/** A new photo starts a new piece: everything picked, changed or cut before is dropped. */
-const NEW_PIECE: Partial<Draft> = {
-  pieceArtworkId: undefined, pieceCandidateId: undefined, pieceUrl: undefined, pieceAlt: undefined, pieceSpoken: undefined,
-  changes: undefined, changedArtworkId: undefined, changeInstruction: undefined, changeTranscript: undefined,
-  cutoutArtworkId: undefined, cutout: undefined, appliedCutout: undefined, cutoutNotice: undefined,
-};
 
 const MAX_SIDE = 4096;
 /**
@@ -79,19 +74,7 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
       });
       setPhase("finding");
       const res = await api<{ artwork: Artwork; candidates: Candidate[]; imageSize?: { w: number; h: number } | null }>("artworks", { json: { source: "photo", imageUrl: blob.url, product: draft.product } });
-      const fresh = { ...NEW_PIECE, photoArtworkId: res.artwork.id, candidates: res.candidates, imageSize: res.imageSize ?? null };
-      // One piece the server already cut out: it is the pattern, go straight to Change it.
-      if (res.artwork.cleanedUrl) {
-        update({
-          ...fresh, pieceArtworkId: res.artwork.id, pieceCandidateId: res.candidates[0]?.id,
-          pieceUrl: res.artwork.cleanedUrl, pieceAlt: res.artwork.altText, pieceSpoken: res.artwork.spokenDescription,
-        });
-        router.push("/create/change");
-        return;
-      }
-      // Several pieces (or one the server would not auto-pick): Choose a pattern.
-      update(fresh);
-      router.push("/create/pattern");
+      afterPhoto({ router, update }, res);
     } catch (err) {
       setError(describeError(err, m.create.photo.error));
       setRescueId(boxRescueArtworkId(err));
@@ -99,17 +82,8 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
     }
   }
 
-  /**
-   * Zero pieces found: open Your cutout on this photo with no pieces, in box mode. The box cut
-   * becomes the picked piece, and the flow goes on to Change it.
-   */
-  function drawBox(id: string) {
-    update({
-      ...NEW_PIECE, photoArtworkId: id, candidates: [], imageSize: null,
-      cutoutArtworkId: id, cutout: { artworkId: id, candidates: [], imageSize: null, selectedIds: [], cleanedUrl: null, altText: null },
-    });
-    router.push("/create/cutout");
-  }
+  /** Zero pieces found: Your cutout on this photo in box mode (the box cut becomes the picked piece). */
+  function drawBox(id: string) { drawBoxOnPhoto({ router, update }, id); }
 
   const busy = phase !== "pick";
   const busyLabel = phase === "uploading" ? m.create.photo.uploading : m.create.photo.finding;

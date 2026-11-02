@@ -263,6 +263,7 @@ function change(over: Partial<ChangeItViewProps> = {}): string {
     instruction: "",
     seconds: 0,
     error: null,
+    announce: "",
     on: { instruction: noop, record: noop, stop: noop, typeInstead: noop, submit: noop, skip: noop, retry: noop, tryDifferent: noop },
     ...over,
   };
@@ -301,6 +302,16 @@ describe("Change it view (T113, boards 2027:3138 / 2026:3067 / 2026:3135 / 2038:
     before(out, fmt(s.seconds, { s: 12 }), m.create.typeInstead);
     expect(out).toContain(`aria-label="${s.stop}"`);
     expect(out).not.toContain(s.textLabel);
+  });
+
+  it("one persistent polite live region, first in every phase, says Listening while recording (review M7)", () => {
+    const region = /<div class="[^"]*body[^"]*"><p class="visually-hidden" role="status" aria-live="polite">([^<]*)<\/p>/;
+    for (const phase of ["idle", "transcribing", "error"] as const) expect(change({ phase }).match(region)?.[1]).toBe("");
+    expect(change({ micOff: s.micDenied }).match(region)?.[1]).toBe("");
+    const listening = change({ phase: "listening", announce: s.listening });
+    expect(listening.match(region)?.[1]).toBe(s.listening);
+    // the LISTENING card itself is no longer a live region
+    expect(listening.match(/role="status"/g)?.length).toBe(1);
   });
 
   it("transcribing: the writing-down line", () => {

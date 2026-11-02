@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  afterPhoto, busyWhile, changeRequest, changingEntry, changingVisit, choosePiece, drawBoxOnPhoto, leaveChanging, runChange, skipChange, submitChange, type FlowDeps,
+  afterPhoto, busyWhile, changeItBack, changeRequest, changingEntry, changingVisit, choosePiece, drawBoxOnPhoto, leaveChanging, runChange, skipChange, submitChange, type FlowDeps,
 } from "@/components/create/flow";
 import { addChange, backToOriginal, currentArtworkId, once, type ChangeStep, type Draft } from "@/components/create/store";
 
@@ -206,5 +206,20 @@ describe("T117: kept-mounted routes (cacheComponents) never re-send or come back
     await busyWhile<string | null>((v) => { work = v; seen.push(v); }, "use", null, async () => { throw new Error("cut failed"); }).catch(() => {});
     expect(work).toBeNull();
     expect(seen).toEqual([true, false, "use", null]);
+  });
+});
+
+describe("T118: Back from Change it", () => {
+  it("goes to Choose a pattern even with a change on screen, and leaves the change chain intact", () => {
+    const d: Draft = { ...piece, ...addChange(piece, change("k1", "p1")) };
+    d.changes = [...(d.changes ?? []), change("k2", "k1")];
+    d.changedArtworkId = "k2";
+    const before = JSON.stringify(d);
+    expect(changeItBack(d)).toBe("/create/pattern");
+    expect(JSON.stringify(d)).toBe(before);
+    expect(currentArtworkId(d)).toBe("k2");
+    // a single piece the server cut out never showed Choose a pattern: back to the photo screen
+    expect(changeItBack({ ...piece, candidates: [candidates[0]], method: "upload" })).toBe("/create/photo?mode=upload");
+    expect(changeItBack({ ...piece, candidates: [candidates[0]] })).toBe("/create/photo?mode=camera");
   });
 });

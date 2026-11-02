@@ -62,13 +62,19 @@ export function adjustBack(d: Draft): string {
   return d.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
 }
 
-/** The `cleanup` body for the frame: the picked piece plus the box (only the box when no piece was found). */
-export function areaRequest(area: NonNullable<Draft["area"]>, box: Box): { candidateIds?: string[]; box: Box } {
-  return area.candidateId ? { candidateIds: [area.candidateId], box: [...box] as Box } : { box: [...box] as Box };
+/**
+ * The `cleanup` body for the frame: the picked piece plus the box (only the box when no piece was
+ * found), with `clipToBox` so nothing of the cut lies outside the frame (T126; a frame that leaves
+ * nothing answers 422 `no_drawing_found`, shown as "move or grow the frame").
+ */
+export function areaRequest(area: NonNullable<Draft["area"]>, box: Box): { candidateIds?: string[]; box: Box; clipToBox: true } {
+  return area.candidateId
+    ? { candidateIds: [area.candidateId], box: [...box] as Box, clipToBox: true }
+    : { box: [...box] as Box, clipToBox: true };
 }
 
 /**
- * "Use this area": `POST /artworks/{id}/cleanup {candidateIds:[piece], box}` and the cut piece goes on
+ * "Use this area": `POST /artworks/{id}/cleanup {candidateIds:[piece], box, clipToBox: true}` and the cut piece goes on
  * to Change it. The same piece with the same frame as last time keeps its cut (no call) but starts
  * from the piece again (a change made before is no longer on screen).
  */

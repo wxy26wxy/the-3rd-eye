@@ -90,7 +90,7 @@ describe("Choose a pattern → Adjust the area (R2)", () => {
     const h = harness({ ...piece, area: { artworkId: "p1", candidateId: "c2" }, changes: [change("k1", "p1")], changedArtworkId: "k1" },
       { "/cleanup": { ...artwork({ cleanedUrl: "/c2-cut.png", altText: "A flower" }), details: { failedProductIds: [], unpublishedProductIds: [] } } });
     await cutArea(h.deps, [8, 9, 22, 21]);
-    expect(h.calls[0]).toBe('api artworks/p1/cleanup {"candidateIds":["c2"],"box":[8,9,22,21]}');
+    expect(h.calls[0]).toBe('api artworks/p1/cleanup {"candidateIds":["c2"],"box":[8,9,22,21],"clipToBox":true}');
     expect(h.calls.at(-1)).toBe("push /create/change");
     expect(h.draft).toMatchObject({ pieceArtworkId: "p1", pieceCandidateId: "c2", pieceBox: [8, 9, 22, 21], pieceUrl: "/c2-cut.png", pieceAlt: "A flower" });
     expect(h.draft.changedArtworkId).toBeUndefined();
@@ -99,10 +99,10 @@ describe("Choose a pattern → Adjust the area (R2)", () => {
   });
 
   it("no drawing found: only the box is sent", async () => {
-    expect(areaRequest({ artworkId: "p9" }, [0, 0, 100, 80])).toEqual({ box: [0, 0, 100, 80] });
+    expect(areaRequest({ artworkId: "p9" }, [0, 0, 100, 80])).toEqual({ box: [0, 0, 100, 80], clipToBox: true });
     const h = harness({ ...piece, candidates: [], pieceArtworkId: undefined, area: { artworkId: "p9" } }, { "/cleanup": artwork({ id: "p9", cleanedUrl: "/p9.png" }) });
     await cutArea(h.deps, [0, 0, 100, 80]);
-    expect(h.calls[0]).toBe('api artworks/p9/cleanup {"box":[0,0,100,80]}');
+    expect(h.calls[0]).toBe('api artworks/p9/cleanup {"box":[0,0,100,80],"clipToBox":true}');
     expect(h.draft).toMatchObject({ pieceArtworkId: "p9", pieceUrl: "/p9.png" });
     expect(h.draft.pieceCandidateId).toBeUndefined();
   });
@@ -119,7 +119,7 @@ describe("Choose a pattern → Adjust the area (R2)", () => {
     expect(h.api).toHaveBeenCalledTimes(1);
   });
 
-  it("a frame with no drawing in it: the advice to move or grow the frame (not Retake)", () => {
+  it("a frame with no drawing in it (or one that clips everything away, T126 422): the advice to move or grow the frame (not Retake)", () => {
     expect(areaError(new ApiError(422, "no_drawing_found", "Nothing found"))).toEqual({ message: m.create.adjust.notFound, action: "none" });
     expect(areaError(new ApiError(504, "deadline_exceeded", "late")).action).toBe("retry");
   });

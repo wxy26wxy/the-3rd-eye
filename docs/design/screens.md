@@ -18,35 +18,35 @@ Status: **pending (v3, T110)** = the board changed or is new in v3 and the scree
 | `40:488` | Tap to select · Cloud studio (second frame, title "You can adjust the cut out") | Adjust cutout | `/create/select` (adjust) | `Create/AdjustCutoutView` | designed; iOS implemented (T104) |
 | `21:4509` | Sticker ready · Cloud studio | Your sticker is ready! + "Put it up for sale now?" | `/create/ready` | `Create/DesignReadyView` | designed; iOS implemented (T104) |
 | `21:4554` | You're live · Cloud studio | You're live! ("Make another", "See what buyers see") | `/create/live` | `Listing/YoureLiveView` | designed; iOS implemented (T104) |
-| `2026:2865` | Welcome · Web · Sky (v3: restyled) | Welcome: open sky photo, no panels, white title "Your art, / on things / people love.", "Start creating", ink text action "I already have an account"; promises removed (white on bare sky is the accepted exception, R5) | `/create` · `Welcome` | — (web board) | pending (v3, T110) |
+| `2026:2865` | Welcome · Web · Sky (v3: restyled) | Welcome: open sky photo, no panels, white title "Your art, / on things / people love.", "Start creating", ink text action "I already have an account"; promises removed (white on bare sky is the accepted exception, R5) | `/create` · `Welcome` | — (web board) | implemented (T113) |
 | `2026:2883` | Sign in with code · Web · Sky | Sign in with code | `/create/code` · `CodeSignIn`, `CodeField` | — (web board) | implemented (T105) |
 | `2026:2905` | Sign in with code · Prefilled · Web · Sky | Sign in, prefilled (hint under the field) | `/create/code?c=` · `CodeField` | — (web board) | implemented (T105) |
 | `2026:2930` | Sign in with code · Error · Web · Sky | Sign in, wrong code (error card) | `/create/code?error=1` · `CodeField` | — (web board) | implemented (T105) |
 | `2026:2959` | Choose product · Web · Sky | Choose product | `/create/product` · `ChooseProduct` | — (web board) | implemented (T105) |
-| `2026:2998` | Choose method · Web · Sky | Choose method: "How do you want to add your art?", photo and upload only ("Say it out loud" `2026:3046` removed) | `/create/method` · `ChooseMethod` | — (web board) | pending (v3, T110) |
-| `2026:3067` | Change it · Listening · Web · Sky (was Speak · Listening) | Change your art, listening (Art preview "Your art", seconds, Stop, Type instead) | `/create/speak` · `Speak` | — (web board) | pending (v3, T110) |
-| `2026:3098` | Change it · Question · Web · Sky (was Speak · Question) | Clarifying question about the change | `/create/speak` · `Speak` | — (web board) | pending (v3, T110) |
-| `2026:3135` | Change it · Microphone off · Web · Sky (was Speak · Microphone off) | Microphone off: type what to change, Make the change | `/create/speak` · `Speak` | — (web board) | pending (v3, T110) |
-| `2027:3042` | Changing your art · Web · Sky (was Drawing your idea) | Changing your art (Art preview instead of the sky card) | `/create/drawing` · `Drawing` | — (web board) | pending (v3, T110) |
-| `2027:3062` | Changing your art · Error · Web · Sky | The change did not work this time; Try again, Back to my art | `/create/drawing` · `Drawing` | — (web board) | pending (v3, T110) |
-| `2027:3091` | Change it · Before and after · Web · Sky (was Result) | Here's the change: You asked, Before / After row, What the image shows, Hear, Use this, Change it again, Back to my original | `/create/result` · `Result` | — (web board) | pending (v3, T110) |
-| `2027:3138` | Change it · Web · Sky (entry; was Result · Change it) | Change your art?: Your art, What the image shows, What should change?, Start talking, Make the change, Looks good as is | `/create/result` · `Result` | — (web board) | pending (v3, T110) |
-| `2038:4035` | Change it · Changing · Web · Sky | Changing it… / This can take a minute. | `/create/result` · `Result` | — (web board) | pending (v3, T110) |
-| `2038:4060` | Change it · Error · Web · Sky | Error card: Try again, Looks good as is, Try a different change | `/create/result` · `Result`, `errors#ErrorNotice` | — (web board) | pending (v3, T110) |
+| `2026:2998` | Choose method · Web · Sky | Choose method: "How do you want to add your art?", photo and upload only ("Say it out loud" `2026:3046` removed) | `/create/method` · `ChooseMethod` | — (web board) | implemented (T113) |
+| `2026:3067` | Change it · Listening · Web · Sky (was Speak · Listening) | Change your art, listening (Art preview "Your art", seconds, Stop, Type instead) | `/create/change` · `ChangeIt`, `ChangeItView` | — (web board) | implemented (T113) |
+| `2026:3098` | Change it · Question · Web · Sky (was Speak · Question) | Clarifying question about the change | `/create/change` · `ChangeIt`, `ChangeItView` | — (web board) | implemented (T113) |
+| `2026:3135` | Change it · Microphone off · Web · Sky (was Speak · Microphone off) | Microphone off: type what to change, Make the change | `/create/change` · `ChangeIt`, `ChangeItView` | — (web board) | implemented (T113) |
+| `2027:3042` | Changing your art · Web · Sky (was Drawing your idea) | Changing your art (Art preview instead of the sky card) | `/create/changing` · `Changing` | — (web board) | implemented (T113) |
+| `2027:3062` | Changing your art · Error · Web · Sky | The change did not work this time; Try again, Back to my art | `/create/changing` · `Changing` | — (web board) | implemented (T113) |
+| `2027:3091` | Change it · Before and after · Web · Sky (was Result) | Here's the change: You asked, Before / After row, What the image shows, Hear, Use this, Change it again, Back to my original | `/create/compare` · `BeforeAfter`, `BeforeAfterView` | — (web board) | implemented (T113) |
+| `2027:3138` | Change it · Web · Sky (entry; was Result · Change it) | Change your art?: Your art, What the image shows, What should change?, Start talking, Make the change, Looks good as is | `/create/change` · `ChangeIt`, `ChangeItView` | — (web board) | implemented (T113) |
+| `2038:4035` | Change it · Changing · Web · Sky | Changing it… / This can take a minute. | `/create/changing` · `Changing` | — (web board) | implemented (T113) |
+| `2038:4060` | Change it · Error · Web · Sky | Error card: Try again, Looks good as is, Try a different change | `/create/changing`, `/create/change` · `Changing`, `ChangeItView`, `errors#ErrorNotice` | — (web board) | implemented (T113) |
 | `2027:3184` | Photo · Web · Sky | Take / upload a photo (sky card) | `/create/photo?mode=camera|upload` · `Photo` | — (web board) | implemented (T105) |
 | `2027:3207` | Photo · Finding your drawing · Web · Sky | Photo, uploading → finding (MP4 card) | `/create/photo` · `Photo` | — (web board) | implemented (T105) |
 | `2027:3226` | Photo · Error (no drawing found) · Web · Sky | Photo, no drawing (Retake the photo, Draw a box) | `/create/photo` · `Photo` | — (web board) | implemented (T105) |
 | `2038:4419` | Photo · Error (other) · Web · Sky | Photo, time-out / other (Try again) | `/create/photo` · `Photo` | — (web board) | implemented (T105) |
-| `2027:3254` | Choose a pattern · Web · Sky (was Select (Adjust cutout)) | Tap the one you want.: photo, pieces, single pick, Use this / Retake; no cutout tools | `/create/select` · `Select`, `SelectView` | — (web board) | pending (v3, T110) |
-| `2038:4092` | Your cutout · Adjust · Web · Sky (was Select · Marks) | Edge tools (Add area / Remove area / Draw a box, marks, Clear marks, Apply cutout), Start over | `/create/select` (adjust) · `SelectView` | — (web board) | pending (v3, T110) |
-| `2038:4233` | Your cutout · Web · Sky (was Select · Applied) | Your cutout is ready, Fix the edges, Use this, Start over | `/create/select` (cutout) · `SelectView` | — (web board) | pending (v3, T110) |
-| `2038:4369` | Making your cutout · Web · Sky (was Select · Saving) | Cutting out your changed art | `/create/select` (making) · `SelectView` | — (web board) | pending (v3, T110) |
-| `4031:4378` | Making your sticker · Web · Sky (new) | Making your sticker: loading animation `4037:4390` (342×342, radius 24, `stickerLoading`), Adding the white border… | `/create/making` (new) or `/create/ready` (loading) | — (web board) | pending (v3, T110) |
-| `4038:4573` | Choose product · Tote bag selected · Web · Sky (new) | Choose product with Tote bag selected | `/create/product` · `ChooseProduct` | — (web board) | pending (v3, T110) |
-| `4038:4628` | Making your tote bag · Web · Sky (new) | Making your tote bag (tote wording) | as `4031:4378` | — (web board) | pending (v3, T110) |
-| `4038:4644` | Ready · Tote bag · Web · Sky (new) | Your tote bag is ready! | `/create/ready` · `Ready` | — (web board) | pending (v3, T110) |
-| `4038:4662` | Listing · Tote bag · Web · Sky (new) | Listing for a tote (sample $24.00, earn $12.00) | `/create/listing` · `Listing` | — (web board) | pending (v3, T110) |
-| `4038:4713` | Live · Tote bag · Web · Sky (new) | You're live! with the tote on the sky photo | `/create/live` · `Live` | — (web board) | pending (v3, T110) |
+| `2027:3254` | Choose a pattern · Web · Sky (was Select (Adjust cutout)) | Tap the one you want.: photo, pieces, single pick, Use this / Retake; no cutout tools | `/create/pattern` · `ChoosePattern`, `ChoosePatternView` | — (web board) | implemented (T113) |
+| `2038:4092` | Your cutout · Adjust · Web · Sky (was Select · Marks) | Edge tools (Add area / Remove area / Draw a box, marks, Clear marks, Apply cutout), Start over | `/create/cutout` (adjust) · `Cutout` (`YourCutout`), `SelectView` | — (web board) | implemented (T113) |
+| `2038:4233` | Your cutout · Web · Sky (was Select · Applied) | Your cutout is ready, Fix the edges, Use this, Start over | `/create/cutout` · `Cutout` (`YourCutout`), `SelectView` | — (web board) | implemented (T113) |
+| `2038:4369` | Making your cutout · Web · Sky (was Select · Saving) | Cutting out your changed art | `/create/cutout` (making) · `MakingCutoutView` | — (web board) | implemented (T113) |
+| `4031:4378` | Making your sticker · Web · Sky (new) | Making your sticker: loading animation `4037:4390` (342×342, radius 24, `stickerLoading`), Adding the white border… | `/create/making` · `MakingProduct`, `MakingProductView` | — (web board) | implemented (T113) |
+| `4038:4573` | Choose product · Tote bag selected · Web · Sky (new) | Choose product with Tote bag selected | `/create/product` · `ChooseProduct` | — (web board) | implemented (T113) |
+| `4038:4628` | Making your tote bag · Web · Sky (new) | Making your tote bag (tote wording) | `/create/making` (tote) · `MakingProduct` | — (web board) | implemented (T113) |
+| `4038:4644` | Ready · Tote bag · Web · Sky (new) | Your tote bag is ready! | `/create/ready` · `Ready` | — (web board) | implemented (T113) |
+| `4038:4662` | Listing · Tote bag · Web · Sky (new) | Listing for a tote (sample $24.00, earn $12.00) | `/create/listing` · `Listing` | — (web board) | implemented (T113) |
+| `4038:4713` | Live · Tote bag · Web · Sky (new) | You're live! with the tote on the sky photo | `/create/live` · `Live` | — (web board) | implemented (T113) |
 | `2030:3726` | Ready · Web · Sky | Your sticker is ready! | `/create/ready` · `Ready` | — (web board) | implemented (T105) |
 | `2038:4443` | Ready · Notice · Web · Sky | Ready with the cutout notice | `/create/ready` · `Ready` | — (web board) | implemented (T105) |
 | `2030:3752` | Listing · Web · Sky | Get it ready for the shop (board order) | `/create/listing` · `Listing`, `ListingView` | — (web board) | implemented (T105) |
@@ -71,38 +71,38 @@ Status: **pending (v3, T110)** = the board changed or is new in v3 and the scree
 | `2024:2597` | Artists · Sky | 72 px title, creator cards (80 px initials, Meet link) | `/artists` · `site/CreatorCard` | — (web board) | implemented (T106) |
 | `2024:2652` | Artists · Empty · Sky | Grey empty card | `/artists` · `pages/EmptyNote` | — (web board) | implemented (T106) |
 | `2024:2688` | Artist profile · Sky | Header with 120 px avatar, In their own words + Read aloud beside the video, Work by grid | `/c/[slug]` · `pages/CreatorProfile` | — (web board) | implemented (T106) |
-| `2025:2682` | How it works · Sky | Same layout; the voice point is rewritten (entry 3) | `/how-it-works` · `pages/StaticPage` | — (web board) | pending (v3, T110) |
-| `2025:2747` | For studios · Sky | Same layout; point 2 shortened, point 4 removed (entry 3) | `/for-studios` · `pages/StaticPage` | — (web board) | pending (v3, T110) |
-| `2025:2809` | Accessibility · Sky | Same layout; "Typing works everywhere" and "Image descriptions" points (entry 3) | `/accessibility` · `pages/StaticPage` | — (web board) | pending (v3, T110) |
+| `2025:2682` | How it works · Sky | Same layout; the voice point is rewritten (entry 3) | `/how-it-works` · `pages/StaticPage` | — (web board) | implemented (T112) |
+| `2025:2747` | For studios · Sky | Same layout; point 2 shortened, point 4 removed (entry 3) | `/for-studios` · `pages/StaticPage` | — (web board) | implemented (T112) |
+| `2025:2809` | Accessibility · Sky | Same layout; "Typing works everywhere" and "Image descriptions" points (entry 3) | `/accessibility` · `pages/StaticPage` | — (web board) | implemented (T112) |
 | `2025:2886` | 404 · Sky | Site nav, sky picture, title, Go to the shop | `app/not-found.tsx` | — (web board) | implemented (T106) |
 | `2031:3895` | Admin · Orders · Sky (1440) | Admin: {brand} · Admin header, orders table (Mark {status} pills, story tag cell), green code card above the Creators table, Add creator card | `/admin` · `admin/{AdminShell,OrdersTable,StatusButtons,CreatorsPanel,CodeCard}` | — (web board) | implemented (T106) |
 | `2031:4384` | Admin · Orders · Empty · Sky | Grey empty cards | `/admin` | — (web board) | implemented (T106) |
-| `2034:3995` | Admin · AI trace · Sky (v3: steps relabelled) | Photo and mask → Change request → Edit instruction → Before and after → Description → Decision → Sticker; Other model calls | `/admin/trace/[artworkId]` · `admin/TraceView` | — (web board) | pending (v3, T110) |
+| `2034:3995` | Admin · AI trace · Sky (v3: steps relabelled) | Photo and mask → Change request → Edit instruction → Before and after → Description → Decision → Sticker; Other model calls | `/admin/trace/[artworkId]` · `admin/TraceView` | — (web board) | implemented (T112) |
 | `2034:4158` | Admin · AI trace · Missing · Sky | Grey empty card + Back to orders | `admin/TraceView` | — (web board) | implemented (T106) |
 
 ### iOS creation boards (v3, T110)
 
-The B1 / B2 boards that changed in v3 (renamed in place, node ids kept, Changelog entries 4, 7, 8, 11). Every row is **pending (v3)** until T114 implements it. Copy: `docs/design/copy-v3-ios.md`.
+The B1 / B2 boards that changed in v3 (renamed in place, node ids kept, Changelog entries 4, 7, 8, 11). Every row is implemented by T114 (`implemented (T114)`); the "iOS view" column names the v3 views. Copy: `docs/design/copy-v3-ios.md`.
 
-| Figma node | Board (v3 name) | Was | iOS view today | Status |
+| Figma node | Board (v3 name) | Was | iOS view | Status |
 |---|---|---|---|---|
-| `2013:408` | Choose a pattern · Sky | Adjust cutout (`AdjustCutoutView`, pick step) | `Create/AdjustCutoutView` | pending (v3, T110) |
-| `2012:387` | Change it · Sky (entry, after Choose a pattern › Use this) | Voice result · Change it | `Create/VoiceResultView` | pending (v3, T110) |
-| `2011:208` | Change it · Listening · Sky | Speak · Listening | `Create/SpeakView` | pending (v3, T110) |
-| `2011:246` | Change it · Typing · Sky | Speak · Type instead | `Create/SpeakView` | pending (v3, T110) |
-| `2011:293` | Change it · Clarifying question · Sky | Speak · Clarifying question | `Create/SpeakView` | pending (v3, T110) |
-| `2011:334` | Change it · Microphone off · Sky | Speak · Microphone off | `Create/SpeakView` | pending (v3, T110) |
-| `2021:2169` | Change it · Transcribing · Sky | Speak · Transcribing | `Create/SpeakView` | pending (v3, T110) |
-| `2021:2216` | Change it · Error · Sky | Speak · Error | `Create/SpeakView` | pending (v3, T110) |
-| `2012:276` | Changing your art · Sky | Drawing your idea | `Create/DrawingYourIdeaView` | pending (v3, T110) |
-| `2012:307` | Changing your art · Error · Sky | Drawing your idea · Error | `Create/DrawingYourIdeaView` | pending (v3, T110) |
-| `2012:344` | Change it · Before and after · Sky | Voice result | `Create/VoiceResultView` | pending (v3, T110) |
-| `4030:4482` | Making your cutout · Sky (new) | — (clone of Changing your art) | — | pending (v3, T110) |
-| `2013:618` | Your cutout · Sky (edge tools kept) | Adjust cutout · Preview | `Create/AdjustCutoutView` | pending (v3, T110) |
-| `2014:733` | Making your sticker · Sky (logo mark, no Back; animation `4037:4389`) | Listing details · Making your sticker | `Listing/ListingDetailsView` (loading) | pending (v3, T110) |
-| `4038:4494` | Making your tote bag · Sky (new) | — | `Listing/ListingDetailsView` (loading) | pending (v3, T110) |
-| `4038:4517` | Listing details · Tote bag · Sky (new) | — | `Listing/ListingDetailsView` | pending (v3, T110) |
-| `4038:4389` | Home · Create tab · Tote bag selected · Sky (new, B2) | — | `Create/PickProductView` | pending (v3, T110) |
+| `2013:408` | Choose a pattern · Sky | Adjust cutout (`AdjustCutoutView`, pick step) | `Create/ChoosePatternView` | implemented (T114) |
+| `2012:387` | Change it · Sky (entry, after Choose a pattern › Use this) | Voice result · Change it | `Create/ChangeItView` | implemented (T114) |
+| `2011:208` | Change it · Listening · Sky | Speak · Listening | `Create/ChangeItView` | implemented (T114) |
+| `2011:246` | Change it · Typing · Sky | Speak · Type instead | `Create/ChangeItView` | implemented (T114) |
+| `2011:293` | Change it · Clarifying question · Sky | Speak · Clarifying question | `Create/ChangeItView` (no question on iOS) | implemented (T114) |
+| `2011:334` | Change it · Microphone off · Sky | Speak · Microphone off | `Create/ChangeItView` | implemented (T114) |
+| `2021:2169` | Change it · Transcribing · Sky | Speak · Transcribing | `Create/ChangeItView` | implemented (T114) |
+| `2021:2216` | Change it · Error · Sky | Speak · Error | `Create/ChangeItView` | implemented (T114) |
+| `2012:276` | Changing your art · Sky | Drawing your idea | `Create/ChangingView` | implemented (T114) |
+| `2012:307` | Changing your art · Error · Sky | Drawing your idea · Error | `Create/ChangingView` | implemented (T114) |
+| `2012:344` | Change it · Before and after · Sky | Voice result | `Create/BeforeAfterView` | implemented (T114) |
+| `4030:4482` | Making your cutout · Sky (new) | — (clone of Changing your art) | `Create/MakingCutoutView` | implemented (T114) |
+| `2013:618` | Your cutout · Sky (edge tools kept) | Adjust cutout · Preview | `Create/YourCutoutView` | implemented (T114) |
+| `2014:733` | Making your sticker · Sky (logo mark, no Back; animation `4037:4389`) | Listing details · Making your sticker | `Create/MakingProductView` | implemented (T114) |
+| `4038:4494` | Making your tote bag · Sky (new) | — | `Create/MakingProductView` | implemented (T114) |
+| `4038:4517` | Listing details · Tote bag · Sky (new) | — | `Listing/ListingDetailsView` | implemented (T114) |
+| `4038:4389` | Home · Create tab · Tote bag selected · Sky (new, B2) | — | `Create/PickProductView` | implemented (T114) |
 | `2014:678` | Listing details · Sky | unchanged; now reached after Making your sticker | `Listing/ListingDetailsView` | implemented (T104) |
 
 Removed from the flow in v3: "Say it out loud" (Choose method), the voice idea path, Drawing your idea as an idea generator, the 3-picture chooser and page dots. The Cloud studio frames outside the sections (`21:4229` … `21:4554`) did not change; `21:4229` (iOS Welcome) keeps its scrim (R5).

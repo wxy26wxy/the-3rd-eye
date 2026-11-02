@@ -3,7 +3,7 @@ import XCTest
 /// Choose a pattern, Adjust the area (T122) and Your cutout against scripts/mock_api.py: the app uses a generated
 /// 600 × 800 test photo (UITEST_PHOTO=1), the mock answers two drawings (cand-1 at 100,160–500,693
 /// and cand-2 at 660,896–1060,1429 of a 1200 × 1600 original) and records each body at
-/// GET /__mock/last/<select|cleanup|cutout>. The test photo shows 302 × 403 pt, so 1 pt ≈ 4 image px.
+/// GET /__mock/last/<select|cleanup|cutout>. The test photo shows about 314 × 419 pt, so 1 pt ≈ 3.8 image px.
 final class CutoutUITests: XCTestCase {
   private var app: XCUIApplication?
 
@@ -78,17 +78,18 @@ final class CutoutUITests: XCTestCase {
     let area = app.otherElements["adjust-area"]
     XCTAssertFalse(app.buttons["Reset"].isEnabled, "nothing to reset yet")
     // cand-1 grown by 8 %: 84,138.7–516,714.3 of 1200 × 1600; its bottom-right corner.
-    let corner = area.coordinate(withNormalizedOffset: CGVector(dx: 516.0 / 1200, dy: 714.3 / 1600))
-    corner.press(forDuration: 0.3, thenDragTo: area.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.6)))
+    let corner = photoPoint(area, 516.0 / 1200, 714.3 / 1600)
+    corner.press(forDuration: 0.3, thenDragTo: photoPoint(area, 0.7, 0.6))
     XCTAssertTrue(app.buttons["Reset"].isEnabled, "the frame moved")
     attachScreenshot(app, "adjust-the-area")
     tap(app, "Reset")
     XCTAssertFalse(app.buttons["Reset"].isEnabled, "back where it started")
-    corner.press(forDuration: 0.3, thenDragTo: area.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.6)))
+    corner.press(forDuration: 0.3, thenDragTo: photoPoint(area, 0.7, 0.6))
     tap(app, "Use this area")
     XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "Change it")
     let body = try lastBody("cleanup")
     XCTAssertEqual(body["candidateIds"] as? [String], ["cand-1"], "the picked piece goes with the frame")
+    XCTAssertEqual(body["clipToBox"] as? Bool, true, "the frame limits the cut (T126)")
     let box = try XCTUnwrap(body["box"] as? [Double])
     XCTAssertEqual(box[0], 84, accuracy: 1, "the left edge stayed")
     XCTAssertEqual(box[1], 138.7, accuracy: 1, "the top edge stayed")
@@ -100,8 +101,7 @@ final class CutoutUITests: XCTestCase {
   func testDragOutsideTheFrameLeavesIt() {
     let app = openAdjustArea(code: "TEST-CODE")
     let area = app.otherElements["adjust-area"]
-    area.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.2))
-      .press(forDuration: 0.3, thenDragTo: area.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.3)))
+    photoPoint(area, 0.85, 0.2).press(forDuration: 0.3, thenDragTo: photoPoint(area, 0.95, 0.3))
     XCTAssertFalse(app.buttons["Reset"].isEnabled, "the frame did not move")
   }
 
@@ -117,14 +117,36 @@ final class CutoutUITests: XCTestCase {
     XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "a cut-out exists, so Change it")
     let body = try lastBody("cleanup")
     XCTAssertEqual(body["box"] as? [Double], [0, 0, 1200, 1600], "the whole photo")
+    XCTAssertEqual(body["clipToBox"] as? Bool, true)
     XCTAssertNil(body["candidateIds"])
   }
 
-  /// A cut that fails (mock NOCUT…: 422) shows the server's reason and stays on the screen.
+  /// Fix round 1: the whole-photo frame's corner sits on the photo's edge; a drag that starts
+  /// 15 pt outside the photo (inside the handle's 44 pt target) still takes the corner.
+  func testWholePhotoCornerDragsFromOutsideThePhoto() throws {
+    let app = launchPhotoFlow(code: "NONE-CODE")
+    let area = app.otherElements["adjust-area"]
+    XCTAssertTrue(area.waitForExistence(timeout: 20))
+    let photo = photoSize(area)
+    let outside = photoPoint(area, 0, 0).withOffset(CGVector(dx: -15, dy: -15))
+    outside.press(forDuration: 0.3, thenDragTo: photoPoint(area, 0.25, 0.25))
+    XCTAssertTrue(app.buttons["Reset"].isEnabled, "the corner moved")
+    tap(app, "Use this area")
+    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10))
+    let box = try XCTUnwrap(try lastBody("cleanup")["box"] as? [Double])
+    // The drag ran a quarter of the photo plus the 15 pt it started outside it.
+    XCTAssertEqual(box[0], 300 + 15 * 1200 / photo.width, accuracy: 48, "the left edge followed the drag")
+    XCTAssertEqual(box[1], 400 + 15 * 1600 / photo.height, accuracy: 48, "the top edge followed the drag")
+    XCTAssertEqual(box[2], 1200, accuracy: 0.5)
+    XCTAssertEqual(box[3], 1600, accuracy: 0.5)
+  }
+
+  /// A cut that finds nothing in the frame (mock NOCUT…: 422 no_drawing_found) says what to do and
+  /// stays on the screen.
   func testFailedCutShowsTheReason() {
     let app = openAdjustArea(code: "NOCUT-CODE")
     tap(app, "Use this area")
-    XCTAssertTrue(element(app, containing: "Nothing was left in the cutout.").waitForExistence(timeout: 10))
+    XCTAssertTrue(element(app, containing: "We couldn't find a drawing in that area.").waitForExistence(timeout: 10))
     XCTAssertTrue(app.buttons["Use this area"].isEnabled, "it can be tried again")
   }
 
@@ -195,6 +217,17 @@ final class CutoutUITests: XCTestCase {
     XCTAssertTrue(upload.waitForExistence(timeout: 5))
     upload.tap()
     return app
+  }
+
+  /// The frame element reaches 22 pt past the photo on every side (the handles' touch area, fix
+  /// round 1): a point at a share of the photo itself.
+  private func photoPoint(_ area: XCUIElement, _ x: CGFloat, _ y: CGFloat) -> XCUICoordinate {
+    let size = photoSize(area)
+    return area.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 22 + x * size.width, dy: 22 + y * size.height))
+  }
+
+  private func photoSize(_ area: XCUIElement) -> CGSize {
+    CGSize(width: area.frame.width - 44, height: area.frame.height - 44)
   }
 
   /// Piece 1 picked: Adjust the area with the frame on it.

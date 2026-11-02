@@ -236,6 +236,8 @@ struct CleanupRequest: Encodable, Equatable, Hashable {
   var points: [CutoutPoint]?
   /// [x0, y0, x1, y1] in `ImageSize` pixels.
   var box: [Double]?
+  /// T126: the box also limits the cut (nothing outside the frame stays). Needs `box`.
+  var clipToBox: Bool?
 }
 
 struct Product: Codable, Identifiable, Equatable, Hashable {

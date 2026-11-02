@@ -123,4 +123,41 @@ final class AreaFrameTests: XCTestCase {
     let dx = 25 * size.w / fit.width
     XCTAssertEqual(start.dragged(.trailing, dx: dx, dy: 0, in: size).x1, 616, accuracy: 0.01, "25 pt = 100 px")
   }
+
+  // MARK: Fix round 1: 44 pt handles on the photo's edge
+
+  /// The touch surface reaches 22 pt past the photo, so every handle of the whole-photo frame has
+  /// its full 44 × 44 pt area, and each extreme of that area still finds the handle.
+  func testHandlesOnThePhotosEdgeKeepTheirWholeTarget() throws {
+    let photo = CGSize(width: 302, height: 402.67)
+    let (bounds, fit) = AreaFrame.surface(photo: photo, image: size)
+    let reach = CGFloat(AreaFrame.handleReach)
+    XCTAssertEqual(reach, 22)
+    XCTAssertEqual(fit.minX, 22, accuracy: 0.01)
+    XCTAssertEqual(fit.minY, 22, accuracy: 0.01)
+    let rect = try XCTUnwrap(CutoutGeometry.viewRect(box: AreaFrame.whole(size).box, shownIn: fit, image: size))
+    let corners: [(CGPoint, AreaFrame.Handle)] = [
+      (CGPoint(x: rect.minX, y: rect.minY), .topLeading), (CGPoint(x: rect.maxX, y: rect.minY), .topTrailing),
+      (CGPoint(x: rect.minX, y: rect.maxY), .bottomLeading), (CGPoint(x: rect.maxX, y: rect.maxY), .bottomTrailing),
+    ]
+    for (corner, handle) in corners {
+      let target = CGRect(x: corner.x - reach, y: corner.y - reach, width: 2 * reach, height: 2 * reach)
+      XCTAssertTrue(bounds.contains(target), "the whole 44 pt target of \(handle) is on the surface")
+      for x in [target.minX, target.maxX] {
+        for y in [target.minY, target.maxY] {
+          XCTAssertEqual(AreaFrame.handle(at: CGPoint(x: x, y: y), rect: rect, tolerance: reach), handle)
+        }
+      }
+    }
+    // An edge on the border: 22 pt outside the photo still takes the edge.
+    XCTAssertEqual(AreaFrame.handle(at: CGPoint(x: rect.midX, y: rect.minY - reach), rect: rect, tolerance: reach), .top)
+    XCTAssertEqual(AreaFrame.handle(at: CGPoint(x: rect.maxX + reach, y: rect.midY), rect: rect, tolerance: reach), .trailing)
+  }
+
+  /// A frame on the piece away from the edge: its targets lie on the photo, inside the surface.
+  func testPieceFrameTargetsLieOnTheSurface() throws {
+    let (bounds, fit) = AreaFrame.surface(photo: CGSize(width: 300, height: 400), image: size)
+    let rect = try XCTUnwrap(CutoutGeometry.viewRect(box: AreaFrame.initial(piece: piece, image: size).box, shownIn: fit, image: size))
+    XCTAssertTrue(bounds.contains(rect.insetBy(dx: -22, dy: -22)))
+  }
 }

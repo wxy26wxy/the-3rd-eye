@@ -114,13 +114,21 @@ struct AdjustAreaView: View {
       .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.s))
       .softShadow()
       .overlay {
+        // The touch surface reaches half a target past the photo, so a handle on the photo's edge
+        // (the whole-photo start frame, a frame grown to the edge) still has its full 44 pt.
         GeometryReader { geo in
-          let fit = CutoutGeometry.fitRect(image: size, in: geo.size)
+          let reach = CGFloat(AreaFrame.handleReach)
+          let fit = AreaFrame.surface(photo: CGSize(width: geo.size.width - 2 * reach, height: geo.size.height - 2 * reach),
+                                      image: size, reach: reach).fit
           if let area, let rect = CutoutGeometry.viewRect(box: area.box, shownIn: fit, image: size) {
             ZStack {
               frameDrawing(rect: rect, in: fit)
               AreaDragSurface(
-                handleAt: { AreaFrame.handle(at: $0, rect: rect, tolerance: Theme.Size.minTarget / 2) },
+                handleAt: { point in
+                  let handle = AreaFrame.handle(at: point, rect: rect, tolerance: reach)
+                  // A frame over the whole photo cannot move: leave that touch to the scroll view.
+                  return handle == .move && area == .whole(size) ? nil : handle
+                },
                 began: { handle, point in drag = (area, handle, point) },
                 changed: { point in move(to: point, fit: fit, size: size) },
                 ended: { finishDrag(size: size) }
@@ -129,6 +137,7 @@ struct AdjustAreaView: View {
             .disabled(working)
           }
         }
+        .padding(-CGFloat(AreaFrame.handleReach))
       }
       .accessibilityElement(children: .ignore)
       .accessibilityLabel(Text("Area frame"))

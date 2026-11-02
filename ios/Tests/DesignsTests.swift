@@ -181,8 +181,12 @@ final class DesignsTests: XCTestCase {
   // MARK: Adjust the area errors (T122: no marks any more, so the server's reason is shown)
 
   func testCleanupErrorShowsTheServersReason() {
-    let error = APIError.server(status: 422, code: "no_drawing_found", message: "Nothing was left in the cutout.")
-    XCTAssertEqual(CleanupResult.errorMessage(for: error), "Nothing was left in the cutout.")
+    let empty = APIError.server(status: 422, code: "no_drawing_found", message: "Nothing was left in the cutout.")
+    XCTAssertEqual(CleanupResult.errorMessage(for: empty),
+                   "We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again.",
+                   "nothing in the frame: what to do about it")
+    let other = APIError.server(status: 400, code: "invalid_request", message: "cleanup body does not match the contract")
+    XCTAssertEqual(CleanupResult.errorMessage(for: other), "cleanup body does not match the contract")
     XCTAssertNil(CleanupResult.errorMessage(for: CancellationError()))
   }
 

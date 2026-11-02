@@ -211,7 +211,7 @@ struct StoryVideoLibraryView: View {
         .disabled(player == nil || failed)
       }
       PillButton(state.url != nil ? "Record again" : "Record my video",
-                 hint: state.url != nil ? "Your new video replaces this one on all your products." : "Opens the camera for up to 30 seconds") {
+                 hint: "Opens the camera for up to 30 seconds") {
         player?.pause()
         app.push(.recordStoryAgain)
       }
@@ -251,7 +251,7 @@ struct StoryVideoLibraryView: View {
       HStack(alignment: .top, spacing: Theme.Space.m) {
         VStack(alignment: .leading, spacing: Theme.Space.xs) {
           Text("Mention my disability").themeFont(.titleM).foregroundStyle(colors.text)
-          Text("Off means your story never says it. You can change this later.")
+          Text("Change it when you record again.")
             .themeFont(.bodyS)
             .foregroundStyle(colors.textMuted)
         }

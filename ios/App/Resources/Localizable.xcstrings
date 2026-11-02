@@ -118,6 +118,9 @@
     "Change it again" : {
 
     },
+    "Change it when you record again." : {
+
+    },
     "Change the name, description or price" : {
 
     },
@@ -913,6 +916,9 @@
 
     },
     "Watch" : {
+
+    },
+    "We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again." : {
 
     },
     "We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it." : {

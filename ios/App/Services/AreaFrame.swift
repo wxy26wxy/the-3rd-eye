@@ -133,6 +133,18 @@ struct AreaFrame: Equatable {
     return (Int((width / image.w * 100).rounded()), Int((height / image.h * 100).rounded()))
   }
 
+  /// Half a touch target: how far the handles' touch areas reach past the frame, and so how far the
+  /// touch surface reaches past the photo (a frame on the photo's edge keeps 44 pt handles).
+  static let handleReach = Double(Theme.Size.minTarget) / 2
+
+  /// The touch surface around a photo shown in `photo` (its own aspect): the photo grown by
+  /// `handleReach` on every side, and where the photo sits inside that surface.
+  static func surface(photo: CGSize, image: ImageSize, reach: CGFloat = CGFloat(handleReach)) -> (bounds: CGRect, fit: CGRect) {
+    let bounds = CGRect(x: 0, y: 0, width: photo.width + 2 * reach, height: photo.height + 2 * reach)
+    let fit = CutoutGeometry.fitRect(image: image, in: photo).offsetBy(dx: reach, dy: reach)
+    return (bounds, fit)
+  }
+
   /// The handle under `point` (view coordinates) on a frame drawn at `rect`: a corner within
   /// `tolerance` of both its edges, else an edge within `tolerance`, else `.move` inside the frame;
   /// nil outside it (that touch scrolls the screen).

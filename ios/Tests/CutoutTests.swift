@@ -53,8 +53,17 @@ final class CutoutTests: XCTestCase {
   /// Adjust the area sends the piece and the frame; with no drawing found, the frame alone (T122).
   func testAreaRequestSendsThePieceAndTheFrame() {
     let area = AreaFrame(x0: 84, y0: 138.68, x1: 516, y1: 714.32)
-    XCTAssertEqual(CutoutRequest.make(piece: one, area: area), CleanupRequest(candidateIds: ["c1"], points: nil, box: area.box))
-    XCTAssertEqual(CutoutRequest.make(piece: nil, area: .whole(size)), CleanupRequest(candidateIds: nil, points: nil, box: [0, 0, 1200, 1600]))
+    XCTAssertEqual(CutoutRequest.make(piece: one, area: area), CleanupRequest(candidateIds: ["c1"], points: nil, box: area.box, clipToBox: true))
+    XCTAssertEqual(CutoutRequest.make(piece: nil, area: .whole(size)),
+                   CleanupRequest(candidateIds: nil, points: nil, box: [0, 0, 1200, 1600], clipToBox: true))
+  }
+
+  /// T126: `clipToBox` goes in the body only when set.
+  func testClipToBoxIsEncodedOnlyWhenSet() throws {
+    let with = try JSONSerialization.jsonObject(with: JSONEncoder().encode(CleanupRequest(box: [0, 0, 1, 1], clipToBox: true))) as? [String: Any]
+    XCTAssertEqual(with?["clipToBox"] as? Bool, true)
+    let without = try JSONSerialization.jsonObject(with: JSONEncoder().encode(CleanupRequest(box: [0, 0, 1, 1]))) as? [String: Any]
+    XCTAssertNil(without?["clipToBox"])
   }
 
   func testZeroImageSizeIsNotUsable() {

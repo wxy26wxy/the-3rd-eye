@@ -318,3 +318,10 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Mock: `ios/scripts/mock_api.py` accepts `clipToBox` and echoes it in `GET /__mock/last/cleanup`.
 - Verify (from `web/`): `pnpm test` (`artwork-adjust`, `cleanup-route`); docs: `docs/api.md` T080 §2 `clipToBox`, `docs/handoffs/backend.md` T126.
 - Unfinished: the web and iOS "Adjust the area" screens still have to send `clipToBox: true` (their own tasks); not run against live SAM (no model call changes: the SAM request is the same).
+
+## T122 ios · Feedback round 2 (2026-11-02/03)
+- No Welcome subtitle. New **Adjust the area** after Choose a pattern (and from "Re-do the cutout"): the frame starts on the picked drawing grown by 8 % (whole photo with no drawing); corners and edges drag with 44 pt targets, also on the photo's edge; VoiceOver frame with Grow / Shrink / Move actions. "Use this area" sends `cleanup {candidateIds:[piece], box, clipToBox: true}`. Every photo passes through it; a single auto-cut piece or no drawing skips Choose a pattern.
+- Your cutout keeps only the preview, Use this and Start over. Change it: the two buttons in one row in the card (stacked at accessibility sizes). Listing details: a drafting card replaces the fields while the listing is written.
+- Creator screens show the bordered sticker preview (`previewUrl`) or the cut-out for a tote bag, never the mockup. Create tab: "My story video" row → player with captions, Record again.
+- Mascot pictures on Take a photo / Upload and You're live; the making animation on Making your cutout. Copy v4 in the catalogue.
+- Verify: unit and UI suites (`docs/handoffs/ios.md`, "Feedback round 2 (T122)").

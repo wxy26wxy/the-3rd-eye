@@ -37,10 +37,11 @@ enum CutoutGeometry {
 }
 
 /// What Adjust the area sends (`POST /artworks/{id}/cleanup`): the piece the frame was put on and
-/// the frame (docs/api.md T080 §2; T122 R2). No drawing found: the frame alone.
+/// the frame, which also limits the cut (`clipToBox`, docs/api.md T126). No drawing found: the
+/// frame alone.
 enum CutoutRequest {
   static func make(piece: Candidate?, area: AreaFrame) -> CleanupRequest {
-    CleanupRequest(candidateIds: piece.map { [$0.id] }, box: area.box)
+    CleanupRequest(candidateIds: piece.map { [$0.id] }, box: area.box, clipToBox: true)
   }
 }
 
@@ -58,8 +59,13 @@ extension CleanupResult {
     return lines.isEmpty ? nil : lines.joined(separator: "\n")
   }
 
-  /// What Adjust the area shows for a failed request: the server's reason; nil for a cancelled request.
+  /// What Adjust the area shows for a failed request: for `422 no_drawing_found` (nothing in the
+  /// frame) what to do about it, else the server's reason; nil for a cancelled request.
   static func errorMessage(for error: Error) -> String? {
-    APIError.isCancellation(error) ? nil : error.localizedDescription
+    if APIError.isCancellation(error) { return nil }
+    if case APIError.server(422, "no_drawing_found", _) = error {
+      return String(localized: "We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again.")
+    }
+    return error.localizedDescription
   }
 }

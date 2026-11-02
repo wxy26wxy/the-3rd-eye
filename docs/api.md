@@ -26,12 +26,12 @@ Since v0.8 the apps are photo-first: photo → `POST /artworks {source:"photo"}`
 `POST /artworks/{id}/change` `{ instruction, transcript? }` → 201 `{ artwork: ArtworkVariant, description: { alt, spoken, differences } }` (new child row; T111)
 `POST /artworks/{id}/cutout` → `{ artwork: Artwork, candidates: Candidate[], imageSize: { w, h } }` (SAM on the artwork's picture, largest piece cut out; T111)
 `POST /artworks/{id}/cleanup` `{ candidateIds?: string[], points?: { x, y, label: "positive"|"negative" }[], box?: [x0,y0,x1,y1] }` (at least one) → `Artwork` (see T080 clarifications)
-`GET /artworks` → `{ artworks: ArtworkListItem[] }` (mine, newest first; each carries `products` with `priceCents`, `title`, `description`, `mockupUrl`)
+`GET /artworks` → `{ artworks: ArtworkListItem[] }` (mine, newest first; each carries `products` with `priceCents`, `title`, `description`, `mockupUrl`, `previewUrl`)
 `GET /artworks/{id}` → `{ artwork: Artwork, candidates: Candidate[], imageSize: { w, h } | null, originalUrl: string | null }` (`originalUrl` presigned, valid 10 min)
 `DELETE /artworks/{id}` → `{ id, deleted: true, archivedProductIds: string[] }`
 
 ## Products and listings
-`POST /products` `{ artworkId, type: "sticker"|"tote" }` → `Product` (sticker: `printPngUrl`, `printSvgUrl`, `mockupUrl`; tote: `mockupUrl`) — may take up to 60 s
+`POST /products` `{ artworkId, type: "sticker"|"tote" }` → `Product` (sticker: `printPngUrl`, `printSvgUrl`, `mockupUrl`, `previewUrl`; tote: `mockupUrl`, `previewUrl: null`) — may take up to 60 s
 `POST /listings/{productId}/run` → `{ listing: ListingDraft, trace: AgentStep[] }`
 `POST /listings/{productId}/approve` `{ approvedVia: "voice"|"tap", edits?: { title?, description?, priceCents? } }` → `{ product: Product, listing: Listing, storyVideoNeeded: boolean }`
 
@@ -55,11 +55,11 @@ Creator { id, slug, displayName, studioName, avatarUrl, bioShort, storyText, sto
 Artwork { id, creatorId, source, transcript, shapedPrompt, originalUrl, cleanedUrl, maskUrl, cutPathSvg, altText, spokenDescription, differencesFromPrompt, genResponseId, parentArtworkId, changeInstruction, status, lastError, createdAt }
 ArtworkVariant = Artwork & { previewUrl }
 ArtworkListItem = Artwork & { products: ArtworkProduct[] }
-ArtworkProduct { id, type: "sticker"|"tote", status: "draft"|"published"|"archived", priceCents: number, title: string|null, description: string|null, mockupUrl: string|null }
+ArtworkProduct { id, type: "sticker"|"tote", status: "draft"|"published"|"archived", priceCents: number, title: string|null, description: string|null, mockupUrl: string|null, previewUrl: string|null }
 ImageSize { w, h } /* px of the stored original */
 CleanupPoint { x, y, label: "positive"|"negative" } /* px in original */
 Candidate { id, bbox: [x0,y0,x1,y1] /* px in original */, score, thumbUrl }
-Product { id, artworkId, creatorId, type, mockupUrl, printPngUrl, printSvgUrl, priceCents, status }
+Product { id, artworkId, creatorId, type, mockupUrl, previewUrl, printPngUrl, printSvgUrl, priceCents, status }
 ListingDraft { title, description, tags[], price_cents, print_ok, notes }
 Listing { productId, title, description, tags, priceSuggestionCents, approvedAt, approvedVia, madeByVoice }
 AgentStep { step, tool?, args?, result?, text? }
@@ -173,3 +173,10 @@ Additive: no field or path removed. The text-to-image routes keep working.
    Sample pricing (registry constants in `web/lib/products/sizes.ts`, shown on `/admin`). `OrderSummary` / `Order` (`GET /orders`, `GET /orders/{id}`) gain `size: StickerSize | null` and `quantity: number`; rows placed before v0.8 read `size: null, quantity: 1`. The confirmation page and `/t/{token}` are unchanged.
 5. **"Made by voice" retired from the shop.** The shop filter `voice` is gone (web-internal; no API change). `Listing.madeByVoice` is still written and returned; once T112 lands nothing on the site reads it (dormant; until then the product card and product page still show the chip).
 6. **Admin AI trace** labels: Photo and mask → Change request → Edit instruction → Before and after → Description → Decision → Sticker. Model calls of the new image edit are logged with stage `edit`.
+
+## Sticker preview (T121 backend, 2026-11-02)
+1. **`previewUrl`** (`string | null`) is on every product object: `Product` (`POST /products`, `POST /listings/{id}/approve`, cleanup/rebuild results), each `ArtworkProduct` in `GET /artworks`, and the web shop data (`ShopProduct` on shop cards, studio pages and story tags, `ProductDetail` on `/p/{id}`). For a **sticker** it is the public URL of the die-cut sticker as it will look: the art over its white border up to the cut line (the print file's bleed is left off), transparent outside the border, PNG, longer side at most 1200 px (never enlarged), proportions of the print file. For a **tote** it is always `null`. A sticker made before T121 has `null` until the backfill runs.
+2. **Where to show it** (ruling R1): every place that shows a sticker uses `previewUrl` with `contain` (never cropped or stretched): shop cards, product gallery slide 1, iOS Listing details, Ready, My designs tiles, Design detail, You're live. Creator-facing screens never show `mockupUrl` for either type (the mockup is an AI photo that redraws the art); for a tote they show `cleanedUrl` on the tote-colour card. `mockupUrl` stays for the buyer side only (tote shop card, a secondary gallery slide). Fallback when a sticker's `previewUrl` is null: `cleanedUrl` (or the artwork's `cutPathSvg` border drawn by the client, as before).
+3. **Built with the print file.** `POST /products` (sticker) and every rebuild after a new cut-out (`POST /artworks/{id}/cleanup` with products) write a new preview next to the new print PNG and replace `previewUrl`; the previous blob is left in place (like mockups). Stored at `creators/<creatorId>/previews/<uuid>.png` (public kind; `/media/...` serves it too).
+4. **Backfill.** `pnpm backfill:previews` (from `web/`, reads `.env.local`; `--dry-run` lists only) builds the preview for every non-deleted sticker product whose artwork has `cleanedUrl` and whose `previewUrl` is null: one `composeSticker` from the stored cleaned PNG, no mockup, no model calls, print files untouched; the write only lands while `preview_url` is still null, so a second run finds nothing. Prints `stickers without a preview / built / skipped / failed`. Needs migration 0005 (`products.preview_url`) applied first.
+5. **Mock (`ios/scripts/mock_api.py`).** Every product carries `previewUrl` (a bordered sticker PNG served by the mock; `null` for totes); `POST /listings/{id}/run` answers after about 2 s with the `{ listing, trace }` shape above; `GET /creators/me` returns `storyVideoUrl` (a `/media/...mp4` pathname the mock serves) and `storyVideoVtt`.

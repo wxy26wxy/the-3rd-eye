@@ -93,6 +93,7 @@ export const products = pgTable("products", {
   creatorId: uuid("creator_id").references(() => creators.id).notNull(),
   type: productType("type").notNull(),
   mockupUrl: text("mockup_url"),                   // public
+  previewUrl: text("preview_url"),                 // public; stickers: bordered transparent PNG ≤ 1200 px (T121), totes: null
   printPngUrl: text("print_png_url"),              // private
   printSvgUrl: text("print_svg_url"),              // private (die-cut line)
   priceCents: integer("price_cents").notNull().default(500),

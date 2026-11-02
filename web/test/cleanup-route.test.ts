@@ -41,4 +41,15 @@ describe("POST /artworks/{id}/cleanup", () => {
     expect((await bad.json()).error.code).toBe("invalid_candidate");
     expect((await post("zz", { candidateIds: ["k1"] })).status).toBe(404);
   });
+
+  it("passes clipToBox with the box; clipToBox without a box is 400 invalid_request (T126)", async () => {
+    const res = await post("a1", { candidateIds: ["k1"], box: [1, 2, 30, 40], clipToBox: true });
+    expect(res.status).toBe(200);
+    expect(calls.at(-1)).toEqual({ candidateIds: ["k1"], box: [1, 2, 30, 40], clipToBox: true });
+    const before = calls.length;
+    const bad = await post("a1", { candidateIds: ["k1"], clipToBox: true });
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error.code).toBe("invalid_request");
+    expect(calls.length).toBe(before);
+  });
 });

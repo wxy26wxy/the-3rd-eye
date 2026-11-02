@@ -36,15 +36,15 @@ export async function MeetMakers() {
 
 /**
  * Maker card (4010:4412): story poster (initials, "WATCH STORY", play circle), name, studio, method chip.
- * The poster is the link to the maker's page, where the story video plays with captions; its name is
- * "Watch {name}'s story". The initials avatar is decorative.
+ * The poster is the link to the maker's page, where the story video plays with captions; its name starts
+ * with the visible "Watch story" and adds the maker ("Watch story, Leo"). The initials avatar is decorative.
  */
 export function MakerCard({ creator: c, tone = "soft" }: { creator: Pick<PublicCreator, "slug" | "displayName" | "studioName" | "isExample">; tone?: (typeof POSTER_TONES)[number] }) {
   return (
     <article className={styles.maker}>
-      <Link href={`/c/${c.slug}`} className={[styles.poster, styles[`tone_${tone}`]].join(" ")} aria-label={fmt(m.shop.watchStoryLabel, { name: c.displayName })}>
+      <Link href={`/c/${c.slug}`} className={[styles.poster, styles[`tone_${tone}`]].join(" ")}>
         <span className={styles.posterAvatar} aria-hidden="true">{initials(c.displayName)}</span>
-        <span className={styles.posterLabel} aria-hidden="true">{m.shop.watchStory}</span>
+        <span className={styles.posterLabel}>{m.shop.watchStory}<span className="visually-hidden">{fmt(m.shop.watchStoryName, { name: c.displayName })}</span></span>
         <span className={styles.playCircle} aria-hidden="true"><PlayIcon size="1.25rem" /></span>
       </Link>
       <div className={styles.makerInfo}>

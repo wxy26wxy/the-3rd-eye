@@ -49,14 +49,14 @@
 .slideContain { width: 100%; height: 100%; object-fit: contain; padding: 12%; }
 .slideCover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .slideCard {
-  display: grid;
-  place-items: center;
+  position: relative;
+  overflow: hidden;
   height: 75%;
   aspect-ratio: 35 / 48;
   border-radius: var(--space-l);
   background: var(--surface);
 }
-.slideCard .slideContain { padding: 10%; }
+.slideCard .slideContain { position: absolute; inset: 0; padding: 10%; }
 .tagPill {
   position: absolute;
   top: var(--space-xxl);
@@ -93,11 +93,12 @@
   cursor: pointer;
   font: inherit;
 }
+.thumbInner { position: absolute; inset: 0; display: grid; place-items: center; }
 .thumb[aria-pressed="true"] { border-color: var(--text); }
 .thumb .slideContain { padding: 8%; }
 .thumb .slideCard { height: 80%; border-radius: var(--space-sm); }
 .thumb .tagSlide { padding: 0; }
-.thumb .tagPill { padding-inline: var(--space-s); font-size: var(--type-caption-size); letter-spacing: 0; }
+.thumb .tagPill { max-width: 90%; padding-inline: var(--space-s); font-size: var(--type-caption-size); letter-spacing: 0; white-space: normal; text-align: center; border-radius: var(--radius-m); }
 
 /* Details column (2019:2040): 24 px rhythm. */
 .details { display: grid; gap: var(--space-xxl); align-content: start; justify-items: stretch; min-width: 0; }

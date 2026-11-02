@@ -77,8 +77,10 @@ describe("Product page v3 (board 2019:2004)", () => {
     expect(buttons[0]).toContain(`aria-label="${fmt(m.product.showImage, { n: 1, total: 4 })}"`);
     expect(buttons[0]).toContain('aria-pressed="true"');
     expect(buttons.slice(1).every((b) => b.includes('aria-pressed="false"'))).toBe(true);
+    expect(buttons[3]).toContain(`aria-label="${fmt(m.product.showTagImage, { n: 4, total: 4 })}"`);
     // Thumbnail images are decorative inside their labelled buttons.
     expect(out.match(/<img[^>]*alt=""/g)!.length).toBe(3);
+    expect(out.match(/<button[^>]*><span[^>]*aria-hidden="true">/g)).toHaveLength(4);
   });
 
   it("gallery without pictures still shows the story tag card; a tote leads with its mockup", () => {

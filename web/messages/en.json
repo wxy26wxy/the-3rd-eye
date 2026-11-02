@@ -83,7 +83,7 @@
     "makersCopy": "Every piece starts as the maker's own drawing. All of it is theirs.",
     "allMakers": "All makers",
     "watchStory": "Watch story",
-    "watchStoryLabel": "Watch {name}'s story",
+    "watchStoryName": ", {name}",
     "makerMethod": "Draws by hand",
     "makersEmpty": "Our first artists are getting ready. Meet them soon."
   },
@@ -99,6 +99,7 @@
     "breadcrumbTotes": "Tote bags",
     "galleryLabel": "Product images",
     "showImage": "Show image {n} of {total}",
+    "showTagImage": "Story tag: show image {n} of {total}",
     "storyTagPill": "Comes with a story tag",
     "storyTagShort": "Story tag",
     "tagSlide": "Every piece comes with a story tag. Tap it with your phone to meet {name}.",

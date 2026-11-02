@@ -9,7 +9,8 @@ export type GallerySlide =
 
 /**
  * Gallery (4011:4378 / 2019:2026): the main picture (40 px radius, "Comes with a story tag" pill) and a
- * row of thumbnails, each a button "Show image n of N" (aria-pressed on the one shown). The main image
+ * row of thumbnails, each a button "Show image n of N" (the story tag one starts with its visible "Story
+ * tag"; aria-pressed on the one shown). The main image
  * carries the product alt text; thumbnails are decorative inside their labelled buttons.
  */
 export function Gallery({ slides, alt }: { slides: GallerySlide[]; alt: string }) {
@@ -29,11 +30,11 @@ export function Gallery({ slides, alt }: { slides: GallerySlide[]; alt: string }
               <button
                 type="button"
                 className={[styles.thumb, styles[`tone_${s.kind === "image" ? s.tone : "soft"}`]].join(" ")}
-                aria-label={fmt(m.product.showImage, { n: i + 1, total: slides.length })}
+                aria-label={fmt(s.kind === "tag" ? m.product.showTagImage : m.product.showImage, { n: i + 1, total: slides.length })}
                 aria-pressed={i === current}
                 onClick={() => setCurrent(i)}
               >
-                <Slide slide={s} alt="" />
+                <span className={styles.thumbInner} aria-hidden="true"><Slide slide={s} alt="" /></span>
               </button>
             </li>
           ))}

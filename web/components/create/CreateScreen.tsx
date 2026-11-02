@@ -19,15 +19,17 @@ import styles from "./Create.module.css";
  * gutters; and a bottom action bar pinned to the bottom (white, 1 px top border) holding the main
  * actions (56 px primary, 50 px secondary). The step is announced to assistive technology only.
  */
-export function CreateScreen({ back, step, eyebrow, title, lead, mascot, badge, align = "start", children, footer }: {
+export function CreateScreen({ back, bare, step, eyebrow, title, lead, mascot, badge, align = "start", children, footer }: {
   back?: string; step?: number; eyebrow?: string; title: string; lead?: ReactNode; mascot?: TagPose; badge?: ReactNode;
+  /** Busy screens (Making your cutout / sticker): an empty top bar, neither logo nor Back. */
+  bare?: boolean;
   align?: "start" | "center"; children?: ReactNode; footer?: ReactNode;
 }) {
   return (
     <div className={styles.screen}>
       <div className={styles.content}>
         <div className={styles.top}>
-          {back ? <IconButton href={back} label={m.common.back} size="s"><ChevronLeftIcon /></IconButton> : <LogoMark />}
+          {bare ? null : back ? <IconButton href={back} label={m.common.back} size="s"><ChevronLeftIcon /></IconButton> : <LogoMark />}
           {step ? <StepPill step={step} total={3} label={fmt(m.create.step, { n: step, total: 3 })} /> : null}
         </div>
         <div className={[styles.head, align === "center" ? styles.headCenter : ""].filter(Boolean).join(" ")}>

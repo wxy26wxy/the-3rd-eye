@@ -201,6 +201,8 @@ export async function softDeleteArtwork(id: string): Promise<void> {
 /** A product as shown on a "My designs" tile (status badge). */
 export type ArtworkProductRow = {
   id: string; type: ProductType; status: ProductRow["status"]; priceCents: number; mockupUrl: string | null;
+  /** Public bordered sticker preview (T121); null for totes and stickers not yet backfilled. */
+  previewUrl: string | null;
   title: string | null; description: string | null;
 };
 export type ArtworkWithProducts = ArtworkRow & { products: ArtworkProductRow[] };
@@ -216,7 +218,7 @@ export function groupArtworkProducts(
     if (r.product && !a.products.some((p) => p.id === r.product!.id)) {
       a.products.push({
         id: r.product.id, type: r.product.type, status: r.product.status, priceCents: r.product.priceCents,
-        mockupUrl: r.product.mockupUrl ?? null, title: r.title, description: r.description ?? null,
+        mockupUrl: r.product.mockupUrl ?? null, previewUrl: r.product.previewUrl ?? null, title: r.title, description: r.description ?? null,
       });
       a._times.push(r.product.createdAt.getTime());
     }
@@ -232,7 +234,7 @@ export async function listArtworksWithProducts(creatorId: string): Promise<Artwo
     artwork: artworks,
     product: {
       id: products.id, type: products.type, status: products.status, priceCents: products.priceCents,
-      mockupUrl: products.mockupUrl, createdAt: products.createdAt,
+      mockupUrl: products.mockupUrl, previewUrl: products.previewUrl, createdAt: products.createdAt,
     },
     title: listings.title,
     description: listings.description,
@@ -284,6 +286,26 @@ export async function getProductForCreator(id: string, creatorId: string): Promi
 export async function updateProduct(id: string, patch: Partial<typeof products.$inferInsert>): Promise<ProductRow> {
   const [row] = await db().update(products).set(patch).where(eq(products.id, id)).returning();
   return row;
+}
+
+/** A sticker that has a cut-out but no public preview yet (made before T121). */
+export type PreviewBackfillRow = { productId: string; creatorId: string; cleanedUrl: string };
+
+/** Sticker products (not deleted) whose artwork has `cleaned_url` and whose `preview_url` is null. Read-only. */
+export async function listStickersMissingPreview(): Promise<PreviewBackfillRow[]> {
+  const rows = await db().select({ productId: products.id, creatorId: products.creatorId, cleanedUrl: artworks.cleanedUrl })
+    .from(products)
+    .innerJoin(artworks, eq(artworks.id, products.artworkId))
+    .where(and(eq(products.type, "sticker"), isNull(products.previewUrl), isNull(products.deletedAt), sql`${artworks.cleanedUrl} is not null`))
+    .orderBy(products.createdAt);
+  return rows.filter((r): r is PreviewBackfillRow => Boolean(r.cleanedUrl));
+}
+
+/** Sets `preview_url` only while it is still null (a re-run or a concurrent rebuild never overwrites one). True when a row changed. */
+export async function setProductPreviewIfMissing(id: string, previewUrl: string): Promise<boolean> {
+  const rows = await db().update(products).set({ previewUrl })
+    .where(and(eq(products.id, id), isNull(products.previewUrl))).returning({ id: products.id });
+  return rows.length > 0;
 }
 
 export async function getListing(productId: string): Promise<ListingRow | null> {

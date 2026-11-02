@@ -36,14 +36,14 @@ describe("GET /artworks products", () => {
   const art = (id: string, t: number) => ({ id, createdAt: new Date(t) }) as unknown as ArtworkRow;
   it("groups joined rows: artwork order kept, products newest first, artworks without products get []", () => {
     const out = groupArtworkProducts([
-      { artwork: art("a2", 2), product: { id: "p1", type: "sticker", status: "draft", priceCents: 500, mockupUrl: null, createdAt: new Date(10) }, title: null, description: null },
-      { artwork: art("a2", 2), product: { id: "p2", type: "tote", status: "published", priceCents: 2200, mockupUrl: "https://x/m.png", createdAt: new Date(20) }, title: "Frog tote", description: "A frog." },
+      { artwork: art("a2", 2), product: { id: "p1", type: "sticker", status: "draft", priceCents: 500, mockupUrl: null, previewUrl: "https://x/pv.png", createdAt: new Date(10) }, title: null, description: null },
+      { artwork: art("a2", 2), product: { id: "p2", type: "tote", status: "published", priceCents: 2200, mockupUrl: "https://x/m.png", previewUrl: null, createdAt: new Date(20) }, title: "Frog tote", description: "A frog." },
       { artwork: art("a1", 1), product: null, title: null, description: null },
     ]);
     expect(out.map((a) => a.id)).toEqual(["a2", "a1"]);
     expect(out[0].products).toEqual([
-      { id: "p2", type: "tote", status: "published", priceCents: 2200, mockupUrl: "https://x/m.png", title: "Frog tote", description: "A frog." },
-      { id: "p1", type: "sticker", status: "draft", priceCents: 500, mockupUrl: null, title: null, description: null },
+      { id: "p2", type: "tote", status: "published", priceCents: 2200, mockupUrl: "https://x/m.png", previewUrl: null, title: "Frog tote", description: "A frog." },
+      { id: "p1", type: "sticker", status: "draft", priceCents: 500, mockupUrl: null, previewUrl: "https://x/pv.png", title: null, description: null },
     ]);
     expect(out[1].products).toEqual([]);
   });

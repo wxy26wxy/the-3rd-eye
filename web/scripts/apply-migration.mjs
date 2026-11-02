@@ -22,8 +22,8 @@ for (const statement of statements) {
   await sql.query(statement);
   console.log("applied:", statement.split("\n")[0].slice(0, 80));
 }
-// Columns added by the additive migrations so far (0003 T070, 0004 T111): each should say "yes".
-for (const [table, column] of [["creators", "hidden"], ["artworks", "change_instruction"], ["orders", "size"], ["orders", "quantity"]]) {
+// Columns added by the additive migrations so far (0003 T070, 0004 T111, 0005 T121): each should say "yes".
+for (const [table, column] of [["creators", "hidden"], ["artworks", "change_instruction"], ["orders", "size"], ["orders", "quantity"], ["products", "preview_url"]]) {
   const [{ n }] = await sql.query(
     "select count(*)::int n from information_schema.columns where table_name=$1 and column_name=$2",
     [table, column],

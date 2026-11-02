@@ -25,7 +25,7 @@ Status: **pending (v3, T110)** = the board changed or is new in v3 and the scree
 | `2026:2959` | Choose product · Web · Sky | Choose product | `/create/product` · `ChooseProduct` | — (web board) | implemented (T105) |
 | `2026:2998` | Choose method · Web · Sky | Choose method: "How do you want to add your art?", photo and upload only ("Say it out loud" `2026:3046` removed) | `/create/method` · `ChooseMethod` | — (web board) | implemented (T113) |
 | `2026:3067` | Change it · Listening · Web · Sky (was Speak · Listening) | Change your art, listening (Art preview "Your art", seconds, Stop, Type instead) | `/create/change` · `ChangeIt`, `ChangeItView` | — (web board) | implemented (T113) |
-| `2026:3098` | Change it · Question · Web · Sky (was Speak · Question) | Clarifying question about the change | `/create/change` · `ChangeIt`, `ChangeItView` | — (web board) | implemented (T113) |
+| `2026:3098` | Change it · Question · Web · Sky (was Speak · Question) | Clarifying question about the change | `/create/change` · `ChangeIt`, `ChangeItView` | — (web board) | not built (API returns no question) |
 | `2026:3135` | Change it · Microphone off · Web · Sky (was Speak · Microphone off) | Microphone off: type what to change, Make the change | `/create/change` · `ChangeIt`, `ChangeItView` | — (web board) | implemented (T113) |
 | `2027:3042` | Changing your art · Web · Sky (was Drawing your idea) | Changing your art (Art preview instead of the sky card) | `/create/changing` · `Changing` | — (web board) | implemented (T113) |
 | `2027:3062` | Changing your art · Error · Web · Sky | The change did not work this time; Try again, Back to my art | `/create/changing` · `Changing` | — (web board) | implemented (T113) |

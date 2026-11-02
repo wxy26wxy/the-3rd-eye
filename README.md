@@ -7,13 +7,13 @@ This is our entry for the Meta Global AI Developer Hackathon (Startups track, "B
 ## Screenshots
 
 <p>
-  <img width="280" src="docs/images/ios-change-it.png" alt="The iOS app's Change your art? screen: your picked drawing on a card, a description of what the image shows, a field for what to change, and a Looks good as is button">
-  <img width="280" src="docs/images/ios-before-after.png" alt="The iOS app's Here's the change screen: the request Make the sky purple, Before and After pictures side by side, and the buttons Use this, Change it again and Back to my original">
+  <img width="280" src="docs/images/ios-change-it.png" alt="The iOS app's Change your art? screen: your picked drawing on a card, a description of what the image shows, the What to change field with the words Make the sky purple typed in, the Say what to change microphone button, Make the change, and a Looks good as is button">
+  <img width="280" src="docs/images/ios-before-after.png" alt="The iOS app's Here's the change screen: the request Make the sky purple, Before and After pictures side by side (the same sample mascot on both sides, because the mock makes no real edit), and the buttons Use this, Change it again and Back to my original">
 </p>
 
 ![The shop home page at desktop width: the eyebrow "Stickers & totes by disabled artists", the headline "Art with a story in every piece.", the buttons Shop new arrivals and How story tags work, and a photo of the green mascot holding tote bags with a Tap the tag card](docs/images/web-shop-home.png)
 
-The iOS shots (v0.8-rc1) come from the simulator running against the mock API (`ios/scripts/mock_api.py`), with the mascot standing in for the drawing and the change result; the shop shot is the local dev server at 1440 px. Mascot and sky imagery: The 3rd Eye design team.
+The iOS shots (v0.8-rc1) come from the simulator running against the mock API (`ios/scripts/mock_api.py`), with the mascot standing in for the drawing and the change result; the shop shot is the local dev server, captured at 1440 px and shown here at 1200 px. Mascot and sky imagery: The 3rd Eye design team.
 
 ## Try it in 3 minutes
 

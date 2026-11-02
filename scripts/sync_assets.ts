@@ -4,7 +4,8 @@
  *   ios/App/Assets.xcassets/<name>.imageset/         PNG: <name>@2x.png (the file) + <name>.png (1x, sharp)
  *                                                     SVG: <name>.svg, vector kept; icons and the logo
  *                                                     render as templates (tinted by the view)
- *   ios/App/Info.plist UIAppFonts                    makes sure Inter-Variable.ttf is registered
+ *   ios/App/Info.plist UIAppFonts                    makes sure Outfit-Variable.ttf is registered (and no
+ *                                                     other bundled font file is listed)
  * A GIF entry becomes an MP4 (<name>.mp4, H.264, looped by the player) in ios/App/Resources/Animations/
  * (needs ffmpeg; bit-exact flags keep reruns byte-identical); the same MP4 is copied to
  * web/public/assets/<name>.mp4 (ASSETS.<key>Video), which pages play instead of the GIF.
@@ -25,7 +26,7 @@ const tokens = JSON.parse(readFileSync(resolve(root, "design/tokens.json"), "utf
 const src = resolve(root, "design/assets");
 const webDir = resolve(root, "web/public/assets");
 const xcassets = resolve(root, "ios/App/Assets.xcassets");
-const fontFile = "Inter-Variable.ttf";
+const fontFile = "Outfit-Variable.ttf";
 const fontDir = resolve(root, "ios/App/Resources/Fonts");
 const infoPlist = resolve(root, "ios/App/Info.plist");
 
@@ -104,8 +105,17 @@ function prune(names: Set<string>, files: Set<string>) {
 
 function registerFont() {
   nonEmpty(resolve(fontDir, fontFile));
-  nonEmpty(resolve(fontDir, "OFL-Inter.txt"));
-  const plist = readFileSync(infoPlist, "utf8");
+  nonEmpty(resolve(fontDir, "OFL-Outfit.txt"));
+  let plist = readFileSync(infoPlist, "utf8");
+  // Drop font files that are no longer bundled (Inter-Variable.ttf until T110).
+  const listed = plist.match(/<key>UIAppFonts<\/key>\s*<array>([\s\S]*?)<\/array>/);
+  for (const [line, file] of listed ? listed[1].matchAll(/\n\s*<string>([^<]+)<\/string>/g) : []) {
+    if (file !== fontFile && !existsSync(resolve(fontDir, file))) {
+      plist = plist.replace(line, "");
+      console.log(`assets: removed ${file} from UIAppFonts (not in Resources/Fonts)`);
+    }
+  }
+  writeFileSync(infoPlist, plist);
   if (plist.includes(`<string>${fontFile}</string>`)) return;
   const m = plist.match(/<key>UIAppFonts<\/key>\s*<array>/);
   if (!m) fail("Info.plist has no UIAppFonts array");

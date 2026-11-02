@@ -105,8 +105,9 @@ swift += `  }\n  enum Semantic {\n`;
 for (const [k, v] of Object.entries(tokens.semantic)) swift += `    static let ${k} = ${hexToSwift(deref(v) as string)}\n`;
 swift += `  }\n  enum HighContrast {\n`;
 for (const [k, v] of Object.entries<string>(tokens.highContrast)) swift += `    static let ${k} = ${hexToSwift(v)}\n`;
-// `font.<role>.ios` is the name iOS registers for the bundled file (Inter's variable TTF registers
-// as "Inter Variable"); without it the old rule applies (family without spaces + "-Regular").
+// `font.<role>.ios` is the name iOS resolves for the bundled file (Outfit's variable TTF registers the
+// typographic family "Outfit"; its default instance is Thin, so views always set a weight);
+// without it the old rule applies (family without spaces + "-Regular").
 const iosFont = (f: { family: string; ios?: string }, fallback: string) => f.ios ?? fallback;
 swift += `  }\n  enum FontName {\n    static let display = "${iosFont(tokens.font.display, tokens.font.display.family.replace(/ /g, "") + "-Regular")}"\n    static let body = "${iosFont(tokens.font.body, tokens.font.body.family)}"\n  }\n  enum TypeScale {\n`;
 for (const [k, v] of Object.entries<any>(tokens.type)) swift += `    static let ${k}: CGFloat = ${v.size}\n`;

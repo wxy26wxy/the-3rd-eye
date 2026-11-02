@@ -51,9 +51,9 @@ final class ThemeEffectsTests: XCTestCase {
     XCTAssertEqual(Double(Tokens.ShadowBlur.soft), try number(t, "shadow", "soft", "blur"))
   }
 
-  /// Inter-Variable.ttf is bundled and registered (Info.plist UIAppFonts) under the name Tokens.FontName uses.
+  /// Outfit-Variable.ttf is bundled and registered (Info.plist UIAppFonts) under the name Tokens.FontName uses.
   func testInterIsRegistered() {
-    XCTAssertNotNil(UIFont(name: Tokens.FontName.body, size: 15), "Inter not registered as \(Tokens.FontName.body)")
+    XCTAssertNotNil(UIFont(name: Tokens.FontName.body, size: 15), "Outfit not registered as \(Tokens.FontName.body)")
     XCTAssertNotNil(UIFont(name: Tokens.FontName.display, size: 48))
   }
 

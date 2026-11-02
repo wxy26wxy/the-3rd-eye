@@ -11,6 +11,8 @@ export const ASSETS = {
   sky: "/assets/sky.png",
   tote: "/assets/tote.png",
   heroSky: "/assets/hero-sky.png",
+  stickerLoading: "/assets/sticker-loading.gif",
+  stickerLoadingVideo: "/assets/sticker-loading.mp4",
   iconCamera: "/assets/icon-camera.svg",
   iconImage: "/assets/icon-image.svg",
   iconMic: "/assets/icon-mic.svg",

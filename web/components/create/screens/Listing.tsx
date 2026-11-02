@@ -106,7 +106,7 @@ function ListingForm() {
   return (
     <ListingView
       uid={uid}
-      mockup={{ src: productPicture(p, art), alt: fmt(m.create.ready.mockupAlt, { product: tote ? m.common.tote : m.common.sticker }) }}
+      mockup={{ src: productPicture(p, art), shadow: !tote, alt: fmt(m.create.ready.mockupAlt, { product: tote ? m.common.tote : m.common.sticker }) }}
       drafting={running && !draft.listing}
       improving={running && !!draft.listing}
       submitting={submitting}

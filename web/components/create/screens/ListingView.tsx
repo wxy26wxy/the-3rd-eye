@@ -16,7 +16,8 @@ export const LISTING_FORM = "listing-form";
 
 export type ListingViewProps = {
   uid: string;
-  mockup: { src: string | null; alt: string };
+  /** The product picture; `shadow` for a sticker preview (its white border reads on the grey card). */
+  mockup: { src: string | null; alt: string; shadow?: boolean };
   /** The agent is writing the first draft: the picture, the creating-cutout animation and the writing line; no fields. */
   drafting: boolean;
   /** "Improve with AI" is running (the form stays). */
@@ -62,7 +63,7 @@ export function ListingView({ uid, mockup, drafting, improving, submitting, titl
       footer={<Button type="submit" form={LISTING_FORM} block disabled={drafting || improving || submitting}>{submitting ? m.create.listing.submitting : m.create.listing.submit}</Button>}
     >
       <div className={styles.mockup}>
-        <ArtImage src={mockup.src} alt={mockup.alt} placeholder={m.common.imageMissing} ratio="auto" eager className={styles.mockupArt} />
+        <ArtImage src={mockup.src} alt={mockup.alt} placeholder={m.common.imageMissing} ratio="auto" eager className={[styles.mockupArt, mockup.shadow ? styles.stickerShadow : ""].filter(Boolean).join(" ")} />
       </div>
       {drafting ? (
         <>

@@ -196,6 +196,14 @@ function listing(over: Partial<ListingViewProps> = {}): string {
 }
 
 describe("Listing view (T105, board 2030:3752: element order follows the board)", () => {
+  it("T127: a sticker preview gets the soft shadow so its white border reads; a tote's art does not", () => {
+    expect(listing({ mockup: { src: "/p.png", alt: "x", shadow: true } })).toMatch(/class="[^"]*mockupArt[^"]*stickerShadow/);
+    expect(listing({ mockup: { src: "/p.png", alt: "x" } })).not.toContain("stickerShadow");
+    const css = readFileSync(resolve(__dirname, "../components/create/Create.module.css"), "utf8");
+    expect(css).toMatch(/\.stickerShadow img \{ filter: drop-shadow\(var\(--shadow-soft\)\); \}/);
+    expect(css).toMatch(/\.readyCard \{[^}]*background: var\(--surface-alt\)/);
+  });
+
   it("mockup → Improve with AI → Name → Description → Price → earn → print check → trace → submit", () => {
     const l = m.create.listing;
     const out = listing();

@@ -95,6 +95,8 @@ describe("Product page v3 (board 2019:2004)", () => {
     // the slide and thumbnail image must not keep its own aspect height as a grid item (review T123 I1)
     const css = readFileSync(resolve(__dirname, "../components/product/Product.module.css"), "utf8");
     expect(css).toMatch(/\n\.slideContain \{[^}]*min-width: 0; min-height: 0;[^}]*object-fit: contain/);
+    // the story-tag pill on the main picture never covers the top of the art (T127)
+    expect(css).toMatch(/\.mainImage > \.slideContain \{ padding-top: max\(12%, calc\(var\(--space-xxl\) \+ var\(--size-min-target\)\)\); \}/);
   });
 
   it("gallery without pictures still shows the story tag card; a tote leads with its mockup", () => {

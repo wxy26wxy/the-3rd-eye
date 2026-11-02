@@ -12,7 +12,8 @@
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
     "seed": "dotenv -e .env.local -- tsx --conditions=react-server ../scripts/seed.ts",
     "probe": "dotenv -e .env.local -- tsx ../scripts/probe_meta.ts",
-    "migrate": "dotenv -e .env.local -- node scripts/apply-migration.mjs"
+    "migrate": "dotenv -e .env.local -- node scripts/apply-migration.mjs",
+    "backfill:previews": "dotenv -e .env.local -- tsx --conditions=react-server scripts/backfill_previews.ts"
   },
   "dependencies": {
     "@meta-sam/parser": "^0.1.0",

@@ -14,7 +14,7 @@ type Props = {
   className?: string;
 };
 
-/** Inter display headline: 72 (web, from 64rem) / 48 / 40 / 21 px, Medium, tracking −0.04em (Sky). */
+/** Outfit display headline: 72 (web, from 64rem) / 48 / 40 / 21 px, Medium, tracking −0.04em (Sky). */
 export function Display({ as: Tag = "h2", size = "l", tone, id, children, className }: Props) {
   return (
     <Tag id={id} className={[styles.display, styles[size], tone === "onPhoto" ? styles.onPhoto : "", className].filter(Boolean).join(" ")}>

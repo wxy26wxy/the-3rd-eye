@@ -139,7 +139,7 @@
   line-height: 1.2;
 }
 .stepText { display: grid; gap: var(--space-xs); }
-.stepTitle { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: 1.3; }
+.stepTitle { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: var(--type-title-l-lh); }
 .stepCopy { font-size: var(--type-body-size); line-height: var(--type-body-lh); color: var(--accent-ink); }
 @media (min-width: 64rem) {
   .band {
@@ -170,7 +170,7 @@
   font-size: var(--type-eyebrow-size);
   font-weight: var(--type-eyebrow-weight);
   letter-spacing: var(--type-eyebrow-ls);
-  line-height: 1.3;
+  line-height: var(--type-eyebrow-lh);
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -275,12 +275,12 @@
   font-size: var(--type-eyebrow-size);
   font-weight: var(--type-eyebrow-weight);
   letter-spacing: var(--type-eyebrow-ls);
-  line-height: 1.3;
+  line-height: var(--type-eyebrow-lh);
   text-transform: uppercase;
 }
 .poster .playCircle { position: absolute; right: var(--space-xl); bottom: var(--space-xl); }
 .makerInfo { display: grid; gap: var(--space-xs); }
-.makerName { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: 1.3; }
+.makerName { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: var(--type-title-l-lh); }
 .makerStudio { font-size: var(--type-caption-size); font-weight: var(--type-caption-weight); line-height: var(--type-caption-lh); color: var(--text-muted); }
 .makerChips { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 .meetEmpty { color: var(--color-ink-soft); }

@@ -71,7 +71,7 @@
   font-size: var(--type-eyebrow-size);
   font-weight: var(--type-eyebrow-weight);
   letter-spacing: var(--type-eyebrow-ls);
-  line-height: 1.3;
+  line-height: var(--type-eyebrow-lh);
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -170,7 +170,7 @@
   cursor: pointer;
 }
 .stepBtn:disabled { opacity: var(--opacity-disabled); cursor: default; }
-.stepValue { min-width: var(--space-card-pad); text-align: center; font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: 1.3; }
+.stepValue { min-width: var(--space-card-pad); text-align: center; font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: var(--type-title-l-lh); }
 .addToBag { flex: 1; min-width: 0; }
 
 /* Pays the artist (2019:2049): accentSoft, 18 px radius, deep green text. */

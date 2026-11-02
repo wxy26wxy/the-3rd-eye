@@ -47,7 +47,7 @@ export function HowSteps({ id = "how", preview }: { id?: string; preview?: React
 
 /** Phone preview of a story-tag page (4010:4376). Illustrative: aria-hidden, nothing in it is focusable. */
 export function PhonePreview({ name, studio, bio, product }: {
-  name: string | null; studio: string | null; bio: string | null; product: { title: string; imageUrl: string | null } | null;
+  name: string | null; studio: string | null; bio: string | null; product: { title: string; imageUrl: string | null; type: "sticker" | "tote" } | null;
 }) {
   return (
     <div className={styles.phone} aria-hidden="true">
@@ -68,7 +68,7 @@ export function PhonePreview({ name, studio, bio, product }: {
           </span>
           <span className={styles.phoneProductText}>
             <span className={styles.phoneProductTitle}>{product.title}</span>
-            <span className={styles.phoneProductNote}>{m.shop.previewProduct}</span>
+            <span className={styles.phoneProductNote}>{fmt(m.shop.previewProduct, { type: product.type === "sticker" ? m.common.sticker : m.common.tote })}</span>
           </span>
         </div>
       ) : null}

@@ -110,7 +110,8 @@ describe("Shop v3 (board 2018:1789)", () => {
   });
 
   it("phone preview shows the featured creator and their piece", () => {
-    const out = html(createElement(PhonePreview, { name: "Rosa M.", studio: "Sunny Studio", bio: "I draw monsters.", product: { title: "Reading Monster", imageUrl: "/a.png" } }));
+    const out = html(createElement(PhonePreview, { name: "Rosa M.", studio: "Sunny Studio", bio: "I draw monsters.", product: { title: "Reading Monster", imageUrl: "/a.png", type: "tote" } }));
+    expect(out).toContain(fmt(m.shop.previewProduct, { type: m.common.tote }));
     expect(out).toContain(fmt(m.shop.previewHi, { name: "Rosa M." }).replace("'", "&#x27;"));
     expect(out).toContain(`${m.shop.previewEyebrow} · Sunny Studio`);
     expect(out).toContain("Reading Monster");

@@ -21,7 +21,7 @@ async function FeaturedPreview() {
       name={c?.displayName ?? null}
       studio={c?.studioName ?? null}
       bio={c?.storyText ?? c?.bioShort ?? null}
-      product={first ? { title: first.title, imageUrl: first.artworkUrl ?? first.mockupUrl } : null}
+      product={first ? { title: first.title, imageUrl: first.artworkUrl ?? first.mockupUrl, type: first.type } : null}
     />
   );
 }

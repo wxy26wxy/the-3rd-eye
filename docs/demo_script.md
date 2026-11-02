@@ -13,8 +13,8 @@ Shot-by-shot script for the submission video. Narration is plain, first person p
 - **Props:** one rough pencil sketch on paper (a character with a book works well with the change "make the book red"), one printed die-cut sticker with an NFC tag written to `/t/<token>` of a test order (to do: print, cut and write it at the physical test before the freeze, Nov 3 9:00 AM; method: a standard NFC writer app), a second phone to play the buyer.
 - **Pre-recorded safety takes:** record each live step once in rehearsal and keep the clip, named `fallback-<shot>.mov`.
 
-## Screens on camera (iOS, in order; v0.8 copy from `docs/design/copy-v3-ios.md`)
-Welcome ("Your art, on things people love.", signed in beforehand, so only the first frame if at all) → Pick ("What do you want to make?": Sticker or Tote bag, Next) → Choose ("How do you want to add your art?": "Take a photo" ("Snap your drawing") or "Upload a picture" ("Pick one you already have")) → Camera ("Open the camera") or the photo library → Finding ("Finding your drawings…") → Choose a pattern ("Tap the one you want.", "Use this") → Change it ("Change your art?": "Say what to change" or the "What to change" field, "Make the change", "Looks good as is") → Changing your art ("YOU ASKED") → Before and after ("Here's the change": Before, After, "WHAT THE IMAGE SHOWS", "Use this", "Change it again", "Back to my original") → Making your cutout → Your cutout ("Here's the cutout of your changed art. Fix the edges if you need to.", "Use this") → Making your sticker ("Adding the white border and getting it ready to print.") → Design ready ("Your sticker is ready!", "Put it up for sale now?") → Listing details → Story video ("Tell buyers your story") → Video saved → You're live ("<title> is in the shop."). Shots 2 and 3 cover the creation flow; shots 5 and 6 cover the Orders and Messages tabs.
+## Screens on camera (iOS, in order; v0.8 copy from `docs/design/copy-v3-ios.md` and the feedback-round-2 changes in `docs/design/copy-v4.md`)
+Welcome ("Your art, on things people love.", signed in beforehand, so only the first frame if at all) → Pick ("What do you want to make?": Sticker or Tote bag, the "My story video" row, Next) → Choose ("How do you want to add your art?": "Take a photo" ("Snap your drawing") or "Upload a picture" ("Pick one you already have")) → Camera ("Open the camera") or the photo library → Finding ("Finding your drawings…") → Choose a pattern ("Tap the one you want.", "Use this") → Adjust the area ("Drag the corners so the frame covers your drawing.", "Use this area", "Reset") → Change it ("Change your art?": "Say what to change" or the "What to change" field, "Make the change" and "Looks good as is" side by side in the card) → Changing your art ("YOU ASKED") → Before and after ("Here's the change": Before, After, "WHAT THE IMAGE SHOWS", "Use this", "Change it again", "Back to my original") → Making your cutout → Your cutout ("Here's your cutout.", the preview, "Use this", "Start over"; no edge tools) → Making your sticker ("Adding the white border and getting it ready to print.") → Design ready ("Your sticker is ready!", "Put it up for sale now?") → Listing details (drafting card "Writing your listing…", then the filled fields) → Story video ("Tell buyers your story") → Video saved → You're live ("<title> is in the shop."). The Create tab's "My story video" row (Watch, Record again) is shown once in shot 5. Shots 2 and 3 cover the creation flow; shots 5 and 6 cover the Orders and Messages tabs.
 
 ## Beat sheet
 
@@ -42,9 +42,10 @@ Creator: **June Park** (signed in beforehand). Capture: phone over the shoulder 
 Steps and what the viewer sees:
 1. Create tab > Sticker > Next > "Take a photo" (detail line "Snap your drawing") > "Open the camera". "Finding your drawings…" shows while SAM 3.1 finds the pieces.
 2. **Choose a pattern:** "Tap the one you want." June picks the sketch ("Piece 1") and taps "Use this".
-3. **Change it:** "Change your art?" shows her piece as "Your art" with "WHAT THE IMAGE SHOWS". She taps "Say what to change" and says "make the book red, and give him a yellow raincoat". Muse Voice Transcribe 1.0 writes it down ("Writing down what you said…"), the words land in the "What to change" field, and VoiceOver announces "You said: …". She can fix the words in the field, then taps "Make the change".
-4. The iOS app asks no follow-up question; the words in the field are what is sent.
-5. **Changing your art:** the "YOU ASKED" card shows her words while Muse Image 1.0 edits her own piece (the picture is the input image; nothing is drawn from words alone).
+3. **Adjust the area:** "Drag the corners so the frame covers your drawing." The frame already sits on her sketch; she drags one corner to tighten it (a keyboard or VoiceOver user does the same with the frame's actions, "Grow 10 %" and "Shrink 10 %", and hears "Frame covers … percent of the photo") and taps "Use this area". Keep this to about 4 seconds.
+4. **Change it:** "Change your art?" shows her piece as "Your art" with "WHAT THE IMAGE SHOWS". She taps "Say what to change" and says "make the book red, and give him a yellow raincoat". Muse Voice Transcribe 1.0 writes it down ("Writing down what you said…"), the words land in the "What to change" field, and VoiceOver announces "You said: …". She can fix the words in the field, then taps "Make the change".
+5. The iOS app asks no follow-up question; the words in the field are what is sent.
+6. **Changing your art:** the "YOU ASKED" card shows her words while Muse Image 1.0 edits her own piece (the picture is the input image; nothing is drawn from words alone).
 
 Narration (leave about 10 s silent for VoiceOver speech and the edit wait):
 "June is one of our example artists. She photographs her sketch, and SAM finds it. Then she says what to change. Muse Voice Transcribe writes it down, and Muse Image changes her own drawing, not a new one."
@@ -57,8 +58,8 @@ Creator: **June Park**, continuing shot 2. Capture: the phone's screen recording
 Steps:
 1. **Before and after:** "Here's the change" with "Before" and "After" side by side. **VoiceOver reads the "WHAT THE IMAGE SHOWS" card**, Muse Spark 1.3's description of the result; if the change missed something, "Different from what you asked: …" says so. Cut to the card as text so deaf viewers get it too. Point at "Change it again" and "Back to my original" (the original is never lost); tap "Use this".
 2. **Making your cutout** ("Cutting out your art. This takes a few seconds.") while SAM 3.1 cuts the changed piece out.
-3. **Your cutout:** "Here's the cutout of your changed art. Fix the edges if you need to." Optionally show "Add area" fixing one edge, then "Use this".
-4. **Making your sticker** ("Adding the white border and getting it ready to print.", the looping sticker animation) → "Your sticker is ready!" and "Put it up for sale now?". Listing details, "Tell buyers your story" and "You're live" follow in the app; this shot stops at Design ready.
+3. **Your cutout:** "Here's your cutout." The screen is a preview only (the cutout on the checkerboard, "Use this", "Start over"); the area was already set on Adjust the area, so there is nothing to fix here. Tap "Use this".
+4. **Making your sticker** ("Adding the white border and getting it ready to print.", the looping sticker animation) → "Your sticker is ready!" and "Put it up for sale now?". Then Listing details: for a couple of seconds the **drafting card** shows ("Writing your listing…", "We'll show the name, price and description when it's ready."), the fields appear filled when Muse Spark 1.3 has written them, and "Approve and list it" turns on. "Tell buyers your story" and "You're live" follow in the app; this shot stops at Design ready, and the drafting card can be a 3-second insert.
 
 Narration:
 "Muse Spark describes the result, and VoiceOver reads it to her, so she can compare before and after. She can change it again or go back. SAM cuts it out, and it becomes a sticker."
@@ -66,7 +67,7 @@ Narration:
 Fallback: if SAM returns nothing on stage, use the rehearsal take (`fallback-cutout.mov`). Do not retry on camera more than once.
 
 ### 4. A buyer finds it (1:15-1:40)
-Capture: screen recording of https://the-3rd-eye.vercel.app in a phone-sized browser window. Product: Leo's bus sticker (or the sticker just published).
+Capture: screen recording of https://the-3rd-eye.vercel.app in a phone-sized browser window. Product: Leo's bus sticker (or the sticker just published). The shop card and the first picture on the product page show the **bordered sticker tile** (the die-cut sticker with its white border, contained, never cropped); hold on the card for a second. The AI product photo is only a later picture in the gallery.
 
 Steps: shop home ("Art with a story in every piece.") > "New this week" > the product page (breadcrumb Shop / Stickers / the name, "Sticker · die-cut · waterproof", "Leo earns from every sticker sold.") > **Size** "4 in" > quantity "More" once (2) > **"Add to bag"** > the order sheet "Buy this piece": enter a name, "Place order · <price>" (the sheet says "Demo checkout: no payment is taken yet.") > "Thank you!" with the "Open the story tag" link.
 
@@ -78,7 +79,7 @@ Fallback: the shop has seeded products and orders; if the live site is slow, use
 ### 5. The creator says thank you (1:40-2:05)
 Capture: simulator capture of the Orders tab, then the phone for the 10-second video.
 
-Steps: Orders tab shows the new order (the list refreshes about every 10 seconds, there is no push notification) > Order detail > thank-you composer > record a 10-second video > send. Mention the story-draft sheet: after the story video, "Here's a story we drafted from your video" offers "Use this story", "Edit it" or "Skip".
+Steps: Orders tab shows the new order (the list refreshes about every 10 seconds, there is no push notification) > Order detail > thank-you composer > record a 10-second video > send. Show the Create tab once: under the product choice the **"My story video"** row ("Recorded <date>") opens the player ("Watch", with captions) and "Record again" (the new video replaces the old one on every product). Mention the story-draft sheet: after the story video, "Here's a story we drafted from your video" offers "Use this story", "Edit it" or "Skip".
 
 Narration:
 "The creator sees the order arrive and records a short thank-you; Muse Voice Transcribe adds captions. Muse Glimmer, an open-weight model on our own Mac through Ollama, drafts the artist's story from their words. The artist can use it, edit it, or skip it."

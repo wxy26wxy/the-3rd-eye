@@ -52,7 +52,7 @@ final class ThemeEffectsTests: XCTestCase {
   }
 
   /// Outfit-Variable.ttf is bundled and registered (Info.plist UIAppFonts) under the name Tokens.FontName uses.
-  func testInterIsRegistered() {
+  func testOutfitIsRegistered() {
     XCTAssertNotNil(UIFont(name: Tokens.FontName.body, size: 15), "Outfit not registered as \(Tokens.FontName.body)")
     XCTAssertNotNil(UIFont(name: Tokens.FontName.display, size: 48))
   }
@@ -116,5 +116,7 @@ final class ThemeEffectsTests: XCTestCase {
     XCTAssertNotNil(UIImage(named: Tokens.Asset.sky))
     XCTAssertNotNil(UIImage(named: Tokens.Asset.logoMark))
     XCTAssertNotNil(Bundle.main.url(forResource: Tokens.Asset.mascotMagnifier, withExtension: "mp4"))
+    // T110: Making your sticker / tote bag (2014:733, 4038:4494).
+    XCTAssertNotNil(Bundle.main.url(forResource: Tokens.Asset.stickerLoading, withExtension: "mp4"))
   }
 }

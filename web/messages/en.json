@@ -348,16 +348,11 @@
     "metaTitle": "Create",
     "step": "Step {n} of {total}",
     "typeInstead": "Type instead",
-    "speakInstead": "Speak instead",
     "signOut": "Sign out",
     "missingState": "Let's start from the beginning.",
     "errorGeneric": "Something went wrong. Please try again.",
     "welcome": {
-      "title": "Let's make something!",
-      "copy": "Turn your art or your idea into stickers and tote bags people can buy.",
-      "promise1": "You can speak, snap a photo, or upload a picture.",
-      "promise2": "We read every result out loud, so you always know what it shows.",
-      "promise3": "Nothing goes on sale until you say yes.",
+      "title": "Your art, / on things / people love.",
       "cta": "Start creating",
       "haveAccount": "I already have an account"
     },
@@ -379,29 +374,24 @@
       "groupLabel": "Choose a product"
     },
     "method": {
-      "title": "How do you want to make it?",
+      "title": "How do you want to add your art?",
       "photo": "Take a photo",
       "photoCopy": "Snap a drawing on paper.",
       "upload": "Upload a picture",
-      "uploadCopy": "Pick a picture from your phone.",
-      "speak": "Say it out loud",
-      "speakCopy": "Describe your idea. We'll draw it.",
-      "badge": "No pen needed!"
+      "uploadCopy": "Pick a picture from your phone."
     },
     "speak": {
-      "title": "Tell me your idea",
-      "hint": "Press the big button and describe what you want to see.",
+      "title": "Change your art",
+      "hint": "Press the big button and say what to change, or type it. Your original stays safe.",
       "listening": "Listening",
       "listeningHint": "Press stop when you are done.",
       "start": "Start talking",
       "stop": "Stop",
       "transcribing": "Writing down what you said…",
-      "shaping": "Thinking about your idea…",
       "youSaid": "You said",
-      "done": "Done",
-      "redo": "Say it again",
-      "textLabel": "Describe your idea",
-      "textPlaceholder": "A happy frog sitting in the sun",
+      "done": "Make the change",
+      "textLabel": "What should change?",
+      "textPlaceholder": "Make the book red",
       "questionTitle": "One quick question",
       "answerLabel": "Your answer",
       "answerSubmit": "Answer",
@@ -409,31 +399,31 @@
       "hearAgain": "Hear the question again",
       "micDenied": "We can't use the microphone. You can type instead.",
       "micUnsupported": "This browser can't record audio. You can type instead.",
-      "seconds": "{s} seconds"
+      "seconds": "{s} seconds",
+      "hintMicOff": "We can't use the microphone, so type what to change. Your original stays safe.",
+      "artLabel": "Your art"
     },
     "drawing": {
-      "title": "Drawing your idea",
+      "title": "Changing your art",
       "copy": "This takes about a minute. Tag is working on it.",
-      "spoken": "Drawing your idea now.",
-      "error": "The drawing did not work this time."
+      "error": "The change did not work this time.",
+      "back": "Back to my art"
     },
     "result": {
-      "title": "Here's what I made",
-      "youSaid": "You said",
-      "groupLabel": "Choose a picture",
-      "variant": "Picture {n}",
+      "title": "Here's the change",
+      "youSaid": "You asked",
       "shows": "What the image shows",
       "hear": "Hear what the image shows",
       "stop": "Stop",
-      "change": "Change it",
-      "changeLabel": "What should change?",
-      "changeSubmit": "Change it",
-      "changePlaceholder": "Make the frog bigger",
-      "backToPictures": "Back to the pictures",
-      "changing": "Changing it…",
+      "change": "Change it again",
+      "backToPictures": "Back to my original",
       "use": "Use this",
       "making": "Making your {product}… this can take a minute.",
-      "selected": "Selected"
+      "titleEntry": "Change your art?",
+      "skip": "Looks good as is",
+      "before": "Before",
+      "after": "After",
+      "tryDifferent": "Try a different change"
     },
     "photo": {
       "titleCamera": "Take a photo",
@@ -449,11 +439,11 @@
       "error": "We couldn't use that picture. Try another one."
     },
     "select": {
-      "title": "Pick your art",
-      "copyOne": "We found one piece. Change the cutout with the tools below.",
-      "copyMany": "We found {n} pieces. Pick one, or several to combine them.",
+      "title": "Tap the one you want.",
+      "copyOne": "We found one drawing in your photo. Use it to change and turn into a {product}.",
+      "copyMany": "We found {n} drawings in your photo. Pick one to change and turn into a {product}.",
       "copyNone": "We could not find your drawing by ourselves. Draw a box around it on the photo.",
-      "groupLabel": "Pieces found",
+      "groupLabel": "Drawings found",
       "candidate": "Piece {n}",
       "photoLabel": "Your photo with the pieces we found",
       "loadingPhoto": "Getting your photo…",
@@ -463,9 +453,6 @@
       "modeAdd": "Add area",
       "modeRemove": "Remove area",
       "modeBox": "Draw a box",
-      "instructionAdd": "Tap the photo where the cutout should include more. Tap a mark again to remove it.",
-      "instructionRemove": "Tap a piece to leave it out of the cutout. To trim one piece, draw a box around what should stay.",
-      "instructionBox": "Drag a box around the whole drawing.",
       "instructionBoxNone": "Drag a box around your drawing. Then tap Apply cutout to see it.",
       "keyboardHint": "With a keyboard or screen reader, use the buttons under each piece instead.",
       "keyboardHintNone": "With a keyboard or screen reader, use the whole photo instead.",
@@ -477,21 +464,22 @@
       "marksLabel": "Marks",
       "maxMarks": "You can add up to 10 marks. Tap a mark to remove it.",
       "clearMarks": "Clear marks",
-      "needPiece": "Pick a piece, draw a box or add an area first. Remove area only leaves out pieces you picked.",
+      "needPiece": "Add or remove an area, or draw a box, before you apply the cutout.",
       "announceMark": "Mark added",
       "announceUnmark": "Mark removed",
       "announceBox": "Box drawn",
       "announceCleared": "Marks cleared",
       "apply": "Apply cutout",
-      "applying": "Saving the cutout…",
-      "applied": "Your cutout is saved. Here it is.",
+      "applying": "Cutting out your art…",
+      "applied": "Your cutout is ready. Here it is.",
       "showCutout": "Show the cutout",
-      "backToPhoto": "Back to photo",
+      "backToPhoto": "Fix the edges",
       "cutoutAlt": "Your cutout",
       "failedProducts": "Your cutout is saved. One product could not be rebuilt; try again later.",
       "unpublishedProducts": "One product went back to draft because the new cutout is too small to print, so it is out of the shop for now. After a bigger or clearer cutout, publish it again from My designs in the iPhone app.",
       "retake": "Retake",
-      "use": "Use this"
+      "use": "Use this",
+      "instruction": "Tap where the cutout should include more, or pick Remove area and tap what to leave out. To trim an edge, draw a box."
     },
     "ready": {
       "titleSticker": "Your sticker is ready!",
@@ -564,6 +552,21 @@
       "timeout": "That took too long. Your work is saved, so you can try again.",
       "retry": "Try again",
       "retake": "Retake the photo"
+    },
+    "cutout": {
+      "title": "Your cutout",
+      "adjustCopy": "Fix the edges if you need to. Tap the photo to add or remove an area.",
+      "copy": "Here's the cutout of your changed art.",
+      "copyOriginal": "Here's the cutout of your art.",
+      "makingTitle": "Making your cutout",
+      "makingCopy": "Cutting out your changed art.",
+      "makingCopyOriginal": "Cutting out your art."
+    },
+    "making": {
+      "titleSticker": "Making your sticker",
+      "copySticker": "Adding the white border and getting it ready to print.",
+      "titleTote": "Making your tote bag",
+      "copyTote": "Placing your art on the bag and getting it ready to print."
     }
   },
   "mascot": {

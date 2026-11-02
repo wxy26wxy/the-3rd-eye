@@ -27,6 +27,8 @@
 .headCenter { justify-items: center; text-align: center; }
 .titleRow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-m); width: 100%; }
 .headCenter .titleRow { justify-content: center; }
+/* The h1 takes focus on arrival (ScreenTitle); it is not a control, so no focus ring. */
+.titleRow h1:focus { outline: none; }
 .mascot { width: calc(var(--size-record) * 1.6); justify-self: center; }
 .body { flex: 1; display: grid; gap: var(--space-xl); align-content: start; }
 .body > * { min-width: 0; }
@@ -81,8 +83,8 @@
 }
 .textAction { justify-self: center; }
 
-/* Welcome (board 2026:2865): full-bleed photo, white text on scrim panels. color.scrim is the ink at
-   55 % (the boards' value; since T106 the token itself), so 15 px white text keeps 4.5:1 on the clouds. */
+/* Welcome (board 2026:2865, v3): the open sky photo, no panels. The white title sits on the bare sky
+   by design (ruling R5, the recorded contrast exception); the text action is ink, as on the board. */
 .welcome {
   position: relative;
   isolation: isolate;
@@ -93,7 +95,6 @@
   gap: var(--space-section);
   min-height: 100dvh;
   overflow: hidden;
-  color: var(--text-on-dark);
 }
 .welcomeBg { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: center; }
 .welcomeTop, .welcomeBottom {
@@ -103,28 +104,12 @@
   margin-inline: auto;
   padding-inline: var(--space-page);
 }
-.welcomeTop { gap: var(--space-l); padding-top: var(--space-xl); }
-.welcomeBottom { gap: var(--space-s); padding-bottom: calc(var(--space-l) * 2); }
-.scrim {
-  display: grid;
-  gap: var(--space-s);
-  padding: var(--space-xl);
-  border-radius: var(--radius-card);
-  background: var(--scrim);
-  color: var(--text-on-dark);
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-lh);
-}
-.promises { gap: var(--space-xs); padding: var(--space-l) var(--space-xl); border-radius: var(--radius-card); list-style: decimal inside; }
-/* The footer text action sits on the photo: it gets the same ink-55 % scrim as a pill (4.5:1 on the
-   lightest clouds; the board draws it bare, which measured 2.45:1). */
+.welcomeTop { gap: var(--space-xl); padding-top: var(--space-xl); }
+.welcomeBottom { gap: var(--space-s); padding-bottom: var(--space-block); }
+.welcomeTitle { text-wrap: wrap; }
+.welcomeLine { display: block; }
 .welcomeLinks { display: flex; justify-content: center; }
-.welcomeLinks a, .welcomeLinks button {
-  color: var(--text-on-dark); font-weight: var(--type-body-weight);
-  padding-inline: var(--space-xl);
-  border-radius: var(--radius-pill);
-  background: var(--scrim);
-}
+.welcomeLinks a, .welcomeLinks button { color: var(--text); }
 
 /* shared pieces */
 /* Record button (84 px): ink with a mic; while recording deep green with an accent ring and Stop. */
@@ -161,6 +146,8 @@
   border: calc(var(--border-thin) * 2) dashed var(--text); border-radius: var(--radius-m);
   box-shadow: 0 0 0 var(--border-thin) var(--surface);
 }
+/* Choose a pattern: a tap on an outline picks that piece. */
+.outlinePick { pointer-events: auto; cursor: pointer; }
 .outlineOn { border-style: solid; background: color-mix(in srgb, var(--surface-alt) 35%, transparent); }
 .outlineCheck {
   position: absolute; top: calc(var(--space-s) * -1); right: calc(var(--space-s) * -1);
@@ -270,32 +257,40 @@
 .form { display: grid; gap: var(--space-xl); }
 .body > .skyShort { aspect-ratio: 342 / 200; }
 
-/* Result (board 2027:3091): picture row, large preview, change card. */
-/* Three per row as on the board; a fourth variant or a refine wraps to the next row (labels never clip). */
-.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-s); list-style: none; }
-.tile {
-  display: grid; justify-items: center; gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-xs) var(--space-s);
-  border: var(--border-thin) solid var(--border); border-radius: var(--radius-m);
-  background: var(--surface); cursor: pointer;
-}
-.tile:has(input:checked) { background: var(--accent); border: calc(var(--border-thin) * 2) solid var(--accent-border); color: var(--accent-ink); }
-.tile:has(input:focus-visible) { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
-.tile .tileArt { background: transparent; }
-.tileLabel { font-size: var(--type-caption-size); font-weight: var(--type-caption-weight); line-height: var(--type-caption-lh); white-space: nowrap; }
-.previewCard {
+/* Change it (boards 2027:3138, 2026:3067, 2026:3135, 2038:4060) and Before and after (2027:3091). */
+/* Art preview (Components 4021:4470): grey well 342 × 240, radius 24, the white label chip top-left. */
+.artPreview {
+  position: relative;
   display: grid; place-items: center;
-  padding: var(--space-xl);
-  border: var(--border-thin) solid var(--border); border-radius: var(--radius-card);
-  background: var(--surface);
+  aspect-ratio: 342 / 240;
+  padding: var(--space-sm);
+  border-radius: calc(var(--radius-m) + var(--space-xs));
+  background: var(--surface-alt);
+  overflow: hidden;
 }
-.previewCard .previewArt { width: auto; height: calc(var(--size-record) * 2.6); aspect-ratio: 1; background: transparent; }
+.artPreview .artPreviewImg { width: auto; height: 70%; max-width: 100%; aspect-ratio: 1; background: transparent; }
+.artLabel {
+  position: absolute; top: var(--space-sm); left: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--type-eyebrow-size); font-weight: var(--type-eyebrow-weight);
+  line-height: var(--type-eyebrow-lh); letter-spacing: var(--type-eyebrow-ls); text-transform: uppercase;
+}
+.artPair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); }
+.artPair .artPreview { aspect-ratio: 165 / 240; }
+.artPair .artPreviewImg { width: 100%; height: auto; }
 .changeCard {
-  display: grid; gap: var(--space-l);
+  display: grid; gap: var(--space-m);
   padding: var(--space-l);
   border: var(--border-thin) solid var(--border); border-radius: var(--radius-m);
   background: var(--surface);
 }
+/* Making your sticker / tote bag (boards 4031:4378, 4038:4628): the loading animation, 342 × 342, radius 24. */
+.stickerLoading { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: calc(var(--radius-m) + var(--space-xs)); background: var(--surface-alt); }
+/* Making your cutout (board 2038:4369): the photo card, dimmed while the cut is made. */
+.photoCard .cutArt { width: 100%; background: transparent; }
 .photoPreview { display: grid; place-items: center; padding: var(--space-l); border: var(--border-thin) solid var(--border); border-radius: var(--radius-card); background: var(--surface); }
 .photoPreview img { max-height: var(--size-photo-max-height); }
 
@@ -338,7 +333,7 @@
 
 /* Forced colours: fills disappear, so the chosen segment / picture / piece gets a Highlight outline. */
 @media (forced-colors: active) {
-  .mode:has(input:checked), .tile:has(input:checked), .piece:has(input:checked) .pieceThumb {
+  .mode:has(input:checked), .piece:has(input:checked) .pieceThumb {
     outline: calc(var(--border-thin) * 3) solid Highlight;
     outline-offset: calc(var(--border-thin) * -3);
   }

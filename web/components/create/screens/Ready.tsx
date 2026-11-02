@@ -9,7 +9,7 @@ import { resetDraft, useCreate } from "../store";
 import styles from "../Create.module.css";
 
 /**
- * Your sticker is ready (boards `2030:3726`, notice `2038:4443`): logo (no Back), centred title, the
+ * Your sticker / tote bag is ready (boards `2030:3726`, `4038:4644` tote, notice `2038:4443`): logo (no Back), centred title, the
  * product picture, the cutout notice card when the last cleanup reported one, the question, and
  * Yes, list it! / Not now in the bar.
  */
@@ -18,7 +18,7 @@ export function Ready() {
   const p = draft.productRecord;
   if (ready && !p) return <MissingState />;
   const tote = (p?.type ?? draft.product) === "tote";
-  const art = draft.variants?.find((v) => v.id === p?.artworkId);
+  const art = draft.cutout?.artworkId === p?.artworkId ? draft.cutout : null;
   return (
     <CreateScreen
       title={tote ? m.create.ready.titleTote : m.create.ready.titleSticker}

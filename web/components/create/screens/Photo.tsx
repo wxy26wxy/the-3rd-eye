@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
-import { fmt, m } from "@/components/messages";
+import { m } from "@/components/messages";
 import { ArtImage } from "@/components/ui/ArtImage";
 import { Button, ButtonFace } from "@/components/ui/Button";
 import { CameraIcon, ImageIcon } from "@/components/ui/Icons";
@@ -11,10 +11,12 @@ import { api, extFor, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid, type Artwork, type
 import { CreateScreen, MissingState } from "../CreateScreen";
 import { boxRescueArtworkId } from "../cutout";
 import { describeError, ErrorNotice, type ScreenError } from "../errors";
-import { makeProduct, useCreate, useCreator } from "../store";
+import { afterPhoto, drawBoxOnPhoto } from "../flow";
+import { useCreate, useCreator } from "../store";
 import styles from "../Create.module.css";
 
-type Phase = "pick" | "uploading" | "finding" | "making";
+type Phase = "pick" | "uploading" | "finding";
+
 
 const MAX_SIDE = 4096;
 /**
@@ -72,16 +74,7 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
       });
       setPhase("finding");
       const res = await api<{ artwork: Artwork; candidates: Candidate[]; imageSize?: { w: number; h: number } | null }>("artworks", { json: { source: "photo", imageUrl: blob.url, product: draft.product } });
-      // No cut yet (several pieces, or one the server would not auto-pick): the creator picks and adjusts.
-      if (!res.artwork.cleanedUrl && res.candidates.length > 0) {
-        update({ photoArtworkId: res.artwork.id, candidates: res.candidates, imageSize: res.imageSize ?? null, appliedCutout: undefined, transcript: undefined, cutoutNotice: undefined });
-        router.push("/create/select");
-        return;
-      }
-      setPhase("making");
-      update({ transcript: undefined, cutoutNotice: undefined });
-      await makeProduct(res.artwork.id, draft.product);
-      router.push("/create/ready");
+      afterPhoto({ router, update }, res);
     } catch (err) {
       setError(describeError(err, m.create.photo.error));
       setRescueId(boxRescueArtworkId(err));
@@ -89,15 +82,11 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
     }
   }
 
-  /** Zero pieces found: open Select on this photo with no pieces, in box mode. */
-  function drawBox(id: string) {
-    update({ photoArtworkId: id, candidates: [], imageSize: null, appliedCutout: undefined, transcript: undefined, cutoutNotice: undefined });
-    router.push("/create/select");
-  }
+  /** Zero pieces found: Your cutout on this photo in box mode (the box cut becomes the picked piece). */
+  function drawBox(id: string) { drawBoxOnPhoto({ router, update }, id); }
 
   const busy = phase !== "pick";
-  const productWord = draft.product === "tote" ? m.common.tote.toLowerCase() : m.common.sticker.toLowerCase();
-  const busyLabel = phase === "uploading" ? m.create.photo.uploading : phase === "finding" ? m.create.photo.finding : fmt(m.create.result.making, { product: productWord });
+  const busyLabel = phase === "uploading" ? m.create.photo.uploading : m.create.photo.finding;
   const picker = (label: string, variant: "primary" | "secondary" = "primary") => (
     <FilePicker label={label} variant={variant} icon={variant === "secondary" ? (camera ? <CameraIcon /> : <ImageIcon />) : undefined}
       accept="image/*" capture={camera ? "environment" : undefined} onFile={onFile} />

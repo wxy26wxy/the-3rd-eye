@@ -8,7 +8,8 @@ import { YourCutoutView, type YourCutoutViewProps } from "@/components/create/sc
 import { AdjustAreaView, type AdjustAreaViewProps } from "@/components/create/screens/AdjustAreaView";
 import { AreaFrame } from "@/components/create/screens/AreaFrame";
 import { sizeText } from "@/components/create/screens/AdjustArea";
-import { StoryVideoRowView, recordedLine } from "@/components/create/StoryVideoRow";
+import { StoryVideoRowView } from "@/components/create/StoryVideoRow";
+import { MascotPicture } from "@/components/create/art";
 import { ListingView, LISTING_FORM, type ListingViewProps } from "@/components/create/screens/ListingView";
 import { ChoosePatternView, type ChoosePatternViewProps } from "@/components/create/screens/ChoosePatternView";
 import { ChangeItView, CHANGE_FORM, type ChangeItViewProps } from "@/components/create/screens/ChangeItView";
@@ -39,7 +40,7 @@ const before = (out: string, a: string, b: string) => {
 function cutoutView(over: Partial<YourCutoutViewProps> = {}): string {
   const props: YourCutoutViewProps = {
     title: m.create.cutout.title,
-    lead: m.create.cutout.copyOriginal,
+    lead: m.create.cutout.copy,
     back: "/create/change",
     cut: { src: "/cut.png", alt: t.cutoutAlt, aspectRatio: "4 / 3" },
     notice: null,
@@ -54,7 +55,7 @@ describe("Your cutout view (R3, board 2038:4233 simplified)", () => {
     const out = cutoutView();
     expect(out).toContain('aria-label="Back"');
     expect(out).toContain('alt="Your cutout"');
-    before(out, m.create.cutout.title, m.create.cutout.copyOriginal);
+    before(out, m.create.cutout.title, m.create.cutout.copy);
     beforeRaw(out, 'alt="Your cutout"', t.applied);
     before(out, t.applied, t.use);
     before(out, t.use, m.common.startOver);
@@ -72,7 +73,7 @@ describe("Your cutout view (R3, board 2038:4233 simplified)", () => {
 const ad = m.create.adjust;
 function adjust(over: Partial<AdjustAreaViewProps> = {}): string {
   const props: AdjustAreaViewProps = {
-    hintId: "h", back: "/create/pattern", retake: "/create/photo?mode=camera", none: false, busy: false,
+    hintId: "h", sizeId: "sz", sizeText: "Frame covers 54 by 61 percent of the photo", back: "/create/pattern", retake: "/create/photo?mode=camera", none: false, busy: false,
     photo: createElement("div", null, "PHOTO"), photoState: "loading", announce: "", canUse: true, error: null,
     on: { use: noop, reset: noop },
     ...over,
@@ -90,7 +91,9 @@ describe("Adjust the area view (R2)", () => {
     before(out, ad.keyboardHint, ad.use);
     before(out, ad.use, ad.reset);
     expect(out).toContain('<p id="h"');
+    expect(out).toContain('<p id="sz" class="visually-hidden">Frame covers 54 by 61 percent of the photo</p>');
     expect(out).toMatch(/role="status" aria-live="polite"/);
+    expect([ad.title, ad.copy, ad.use, ad.reset, ad.frameLabel]).toEqual(["Adjust the area", "Drag the corners so the frame covers your drawing.", "Use this area", "Reset", "Area frame"]);
   });
 
   it("no drawing found: the whole-photo copy", () => {
@@ -113,46 +116,58 @@ describe("Adjust the area view (R2)", () => {
 });
 
 describe("Adjust the area frame (R2)", () => {
-  it("one focusable frame named with its size, four 44 px corners and four edges hidden from assistive tech", () => {
+  it("one focusable frame (Area frame, role description area frame) described by its size and the hint; 44 px corners and edges hidden from assistive tech", () => {
+    const image = { w: 1000, h: 800 };
+    expect(sizeText([100, 80, 600, 480], image)).toBe("Frame covers 50 by 50 percent of the photo");
     const out = html(createElement(AreaFrame, {
-      src: "/o.jpg", image: { w: 1000, h: 800 }, box: [100, 80, 600, 480], disabled: false,
-      label: fmt(ad.frameLabel, { size: sizeText([100, 80, 600, 480], { w: 1000, h: 800 }) }), describedBy: "h", onChange: noop, onCommit: noop,
+      src: "/o.jpg", image, box: [100, 80, 600, 480], disabled: false, label: ad.frameLabel, describedBy: "sz h", onChange: noop, onCommit: noop,
     }));
-    expect(out).toMatch(/role="group" tabindex="0" aria-label="Area to cut out: 50 % of the photo&#x27;s width and 50 % of its height."/);
-    expect(out).toContain('aria-describedby="h"');
+    expect(out).toMatch(/role="group" tabindex="0" aria-label="Area frame" aria-roledescription="area frame" aria-describedby="sz h"/);
+    expect(out).toContain(`alt="${ad.photoLabel}"`);
     expect(out).toContain("left:10%;top:10%;width:50%;height:50%");
     expect(out.match(/data-corner=/g)?.length).toBe(4);
     expect(out.match(/data-side=/g)?.length).toBe(4);
-    expect(out.match(/data-handle="[a-z]+"[^>]*aria-hidden|aria-hidden="true" data-handle/g)?.length).toBe(8);
+    expect(out.match(/aria-hidden="true" data-handle/g)?.length).toBe(8);
     const css = readFileSync(resolve(__dirname, "../components/create/Create.module.css"), "utf8");
     expect(css).toMatch(/\.areaCorner \{[^}]*width: var\(--size-min-target\); height: var\(--size-min-target\)/);
   });
 });
 
+describe("Mascot pictures (R7)", () => {
+  it("Take a photo shows the card mascot, You're live the shop mascot, both described, through next/image", () => {
+    const card = html(createElement(MascotPicture, { kind: "card" }));
+    expect(card).toContain(`alt="${m.create.photo.mascotAlt}"`);
+    expect(card).toMatch(/src="\/_next\/image\?url=%2Fassets%2Fmascot-card\.png/);
+    const shop = html(createElement(MascotPicture, { kind: "shop" }));
+    expect(shop).toContain(`alt="${m.create.live.mascotAlt}"`);
+    expect(shop).toMatch(/mascot-shop\.png/);
+  });
+});
+
 describe("My story video row (R6)", () => {
-  const r6 = m.create.storyRow;
-  const base = { id: "cr1", storyVideoUrl: "creators/cr1/story-video/a b.mp4", storyVideoVtt: "WEBVTT", mentionDisability: false, storyDraft: null };
-  it("with a video: thumbnail, title, saved line, Watch and Record again (redo mode)", () => {
+  const r6 = m.create.myStory;
+  const base = { id: "cr1", storyVideoUrl: "creators/cr1/story-video/a b.mp4", storyVideoVtt: "WEBVTT" };
+  it("with a video: thumbnail, My story video, where buyers see it, Watch and Record again (redo mode)", () => {
     const out = html(createElement(StoryVideoRowView, { creator: base, watching: false, onWatch: noop }));
-    before(out, r6.title, r6.saved);
-    before(out, r6.watch, r6.again);
+    before(out, r6.row, r6.saved);
+    before(out, r6.watch, r6.recordAgain);
+    expect(r6.saved).toBe("Buyers see it when they tap your story tag.");
     expect(out).toContain('src="/media/creators/cr1/story-video/a%20b.mp4#t=0.1"');
     expect(out).toContain('href="/create/story-video?redo=1"');
     expect(out).toContain('aria-expanded="false"');
-    expect(out).toContain(r6.mentionOff);
   });
 
-  it("watching: the player with the captions track", () => {
+  it("watching: the player with the captions track; a failed load says so", () => {
     const out = html(createElement(StoryVideoRowView, { creator: base, watching: true, onWatch: noop }));
     expect(out).toMatch(/<video[^>]*controls/);
     expect(out).toContain('<track kind="captions" src="/captions/cr1"');
+    expect(text(html(createElement(StoryVideoRowView, { creator: base, watching: true, failed: true, onWatch: noop })))).toContain(r6.missing);
   });
 
-  it("the recording date when known; no video: the icon, No story video yet, Record one", () => {
-    expect(recordedLine({ storyDraft: { createdAt: "2026-11-02T12:00:00Z" } as never })).toBe("Recorded Nov 2, 2026");
+  it("no video: the icon, No story video yet, Record a video", () => {
     const out = html(createElement(StoryVideoRowView, { creator: { ...base, storyVideoUrl: null }, watching: false, onWatch: noop }));
     expect(out).toContain(r6.none);
-    expect(out).toContain(r6.record);
+    expect(out).toContain(m.create.story.record);
     expect(out).not.toContain(r6.watch);
     expect(out).not.toContain("<video");
   });
@@ -199,6 +214,8 @@ describe("Listing view (T105, board 2030:3752: element order follows the board)"
     expect(out).not.toContain(m.create.listing.improve);
     expect(out).not.toContain(m.create.listing.name);
     expect(out).not.toContain("<input");
+    expect(text(out)).toContain("We'll show the name, price and description when it's ready.");
+    expect(m.create.listing.drafting).toBe("Writing your listing…");
     expect(out).toMatch(new RegExp(`<button[^>]*disabled[^>]*>(?:(?!</button>).)*${m.create.listing.submit}`));
   });
 

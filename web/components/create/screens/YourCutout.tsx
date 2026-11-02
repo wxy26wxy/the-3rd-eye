@@ -79,7 +79,7 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
   return (
     <YourCutoutView
       title={c.title}
-      lead={changed ? c.copy : c.copyOriginal}
+      lead={c.copy}
       back={changed ? "/create/compare" : "/create/change"}
       cut={cutout.cleanedUrl ? { src: cutout.cleanedUrl, alt: cutout.altText ?? t.cutoutAlt, aspectRatio: size ? `${size.w} / ${size.h}` : undefined } : null}
       notice={draft.cutoutNotice ?? null}

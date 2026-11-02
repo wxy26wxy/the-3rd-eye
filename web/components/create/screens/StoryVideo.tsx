@@ -152,17 +152,17 @@ export function StoryVideo({ redo = false }: { redo?: boolean }) {
   }
 
   // Record or choose (boards 2030:3884, video selected 2038:4469). First listing: logo, no Back.
-  // Record again: Back and Cancel return to Choose a product.
+  // Record again: Back returns to Choose a product.
   const busy = phase !== "pick";
   return (
     <CreateScreen
       back={redo && !busy ? STORY_REDO_RETURN : undefined}
-      title={redo ? m.create.story.redoTitle : m.create.story.title}
-      lead={redo ? m.create.story.redoCopy : m.create.story.copy}
+      title={redo ? m.create.myStory.title : m.create.story.title}
+      lead={redo ? m.create.myStory.replaceNote : m.create.story.copy}
       footer={(
         <>
           <Button block onClick={submit} disabled={!file || busy}>{m.create.story.submit}</Button>
-          {busy ? null : <Button block variant="secondary" arrow={false} href={done}>{redo ? m.create.story.redoCancel : m.create.story.skip}</Button>}
+          {busy || redo ? null : <Button block variant="secondary" arrow={false} href={done}>{m.create.story.skip}</Button>}
         </>
       )}
     >

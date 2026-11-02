@@ -15,10 +15,10 @@ import { AreaFrame } from "./AreaFrame";
 
 const a = m.create.adjust;
 
-/** "62 % of the width and 48 % of the height": the frame's size for the live region and the frame's name. */
+/** "Frame covers 62 by 48 percent of the photo": the frame's size, said after each change and part of its description. */
 export function sizeText(box: Box, image: ImageSize): string {
   const s = frameSize(box, image);
-  return fmt(a.size, { w: s.width, h: s.height });
+  return fmt(a.frameSize, { w: s.width, h: s.height });
 }
 
 /** A 422 for the frame is about where the frame is, not about the photo: move or grow it and try again. */
@@ -41,7 +41,9 @@ export function AdjustArea() {
 
 function AreaFlow() {
   const router = useRouter();
-  const hintId = useId();
+  const uid = useId();
+  const hintId = `${uid}-hint`;
+  const sizeId = `${uid}-size`;
   const { draft, update } = useCreate();
   const area = draft.area as NonNullable<typeof draft.area>;
   const candidate = draft.candidates?.find((c) => c.id === area.candidateId) ?? null;
@@ -67,7 +69,7 @@ function AreaFlow() {
     if (!initial || !imageSize || busy) return;
     setEdited(initial);
     setError(null);
-    say(`${a.resetDone} ${sizeText(initial, imageSize)}`);
+    say(`${a.resetDone}. ${sizeText(initial, imageSize)}`);
   }
 
   async function use() {
@@ -92,6 +94,8 @@ function AreaFlow() {
   return (
     <AdjustAreaView
       hintId={hintId}
+      sizeId={sizeId}
+      sizeText={box && imageSize ? sizeText(box, imageSize) : ""}
       back={adjustBack(draft)}
       retake={retake}
       none={!area.candidateId}
@@ -99,8 +103,8 @@ function AreaFlow() {
       photo={imageSize && originalUrl && box ? (
         <AreaFrame
           src={originalUrl} image={imageSize} box={box} disabled={busy}
-          label={fmt(a.frameLabel, { size: sizeText(box, imageSize) })} describedBy={hintId}
-          onChange={setEdited} onCommit={commit} onImageError={onImageError}
+          label={a.frameLabel} describedBy={`${sizeId} ${hintId}`}
+          onChange={setEdited} onCommit={commit} onLimit={(k) => say(k === "small" ? a.tooSmall : a.atEdge)} onImageError={onImageError}
         />
       ) : null}
       photoState={detail.state === "loading" ? "loading" : "missing"}

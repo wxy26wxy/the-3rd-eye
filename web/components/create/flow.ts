@@ -24,15 +24,16 @@ export const NEW_PIECE: Partial<Draft> = {
 
 export type PhotoResult = { artwork: Artwork; candidates: Candidate[]; imageSize?: { w: number; h: number } | null };
 
-/** After `POST /artworks` (photo): one piece already cut → Change it; otherwise → Choose a pattern. */
+/**
+ * After `POST /artworks` (photo): one piece the server already cut → Adjust the area on that piece
+ * (R2: the area is always set there; the server's cut is replaced by the frame's); otherwise →
+ * Choose a pattern.
+ */
 export function afterPhoto({ router, update }: Pick<FlowDeps, "router" | "update">, res: PhotoResult): void {
   const fresh = { ...NEW_PIECE, area: undefined, photoArtworkId: res.artwork.id, candidates: res.candidates, imageSize: res.imageSize ?? null };
   if (res.artwork.cleanedUrl) {
-    update({
-      ...fresh, pieceArtworkId: res.artwork.id, pieceCandidateId: res.candidates[0]?.id,
-      pieceUrl: res.artwork.cleanedUrl, pieceAlt: res.artwork.altText, pieceSpoken: res.artwork.spokenDescription,
-    });
-    router.push("/create/change");
+    update({ ...fresh, area: { artworkId: res.artwork.id, candidateId: res.candidates[0]?.id } });
+    router.push("/create/adjust");
     return;
   }
   update(fresh);
@@ -49,15 +50,15 @@ export function adjustWholePhoto({ router, update }: Pick<FlowDeps, "router" | "
 
 /** "Use this" on Choose a pattern: Adjust the area opens framed on that piece (no call yet). */
 export function pickPiece({ router, update }: Pick<FlowDeps, "router" | "update">, artworkId: string, candidateId: string): void {
-  update({ area: { artworkId, candidateId } });
+  update({ area: { artworkId, candidateId, fromPattern: true } });
   router.push("/create/adjust");
 }
 
 // ---- Adjust the area (R2)
 
-/** Back from Adjust the area: Choose a pattern, or the photo screen when no drawing was found. */
+/** Back from Adjust the area: Choose a pattern when the piece was picked there, else the photo screen. */
 export function adjustBack(d: Draft): string {
-  if (d.candidates?.length) return "/create/pattern";
+  if (d.area?.fromPattern) return "/create/pattern";
   return d.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
 }
 
@@ -127,9 +128,7 @@ export async function busyWhile<T>(set: (v: T) => void, busy: T, idle: T, run: (
 /**
  * Back from Change it: Adjust the area (the screen before it), also while a change is on screen
  * (Before and after's Back goes to Change it, so pointing here at Before and after made a loop). The
- * change chain stays in the draft, so "Change it again" from Before and after still works. A photo
- * whose single piece was cut out by the server never showed Choose a pattern or Adjust the area:
- * Back goes to the photo screen then.
+ * change chain stays in the draft, so "Change it again" from Before and after still works.
  */
 export function changeItBack(d: Draft): string {
   if (d.area) return "/create/adjust";

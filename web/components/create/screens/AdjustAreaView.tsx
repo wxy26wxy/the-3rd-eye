@@ -10,8 +10,11 @@ import styles from "../Create.module.css";
 const a = m.create.adjust;
 
 export type AdjustAreaViewProps = {
-  /** Id of the keyboard hint (the frame's description). */
+  /** Ids of the frame's description: its current size and the keyboard hint. */
   hintId: string;
+  sizeId: string;
+  /** The frame's current size ("Frame covers 54 by 61 percent of the photo"). */
+  sizeText: string;
   back: string;
   retake: string;
   /** No drawing was found on the photo: the frame starts at the whole photo. */
@@ -50,8 +53,9 @@ export function AdjustAreaView({ on, errorRef, ...p }: AdjustAreaViewProps) {
       {p.photo !== null ? (
         <div className={[styles.photoCard, p.busy ? styles.photoCardBusy : ""].filter(Boolean).join(" ")}>{p.photo}</div>
       ) : p.photoState === "loading" ? <Loading label={m.create.select.loadingPhoto} /> : <NoticeCard>{a.photoMissing}</NoticeCard>}
+      {p.photo !== null ? <p id={p.sizeId} className="visually-hidden">{p.sizeText}</p> : null}
       {p.photo !== null && !p.busy ? <p id={p.hintId} className={styles.keyboardHint}>{a.keyboardHint}</p> : null}
-      {p.busy ? <Loading inline label={m.create.select.applying} /> : null}
+      {p.busy ? <Loading inline label={a.applying} /> : null}
       <div ref={errorRef} tabIndex={-1} className={styles.errorSpot}>
         <ErrorNotice error={p.error} onRetry={on.use} retakeHref={p.busy ? undefined : p.retake} />
       </div>

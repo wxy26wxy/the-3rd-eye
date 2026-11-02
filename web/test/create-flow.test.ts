@@ -37,11 +37,16 @@ const change = (id: string, parentId: string): ChangeStep => ({ artworkId: id, p
 const changeAnswer = { artwork: { ...artwork({ id: "k2", parentArtworkId: "k1" }), previewUrl: "/k2.png" }, description: { alt: "A fern, bigger", spoken: "A big fern.", differences: "" } };
 
 describe("Photo routing (T113)", () => {
-  it("one piece already cut → Change it with that piece; earlier changes are dropped", () => {
+  it("one piece the server already cut → Adjust the area on that piece (R2, always); earlier changes are dropped", () => {
     const h = harness({ ...piece, changes: [change("k1", "p1")], changedArtworkId: "k1" });
     afterPhoto(h.deps, { artwork: artwork({ id: "p9", cleanedUrl: "/p9.png" }), candidates: [candidates[0]], imageSize: { w: 50, h: 60 } });
-    expect(h.calls.at(-1)).toBe("push /create/change");
-    expect(h.draft).toMatchObject({ photoArtworkId: "p9", pieceArtworkId: "p9", pieceCandidateId: "c1", pieceUrl: "/p9.png", imageSize: { w: 50, h: 60 } });
+    expect(h.calls.at(-1)).toBe("push /create/adjust");
+    expect(h.draft).toMatchObject({ photoArtworkId: "p9", area: { artworkId: "p9", candidateId: "c1" }, imageSize: { w: 50, h: 60 } });
+    expect(h.draft.area?.fromPattern).toBeUndefined();
+    // the piece comes from Use this area, not from the server's cut
+    expect(h.draft.pieceArtworkId).toBeUndefined();
+    // never showed Choose a pattern: Back goes to the photo screen
+    expect(adjustBack(h.draft)).toBe("/create/photo?mode=camera");
     expect(h.draft.changes).toBeUndefined();
     expect(h.draft.changedArtworkId).toBeUndefined();
   });
@@ -76,7 +81,7 @@ describe("Choose a pattern → Adjust the area (R2)", () => {
     const h = harness({ ...piece, pieceArtworkId: undefined, pieceUrl: undefined });
     pickPiece(h.deps, "p1", "c2");
     expect(h.api).not.toHaveBeenCalled();
-    expect(h.draft.area).toEqual({ artworkId: "p1", candidateId: "c2" });
+    expect(h.draft.area).toEqual({ artworkId: "p1", candidateId: "c2", fromPattern: true });
     expect(h.calls.at(-1)).toBe("push /create/adjust");
     expect(adjustBack(h.draft)).toBe("/create/pattern");
   });
@@ -147,6 +152,9 @@ describe("Adjust the area geometry (R2)", () => {
     expect(keyFrame(b, "ArrowUp", true, img)).toEqual([100, 140, 500, 360]);
     expect(keyFrame(b, "Enter", false, img)).toBeNull();
     expect(resizeFrame([0, 0, 1000, 800], 100, 100, img)).toEqual([0, 0, 1000, 800]);
+    // at the edge (or the smallest size) a key changes nothing: the frame announces the limit instead
+    expect(keyFrame([0, 0, 400, 300], "ArrowLeft", false, img)).toEqual([0, 0, 400, 300]);
+    expect(keyFrame([0, 0, 40, 40], "ArrowLeft", true, img)).toEqual([0, 0, 40, 40]);
   });
 
   it("the size is said in whole percentages of the photo", () => {
@@ -292,8 +300,8 @@ describe("T118 / R2: Back from Change it", () => {
     expect(changeItBack(d)).toBe("/create/adjust");
     expect(JSON.stringify(d)).toBe(before);
     expect(currentArtworkId(d)).toBe("k2");
-    // a single piece the server cut out never showed Choose a pattern: back to the photo screen
-    expect(changeItBack({ ...piece, candidates: [candidates[0]], method: "upload" })).toBe("/create/photo?mode=upload");
-    expect(changeItBack({ ...piece, candidates: [candidates[0]] })).toBe("/create/photo?mode=camera");
+    // a draft without an area (an old session) goes back to the photo screen
+    expect(changeItBack({ ...piece, method: "upload" })).toBe("/create/photo?mode=upload");
+    expect(changeItBack(piece)).toBe("/create/photo?mode=camera");
   });
 });

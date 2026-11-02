@@ -1,6 +1,7 @@
 "use client";
 import { useRef, type KeyboardEvent, type PointerEvent } from "react";
-import { AREA_CORNERS, AREA_EDGES, dragFrame, framePercent, keyFrame, type AreaHandle } from "../area";
+import { m } from "@/components/messages";
+import { AREA_CORNERS, AREA_EDGES, dragFrame, framePercent, keyFrame, sameBox, type AreaHandle } from "../area";
 import type { Box, ImageSize } from "../cutout";
 import styles from "../Create.module.css";
 
@@ -13,12 +14,14 @@ const pct = (v: number) => `${v}%`;
  * element; arrows move it, Shift + arrows resize it. The handles are decoration for assistive tech;
  * the screen announces the frame's size in its live region (`describedBy`).
  */
-export function AreaFrame({ src, image, box, disabled, label, describedBy, onChange, onCommit, onImageError }: {
+export function AreaFrame({ src, image, box, disabled, label, describedBy, onChange, onCommit, onLimit, onImageError }: {
   src: string; image: ImageSize; box: Box; disabled: boolean; label: string; describedBy?: string;
   /** Every change while dragging or on a key press. */
   onChange: (box: Box) => void;
   /** The end of a drag or a key press: the screen announces the frame's size. */
   onCommit: (box: Box) => void;
+  /** A key press that changed nothing: the frame is at the photo's edge, or already at its smallest. */
+  onLimit?: (kind: "edge" | "small") => void;
   onImageError?: () => void;
 }) {
   const stage = useRef<HTMLDivElement>(null);
@@ -53,6 +56,7 @@ export function AreaFrame({ src, image, box, disabled, label, describedBy, onCha
     const next = keyFrame(box, e.key, e.shiftKey, image);
     if (!next) return;
     e.preventDefault();
+    if (sameBox(next, box)) { onLimit?.(e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowUp") ? "small" : "edge"); return; }
     onChange(next);
     onCommit(next);
   }
@@ -70,12 +74,13 @@ export function AreaFrame({ src, image, box, disabled, label, describedBy, onCha
           onPointerCancel={up}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt="" className={styles.cutImg} draggable={false} onError={onImageError} />
+          <img src={src} alt={m.create.adjust.photoLabel} className={styles.cutImg} draggable={false} onError={onImageError} />
           <div className={styles.areaShade} aria-hidden="true"><span style={rect} /></div>
           <div
             role="group"
             tabIndex={disabled ? -1 : 0}
             aria-label={label}
+            aria-roledescription={m.create.adjust.frameRole}
             aria-describedby={describedBy}
             aria-disabled={disabled || undefined}
             className={styles.area}

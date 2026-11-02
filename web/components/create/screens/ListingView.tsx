@@ -68,6 +68,7 @@ export function ListingView({ uid, mockup, drafting, improving, submitting, titl
         <>
           <StickerLoading />
           <Loading inline label={m.create.listing.drafting} />
+          <p className={styles.keyboardHint}>{m.create.listing.draftingHint}</p>
         </>
       ) : (
         <form id={LISTING_FORM} onSubmit={on.submit} className={styles.form} noValidate>

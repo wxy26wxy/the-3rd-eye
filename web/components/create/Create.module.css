@@ -339,3 +339,6 @@
 .storyRowMeta { color: var(--text-muted); }
 .storyRowActions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--size-record) * 1.6)), 1fr)); gap: var(--space-s); }
 .storyPlayer { display: block; width: 100%; border-radius: var(--radius-m); background: var(--text); }
+
+/* Mascot picture cards (R7): Take a photo / Upload a picture and You're live. */
+.mascotPicture { display: block; width: 100%; height: auto; border-radius: var(--radius-card); }

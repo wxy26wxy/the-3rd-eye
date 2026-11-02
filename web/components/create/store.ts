@@ -42,17 +42,18 @@ export type Draft = {
   /** Pixels of the stored original for `photoArtworkId` (the space of `Candidate.bbox`). */
   imageSize?: ImageSize | null;
   /**
-   * What Adjust the area frames (R2): the photo artwork and the piece picked on Choose a pattern
-   * (no `candidateId` when no drawing was found: the frame starts at the whole photo).
+   * What Adjust the area frames (R2): the photo artwork and the piece (picked on Choose a pattern,
+   * `fromPattern`, or the single piece the server found); no `candidateId` when no drawing was
+   * found: the frame starts at the whole photo.
    */
-  area?: { artworkId: string; candidateId?: string };
-  /** The cut piece (Adjust the area's `cleanup`, or the server's own cut of a single piece); the same row as `photoArtworkId`. */
+  area?: { artworkId: string; candidateId?: string; fromPattern?: boolean };
+  /** The cut piece (Adjust the area's `cleanup`); the same row as `photoArtworkId`. */
   pieceArtworkId?: string;
   pieceCandidateId?: string;
   pieceUrl?: string | null;
   pieceAlt?: string | null;
   pieceSpoken?: string | null;
-  /** The frame the piece was cut with on Adjust the area (image pixels); unset for the server's own cut. */
+  /** The frame the piece was cut with on Adjust the area (image pixels). */
   pieceBox?: Box;
   /** Every change made in this draft, oldest first. */
   changes?: ChangeStep[];

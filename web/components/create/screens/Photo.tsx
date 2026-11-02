@@ -6,7 +6,8 @@ import { m } from "@/components/messages";
 import { ArtImage } from "@/components/ui/ArtImage";
 import { Button, ButtonFace } from "@/components/ui/Button";
 import { CameraIcon, ImageIcon } from "@/components/ui/Icons";
-import { Loading, SkyCard } from "@/components/ui/Loading";
+import { Loading } from "@/components/ui/Loading";
+import { MascotPicture } from "../art";
 import { api, extFor, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid, type Artwork, type Candidate } from "../api";
 import { CreateScreen, MissingState } from "../CreateScreen";
 import { boxRescueArtworkId } from "../cutout";
@@ -110,7 +111,7 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
       {busy ? <Loading variant="sky" label={busyLabel} />
         : error ? <ErrorNotice error={error} />
         : preview ? <div className={styles.photoPreview}><ArtImage src={preview} alt={m.create.photo.preview} placeholder="" ratio="auto" /></div>
-        : <SkyCard />}
+        : <MascotPicture kind="card" />}
     </CreateScreen>
   );
 }

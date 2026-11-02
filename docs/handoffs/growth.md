@@ -39,7 +39,7 @@ All on a real iPhone, VoiceOver on unless noted. Record 2 takes each, plus the f
 
 ## Open questions for other roles
 - QA: confirm the labels used in `docs/demo_script.md` and the VoiceOver scripts on a phone.
-- iOS: the Adjust cutout and My designs scripts have not been run with VoiceOver on a device.
+- iOS: the Change it, Before and after, Your cutout and My designs scripts have not been run with VoiceOver on a device.
 
 ## Last updated
 2026-11-02 (T115: v0.8 photo-first flow)

@@ -71,9 +71,33 @@ export async function choosePiece({ api, router, update, getDraft }: FlowDeps, a
 export function submitChange({ router, update }: Pick<FlowDeps, "router" | "update">, text: string, heard: string | null): boolean {
   const instruction = text.trim();
   if (!instruction) return false;
-  update({ changeInstruction: instruction, changeTranscript: heard && heard.trim() === instruction ? heard : undefined });
+  update({ changeInstruction: instruction, changeTranscript: heard && heard.trim() === instruction ? heard : undefined, changeNonce: newNonce() });
   router.push("/create/changing");
   return true;
+}
+
+function newNonce(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * What a (re)shown /create/changing does for the request it was opened with (`nonce`): send it
+ * while it is still waiting; once it has finished (or was dropped by "Back to my art") never send
+ * it again, but go to Before and after, or to Change it when no change exists.
+ */
+export function changingVisit(d: Draft, nonce: string | undefined): "send" | "compare" | "change" {
+  if (d.changeInstruction && d.changeNonce === nonce) return "send";
+  return d.changedArtworkId ? "compare" : "change";
+}
+
+/**
+ * Sets a screen's busy flag while `run` works and clears it afterwards, also after a successful
+ * navigation: visited routes stay mounted (cacheComponents), so a flag left set would come back
+ * locked when the creator returns to the screen.
+ */
+export async function busyWhile<T>(set: (v: T) => void, busy: T, idle: T, run: () => Promise<unknown>): Promise<void> {
+  set(busy);
+  try { await run(); } finally { set(idle); }
 }
 
 /** "Looks good as is": the picked piece is already cut out (no call); a change result is cut on the next screen. */

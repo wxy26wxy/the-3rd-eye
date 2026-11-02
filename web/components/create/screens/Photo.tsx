@@ -78,6 +78,8 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
     } catch (err) {
       setError(describeError(err, m.create.photo.error));
       setRescueId(boxRescueArtworkId(err));
+    } finally {
+      // Also after navigating: this route stays mounted, and coming back must not show "Finding…".
       setPhase("pick");
     }
   }

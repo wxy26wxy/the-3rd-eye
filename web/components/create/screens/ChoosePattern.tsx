@@ -6,7 +6,7 @@ import { api } from "../api";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { usableSize } from "../cutout";
 import { describeError, type ScreenError } from "../errors";
-import { choosePiece } from "../flow";
+import { busyWhile, choosePiece } from "../flow";
 import { getDraft, useCreate } from "../store";
 import { useOriginal } from "../useOriginal";
 import { ChoosePatternView, PatternPhoto } from "./ChoosePatternView";
@@ -43,19 +43,19 @@ function PatternFlow() {
 
   async function choose() {
     if (!picked || busy) return;
-    setBusy(true);
     setError(null);
-    try {
-      await choosePiece({
-        api, getDraft,
-        update: (patch) => { if (live.current) update(patch); },
-        router: { push: (h) => { if (live.current) router.push(h); }, replace: (h) => { if (live.current) router.replace(h); } },
-      }, artworkId, picked);
-    } catch (err) {
-      if (!live.current) return;
-      setError(describeError(err));
-      setBusy(false);
-    }
+    // Cleared after navigating too: this route stays mounted, and Back must find Use this enabled.
+    await busyWhile(setBusy, true, false, async () => {
+      try {
+        await choosePiece({
+          api, getDraft,
+          update: (patch) => { if (live.current) update(patch); },
+          router: { push: (h) => { if (live.current) router.push(h); }, replace: (h) => { if (live.current) router.replace(h); } },
+        }, artworkId, picked);
+      } catch (err) {
+        if (live.current) setError(describeError(err));
+      }
+    });
   }
 
   return (

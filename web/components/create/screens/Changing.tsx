@@ -10,7 +10,7 @@ import { ArtPreview } from "../art";
 import { ErrorCard } from "../cards";
 import { CreateScreen, HydratingScreen, MissingState } from "../CreateScreen";
 import { describeError, type ScreenError } from "../errors";
-import { artOnScreen, changeRequest, changingEntry, leaveChanging, runChange } from "../flow";
+import { artOnScreen, changeRequest, changingEntry, changingVisit, leaveChanging, runChange } from "../flow";
 import { getDraft, once, useCreate } from "../store";
 
 const d = m.create.drawing;
@@ -21,9 +21,10 @@ const d = m.create.drawing;
  * A loading screen: the logo mark, no Back. On failure: the error card, Try again / Back to my art.
  */
 export function Changing() {
-  const { ready } = useCreate();
+  const { ready, draft } = useCreate();
   if (!ready) return <HydratingScreen title={d.title} />;
-  return <ChangingGate />;
+  // A new "Make the change" remounts with fresh state; "Back to my art" keeps the key (it only drops the request).
+  return <ChangingGate key={draft.changeNonce ?? "none"} />;
 }
 
 /**
@@ -37,10 +38,10 @@ function ChangingGate() {
   useEffect(() => { if (entry === "compare") router.replace("/create/compare"); }, [entry, router]);
   if (entry === "compare") return <HydratingScreen title={d.title} />;
   if (entry === "missing" || !req) return <MissingState />;
-  return <ChangingFlow req={req} />;
+  return <ChangingFlow req={req} nonce={getDraft().changeNonce} />;
 }
 
-function ChangingFlow({ req }: { req: { base: string; instruction: string; transcript?: string } }) {
+function ChangingFlow({ req, nonce }: { req: { base: string; instruction: string; transcript?: string }; nonce: string | undefined }) {
   const router = useRouter();
   const { draft, update } = useCreate();
   const [error, setError] = useState<ScreenError | null>(null);
@@ -51,15 +52,21 @@ function ChangingFlow({ req }: { req: { base: string; instruction: string; trans
   useEffect(() => { here.current = true; return () => { here.current = false; }; }, []);
 
   useEffect(() => {
+    // Runs again when the kept-mounted route is shown again: a finished request is never re-sent.
+    const visit = changingVisit(getDraft(), nonce);
+    if (visit !== "send") {
+      if (visit === "compare") router.replace("/create/compare");
+      return;
+    }
     const deps = {
       api, getDraft,
       update: (patch: Parameters<typeof update>[0]) => { if (here.current) update(patch); },
       router: { push: (h: string) => { if (here.current) router.push(h); }, replace: (h: string) => { if (here.current) router.replace(h); } },
     };
-    once(`change:${req.base}:${req.instruction}:${attempt}`, () => runChange(deps, req))
+    once(`change:${nonce}:${attempt}`, () => runChange(deps, req))
       .then((step) => { if (here.current && step.spoken) speak(step.spoken); })
       .catch((err) => { if (here.current) setError(describeError(err, d.error)); });
-  }, [req, attempt, router, update]);
+  }, [req, nonce, attempt, router, update]);
 
   return (
     <CreateScreen

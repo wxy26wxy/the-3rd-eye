@@ -9,6 +9,7 @@ import {
   type AppliedCutout, type Box, type CleanupRequest, type CutoutPoint, type XY,
 } from "../cutout";
 import { describeError, type ScreenError } from "../errors";
+import { busyWhile } from "../flow";
 import { currentChange, once, resetDraft, useCreate, type CutoutState } from "../store";
 import { useOriginal } from "../useOriginal";
 import { CutoutPhoto, type TapMode } from "./CutoutPhoto";
@@ -231,16 +232,18 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
   async function goOn() {
     if (inFlight.current || (!appliedNow && !request)) return;
     inFlight.current = true;
-    setWork("use");
     setError(null);
+    // Cleared after navigating too: this route stays mounted, and coming back must not be locked.
+    await busyWhile<Work | null>(setWork, "use", null, cutAndGoOn);
+  }
+  async function cutAndGoOn() {
     let cut = appliedNow;
     if (!cut) {
       const art = await save("use");
       cut = art && request ? { artworkId, request, cleanedUrl: art.cleanedUrl, altText: art.altText } : null;
     }
     inFlight.current = false;
-    if (!live.current) return;
-    if (!cut) { setWork(null); return; }
+    if (!live.current || !cut) return;
     const next: CutoutState = { ...cutout, selectedIds: ordered, cleanedUrl: cut.cleanedUrl, altText: cut.altText };
     if (rescue) {
       // The box cut is the picked piece now: on to Change it.

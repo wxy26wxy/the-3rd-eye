@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  afterPhoto, changeRequest, changingEntry, choosePiece, drawBoxOnPhoto, leaveChanging, runChange, skipChange, submitChange, type FlowDeps,
+  afterPhoto, busyWhile, changeRequest, changingEntry, changingVisit, choosePiece, drawBoxOnPhoto, leaveChanging, runChange, skipChange, submitChange, type FlowDeps,
 } from "@/components/create/flow";
-import { addChange, backToOriginal, currentArtworkId, type ChangeStep, type Draft } from "@/components/create/store";
+import { addChange, backToOriginal, currentArtworkId, once, type ChangeStep, type Draft } from "@/components/create/store";
 
 /** A draft held in memory, a router that records calls, and an api answering by path. */
 function harness(start: Draft, answers: Record<string, unknown> = {}) {
@@ -149,5 +149,62 @@ describe("Changing your art (T113)", () => {
     leaveChanging(h.deps);
     expect(h.calls.at(-2)).toBe("replace /create/change");
     expect(currentArtworkId(h.draft)).toBe("p1");
+  });
+});
+
+describe("T117: kept-mounted routes (cacheComponents) never re-send or come back locked", () => {
+  it("a second Make the change gets a new nonce and sends the new instruction once, on the child", async () => {
+    const answers: Record<string, unknown> = { "/change": { artwork: { ...artwork({ id: "k1", parentArtworkId: "p1" }), previewUrl: "/k1.png" }, description: { alt: "blue", spoken: "", differences: "" } } };
+    const h = harness({ ...piece }, answers);
+    submitChange(h.deps, "make it blue", null);
+    const first = h.draft.changeNonce;
+    await once(`change:${first}:0`, () => runChange(h.deps, changeRequest(h.draft)!));
+    // Before and after → Change it again → a new request
+    answers["/change"] = changeAnswer;
+    submitChange(h.deps, "make the stem red", null);
+    const second = h.draft.changeNonce;
+    expect(second).not.toBe(first);
+    expect(changingVisit(h.draft, second)).toBe("send");
+    // the screen opened with the first nonce (kept mounted) must not send anything
+    expect(changingVisit(h.draft, first)).toBe("compare");
+    const sent = () => h.calls.filter((c) => c.startsWith("api") && c.includes("/change"));
+    await once(`change:${second}:0`, () => runChange(h.deps, changeRequest(h.draft)!));
+    expect(sent()).toEqual([
+      'api artworks/p1/change {"instruction":"make it blue"}',
+      'api artworks/k1/change {"instruction":"make the stem red"}',
+    ]);
+  });
+
+  it("a revisit after the request finished goes to compare and does not post again", async () => {
+    const h = harness({ ...piece }, { "/change": changeAnswer });
+    submitChange(h.deps, "make it bigger", null);
+    const nonce = h.draft.changeNonce;
+    expect(changingVisit(h.draft, nonce)).toBe("send");
+    await runChange(h.deps, changeRequest(h.draft)!);
+    expect(changingVisit(h.draft, nonce)).toBe("compare");
+    expect(h.api).toHaveBeenCalledTimes(1);
+  });
+
+  it("Back to my art keeps the nonce (no remount, I1) and a revisit of the dropped request goes to Change it", () => {
+    const h = harness({ ...piece });
+    submitChange(h.deps, "make it blue", null);
+    const nonce = h.draft.changeNonce;
+    leaveChanging(h.deps);
+    expect(h.draft.changeNonce).toBe(nonce);
+    expect(h.calls.at(-2)).toBe("replace /create/change");
+    expect(changingVisit(h.draft, nonce)).toBe("change");
+  });
+
+  it("busy flags (Choose a pattern busy, Photo phase, Your cutout work) are clear after a navigation and after a failure", async () => {
+    const seen: (string | boolean | null)[] = [];
+    const h = harness(piece, { "/select": artwork({ cleanedUrl: "/c2.png" }) });
+    let busy = false;
+    await busyWhile((v: boolean) => { busy = v; seen.push(v); }, true, false, () => choosePiece(h.deps, "p1", "c2"));
+    expect(h.calls.at(-1)).toBe("push /create/change");
+    expect(busy).toBe(false);
+    let work: string | null = null;
+    await busyWhile<string | null>((v) => { work = v; seen.push(v); }, "use", null, async () => { throw new Error("cut failed"); }).catch(() => {});
+    expect(work).toBeNull();
+    expect(seen).toEqual([true, false, "use", null]);
   });
 });

@@ -1,7 +1,7 @@
 import XCTest
 @testable import The3rdEye
 
-/// Adjust cutout (T082): view → image-pixel mapping, what each choice sends, and the API shapes.
+/// Photo screens: view → image-pixel mapping, what Adjust the area sends (T122), and the API shapes.
 @MainActor
 final class CutoutTests: XCTestCase {
   private let base = URL(string: "http://localhost:3000/api/v1")!
@@ -42,14 +42,6 @@ final class CutoutTests: XCTestCase {
     XCTAssertEqual(back, CGPoint(x: 600, y: 400))
   }
 
-  func testDragMakesOrderedImageBox() {
-    let frame = CGRect(x: 0, y: 0, width: 300, height: 400)
-    // Dragged up and to the left: still x0 < x1, y0 < y1.
-    let box = CutoutGeometry.imageBox(from: CGPoint(x: 200, y: 300), to: CGPoint(x: 50, y: 100), shownIn: frame, image: size)
-    XCTAssertEqual(box, [200, 400, 800, 1200])
-    XCTAssertNil(CutoutGeometry.imageBox(from: CGPoint(x: 10, y: 10), to: CGPoint(x: 10, y: 90), shownIn: frame, image: size), "a zero-width box is not sent")
-  }
-
   func testCandidateRectInView() {
     let frame = CGRect(x: 0, y: 0, width: 300, height: 400)
     XCTAssertEqual(CutoutGeometry.viewRect(box: one.bbox, shownIn: frame, image: size), CGRect(x: 25, y: 40, width: 100, height: 133.25))
@@ -58,61 +50,26 @@ final class CutoutTests: XCTestCase {
 
   // MARK: Requests
 
-  func testOneCandidateWithoutMarksSelects() {
-    XCTAssertEqual(CutoutRequest.action(selected: [one], points: [], box: nil), .select(candidateId: "c1"))
+  /// Adjust the area sends the piece and the frame; with no drawing found, the frame alone (T122).
+  func testAreaRequestSendsThePieceAndTheFrame() {
+    let area = AreaFrame(x0: 84, y0: 138.68, x1: 516, y1: 714.32)
+    XCTAssertEqual(CutoutRequest.make(piece: one, area: area), CleanupRequest(candidateIds: ["c1"], points: nil, box: area.box, clipToBox: true))
+    XCTAssertEqual(CutoutRequest.make(piece: nil, area: .whole(size)),
+                   CleanupRequest(candidateIds: nil, points: nil, box: [0, 0, 1200, 1600], clipToBox: true))
   }
 
-  func testTwoCandidatesCombine() {
-    XCTAssertEqual(CutoutRequest.action(selected: [one, two], points: [], box: nil),
-                   .cleanup(CleanupRequest(candidateIds: ["c1", "c2"], points: nil, box: nil)))
-  }
-
-  func testCandidatesMarksAndBoxAreSentAsComposed() {
-    let marks = [CutoutPoint(x: 300, y: 400, label: .positive), CutoutPoint(x: 700, y: 1000, label: .negative)]
-    let request = CutoutRequest.make(selected: [one, two], points: marks, box: [50, 100, 1100, 1500])
-    XCTAssertEqual(request, CleanupRequest(candidateIds: ["c1", "c2"], points: marks, box: [50, 100, 1100, 1500]))
-    // A mark turns a single pick into a cleanup.
-    XCTAssertEqual(CutoutRequest.action(selected: [one], points: [marks[1]], box: nil),
-                   .cleanup(CleanupRequest(candidateIds: ["c1"], points: [marks[1]], box: nil)))
-  }
-
-  func testRedoAlwaysCleansUpSoProductNoticesArrive() {
-    XCTAssertEqual(CutoutRequest.action(selected: [one], points: [], box: nil, productsMayExist: true),
-                   .cleanup(CleanupRequest(candidateIds: ["c1"], points: nil, box: nil)))
-  }
-
-  func testRemoveMarkOnTheOnlyPieceLeavesNothing() {
-    let onOne = CutoutPoint(x: 300, y: 400, label: .negative)
-    let elsewhere = CutoutPoint(x: 1150, y: 50, label: .negative)
-    XCTAssertTrue(CutoutRequest.leavesNothing(selected: [one], points: [onOne], box: nil))
-    XCTAssertFalse(CutoutRequest.leavesNothing(selected: [one], points: [elsewhere], box: nil), "a mark outside the piece drops nothing")
-    XCTAssertFalse(CutoutRequest.leavesNothing(selected: [one], points: [onOne], box: [0, 0, 600, 800]), "a box keeps something")
-    XCTAssertFalse(CutoutRequest.leavesNothing(selected: [one, two], points: [onOne], box: nil), "the other piece stays")
-    XCTAssertFalse(CutoutRequest.leavesNothing(selected: [one], points: [onOne, CutoutPoint(x: 1, y: 1, label: .positive)], box: nil))
-  }
-
-  /// The VoiceOver actions (and context menu) on a piece.
-  func testPieceActionsMapToBoxAndCentrePoint() {
-    XCTAssertEqual(CutoutRequest.box(around: two), [660, 896, 1060, 1429])
-    XCTAssertEqual(CutoutRequest.centrePoint(of: two), CutoutPoint(x: 860, y: 1162.5, label: .positive))
-    XCTAssertNil(CutoutRequest.box(around: Candidate(id: "x", bbox: [5, 5, 5, 9])))
-    XCTAssertNil(CutoutRequest.centrePoint(of: Candidate(id: "x", bbox: [1, 2])))
-    XCTAssertEqual(CutoutRequest.make(selected: [], points: [], box: CutoutRequest.box(around: two)),
-                   CleanupRequest(candidateIds: nil, points: nil, box: [660, 896, 1060, 1429]))
+  /// T126: `clipToBox` goes in the body only when set.
+  func testClipToBoxIsEncodedOnlyWhenSet() throws {
+    let with = try JSONSerialization.jsonObject(with: JSONEncoder().encode(CleanupRequest(box: [0, 0, 1, 1], clipToBox: true))) as? [String: Any]
+    XCTAssertEqual(with?["clipToBox"] as? Bool, true)
+    let without = try JSONSerialization.jsonObject(with: JSONEncoder().encode(CleanupRequest(box: [0, 0, 1, 1]))) as? [String: Any]
+    XCTAssertNil(without?["clipToBox"])
   }
 
   func testZeroImageSizeIsNotUsable() {
     XCTAssertFalse(ImageSize(w: 0, h: 0).isUsable)
     XCTAssertFalse(ImageSize(w: 1200, h: 0).isUsable)
     XCTAssertTrue(size.isUsable)
-  }
-
-  func testNothingToSend() {
-    XCTAssertNil(CutoutRequest.make(selected: [], points: [], box: nil))
-    XCTAssertNil(CutoutRequest.action(selected: [], points: [], box: nil))
-    // Only "Remove area" marks with no piece and no box: the API needs a positive point.
-    XCTAssertNil(CutoutRequest.make(selected: [], points: [CutoutPoint(x: 1, y: 1, label: .negative)], box: nil))
-    XCTAssertNotNil(CutoutRequest.make(selected: [], points: [], box: [0, 0, 10, 10]))
   }
 
   func testCleanupBodyEncodingLeavesOutUnsetKeys() async throws {
@@ -163,15 +120,11 @@ final class CutoutTests: XCTestCase {
 
   func testResetCutoutPicksTheOnlyCandidate() {
     let flow = CreateFlow()
-    flow.points = [CutoutPoint(x: 1, y: 1, label: .positive)]
-    flow.box = [0, 0, 1, 1]
     flow.cutoutNotice = "x"
     flow.resetCutout(artwork: Artwork(id: "p1"), candidates: [one], imageSize: size)
     XCTAssertEqual(flow.selectedCandidateIds, ["c1"])
     XCTAssertEqual(flow.cutoutArtwork?.id, "p1")
     XCTAssertEqual(flow.imageSize, size)
-    XCTAssertTrue(flow.points.isEmpty)
-    XCTAssertNil(flow.box)
     XCTAssertNil(flow.cutoutNotice)
     flow.resetCutout(artwork: Artwork(id: "p1"), candidates: [one, two], imageSize: size)
     XCTAssertEqual(flow.selectedCandidateIds, [], "with several pieces and no choice, none is assumed")
@@ -179,18 +132,9 @@ final class CutoutTests: XCTestCase {
     XCTAssertEqual(flow.selectedCandidateIds, ["c2"], "the piece the cut-out was made from")
   }
 
-  // MARK: T091: marks close together, Retake
+  // MARK: T091: Retake
 
-  func testTapDeletesOnlyOnAMarksDot() {
-    let centres = [CGPoint(x: 100, y: 100), CGPoint(x: 118, y: 100)]
-    XCTAssertEqual(CutoutGeometry.markIndex(at: CGPoint(x: 104, y: 98), centres: centres, radius: 12), 0)
-    XCTAssertEqual(CutoutGeometry.markIndex(at: CGPoint(x: 112, y: 100), centres: centres, radius: 12), 1, "the nearest dot wins")
-    XCTAssertNil(CutoutGeometry.markIndex(at: CGPoint(x: 100, y: 115), centres: centres, radius: 12),
-                 "15 pt from a mark is outside its dot: a new mark goes there")
-    XCTAssertNil(CutoutGeometry.markIndex(at: .zero, centres: [], radius: 12))
-  }
-
-  func testDiscardPhotoClearsMarksAndPieces() {
+  func testDiscardPhotoClearsTheFrameAndPieces() {
     let flow = CreateFlow()
     flow.photo = UIImage()
     flow.setPhoto(artwork: Artwork(id: "p1", status: "draft"), candidates: [one, two], imageSize: size)
@@ -200,21 +144,19 @@ final class CutoutTests: XCTestCase {
     flow.changeInstruction = "Make it red"
     flow.resetCutout(artwork: Artwork(id: "ch1"), candidates: [one, two], imageSize: size)
     flow.selectedCandidateIds = ["c1"]
-    flow.points = [CutoutPoint(x: 1, y: 2, label: .positive)]
-    flow.box = [0, 0, 10, 10]
+    flow.pieceBox = [0, 0, 10, 10]
     flow.discardPhoto()
     XCTAssertNil(flow.photo)
     XCTAssertNil(flow.photoArtwork)
     XCTAssertTrue(flow.photoCandidates.isEmpty)
     XCTAssertNil(flow.pieceCandidateId)
     XCTAssertNil(flow.pieceArtwork)
+    XCTAssertNil(flow.pieceBox)
     XCTAssertNil(flow.changedArtwork)
     XCTAssertEqual(flow.changeInstruction, "")
     XCTAssertNil(flow.cutoutArtwork)
     XCTAssertTrue(flow.candidates.isEmpty)
     XCTAssertTrue(flow.selectedCandidateIds.isEmpty)
-    XCTAssertTrue(flow.points.isEmpty)
-    XCTAssertNil(flow.box)
     XCTAssertNil(flow.imageSize)
   }
 
@@ -311,23 +253,5 @@ final class CutoutTests: XCTestCase {
     XCTAssertNil(flow.cutoutNotice, "a clean re-cut clears it")
   }
 
-  /// The VoiceOver actions act on the piece, or on the whole photo when no drawing was found.
-  func testAccessTargetsPieceOrWholePhoto() throws {
-    let onPiece = try XCTUnwrap(CutoutRequest.accessTarget(piece: one, image: size))
-    XCTAssertEqual(onPiece.box, one.bbox)
-    XCTAssertEqual(onPiece.point, CutoutPoint(x: 300, y: 426.5, label: .positive))
-    let whole = try XCTUnwrap(CutoutRequest.accessTarget(piece: nil, image: size))
-    XCTAssertEqual(whole.box, [0, 0, 1200, 1600])
-    XCTAssertEqual(whole.point, CutoutPoint(x: 600, y: 800, label: .positive))
-    XCTAssertNil(CutoutRequest.accessTarget(piece: nil, image: nil))
-  }
-
-  /// No drawing found and nothing marked: "Use this" sends the whole photo; never once a cut exists.
-  func testWholePhotoOnlyWithoutACutOrPiece() {
-    XCTAssertEqual(CutoutRequest.wholePhoto(hasCut: false, selected: [], image: size), CleanupRequest(box: [0, 0, 1200, 1600]))
-    XCTAssertNil(CutoutRequest.wholePhoto(hasCut: true, selected: [], image: size))
-    XCTAssertNil(CutoutRequest.wholePhoto(hasCut: false, selected: [one], image: size))
-    XCTAssertNil(CutoutRequest.wholePhoto(hasCut: false, selected: [], image: nil))
-  }
 }
 

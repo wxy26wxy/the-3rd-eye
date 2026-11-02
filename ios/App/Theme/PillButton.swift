@@ -20,6 +20,8 @@ struct PillButtonStyle: ButtonStyle {
     let fill: Color = kind == .primary ? colors.primary : colors.surface
     let label: Color = kind == .primary ? colors.primaryText : (isDestructive ? colors.danger : colors.text)
     let arrow = showsArrow && !isSecondary
+    // Without the arrow (a half-width button, Change it) the label is centred like a secondary one.
+    let centred = isSecondary || !arrow
     return HStack(spacing: Theme.Space.s) {
       if isDestructive {
         Image(systemName: "trash")
@@ -30,9 +32,9 @@ struct PillButtonStyle: ButtonStyle {
       configuration.label
         .themeFont(isSecondary ? .body : .titleM)
         .foregroundStyle(label)
-        .multilineTextAlignment(isSecondary ? .center : .leading)
+        .multilineTextAlignment(centred ? .center : .leading)
         .fixedSize(horizontal: false, vertical: true)  // wraps at large text sizes instead of truncating
-        .frame(maxWidth: isDestructive ? nil : .infinity, alignment: isSecondary ? .center : .leading)
+        .frame(maxWidth: isDestructive ? nil : .infinity, alignment: centred ? .center : .leading)
       if arrow {
         Image(Tokens.Asset.iconArrow)
           .renderingMode(.template)
@@ -45,7 +47,7 @@ struct PillButtonStyle: ButtonStyle {
           .accessibilityHidden(true)
       }
     }
-    .padding(.leading, isSecondary ? Theme.Space.xxl : ThemeEffects.ctaLeading)
+    .padding(.leading, centred ? Theme.Space.xxl : ThemeEffects.ctaLeading)
     .padding(.trailing, arrow ? ThemeEffects.ctaInset : Theme.Space.xxl)
     .padding(.vertical, ThemeEffects.ctaInset)
     .frame(maxWidth: .infinity, minHeight: isSecondary ? Theme.Size.ctaSecondary : Theme.Size.cta)

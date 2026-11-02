@@ -63,7 +63,7 @@ struct ContinueRequest: Identifiable, Equatable {
 extension AppState {
   /// The Create tab is somewhere in a creation that is not yet live.
   var hasCreationInProgress: Bool {
-    !createPath.isEmpty && !createPath.contains(.youreLive)
+    !createPath.isEmpty && !createPath.contains(.youreLive) && createPath.first != .storyLibrary
   }
 
   /// "Make a sticker / tote" from My designs: goes straight on, or returns what to ask first.

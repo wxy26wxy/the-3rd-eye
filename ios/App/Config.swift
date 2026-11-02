@@ -49,6 +49,15 @@ enum AppConfig {
     Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
   }
 
+  /// A private blob pathname served through the site's `/media/{pathname}` (docs/api.md; a
+  /// creator's current story video needs no sign-in there). A full URL is used as it is.
+  static func mediaURL(pathname: String) -> URL? {
+    let trimmed = pathname.trimmingCharacters(in: .whitespaces)
+    guard !trimmed.isEmpty else { return nil }
+    if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") { return URL(string: trimmed) }
+    return trimmed.split(separator: "/").reduce(siteURL.appendingPathComponent("media")) { $0.appendingPathComponent(String($1)) }
+  }
+
   /// Public product page shown in "See what buyers see".
   static func productPageURL(productId: String) -> URL {
     siteURL.appendingPathComponent("p").appendingPathComponent(productId)

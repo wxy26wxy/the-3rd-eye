@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Board "Welcome · Cloud studio" (`21:4229`): the full-bleed sky photo with the mascot, the white
-/// logo mark, a white headline and line on a scrim, the white Start creating pill and
+/// logo mark, a white headline on a scrim (no subtitle, T122), the white Start creating pill and
 /// "I already have an account" (both open the code screen: creators sign in with their studio code).
 struct WelcomeView: View {
   @Environment(\.themeColors) private var colors
@@ -19,15 +19,10 @@ struct WelcomeView: View {
           LogoMark(onPhoto: true).frame(minHeight: Theme.Size.minTarget)
           VStack(alignment: .leading, spacing: Theme.Space.m) {
             DisplayText("Your art, on things people love.", onPhoto: true)
-            Text("Snap or upload your art. We make the sticker or tote.")
-              .themeFont(.body)
-              .foregroundStyle(colors.textOnDark)
-              .fixedSize(horizontal: false, vertical: true)
           }
           // The app's name for VoiceOver (the logo mark is decorative).
           .accessibilityElement(children: .combine)
-          .accessibilityLabel(Text(verbatim: Tokens.Brand.name + ". ") + Text("Your art, on things people love.") + Text(verbatim: " ")
-                              + Text("Snap or upload your art. We make the sticker or tote."))
+          .accessibilityLabel(Text(verbatim: Tokens.Brand.name + ". ") + Text("Your art, on things people love."))
           .accessibilityAddTraits(.isHeader)
           .padding(usesPanel ? Theme.Space.l : 0)
           .background {

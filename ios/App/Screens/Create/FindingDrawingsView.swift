@@ -31,14 +31,8 @@ struct FindingDrawingsView: View {
       let uploaded = try await BlobUploader(api: app.api).upload(data, creatorId: creatorId, kind: .photo, contentType: "image/jpeg", fileExtension: "jpg")
       let res = try await app.api.artworkFromPhoto(imageUrl: uploaded.url, product: product)
       app.flow.setPhoto(artwork: res.artwork, candidates: res.candidates, imageSize: res.imageSize)
-      if res.candidates.count <= 1, res.artwork.cleanedUrl != nil {
-        // One drawing, already cut out: nothing to choose, straight to Change it.
-        app.flow.pieceArtwork = res.artwork
-        app.flow.pieceCutFrom = res.candidates.first?.id
-        app.replaceTop(with: .changeIt)
-      } else {
-        app.replaceTop(with: .choosePattern)
-      }
+      // Nothing to choose (no drawing, or one already cut out): straight to Adjust the area.
+      app.replaceTop(with: app.flow.routeAfterFinding(artwork: res.artwork))
     } catch is CancellationError {
       return
     } catch {

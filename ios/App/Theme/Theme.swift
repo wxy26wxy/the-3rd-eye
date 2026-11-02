@@ -99,9 +99,6 @@ enum ThemeEffects {
   static let productTote = CGSize(width: 130, height: 173)
   /// Finding your drawings (`21:4390`): the sky card is 342 × 415.
   static let tallSkyCardAspect: CGFloat = 342.0 / 415.0
-  /// You're live (`21:4554`): the listed sticker card (112 × 156, 28 radius, turned 9°) on the sky card.
-  static let liveSticker = CGSize(width: 112, height: 156)
-  static let liveStickerTilt: Double = 9
   /// Choose a pattern / Your cutout: piece chip thumbnails (80), the check badge on the picked piece
   /// on the photo (28), dimmed art of a piece that is not picked (45 %), tool segments 64 tall.
   static let pieceThumb: CGFloat = 80
@@ -128,6 +125,8 @@ enum ThemeEffects {
   static let beforeAfterHeight: CGFloat = 240
   /// Making your sticker / tote bag (`4037:4389`): the loading animation is a 342 × 342 square.
   static let productLoadingAspect: CGFloat = 1
+  /// My story video (T122, board B2): the selfie video plays in a 3 : 4 card.
+  static let storyVideoAspect: CGFloat = 3.0 / 4.0
   /// Story video recording limit in seconds.
   static let storyVideoSeconds: Double = 30
   /// Thank-you video recording limit in seconds.

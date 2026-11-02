@@ -162,6 +162,14 @@ struct Artwork: Codable, Identifiable, Equatable, Hashable {
     [previewUrl, cleanedUrl].compactMap { $0 }.first.flatMap(URL.init(string:))
   }
 
+  /// My designs tile and Design detail (T122 R1): the bordered sticker preview of its sticker (the
+  /// one in the shop first), else the art itself; never a product mockup.
+  var creatorPictureURL: URL? {
+    let stickers = (products ?? []).filter { $0.type == .sticker && !$0.isArchived && !($0.previewUrl ?? "").isEmpty }
+    let preview = (stickers.first(where: \.isPublished) ?? stickers.first)?.previewUrl
+    return preview.flatMap(URL.init(string:)) ?? displayURL
+  }
+
   /// What the picture shows, for the "WHAT THE IMAGE SHOWS" card: the spoken description when
   /// there is one, else the alt text.
   var shownDescription: String? {
@@ -182,6 +190,8 @@ struct ArtworkProduct: Codable, Identifiable, Equatable, Hashable {
   var priceCents: Int?
   var description: String?
   var mockupUrl: String?
+  /// Public bordered PNG of the die-cut sticker (T121; stickers only, absent on older servers).
+  var previewUrl: String?
 
   var isPublished: Bool { status == "published" }
   var isArchived: Bool { status == "archived" }
@@ -226,6 +236,8 @@ struct CleanupRequest: Encodable, Equatable, Hashable {
   var points: [CutoutPoint]?
   /// [x0, y0, x1, y1] in `ImageSize` pixels.
   var box: [Double]?
+  /// T126: the box also limits the cut (nothing outside the frame stays). Needs `box`.
+  var clipToBox: Bool?
 }
 
 struct Product: Codable, Identifiable, Equatable, Hashable {
@@ -234,6 +246,8 @@ struct Product: Codable, Identifiable, Equatable, Hashable {
   var creatorId: String?
   var type: ProductType?
   var mockupUrl: String?
+  /// Public bordered PNG of the die-cut sticker (T121; stickers only, absent on older servers).
+  var previewUrl: String?
   var printPngUrl: String?
   var printSvgUrl: String?
   var priceCents: Int?

@@ -24,7 +24,9 @@ Change it (T111): POST /artworks/<id>/change {instruction, transcript?} sleeps 2
 artwork ch<n> (parentArtworkId = <id>, previewUrl, cleanedUrl null) with a description; an instruction
 containing "nothing" gives description.differences "" (the app shows its own copy). POST
 /artworks/<id>/cutout answers the cut-out row, the two candidates (largest first) and imageSize, only for
-a change result ch<n> (any other id: 409 not_a_change, as the server); sign-in NOCUT... makes it 422.
+a change result ch<n> (any other id: 409 not_a_change, as the server); sign-in NOCUT... makes it 422, and
+NOCUTOUT... makes only it 422 (Adjust the area still cuts; T122). Cleanup names the piece it was
+sent ("Cut-out of cand-1").
 change answers 201 like the server. GET /__mock/last/<change|cutout> as above.
 Sticker preview, listing run, story video (T121): every sticker product carries previewUrl
 (<base>/sticker-preview.png, a 240 px bordered die-cut sticker on transparency; totes: null).
@@ -149,7 +151,7 @@ CANDIDATES = [
 LAST = {}
 # A sign-in code starting with ONE makes photo answers carry a single, already cut-out candidate.
 # NOCUT… makes every cleanup answer 422; DETAILS… makes it carry non-empty details.
-MODE = {"single": False, "none": False, "fail": False, "details": False, "slow": False, "noprint": False, "novideo": False}
+MODE = {"nocutout": False, "single": False, "none": False, "fail": False, "details": False, "slow": False, "noprint": False, "novideo": False}
 CUTS = {"n": 0}
 
 
@@ -193,7 +195,7 @@ def cutout_artwork(artwork_id, body):
     LAST["cutout"] = {**body, "artworkId": artwork_id}
     if artwork_id not in CHANGES["rows"]:
         raise MockError(409, "not_a_change", "Only a changed picture needs a new cutout")
-    if MODE["fail"]:
+    if MODE["fail"] or MODE["nocutout"]:
         raise MockError(422, "no_drawing_found", "nothing found in the edited picture")
     base = CHANGES["rows"][artwork_id]
     row = {**base, "cleanedUrl": f"{BASE}/img.png?cutout={artwork_id}", "status": "ready",
@@ -276,7 +278,10 @@ def cleanup(body):
     details = {"failedProductIds": [], "unpublishedProductIds": []}
     if MODE["details"]:
         details = {"failedProductIds": ["pr1"], "unpublishedProductIds": ["pr2"]}
-    return {**photo_artwork(f"{BASE}/img.png?cut={CUTS['n']}", "Cut-out preview"), "details": details}
+    # Adjust the area (T122) sends the picked piece with the frame: the alt text names that piece.
+    ids = body.get("candidateIds") or []
+    alt = f"Cut-out of {ids[0]}" if ids else "Cut-out preview"
+    return {**photo_artwork(f"{BASE}/img.png?cut={CUTS['n']}", alt), "details": details}
 
 
 def artwork_detail(_body):
@@ -440,7 +445,8 @@ def sign_in(body):
     code = str(body.get("code", "")).upper()
     MODE["single"] = code.startswith("ONE")
     MODE["none"] = code.startswith("NONE")
-    MODE["fail"] = code.startswith("NOCUT")
+    MODE["nocutout"] = code.startswith("NOCUTOUT")
+    MODE["fail"] = code.startswith("NOCUT") and not MODE["nocutout"]
     MODE["details"] = code.startswith("DETAILS")
     MODE["slow"] = code.startswith("SLOW")
     MODE["noprint"] = code.startswith("NOPRINT")

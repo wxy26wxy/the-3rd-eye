@@ -172,22 +172,22 @@ final class DesignsTests: XCTestCase {
     let stub = StubTransport(body: #"{"artworks":[{"id":"d1","products":[]}]}"#)
     let app = AppState(api: APIClient(baseURL: base, transport: stub, token: "t"))
     await app.designs.load()
-    app.designsPath = [.detail("d1"), .redoCutout]
+    app.designsPath = [.detail("d1"), .adjustArea]
     app.signOut()
     XCTAssertTrue(app.designs.artworks.isEmpty)
     XCTAssertTrue(app.designsPath.isEmpty)
   }
 
-  // MARK: Adjust cutout errors (T082 parked R1)
+  // MARK: Adjust the area errors (T122: no marks any more, so the server's reason is shown)
 
-  func testRemoveAdviceOnlyAfterRemoveMarks() {
-    let error = APIError.server(status: 422, code: "no_drawing_found", message: "Nothing was left in the cutout.")
-    let withNegative = CleanupRequest(candidateIds: ["c1", "c2"], points: [CutoutPoint(x: 1, y: 1, label: .negative)])
-    let withoutNegative = CleanupRequest(candidateIds: ["c1", "c2"], points: [CutoutPoint(x: 1, y: 1, label: .positive)])
-    XCTAssertEqual(CleanupResult.errorMessage(for: error, request: withNegative), CleanupResult.removeAdvice)
-    XCTAssertEqual(CleanupResult.errorMessage(for: error, request: withoutNegative), "Nothing was left in the cutout.")
-    XCTAssertEqual(CleanupResult.errorMessage(for: error, request: CleanupRequest(candidateIds: ["c1"])), "Nothing was left in the cutout.")
-    XCTAssertNil(CleanupResult.errorMessage(for: CancellationError(), request: withNegative))
+  func testCleanupErrorShowsTheServersReason() {
+    let empty = APIError.server(status: 422, code: "no_drawing_found", message: "Nothing was left in the cutout.")
+    XCTAssertEqual(CleanupResult.errorMessage(for: empty),
+                   "We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again.",
+                   "nothing in the frame: what to do about it")
+    let other = APIError.server(status: 400, code: "invalid_request", message: "cleanup body does not match the contract")
+    XCTAssertEqual(CleanupResult.errorMessage(for: other), "cleanup body does not match the contract")
+    XCTAssertNil(CleanupResult.errorMessage(for: CancellationError()))
   }
 
   // MARK: T091 polish

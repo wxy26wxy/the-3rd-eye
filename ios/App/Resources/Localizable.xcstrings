@@ -49,28 +49,22 @@
     "Add a video" : {
 
     },
-    "Add area" : {
-
-    },
-    "Add the area around your art" : {
-
-    },
-    "Added area, mark %lld" : {
-
-    },
     "Adding the white border and getting it ready to print." : {
 
     },
     "Adds a picture from your library" : {
 
     },
+    "Adjust the area" : {
+
+    },
     "After" : {
 
     },
-    "Apply cutout" : {
+    "Approve and list it" : {
 
     },
-    "Approve and list it" : {
+    "Area frame" : {
 
     },
     "Artwork" : {
@@ -100,12 +94,6 @@
     "Bought by %@" : {
 
     },
-    "Box around your art" : {
-
-    },
-    "Box drawn" : {
-
-    },
     "Buyer said: %@" : {
 
     },
@@ -128,6 +116,9 @@
 
     },
     "Change it again" : {
+
+    },
+    "Change it when you record again." : {
 
     },
     "Change the name, description or price" : {
@@ -166,9 +157,6 @@
     "Choose how you want to bring your drawing into the studio." : {
 
     },
-    "Clear marks" : {
-
-    },
     "Continue the sticker draft" : {
 
     },
@@ -178,10 +166,7 @@
     "Create" : {
 
     },
-    "Cuts it out again with your marks and shows it" : {
-
-    },
-    "Cutting it out…" : {
+    "Cuts out what is inside the frame" : {
 
     },
     "Cutting out your art. This takes a few seconds." : {
@@ -200,9 +185,6 @@
 
     },
     "Delete this design?" : {
-
-    },
-    "Deletes this mark" : {
 
     },
     "Deleting…" : {
@@ -232,16 +214,10 @@
     "Drafted story: %@" : {
 
     },
-    "Drag a box around the whole drawing." : {
+    "Drag a corner or an edge to change the area. Swipe up or down for more actions." : {
 
     },
-    "Draw a box" : {
-
-    },
-    "Draw a box around what should stay, then tap the parts to leave out." : {
-
-    },
-    "Draw a box around your art, or tap it, then tap Apply cutout." : {
+    "Drag the corners so the frame covers your drawing." : {
 
     },
     "Draws a new version with your change" : {
@@ -277,16 +253,26 @@
     "Finish the listing and put it in the shop" : {
 
     },
-    "Fix the edges" : {
+    "Frame covers %lld by %lld percent of the photo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Frame covers %1$lld by %2$lld percent of the photo"
+          }
+        }
+      }
+    },
+    "Frame reset" : {
 
     },
-    "Fix the edges of the cutout" : {
+    "Frame your art again and cut it out" : {
 
     },
     "Go back" : {
 
     },
-    "Goes on to change it or keep it as it is" : {
+    "Goes on to set the area around your art" : {
 
     },
     "Goes on to your sticker draft" : {
@@ -298,6 +284,9 @@
     "Goes to the previous screen" : {
 
     },
+    "Grow 10 %" : {
+
+    },
     "Happy Frog Sticker" : {
 
     },
@@ -307,10 +296,7 @@
     "Here's the change" : {
 
     },
-    "Here's the cutout of your art. Fix the edges if you need to." : {
-
-    },
-    "Here's the cutout of your changed art. Fix the edges if you need to." : {
+    "Here's your cutout." : {
 
     },
     "How do you want to add your art?" : {
@@ -362,13 +348,13 @@
     "Keeps your story as it is" : {
 
     },
+    "Keeps your story video as it is" : {
+
+    },
     "Lay your drawing flat in good light. It's fine if there are a few on the page." : {
 
     },
     "Leave empty to keep it" : {
-
-    },
-    "Left out, mark %lld" : {
 
     },
     "Listening" : {
@@ -437,12 +423,6 @@
     "Making your tote bag. This can take up to a minute." : {
 
     },
-    "Mark added" : {
-
-    },
-    "Mark removed" : {
-
-    },
     "Mention my disability" : {
 
     },
@@ -455,7 +435,22 @@
     "Microphone access is off. You can turn it on in Settings, or type instead." : {
 
     },
+    "Move down 10 %" : {
+
+    },
+    "Move left 10 %" : {
+
+    },
+    "Move right 10 %" : {
+
+    },
+    "Move up 10 %" : {
+
+    },
     "My designs" : {
+
+    },
+    "My story video" : {
 
     },
     "Name" : {
@@ -482,13 +477,22 @@
     "No orders yet. We'll check every few seconds and show them here." : {
 
     },
+    "No story video yet" : {
+
+    },
     "Not selected" : {
 
     },
     "Note from the buyer: %@" : {
 
     },
+    "Off" : {
+
+    },
     "Off means your story never says it. You can change this later." : {
+
+    },
+    "On" : {
 
     },
     "One product went back to draft because the new cutout is too small to print. Open My designs to fix it." : {
@@ -527,10 +531,19 @@
     "Opens your product page" : {
 
     },
+    "Opens your story video" : {
+
+    },
     "Order" : {
 
     },
     "Orders" : {
+
+    },
+    "Our green mascot holds up a drawing, with tote bags and stickers floating around." : {
+
+    },
+    "Our green mascot points at a shop page full of stickers and tote bags." : {
 
     },
     "Pick a photo of your drawing." : {
@@ -560,10 +573,16 @@
     "Puts it on a tote bag and writes its listing" : {
 
     },
+    "Puts the frame back around your drawing" : {
+
+    },
     "Re-do the cutout" : {
 
     },
     "Record a short video, about 30 seconds. Buyers see it when they tap the story tag. You only do this once." : {
+
+    },
+    "Record again" : {
 
     },
     "Record my video" : {
@@ -572,16 +591,16 @@
     "Record or write a thank-you the buyer sees when they tap the tag" : {
 
     },
+    "Recorded" : {
+
+    },
+    "Recorded %@" : {
+
+    },
     "Records up to 15 seconds" : {
 
     },
     "Records your voice" : {
-
-    },
-    "Remove area" : {
-
-    },
-    "Removes every mark and the box" : {
 
     },
     "Repeats the last step" : {
@@ -594,6 +613,9 @@
 
     },
     "Reply" : {
+
+    },
+    "Reset" : {
 
     },
     "Retake" : {
@@ -665,10 +687,10 @@
     "Sent with a picture or video." : {
 
     },
-    "Shows the picture so you can add marks or a box" : {
+    "Shows your live product" : {
 
     },
-    "Shows your live product" : {
+    "Shrink 10 %" : {
 
     },
     "Sign in" : {
@@ -706,9 +728,6 @@
 
     },
     "Skip for now" : {
-
-    },
-    "Snap or upload your art. We make the sticker or tote." : {
 
     },
     "Snap your drawing" : {
@@ -778,9 +797,6 @@
     "Tap the one you want." : {
 
     },
-    "Tap the photo where the cutout should include more. Tap a mark again to remove it." : {
-
-    },
     "Tell buyers your story" : {
 
     },
@@ -802,10 +818,13 @@
     "The design is missing. Go back and pick it again." : {
 
     },
-    "The photo is missing. Go back and take it again." : {
+    "The frame can't get smaller" : {
 
     },
-    "Then tap or drag on the photo. With VoiceOver, use the actions on the photo." : {
+    "The frame is at the edge of the photo" : {
+
+    },
+    "The photo is missing. Go back and take it again." : {
 
     },
     "This continues your sticker draft and replaces the design you're making in Create. To change the one in the shop, use Edit listing." : {
@@ -847,9 +866,6 @@
     "This video has no sound, so it won't have captions." : {
 
     },
-    "To trim the edges, draw a box around what should stay, then tap the parts to leave out." : {
-
-    },
     "Tote bag" : {
 
     },
@@ -874,13 +890,13 @@
     "Use this" : {
 
     },
+    "Use this area" : {
+
+    },
     "Use this story" : {
 
     },
     "Uses this cutout and makes your product" : {
-
-    },
-    "Uses this cutout for your design" : {
 
     },
     "Version %@ (%@), %@" : {
@@ -899,7 +915,16 @@
     "Video saved!" : {
 
     },
-    "We couldn't find a drawing in your photo. Use this to draw a box around it, or take the photo again." : {
+    "Watch" : {
+
+    },
+    "We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again." : {
+
+    },
+    "We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it." : {
+
+    },
+    "We couldn't load your video. Try again later." : {
 
     },
     "We filled in your code from the link. Tap Sign in." : {
@@ -921,6 +946,9 @@
 
     },
     "We'll ask again the next time you list something" : {
+
+    },
+    "We'll show the name, price and description when it's ready." : {
 
     },
     "We'll tell you when someone buys it. Every sticker ships with your story tag." : {
@@ -986,9 +1014,6 @@
     "YOU ASKED" : {
 
     },
-    "You can add up to 10 marks. Tap a mark to remove it." : {
-
-    },
     "You can make the other one later." : {
 
     },
@@ -1049,6 +1074,9 @@
     "Your message" : {
 
     },
+    "Your new video replaces this one on all your products." : {
+
+    },
     "Your photo" : {
 
     },
@@ -1062,6 +1090,9 @@
 
     },
     "Your story" : {
+
+    },
+    "Your story video" : {
 
     },
     "Your studio gave you a short code. Type it or say it." : {

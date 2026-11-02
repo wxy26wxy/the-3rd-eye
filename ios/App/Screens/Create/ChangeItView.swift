@@ -2,13 +2,15 @@ import SwiftUI
 
 /// Board "Change it" (`2012:387`, states `2011:208/246/334`, `2021:2169/2216`): the art as it is now
 /// ("YOUR ART"), what it shows, then the change panel: a "What to change" field, the record button
-/// ("Say what to change"; the words land in the field) and "Make the change". "Looks good as is"
-/// keeps the art: the picked drawing goes straight to Making your sticker with its cut-out, a change
+/// ("Say what to change"; the words land in the field), then "Make the change" and "Looks good as is"
+/// side by side at the bottom of the card (stacked at accessibility text sizes; no pinned bar, T122
+/// R4). "Looks good as is" keeps the art: the picked drawing goes straight to Making your sticker with its cut-out, a change
 /// is cut out first. The original is never overwritten: a change is a new
 /// artwork (`POST /artworks/{id}/change`).
 struct ChangeItView: View {
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
+  @Environment(\.dynamicTypeSize) private var dynamicTypeSize
   @State private var capture: VoiceCapture?
   @State private var instruction = ""
   /// The words last heard, so a spoken change is sent with its transcript.
@@ -27,12 +29,6 @@ struct ChangeItView: View {
         if let text = flow.currentArt?.shownDescription { DescriptionCard(text: text) }
         changePanel
       }
-    } actions: {
-      PillButton("Looks good as is", hint: "Keeps your art as it is and goes on") {
-        capture?.cancel()
-        looksGood()
-      }
-      .disabled(busy || flow.currentArt == nil)
     }
     .onAppear {
       if capture == nil { capture = VoiceCapture(api: app.api) }
@@ -43,7 +39,7 @@ struct ChangeItView: View {
       }
     }
     .onDisappear { capture?.cancel() }
-    // Return closes the keyboard (a change is one line), so the pinned bar and the tab bar come back.
+    // Return closes the keyboard (a change is one line), so the buttons and the tab bar come back.
     .onChange(of: instruction) { _, text in
       guard text.contains("\n") else { return }
       instruction = text.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
@@ -72,12 +68,31 @@ struct ChangeItView: View {
           }
           if let message = capture.error { ErrorCard(message: message) }
         }
-        PillButton("Make the change", hint: "Changes your art the way you asked") {
-          makeTheChange()
-        }
-        .disabled(busy || trimmed.isEmpty)
+        buttons
       }
     }
+  }
+
+  /// "Make the change" (primary) and "Looks good as is" (secondary): one row, each half the card,
+  /// stacked at accessibility text sizes so the words fit.
+  private var buttons: some View {
+    let layout = dynamicTypeSize.isAccessibilitySize
+      ? AnyLayout(VStackLayout(spacing: Theme.Space.s))
+      : AnyLayout(HStackLayout(alignment: .center, spacing: Theme.Space.s))
+    return layout {
+      PillButton("Make the change", hint: "Changes your art the way you asked", showsArrow: false) {
+        makeTheChange()
+      }
+      .disabled(busy || trimmed.isEmpty)
+      .frame(maxWidth: .infinity)
+      PillButton("Looks good as is", hint: "Keeps your art as it is and goes on", kind: .secondary, showsArrow: false) {
+        capture?.cancel()
+        looksGood()
+      }
+      .disabled(busy || flow.currentArt == nil)
+      .frame(maxWidth: .infinity)
+    }
+    .padding(.top, Theme.Space.xs)
   }
 
   /// "LISTENING" while recording (board `2011:208`), "Writing down what you said…" while the words

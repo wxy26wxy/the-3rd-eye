@@ -22,6 +22,8 @@ export interface ImageProvider {
   generate(prompt: string, opts: { n: number; trace: Trace }): Promise<GeneratedImage[]>;
   refine(responseId: string, instruction: string, opts: { trace: Trace }): Promise<GeneratedImage>;
   compose(prompt: string, refs: ImageRef[], opts: { trace: Trace }): Promise<GeneratedImage>;
+  /** Changes `image` as `instruction` says (Muse Image with the picture as input_image); trace stage "edit". */
+  edit(image: ImageRef, instruction: string, opts: { trace: Trace }): Promise<GeneratedImage>;
 }
 
 export type Mask = { width: number; height: number; data: Uint8Array /* 0/1 per pixel */ };

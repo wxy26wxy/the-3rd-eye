@@ -22,8 +22,9 @@ as the server's can, so the app must show its own words.
 Change it (T111): POST /artworks/<id>/change {instruction, transcript?} sleeps 2 s and answers a child
 artwork ch<n> (parentArtworkId = <id>, previewUrl, cleanedUrl null) with a description; an instruction
 containing "nothing" gives description.differences "" (the app shows its own copy). POST
-/artworks/<id>/cutout answers the cut-out row, the two candidates (largest first) and imageSize;
-sign-in NOCUT... makes it answer 422 no_drawing_found. GET /__mock/last/<change|cutout> as above.
+/artworks/<id>/cutout answers the cut-out row, the two candidates (largest first) and imageSize, only for
+a change result ch<n> (any other id: 409 not_a_change, as the server); sign-in NOCUT... makes it 422.
+change answers 201 like the server. GET /__mock/last/<change|cutout> as above.
 """
 import json
 import re
@@ -129,20 +130,21 @@ def change_artwork(artwork_id, body):
         "createdAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
     }
     CHANGES["rows"][child_id] = child
-    return {"artwork": child, "description": {
+    return 201, {"artwork": child, "description": {
         "alt": child["altText"], "spoken": child["spokenDescription"], "differences": differences}}
 
 
 def cutout_artwork(artwork_id, body):
     LAST["cutout"] = {**body, "artworkId": artwork_id}
+    if artwork_id not in CHANGES["rows"]:
+        raise MockError(409, "not_a_change", "Only a changed picture needs a new cutout")
     if MODE["fail"]:
         raise MockError(422, "no_drawing_found", "nothing found in the edited picture")
-    base = CHANGES["rows"].get(artwork_id) or {**photo_artwork(), "id": artwork_id}
+    base = CHANGES["rows"][artwork_id]
     row = {**base, "cleanedUrl": f"{BASE}/img.png?cutout={artwork_id}", "status": "ready",
            "cutPathSvg": "M10 10 L90 10 L90 90 L10 90 Z", "lastError": None}
     row.pop("previewUrl", None)
-    if artwork_id in CHANGES["rows"]:
-        CHANGES["rows"][artwork_id] = {**row, "previewUrl": base.get("previewUrl")}
+    CHANGES["rows"][artwork_id] = {**row, "previewUrl": base.get("previewUrl")}
     return {"artwork": row, "candidates": CANDIDATES, "imageSize": IMAGE_SIZE}
 
 
@@ -151,7 +153,7 @@ def change_detail(artwork_id):
     if not row:
         raise MockError(404, "not_found", "no such artwork")
     return {"artwork": {k: v for k, v in row.items() if k != "previewUrl"}, "candidates": CANDIDATES,
-            "imageSize": IMAGE_SIZE, "originalUrl": f"{BASE}/img.png"}
+            "imageSize": IMAGE_SIZE, "originalUrl": f"{BASE}/img.png", "previewUrl": row.get("previewUrl")}
 
 
 def create_artwork(body):
@@ -418,7 +420,10 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             body = {}
         try:
-            self._send(200, fn(body))
+            result = fn(body)
+            # A handler may answer (status, body), e.g. 201 for a created child artwork.
+            status, result = result if isinstance(result, tuple) else (200, result)
+            self._send(status, result)
         except MockError as e:
             self._send(e.status, {"error": {"code": e.code, "message": e.message}})
 

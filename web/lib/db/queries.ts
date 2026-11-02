@@ -339,12 +339,11 @@ function shopSelect() {
  * Published products for shop grids and "more from this studio". Hidden (testing) creators'
  * products are left out; `getPublicProduct` (a direct product link) still finds them.
  */
-export async function listPublishedProducts(filter: { type?: ProductType; madeByVoice?: boolean; creatorId?: string; limit?: number } = {}): Promise<ShopProduct[]> {
+export async function listPublishedProducts(filter: { type?: ProductType; creatorId?: string; limit?: number } = {}): Promise<ShopProduct[]> {
   const conds = [eq(products.status, "published"), isNull(products.deletedAt), isNull(creators.deletedAt), isNull(artworks.deletedAt),
     eq(creators.hidden, false)];
   if (filter.type) conds.push(eq(products.type, filter.type));
   if (filter.creatorId) conds.push(eq(products.creatorId, filter.creatorId));
-  if (filter.madeByVoice) conds.push(eq(artworks.source, "text2image"));
   return shopSelect().where(and(...conds)).orderBy(desc(products.createdAt)).limit(filter.limit ?? 100);
 }
 

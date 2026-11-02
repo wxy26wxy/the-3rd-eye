@@ -270,3 +270,11 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - `docs/demo_script.md`: iOS screen order, screen names and quoted on-screen copy follow the Sky screens; beat timings unchanged; no new feature claims; TestFlight build reference is 0.5.0 (pending upload).
 - `docs/handoffs/design.md`: checked. The old canvas artifact id and the hosting domain of the retired canvas appear nowhere in the repository, and the intake checklist describes the Figma process only (by file key). No change needed.
 - Unfinished: the live site still shows the old design until the product owner promotes v0.7; the iOS shots were taken at the Welcome and Pick screens (the Adjust cutout screen in the mock shows generated placeholder pieces, so it was not used).
+
+## T111 backend · Change-it API, cutout, order size and quantity, trace relabel (2026-11-01)
+- Contract first: `docs/api.md` "Change it, cutout, order size and quantity (T111)" and the two mock routes in `ios/scripts/mock_api.py`, committed before the code so the web and iOS lanes could build against them.
+- `ImageProvider.edit()` (Muse Image with the picked piece as `input_image`, the white-background guard, trace stage `edit`); one live call recorded the fixture; the compose request shape works unchanged (docs/architecture.md "Live findings T111").
+- `POST /artworks/{id}/change` → child artwork (`parentArtworkId`, `changeInstruction`, `transcript`, preview) with a description for "Before and after"; `POST /artworks/{id}/cutout` → SAM on the edited picture, largest piece cut out; "Your cutout" keeps `cleanup`.
+- Orders: `size` (sticker 3 in / 4 in +$2 / sheet +$6, sample pricing) and `quantity` (1–10); total = unit × quantity; admin shows "size × qty". "Made by voice" shop filter removed (`madeByVoice` dormant). Admin AI trace in the v0.8 step order.
+- Migration 0004 generated, not applied: the product owner runs `pnpm migrate drizzle/0004_t111_change_and_sizes.sql` from `web/` before this branch is deployed.
+- Text-to-image routes (`prompts/shape`, `artworks {source:"text2image"}`, `refine`) kept and tested, marked "not used by the apps since v0.8".

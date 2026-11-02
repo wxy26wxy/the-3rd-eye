@@ -1,7 +1,7 @@
 import { requireCreator } from "@/lib/auth";
 import { json, notFound, route } from "@/lib/http";
 import { deleteArtworkArchivingProducts, getArtworkForCreator } from "@/lib/db/queries";
-import { toArtwork, toCandidates } from "@/lib/api/dto";
+import { previewUrlOf, toArtwork, toCandidates } from "@/lib/api/dto";
 import { originalSize } from "@/lib/pipeline/artworks";
 import { storage } from "@/lib/storage";
 
@@ -10,7 +10,7 @@ const ORIGINAL_URL_TTL_S = 600;
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** One artwork with its candidates, the original's size and a short-lived URL of the original. */
+/** One artwork with its candidates, the original's size, a short-lived URL of the original and its public picture (T111). */
 export const GET = route<Ctx>(async (req, { params }) => {
   const { creatorId } = requireCreator(req);
   const { id } = await params;
@@ -20,7 +20,7 @@ export const GET = route<Ctx>(async (req, { params }) => {
     originalSize(artwork),
     artwork.originalUrl ? storage().signedUrl(artwork.originalUrl, ORIGINAL_URL_TTL_S) : Promise.resolve(null),
   ]);
-  return json({ artwork: toArtwork(artwork), candidates: toCandidates(artwork), imageSize, originalUrl });
+  return json({ artwork: toArtwork(artwork), candidates: toCandidates(artwork), imageSize, originalUrl, previewUrl: previewUrlOf(artwork) });
 });
 
 /** Soft delete; the artwork's products are archived (they leave the shop, orders keep rendering). */

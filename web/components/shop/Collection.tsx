@@ -5,7 +5,7 @@ import { ProductCard } from "@/components/site/ProductCard";
 import { FilterTabs } from "@/components/site/FilterTabs";
 import styles from "./Shop.module.css";
 
-const VALID: ShopFilter[] = ["all", "sticker", "tote", "voice"];
+const VALID: ShopFilter[] = ["all", "sticker", "tote"];
 export function parseFilter(v: string | string[] | undefined): ShopFilter {
   const s = Array.isArray(v) ? v[0] : v;
   return VALID.includes(s as ShopFilter) ? (s as ShopFilter) : "all";

@@ -20,7 +20,7 @@ export function toArtwork(a: ArtworkRow) {
     id: a.id, creatorId: a.creatorId, source: a.source, transcript: a.transcript, shapedPrompt: a.shapedPrompt,
     originalUrl: a.originalUrl, cleanedUrl: a.cleanedUrl, maskUrl: a.maskUrl, cutPathSvg: a.cutPathSvg,
     altText: a.altText, spokenDescription: a.spokenDescription, differencesFromPrompt: a.differencesFromPrompt,
-    genResponseId: a.genResponseId, parentArtworkId: a.parentArtworkId, status: a.status, lastError: a.lastError, createdAt: a.createdAt,
+    genResponseId: a.genResponseId, parentArtworkId: a.parentArtworkId, changeInstruction: a.changeInstruction ?? null, status: a.status, lastError: a.lastError, createdAt: a.createdAt,
   };
 }
 
@@ -29,8 +29,13 @@ export function toArtworkListItem(a: ArtworkWithProducts) {
   return { ...toArtwork(a), products: a.products.map(({ id, type, status, priceCents, title, description, mockupUrl }) => ({ id, type, status, priceCents, title, description, mockupUrl })) };
 }
 
+/** Public picture of a row: the cut-out when there is one, else the edited picture of a change result (T111). */
+export function previewUrlOf(a: ArtworkRow): string | null {
+  return a.cleanedUrl ?? (a.shapingTrace as { previewUrl?: string } | null)?.previewUrl ?? null;
+}
+
 export function toArtworkVariant(a: ArtworkRow) {
-  return { ...toArtwork(a), previewUrl: a.cleanedUrl };
+  return { ...toArtwork(a), previewUrl: previewUrlOf(a) };
 }
 
 export function toCandidates(a: ArtworkRow) {
@@ -54,7 +59,7 @@ export function toListing(l: ListingRow) {
 export function toOrderSummary(o: OrderSummaryRow) {
   return {
     id: o.id, productId: o.productId, productTitle: o.productTitle, mockupUrl: o.mockupUrl, buyerName: o.buyerName,
-    amountCents: o.amountCents, creatorShareCents: o.creatorShareCents, status: o.status, createdAt: o.createdAt,
+    amountCents: o.amountCents, creatorShareCents: o.creatorShareCents, size: o.size ?? null, quantity: o.quantity ?? 1, status: o.status, createdAt: o.createdAt,
     hasThankYou: o.hasThankYou, unreadMessages: o.unreadMessages,
   };
 }

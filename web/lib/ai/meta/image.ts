@@ -12,6 +12,7 @@ import type { GeneratedImage, ImageProvider, ImageRef, Trace } from "../types";
 import { traced } from "../trace";
 import { MODELS, metaResponses, type ResponsesLike } from "./client";
 import { imageResults, inputImage, responseId, userMessage } from "./responses";
+import { KEEP_GUARD } from "../guard";
 
 export const IMAGE_TOOL = { type: "image_generation", output_format: "png", size: "1024x1024" } as const;
 
@@ -23,8 +24,7 @@ export async function toGeneratedImage(resp: unknown): Promise<GeneratedImage> {
   return { png, responseId: responseId(resp), width: meta.width ?? 0, height: meta.height ?? 0 };
 }
 
-/** Appended to every change instruction (refine and edit): the art stays the artist's, the background stays printable. */
-export const KEEP_GUARD = "Keep the same subject, style and pure white background unless asked otherwise.";
+export { KEEP_GUARD };
 
 /** The edit request body: instruction (with the guard) and the picture as one user message. */
 export function editBody(image: ImageRef, instruction: string) {

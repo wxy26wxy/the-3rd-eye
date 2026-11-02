@@ -80,6 +80,7 @@ export const artworks = pgTable("artworks", {
   differencesFromPrompt: text("differences_from_prompt"),
   genResponseId: text("gen_response_id"),          // Muse Image response id for refine()
   parentArtworkId: uuid("parent_artwork_id"),
+  changeInstruction: text("change_instruction"),   // "Change it" request that made this row from its parent (T111)
   artworkVideoUrl: text("artwork_video_url"),      // optional per-piece video (later)
   status: artworkStatus("status").default("draft").notNull(),
   lastError: text("last_error"),                   // why the last pipeline run did not finish (null when fine)
@@ -122,6 +123,8 @@ export const orders = pgTable("orders", {
   buyerName: text("buyer_name").notNull(),
   buyerEmail: text("buyer_email"),
   shipNote: text("ship_note"),
+  size: text("size"),                              // sticker size key ("3in" | "4in" | "sheet"); null for totes and pre-v0.8 orders (T111)
+  quantity: integer("quantity").default(1).notNull(),
   amountCents: integer("amount_cents").notNull(),
   creatorShareCents: integer("creator_share_cents").notNull(),
   orgShareCents: integer("org_share_cents").notNull(),
@@ -164,7 +167,7 @@ export const messages = pgTable("messages", {
 export const aiCalls = pgTable("ai_calls", {
   id: uuid("id").primaryKey().defaultRandom(),
   jobId: text("job_id"),
-  stage: text("stage").notNull(),                  // transcribe | shape | generate | refine | describe | segment | sticker | mockup | listing | story | captions
+  stage: text("stage").notNull(),                  // transcribe | shape | generate | refine | edit | describe | segment | sticker | mockup | listing | story | captions
   provider: text("provider").notNull(),            // meta | ollama | meta-fallback | fixture
   model: text("model").notNull(),
   requestHash: text("request_hash").notNull(),

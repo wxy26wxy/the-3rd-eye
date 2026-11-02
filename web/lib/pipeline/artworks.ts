@@ -7,7 +7,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { ai } from "@/lib/ai/registry";
-import type { GeneratedImage, Mask, Segment, SegmentPoint, Trace } from "@/lib/ai/types";
+import type { Description, GeneratedImage, Mask, Segment, SegmentPoint, Trace } from "@/lib/ai/types";
 import { cutUpscale, ensureDpi, previewCutPath, removeBackground } from "@/lib/image/sticker";
 import { pngRef } from "@/lib/image/ref";
 import { alphaToMask, alphaToPng, area, bboxOf, emptyMask, finishMask, maskFromPng, maskToPng, removePiecesAt, unionMasks } from "@/lib/image/mask";
@@ -182,18 +182,7 @@ export async function createFromImage(
     id, creatorId, source: input.source, originalUrl: original.pathname, shapingTrace: { product: input.product, imageSize }, status: "draft", createdByTask: task,
   });
   const { segments: segs, droppedContainer } = await (await ai()).segmenter.findCandidates(pngRef(png), { trace: traceFor(id, task, "segment"), max: MAX_CANDIDATES });
-  const ts = Math.min(1, THUMB_SOURCE_SIDE / Math.max(imageSize.w, imageSize.h));
-  const small = { width: Math.max(1, Math.round(imageSize.w * ts)), height: Math.max(1, Math.round(imageSize.h * ts)) };
-  const smallPng = ts < 1 ? await sharp(png).resize(small.width, small.height, { fit: "fill" }).png().toBuffer() : png;
-  const candidates = await Promise.all(segs.slice(0, MAX_CANDIDATES).map(async (s): Promise<SamCandidate> => {
-    const cut = await removeBackground(smallPng, await finishMask(s.mask, small));
-    const thumb = await sharp(cut.png).resize(320, 320, { fit: "inside" }).png().toBuffer();
-    const [thumbFile, maskFile] = await Promise.all([
-      storage().putPublic(creatorPath(creatorId, "thumbs", "png"), thumb, "image/png"),
-      storage().putPrivate(creatorPath(creatorId, "masks", "png"), await maskToPng(s.mask), "image/png"),
-    ]);
-    return { id: randomUUID(), bbox: s.bbox, score: Math.round(s.score * 1000) / 1000, thumbUrl: thumbFile.url, maskUrl: maskFile.pathname };
-  }));
+  const candidates = await storeCandidates(creatorId, png, imageSize, segs);
   artwork = await updateArtwork(id, { candidates });
   if (candidates.length === 0) {
     await updateArtwork(id, { lastError: "no_drawing_found" });
@@ -205,6 +194,108 @@ export async function createFromImage(
     artwork = await selectCandidate(artwork, candidates[0].id, task);
   }
   return { artwork, candidates, imageSize };
+}
+
+/** Thumbnails (public) and masks (private) for SAM results on `png`, in the given order, at most MAX_CANDIDATES. */
+async function storeCandidates(creatorId: string, png: Buffer, imageSize: ImageSize, segs: Segment[]): Promise<SamCandidate[]> {
+  const ts = Math.min(1, THUMB_SOURCE_SIDE / Math.max(imageSize.w, imageSize.h));
+  const small = { width: Math.max(1, Math.round(imageSize.w * ts)), height: Math.max(1, Math.round(imageSize.h * ts)) };
+  const smallPng = ts < 1 ? await sharp(png).resize(small.width, small.height, { fit: "fill" }).png().toBuffer() : png;
+  return Promise.all(segs.slice(0, MAX_CANDIDATES).map(async (s): Promise<SamCandidate> => {
+    const cut = await removeBackground(smallPng, await finishMask(s.mask, small));
+    const thumb = await sharp(cut.png).resize(320, 320, { fit: "inside" }).png().toBuffer();
+    const [thumbFile, maskFile] = await Promise.all([
+      storage().putPublic(creatorPath(creatorId, "thumbs", "png"), thumb, "image/png"),
+      storage().putPrivate(creatorPath(creatorId, "masks", "png"), await maskToPng(s.mask), "image/png"),
+    ]);
+    return { id: randomUUID(), bbox: s.bbox, score: Math.round(s.score * 1000) / 1000, thumbUrl: thumbFile.url, maskUrl: maskFile.pathname };
+  }));
+}
+
+/** Longest side of the picture sent to Muse Image edit (its output is 1600 px square whatever the input). */
+const EDIT_INPUT_SIDE = 1024;
+/** White margin around the picked piece in the edit input, as a share of its longest side. */
+const EDIT_MARGIN = 0.1;
+
+/**
+ * The picture "Change it" edits: the row's cut-out flattened on white (the picked piece), or, for a
+ * change result that has no cut-out yet, its stored edited picture. Squared on white with a margin,
+ * at most EDIT_INPUT_SIDE.
+ */
+export async function changeInput(artwork: ArtworkRow, read: (pathname: string) => Promise<Buffer> = (p) => storage().read(p)): Promise<Buffer> {
+  const ref = artwork.cleanedUrl ?? (artwork.changeInstruction ? artwork.originalUrl : null);
+  if (!ref) throw new ApiError(409, "artwork_not_ready", "Pick a piece first", { artworkId: artwork.id });
+  const flat = await sharp(await read(ref)).flatten({ background: "#ffffff" }).png().toBuffer();
+  const meta = await sharp(flat).metadata();
+  const side = Math.max(meta.width ?? 1, meta.height ?? 1);
+  const canvas = Math.round(side * (1 + 2 * EDIT_MARGIN));
+  const k = Math.min(1, EDIT_INPUT_SIDE / canvas);
+  const inner = Math.max(1, Math.round(side * k));
+  const out = Math.max(1, Math.round(canvas * k));
+  const piece = await sharp(flat).resize(inner, inner, { fit: "contain", background: "#ffffff" }).png().toBuffer();
+  const pad = Math.floor((out - inner) / 2);
+  const squared = await sharp({ create: { width: out, height: out, channels: 3, background: "#ffffff" } })
+    .composite([{ input: piece, top: pad, left: pad }]).png().toBuffer();
+  return sharp(squared).flatten({ background: "#ffffff" }).png().toBuffer(); // opaque: composite adds an alpha channel
+}
+
+export type ChangeResult = { artwork: ArtworkRow; description: Description };
+
+/**
+ * "Change it" (T111): Muse Image edits the picked piece (or the previous change result) as the
+ * instruction says; the result is a new child row (source photo, parentArtworkId, changeInstruction,
+ * transcript, genResponseId) whose edited picture is stored privately (originalUrl, for the cutout)
+ * and publicly (shapingTrace.previewUrl), then Muse Spark describes it against the instruction.
+ */
+export async function changeArtwork(parent: ArtworkRow, input: { instruction: string; transcript?: string | null }, task = "T111"): Promise<ChangeResult> {
+  const instruction = input.instruction.trim();
+  const source = await changeInput(parent);
+  const registry = await ai();
+  const id = randomUUID();
+  const img = await registry.image.edit(pngRef(source), instruction, { trace: traceFor(id, task, "edit") });
+  const png = await sharp(img.png).flatten({ background: "#ffffff" }).png().toBuffer();
+  const meta = await sharp(png).metadata();
+  const imageSize: ImageSize = { w: meta.width ?? img.width, h: meta.height ?? img.height };
+  const [original, preview] = await Promise.all([
+    storage().putPrivate(creatorPath(parent.creatorId, "originals", "png"), png, "image/png"),
+    storage().putPublic(creatorPath(parent.creatorId, "previews", "png"), png, "image/png"),
+  ]);
+  const product = (parent.shapingTrace as { product?: string } | null)?.product ?? null;
+  trackArtwork(id);
+  await insertArtwork({
+    id, creatorId: parent.creatorId, source: "photo", transcript: input.transcript?.trim() || null, changeInstruction: instruction,
+    shapingTrace: { product, imageSize, previewUrl: preview.url, changedFrom: parent.id }, originalUrl: original.pathname,
+    genResponseId: img.responseId || null, parentArtworkId: parent.id, status: "draft", createdByTask: task,
+  });
+  const description = await registry.describer.describe(pngRef(png), { prompt: instruction, trace: traceFor(id, task, "describe") });
+  const artwork = await updateArtwork(id, {
+    altText: description.alt_text, spokenDescription: description.spoken, differencesFromPrompt: description.differences_from_prompt || null,
+  });
+  return { artwork, description };
+}
+
+/**
+ * Cutout of a row's stored picture (T111, after "Change it"): SAM finds every piece, they are stored
+ * as the row's candidates largest first (replacing earlier ones), and the largest is cut out like a
+ * picked candidate. "Your cutout" then adjusts it with cleanupArtwork.
+ */
+export async function cutoutArtwork(artwork: ArtworkRow, task = "T111"): Promise<{ artwork: ArtworkRow; candidates: SamCandidate[]; imageSize: ImageSize }> {
+  if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
+  trackArtwork(artwork.id);
+  const png = await storage().read(artwork.originalUrl);
+  const meta = await sharp(png).metadata();
+  const imageSize: ImageSize = { w: meta.width ?? 0, h: meta.height ?? 0 };
+  const { segments } = await (await ai()).segmenter.findCandidates(pngRef(png), { trace: traceFor(artwork.id, task, "segment"), max: MAX_CANDIDATES });
+  const largestFirst = [...segments].sort((a, b) => area(b.mask) - area(a.mask));
+  const candidates = await storeCandidates(artwork.creatorId, png, imageSize, largestFirst);
+  const st = (artwork.shapingTrace as Record<string, unknown> | null) ?? {};
+  let row = await updateArtwork(artwork.id, { candidates, shapingTrace: { ...st, imageSize } });
+  if (candidates.length === 0) {
+    await updateArtwork(artwork.id, { lastError: "no_drawing_found" });
+    throw new ApiError(422, "no_drawing_found", "We could not find the art in the changed picture. Try another change, or go back to your original.", { artworkId: artwork.id });
+  }
+  row = (await cleanupArtwork(row, { candidateIds: [candidates[0].id] }, task)).artwork;
+  return { artwork: row, candidates, imageSize };
 }
 
 /** Pixel size of the stored original: recorded at upload (`shapingTrace.imageSize`), else read from the file. */
@@ -254,7 +345,7 @@ export async function cleanupArtwork(artwork: ArtworkRow, hint: CleanupHint, tas
   if (!parts.length) {
     throw new ApiError(422, "no_drawing_found", "We could not find anything there. Try a box around the whole thing, or tap on it.", { artworkId: artwork.id });
   }
-  return recut(artwork, original, parts, { prompt: artwork.shapedPrompt ?? undefined, task });
+  return recut(artwork, original, parts, { prompt: artwork.shapedPrompt ?? artwork.changeInstruction ?? undefined, task });
 }
 
 /** Stored masks are at the original's size; guard against older rows that are not. */

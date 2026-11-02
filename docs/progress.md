@@ -313,3 +313,8 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Mock: `previewUrl`, `POST /listings/<id>/run` (2 s), story video and captions on `GET /creators/me` (served at `/media/…`).
 - Pending (product owner): apply migration 0005 before deploying (`pnpm migrate drizzle/0005_t121_product_preview.sql` from `web/`), then run the backfill.
 
+## T126 backend · Cleanup clips to the frame (2026-11-02, "Adjust the area")
+- `POST /artworks/{id}/cleanup` takes `clipToBox?: boolean` (default `false`). With `true` and a `box`, the cut is the usual union cut to the box (clamped to the image; the finished soft edge too), so shrinking the frame inside the piece trims it. `true` without `box` → `400 invalid_request`; nothing left → `422 no_drawing_found`. The "Adjust the area" screens (web + iOS) send it; every other caller is unchanged.
+- Mock: `ios/scripts/mock_api.py` accepts `clipToBox` and echoes it in `GET /__mock/last/cleanup`.
+- Verify (from `web/`): `pnpm test` (`artwork-adjust`, `cleanup-route`); docs: `docs/api.md` T080 §2 `clipToBox`, `docs/handoffs/backend.md` T126.
+- Unfinished: the web and iOS "Adjust the area" screens still have to send `clipToBox: true` (their own tasks); not run against live SAM (no model call changes: the SAM request is the same).

@@ -27,3 +27,5 @@ skills-lock.json
 # written by next dev
 web/AGENTS.md
 web/.creator-codes.local
+__pycache__/
+*.pyc

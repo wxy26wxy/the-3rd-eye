@@ -232,6 +232,24 @@ export function unionMasks(masks: Mask[]): Mask {
   return out;
 }
 
+/**
+ * A box in (possibly fractional) pixels, clamped to a `width`×`height` image and widened to every
+ * pixel it touches: floor the start, ceil the end. Null when nothing of it is on the image.
+ */
+export function clampBox([x0, y0, x1, y1]: BBox, width: number, height: number): BBox | null {
+  const b: BBox = [Math.max(0, Math.floor(x0)), Math.max(0, Math.floor(y0)), Math.min(width, Math.ceil(x1)), Math.min(height, Math.ceil(y1))];
+  return b[0] < b[2] && b[1] < b[3] ? b : null;
+}
+
+/** Pixel-wise AND of a mask with a box (pixels outside the box are cleared). Same size as the input. */
+export function clipToBox(mask: Mask, box: BBox): Mask {
+  const out = emptyMask(mask.width, mask.height);
+  const b = clampBox(box, mask.width, mask.height);
+  if (!b) return out;
+  for (let y = b[1]; y < b[3]; y++) out.data.set(mask.data.subarray(y * mask.width + b[0], y * mask.width + b[2]), y * mask.width + b[0]);
+  return out;
+}
+
 /** Intersection over union of two same-sized masks (0 when both are empty). */
 export function iou(a: Mask, b: Mask): number {
   let inter = 0, uni = 0;

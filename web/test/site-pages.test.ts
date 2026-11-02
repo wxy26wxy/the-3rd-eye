@@ -4,14 +4,15 @@ import { describe, expect, it } from "vitest";
 import { fmt, m } from "@/components/messages";
 import { ASSETS } from "@/lib/assets";
 import type { ShopProduct } from "@/lib/db/queries.contract";
-import { ProductCard } from "@/components/site/ProductCard";
-import { FilterTabs } from "@/components/site/FilterTabs";
-import { Hero } from "@/components/shop/Hero";
-import { HowSteps } from "@/components/shop/HowSteps";
+import { ProductCard, toneAt } from "@/components/site/ProductCard";
+import { FILTERS, FilterTabs } from "@/components/site/FilterTabs";
+import { Hero, HeroChip } from "@/components/shop/Hero";
+import { HowSteps, PhonePreview } from "@/components/shop/HowSteps";
+import { MakerCard } from "@/components/shop/MeetArtist";
+import { parseFilter } from "@/components/shop/Collection";
 import { StoryVideo } from "@/components/site/StoryVideo";
 import { SiteNav } from "@/components/site/SiteNav";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { BuyForm } from "@/components/product/BuyForm";
 import { DieCut } from "@/components/site/DieCut";
 import { Avatar, initials } from "@/components/site/Avatar";
 import { Thread } from "@/components/storytag/Thread";
@@ -27,46 +28,101 @@ const html = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticM
 
 const product = {
   id: "p1", type: "sticker", title: "Reading Monster Sticker", description: null, priceCents: 500,
-  mockupUrl: "https://blob.example/mock.png", artworkUrl: null, cutPathSvg: null, altText: null, madeByVoice: true,
+  mockupUrl: "https://blob.example/mock.png", artworkUrl: "https://blob.example/art.png", cutPathSvg: null, altText: null, madeByVoice: true,
   creator: { id: "c1", slug: "rosa", displayName: "Rosa M.", studioName: "Sunny Studio" },
 } as unknown as ShopProduct;
 
-describe("Shop (T106, boards 2018:1789 / 2018:1970)", () => {
-  it("hero: decorative static photo, eyebrow outside the h1, white primary then secondary", () => {
+describe("Shop v3 (board 2018:1789)", () => {
+  it("hero: eyebrow outside the h1, two-line title, primary then secondary, trust line, decorative photo card", () => {
     const out = html(createElement(Hero));
     expect(out).toMatch(/<img alt=""[^>]*>/);
-    expect(out).toMatch(/<link rel="preload" as="image"[^>]*imageSizes="100vw"/);
+    expect(out).toMatch(/<link rel="preload" as="image"[^>]*>/);
     expect(out).toContain(encodeURIComponent(ASSETS.heroSky));
-    expect(out).toContain('sizes="100vw"');
     expect(out).not.toMatch(/<video|autoplay/i);
-    expect(out).toMatch(new RegExp(`<p[^>]*>${m.shop.heroEyebrow}</p><h1[^>]*id="hero-title"[^>]*>${m.shop.heroTitle}</h1>`));
+    expect(out).toMatch(new RegExp(`<p[^>]*>${m.shop.heroEyebrow.replace("&", "&amp;")}</p><h1[^>]*id="hero-title"[^>]*>${m.shop.heroTitle1} <span[^>]*>${m.shop.heroTitle2}</span></h1>`));
     expect(out.indexOf(m.shop.ctaShop)).toBeLessThan(out.indexOf(m.shop.ctaHow));
     expect(out).toContain('href="#collection"');
     expect(out).toContain('href="#how"');
+    expect(out).toContain(m.shop.heroTrust);
+    // Text sits on the page, never on the photo: the copy comes before the photo card and has no scrim panel.
+    expect(out.indexOf(m.shop.heroCopy)).toBeLessThan(out.indexOf("<img"));
+    expect(out).not.toMatch(/heroPanel|scrim/);
   });
 
-  it("product card: title link is the name, chips, artist before price, default alt", () => {
-    const out = html(createElement(ProductCard, { product }));
-    expect(out).toMatch(/<article[^>]*>.*<h3[^>]*><a[^>]*href="\/p\/p1"[^>]*>Reading Monster Sticker<\/a><\/h3>/);
-    expect(out).toContain(m.common.sticker);
-    expect(out).toContain(m.common.madeByVoice);
-    expect(out.indexOf(fmt(m.common.by, { name: "Rosa M." }))).toBeLessThan(out.indexOf("$5.00"));
+  it("hero chip: the featured creator's page, or how story tags work without one", () => {
+    const withCreator = html(createElement(HeroChip, { creator: { slug: "rosa", displayName: "Rosa M." } }));
+    expect(withCreator).toMatch(/<a[^>]*href="\/c\/rosa"/);
+    expect(withCreator).toContain(m.shop.heroChipTitle);
+    expect(withCreator).toContain(fmt(m.shop.heroChipMeet, { name: "Rosa M." }));
+    expect(withCreator).toMatch(/aria-hidden="true"><svg/);
+    const none = html(createElement(HeroChip, { creator: null }));
+    expect(none).toContain('href="/how-it-works#story-tags"');
+    expect(none).toContain(m.shop.heroChipFallback);
+  });
+
+  it("product tile (Size=Tile 4006:4357): title link is the name, price on the title row, caption, decorative STORY TAG pill, no voice chip", () => {
+    const out = html(createElement(ProductCard, { product, tone: "soft" }));
+    expect(out).toMatch(/<article[^>]*>.*<h3[^>]*><a[^>]*href="\/p\/p1"[^>]*>Reading Monster Sticker<\/a><\/h3><p[^>]*>\$5\.00<\/p>/);
+    expect(out).toMatch(new RegExp(`<span class="[^"]*tag[^"]*" aria-hidden="true">.*${m.product.storyTagShort}</span>`));
+    expect(out).toContain(`>${m.common.sticker}</span> · Rosa M. · Sunny Studio`);
+    expect(out).not.toMatch(/Made by voice/i);
+    expect(out).toMatch(/class="[^"]*soft/);
+    // A sticker shows its cutout (contained); the default alt names the piece.
+    expect(out).toMatch(/<img src="https:\/\/blob\.example\/art\.png"[^>]*class="[^"]*cutout/);
     expect(out).toContain(`alt="${fmt(m.product.mockupAlt, { title: product.title, type: m.common.sticker })}"`);
+    // A tote shows its mockup photo.
+    const tote = html(createElement(ProductCard, { product: { ...product, type: "tote" } as ShopProduct }));
+    expect(tote).toMatch(/<img src="https:\/\/blob\.example\/mock\.png"[^>]*class="[^"]*photo/);
   });
 
-  it("filter tabs: links in a labelled nav, the active one has aria-current and the check", () => {
-    const out = html(createElement(FilterTabs, { active: "voice" }));
+  it("tile tones cycle in board order", () => {
+    expect([0, 1, 2, 3, 4].map(toneAt)).toEqual(["accent", "white", "soft", "alt", "accent"]);
+  });
+
+  it("filter tabs: All / Stickers / Tote bags in a labelled nav, no voice tab, the active one has aria-current and the check", () => {
+    const out = html(createElement(FilterTabs, { active: "sticker" }));
     expect(out).toContain(`aria-label="${m.shop.filtersLabel}"`);
+    expect(out.match(/<a /g)).toHaveLength(3);
+    expect(FILTERS.map((f) => f.key)).toEqual(["all", "sticker", "tote"]);
+    expect(out).not.toMatch(/voice/i);
     expect(out.match(/aria-current="page"/g)).toHaveLength(1);
-    expect(out).toMatch(/aria-current="page"[^>]*><svg[^>]*aria-hidden="true"/);
-    expect(out).toContain('href="/?type=voice#collection"');
+    expect(out).toMatch(/<a aria-current="page"[^>]*href="\/\?type=sticker#collection"><svg[^>]*aria-hidden="true"/);
   });
 
-  it("how steps: visible Step n eyebrow inside each h3; the third card is the accent card", () => {
+  it("parseFilter drops the retired voice filter", () => {
+    expect(parseFilter("voice")).toBe("all");
+    expect(parseFilter(["tote", "x"])).toBe("tote");
+    expect(parseFilter(undefined)).toBe("all");
+  });
+
+  it("story tags band: eyebrow, two-line h2, numbered steps as an ordered list with h3s, CTA, hidden phone preview", () => {
     const out = html(createElement(HowSteps));
+    expect(out).toMatch(/<section id="how" aria-labelledby="how-title"/);
+    expect(out).toMatch(new RegExp(`<h2[^>]*id="how-title"[^>]*>${m.shop.bandTitle1} <span[^>]*>${m.shop.bandTitle2}</span></h2>`));
+    expect(out).toMatch(/<ol[^>]*role="list"/);
     expect(out.match(/<h3/g)).toHaveLength(3);
-    expect(out).toContain(fmt(m.shop.stepLabel, { n: 3 }));
-    expect(out).toMatch(/<li class="[^"]*stepAccent[^"]*"><h3[^>]*><span[^>]*>Step 3/);
+    expect(out).toMatch(new RegExp(`<span class="[^"]*stepNum[^"]*" aria-hidden="true">1</span><div[^>]*><h3[^>]*>${m.shop.step1Title}</h3>`));
+    expect(out).toContain('href="/how-it-works#story-tags"');
+    expect(out).toContain(m.shop.bandCta);
+    const preview = out.slice(out.indexOf('class="' + out.match(/class="([^"]*phone[^"]*)"/)![1]));
+    expect(preview).toMatch(/^class="[^"]*" aria-hidden="true"/);
+    expect(preview).not.toMatch(/<a |<button|tabindex="0"/);
+  });
+
+  it("phone preview shows the featured creator and their piece", () => {
+    const out = html(createElement(PhonePreview, { name: "Rosa M.", studio: "Sunny Studio", bio: "I draw monsters.", product: { title: "Reading Monster", imageUrl: "/a.png" } }));
+    expect(out).toContain(fmt(m.shop.previewHi, { name: "Rosa M." }).replace("'", "&#x27;"));
+    expect(out).toContain(`${m.shop.previewEyebrow} · Sunny Studio`);
+    expect(out).toContain("Reading Monster");
+  });
+
+  it("maker card: the poster is a link named Watch {name}'s story, decorative initials, name, studio, method chip", () => {
+    const out = html(createElement(MakerCard, { creator: { slug: "rosa", displayName: "Rosa M.", studioName: "Sunny Studio", isExample: false } }));
+    expect(out).toMatch(new RegExp(`<a[^>]*aria-label="${fmt(m.shop.watchStoryLabel, { name: "Rosa M." }).replace("'", "&#x27;")}"[^>]*href="/c/rosa"`));
+    expect(out).toMatch(/aria-hidden="true">RM</);
+    expect(out).toMatch(/<h3[^>]*>Rosa M\.<\/h3>/);
+    expect(out).toContain(m.shop.makerMethod);
+    expect(out).not.toMatch(/voice/i);
   });
 
   it("story video: captions track, native controls, decorative play circle", () => {
@@ -102,16 +158,7 @@ describe("Nav, drawer and footer (T106, 2010:467 / 2032:4004 / 2010:504)", () =>
   });
 });
 
-describe("Product page parts (T106, board 2019:2004)", () => {
-  it("buy form: fields in board order, demo line above the primary submit", () => {
-    const out = html(createElement(BuyForm, { action: async () => ({}), priceLabel: "Buy for $5.00" }));
-    const order = [m.product.buyTitle, m.product.buyName, m.product.buyEmail, m.product.buyEmailHint, m.product.buyNote, m.product.buyStaged, "Buy for $5.00"].map((t) => out.indexOf(t));
-    expect(order.every((i) => i >= 0)).toBe(true);
-    expect([...order].sort((a, b) => a - b)).toEqual(order);
-    expect(out).toMatch(/<button type="submit"/);
-    expect(out).not.toContain('role="alert"');
-  });
-
+describe("Die-cut preview (admin trace) and avatar", () => {
   it("die-cut preview: titled card, labelled svg, caption", () => {
     const out = html(createElement(DieCut, { artworkUrl: "/a.png", cutPathSvg: "M0 0L10 10", alt: "Bus on a Sticker" }));
     expect(out).toContain('role="img" aria-label="Bus on a Sticker"');

@@ -192,6 +192,17 @@ export async function getFeaturedCreator(): Promise<PublicCreator | null> {
   return latest ? toPublicCreator(latest.creator) : null;
 }
 
+/**
+ * MEET THE MAKERS on the shop (v3, 2018:1937): up to `limit` public creators, those with a story video
+ * first, then real before example creators, newest first (the order `listCreators` already returns).
+ */
+export async function listMakers(limit = 3): Promise<PublicCreator[]> {
+  await fresh();
+  const all = await q.listCreators();
+  const ranked = [...all.filter((c) => c.storyVideoUrl), ...all.filter((c) => !c.storyVideoUrl)];
+  return ranked.slice(0, limit).map(toPublicCreator);
+}
+
 export async function getCreatorProfile(slug: string): Promise<CreatorProfile | null> {
   await fresh();
   const c = await q.getCreatorBySlug(slug);

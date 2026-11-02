@@ -1,40 +1,51 @@
 import { Suspense } from "react";
+import { loadCreatorProfile, loadFeaturedCreator } from "@/components/data";
 import { m } from "@/components/messages";
 import { Collection, CollectionFallback } from "@/components/shop/Collection";
-import { Hero } from "@/components/shop/Hero";
-import { HowSteps } from "@/components/shop/HowSteps";
-import { MeetArtist } from "@/components/shop/MeetArtist";
-import { Display } from "@/components/ui/Display";
+import { Hero, HeroChip } from "@/components/shop/Hero";
+import { HowSteps, PhonePreview } from "@/components/shop/HowSteps";
+import { MakersHeader, MeetMakers } from "@/components/shop/MeetArtist";
 import { Container } from "@/components/ui/Layout";
-import { Loading } from "@/components/ui/Loading";
 import styles from "@/components/shop/Shop.module.css";
 
-/** Shop · Sky (boards 2018:1789 / 2018:1970): hero → collection → how a story tag works (grey band) → meet the artist. */
+async function FeaturedChip() {
+  return <HeroChip creator={await loadFeaturedCreator()} />;
+}
+
+/** The phone preview shows the featured creator and their newest piece. */
+async function FeaturedPreview() {
+  const c = await loadFeaturedCreator();
+  const first = c && !c.hidden ? (await loadCreatorProfile(c.slug))?.products[0] : undefined;
+  return (
+    <PhonePreview
+      name={c?.displayName ?? null}
+      studio={c?.studioName ?? null}
+      bio={c?.storyText ?? c?.bioShort ?? null}
+      product={first ? { title: first.title, imageUrl: first.artworkUrl ?? first.mockupUrl } : null}
+    />
+  );
+}
+
+/**
+ * Shop · Sky v3 (board 2018:1789): hero → filters and New this week → story tags band → Meet the makers.
+ * Phones stack the same sections (the 390 board 2018:1970 still shows the v2 layout).
+ */
 export default function ShopPage({ searchParams }: PageProps<"/">) {
   return (
-    <>
-      <Hero />
-      <section id="collection" aria-labelledby="collection-title" className={styles.band} tabIndex={-1}>
-        <Container className={styles.bandStack}>
-          <Display id="collection-title" size="l">{m.shop.collectionTitle}</Display>
-          <Suspense fallback={<CollectionFallback />}>
-            <Collection searchParams={searchParams} />
-          </Suspense>
-        </Container>
+    <Container className={styles.shop}>
+      <Hero chip={<Suspense fallback={<HeroChip creator={null} />}><FeaturedChip /></Suspense>} />
+      <section id="collection" aria-labelledby="collection-title" className={styles.collection} tabIndex={-1}>
+        <Suspense fallback={<CollectionFallback />}>
+          <Collection searchParams={searchParams} />
+        </Suspense>
       </section>
-      <div className={[styles.band, styles.bandAlt].join(" ")}>
-        <Container>
-          <HowSteps />
-        </Container>
-      </div>
-      <section aria-labelledby="meet-title" className={styles.band}>
-        <Container className={styles.bandStack}>
-          <Display id="meet-title" size="l">{m.shop.meetTitle}</Display>
-          <Suspense fallback={<Loading label={m.common.loading} />}>
-            <MeetArtist />
-          </Suspense>
-        </Container>
+      <HowSteps preview={<Suspense fallback={<PhonePreview name={null} studio={null} bio={null} product={null} />}><FeaturedPreview /></Suspense>} />
+      <section aria-labelledby="makers-title" className={styles.makersSection}>
+        <MakersHeader />
+        <Suspense fallback={<p role="status">{m.common.loading}</p>}>
+          <MeetMakers />
+        </Suspense>
       </section>
-    </>
+    </Container>
   );
 }

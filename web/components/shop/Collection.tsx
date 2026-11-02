@@ -1,30 +1,57 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { listShopProducts, type ShopFilter } from "@/lib/db/queries.contract";
 import { m } from "@/components/messages";
-import { ProductCard } from "@/components/site/ProductCard";
+import { ProductCard, toneAt } from "@/components/site/ProductCard";
 import { FilterTabs } from "@/components/site/FilterTabs";
+import { Display } from "@/components/ui/Display";
 import styles from "./Shop.module.css";
 
-const VALID: ShopFilter[] = ["all", "sticker", "tote", "voice"];
-export function parseFilter(v: string | string[] | undefined): ShopFilter {
-  const s = Array.isArray(v) ? v[0] : v;
-  return VALID.includes(s as ShopFilter) ? (s as ShopFilter) : "all";
+/** The site's filters: "Made by voice" is gone in v3 (Filter tabs 2010:570). */
+export type SiteFilter = Exclude<ShopFilter, "voice">;
+const VALID: SiteFilter[] = ["all", "sticker", "tote"];
+/** New this week shows two rows of four (2018:1835); "View all" shows the rest. */
+export const FIRST_PAGE = 8;
+
+const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+export function parseFilter(v: string | string[] | undefined): SiteFilter {
+  const s = first(v);
+  return VALID.includes(s as SiteFilter) ? (s as SiteFilter) : "all";
 }
 
-/** Product grid: two Small cards per row on phones, Large cards four across from 64rem (boards 2018:1835 / 2018:2013). */
+/** Product grid: two tiles per row on phones, four from 64rem (2018:1835, 24 px gaps, 28 px between rows). */
 export function ProductGrid({ children }: { children: ReactNode }) {
   return <ul role="list" className={styles.grid}>{children}</ul>;
 }
 
-export async function Collection({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const filter = parseFilter((await searchParams).type);
-  const products = await listShopProducts(filter);
+/** Filters, then the "New this week" header row with View all (annotation order on 2018:1789). */
+function Header({ filter, viewAllHref }: { filter: SiteFilter; viewAllHref?: string | null }) {
   return (
     <>
       <FilterTabs active={filter} />
-      {products.length === 0
+      <div className={styles.headerRow}>
+        <Display id="collection-title" size="l">{m.shop.collectionTitle}</Display>
+        {viewAllHref ? <Link href={viewAllHref} scroll={false} className={styles.textAction}>{m.shop.viewAll}<span aria-hidden="true"> →</span></Link> : null}
+      </div>
+    </>
+  );
+}
+
+export async function Collection({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  const filter = parseFilter(params.type);
+  const all = first(params.view) === "all";
+  const products = await listShopProducts(filter);
+  const shown = all ? products : products.slice(0, FIRST_PAGE);
+  const viewAllHref = !all && products.length > FIRST_PAGE
+    ? `/?${filter === "all" ? "" : `type=${filter}&`}view=all#collection`
+    : null;
+  return (
+    <>
+      <Header filter={filter} viewAllHref={viewAllHref} />
+      {shown.length === 0
         ? <p className={styles.empty}>{m.shop.empty}</p>
-        : <ProductGrid>{products.map((p) => <li key={p.id}><ProductCard product={p} /></li>)}</ProductGrid>}
+        : <ProductGrid>{shown.map((p, i) => <li key={p.id}><ProductCard product={p} tone={toneAt(i)} /></li>)}</ProductGrid>}
     </>
   );
 }
@@ -32,7 +59,7 @@ export async function Collection({ searchParams }: { searchParams: Promise<Recor
 export function CollectionFallback() {
   return (
     <>
-      <FilterTabs active="all" />
+      <Header filter="all" />
       <p className={styles.empty} role="status">{m.common.loading}</p>
     </>
   );

@@ -39,7 +39,7 @@ Source kinds:
 | `danger` | `#B3261E` | carry-over: error text and destructive actions; no Sky board shows an error |
 | `focus` | `#1E3A24` | carry-over (brief: keep, re-check on white): boards have no focus state; 12.5:1 on white, 5.7:1 on accent |
 | `scrim` | `rgba(17,24,39,0.55)` (ink at 55 %) | node: the boards' `color.scrim` variable (hero panel `2018:1806`, drawer scrim `2033:3993`, Welcome panels `2026:2865`); T106 fix round 1, was `rgba(0,0,0,0.35)` (a11y + brief). Worst pixel under the shop hero panel 5.08:1 at 390 |
-| `scrimStrong` | `rgba(17,24,39,0.72)` (ink at 72 %) | var: `color/scrimStrong` (v3 entry 1; white text ≥ 7:1 over any photo). The v3 shop hero no longer puts text on the photo; kept for text on photos (e.g. a future web Welcome fix, story cards) |
+| `scrimStrong` | `rgba(17,24,39,0.72)` (ink at 72 %) | Changelog entry 1 text ("new variable color/scrimStrong (ink 72%)"); `get_variable_defs` on `2018:1789` and `2012:387` does not return it, because no node on those boards uses it since entry 2. White text on it ≥ 7:1 over any photo. The v3 shop hero no longer puts text on the photo; kept for text on photos (e.g. a future web Welcome fix, story cards) |
 
 ## semantic
 All **derived** from `color` by the brief's mapping: `bg`←page, `surface`←white, `surfaceAlt`←surfaceAlt, `text`←ink, `textOnDark`←white, `textMuted`←textMuted, `accent`←accent, `accentBorder`←accentBorder, `accentInk`←greenDeep, `primary`←ink, `primaryText`←white, `primaryShadow`←ink (carry-over key, read by hard shadows that are now zero), `border`←border, `selected`←accent, `danger`←danger, `focusRing`←focus, `scrim`←scrim.
@@ -64,16 +64,16 @@ All **derived** from the brief rule "ink on white, borders `#111827`": `bg`, `su
 |---|---|---|
 | `displayXL` | 48 / 1.13 / 500 / −0.04em | var: `displayXL` (−1.92 px = −0.04em) |
 | `displayL` | 40 / 1.13 / 500 / −0.04em | var: `displayL` (−1.6 px = −0.04em) |
-| `displayM` | 21 / 1.2 / 500 / −0.03em | node: `21:4541`, `21:4593` (21 px Medium, tracking −0.63 px) |
+| `displayM` | 21 / 1.2 / 500 / −0.03em (carry-over in v3: no text style or variable) | node: `21:4541`, `21:4593` (21 px Medium, tracking −0.63 px) |
 | `titleL` | 18 / 1.3 / 600 | var: `titleL` (line height 1.3 new in v3) |
-| `titleM` | 16 / 600 | node: CTA labels `I45:738;7:8` (v2). Same size and weight as `cta`; kept because current code reads it |
+| `titleM` | 16 / 600 | carry-over in v3 (no text style or variable); node: CTA labels `I45:738;7:8` (v2). Same size and weight as `cta`; kept because current code reads it |
 | `cta` | 16 / 1.2 / 600 | var: `cta` (v3 text style for primary and record-button labels, e.g. `2006:123`). New key; `TextRole` has no case for it yet (T114 may map `.titleM` labels to it) |
 | `bodyL` | 16 / 400 / 1.5 | var: `bodyL` |
 | `body` | 15 / 400 / 1.5 | var: `body` |
 | `bodyS` | 13 / 400 / 1.4 | var: `bodyS` |
 | `caption` | 13 / 500 / 1.4 | var: `caption` (and the 13 px a11y floor) |
 | `webDisplay` | 72 / 1.05 / 500 / −0.04em | var: `webDisplay` (−2.88 px = −0.04em); on phones the same headings use `displayXL` |
-| `cardTitle` | 22 / 600 / 1.3 | node: Note form title `2010:572` — T106 |
+| `cardTitle` | 22 / 600 / 1.3 (carry-over in v3: no text style or variable) | node: Note form title `2010:572` — T106 |
 | `eyebrow` | 13 / 1.3 / 600 / 1 px caps | var: `eyebrow` (Outfit SemiBold 13, tracking 1, line height 1.3; v2 was 800 / 0.08em). `letterSpacing` is `"1px"`: CSS uses it as is; iOS `TextRole.tracking` returns 1 (mirrored by hand) |
 
 ## space

@@ -80,9 +80,12 @@ writeFileSync(
   assetsOut,
   `// GENERATED from design/tokens.json — do not edit by hand. Run: pnpm tokens\n` +
     `// Files are served from web/public/assets/ (copied from design/assets/ by \`pnpm assets\`).\nexport const ASSETS = {\n` +
-    assets.map(([k, a]) => `  ${k}: ${JSON.stringify(`/assets/${a.file}`)},\n` +
-      // A GIF is also served as its MP4 (`pnpm assets`): pages play the MP4, never the GIF.
-      (/\.gif$/i.test(a.file) ? `  ${k}Video: ${JSON.stringify(`/assets/${assetName(a.file)}.mp4`)},\n` : "")).join("") +
+    assets.map(([k, a]) =>
+      // A GIF is served only as its MP4 (`pnpm assets`; the GIF stays in design/assets/): pages play
+      // ASSETS.<key>Video, and there is no ASSETS.<key> for a GIF, so nothing can point at a missing file.
+      /\.gif$/i.test(a.file)
+        ? `  ${k}Video: ${JSON.stringify(`/assets/${assetName(a.file)}.mp4`)},\n`
+        : `  ${k}: ${JSON.stringify(`/assets/${a.file}`)},\n`).join("") +
     `} as const;\n`,
 );
 

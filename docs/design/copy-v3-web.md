@@ -117,6 +117,7 @@ Quote ("I drew him reading because that's my favorite thing to do on rainy days.
 | Accessibility `2025:2840` | `a11y.spoken` | Spoken descriptions: after an image is made, a written description is read aloud on your device, so you know what it shows. | Image descriptions: after an image is made, you get a written description of what it shows, which your screen reader can announce. |
 | Shop tiles `2018:1900`, `4008:4412`; Product `4012:4469` | (product card chip) | "… · made by voice" | removed |
 | Product · Mobile `2019:2135` | `common.madeByVoice` chip | Made by voice | removed |
+| Product · Mobile `2019:2098` | (story text, seed data) | Rosa described a monster… | Rosa drew a monster… (sample story text, not an `en.json` string: the seed / demo story must not say "described"; T113/T115 check, like the fern bio above) |
 
 Kept on purpose (entry 3): `common.readAloud` / `common.stopReading` on Story tag `2024:2451` and Artist profile `2024:2714` (buyer text-to-speech).
 
@@ -199,7 +200,7 @@ Entry 4 rewrote the promises ("Turn your art into…", "1. Snap a photo or uploa
 | Key | Old | New |
 |---|---|---|
 | `create.welcome.title` | Let's make something! | Your art, / on things / people love. |
-| `create.welcome.copy` | Turn your art or your idea into stickers and tote bags people can buy. | Snap or upload your art. We make the sticker or tote. |
+| `create.welcome.copy` | Turn your art or your idea into stickers and tote bags people can buy. | **removed** from the web Welcome (not on the board; see below) |
 | `create.welcome.promise1` | You can speak, snap a photo, or upload a picture. | **removed** |
 | `create.welcome.promise2` | We read every result out loud, so you always know what it shows. | **removed** |
 | `create.welcome.promise3` | Nothing goes on sale until you say yes. | **removed** |
@@ -207,7 +208,7 @@ Entry 4 rewrote the promises ("Turn your art into…", "1. Snap a photo or uploa
 | `create.welcome.haveAccount` | I already have an account | unchanged; the text action (was "Sign out" for a signed-in creator) is now this, colour `ink` |
 | `create.signOut` on Welcome | Sign out | not on Welcome any more (keep the key for other screens) |
 
-`create.welcome.copy`: the changelog (entry 5) gives this sentence, but the board as read on 2026-11-01 shows only the title, "Start creating" and "I already have an account". **PM default:** keep the sentence (it is the screen's description and matches iOS); flagged to the designer. White text on the bare sky is the accepted exception (R5, `docs/accessibility.md`).
+`create.welcome.copy` is not rendered on the web Welcome: the board (`2026:2865`) shows only the title, "Start creating" and "I already have an account", and the boards win (PM ruling, T110 fix round 1). The Changelog (entry 5) names a sentence, "Snap or upload your art. We make the sticker or tote.", that the board does not show; it is a question for the designer (`docs/handoffs/design.md`). Delete the key from `en.json` unless another screen uses it. White text on the bare sky (the title only) is the accepted exception (R5, `docs/accessibility.md`).
 
 ## Entry 7 · Choose a pattern, Your cutout, Making your cutout (web)
 
@@ -299,11 +300,11 @@ No copy. Outfit replaces Inter (layout instruction in `docs/handoffs/design.md`)
 
 Step order on the board: Photo and mask → Change request → Edit instruction → Before and after (Picture 3 removed) → Description → Decision → Sticker; Other model calls after. The model-call lines ("transcribe · speech model · 1240 ms", "edit · Muse Image · 18400 ms") are data.
 
-## Entry 8 (B3 note) · Note · Hero motion `2035:4133`
+## Entry 2 / 12 (B3 note) · Note · Hero motion (frame `2035:4133`, text `2035:4134`)
 Not product copy: "Hero text sits on color/page beside the photo, never on it." Recorded in `docs/accessibility.md`.
 
 ## Entry 12
 Layout only (sections restacked); no copy.
 
 ## Strings with no board (PM defaults, flagged to the designer)
-`create.welcome.copy` kept although the board omits it · `create.speak.shaping` · `create.drawing.spoken` · `create.select.copyOne` · `create.select.groupLabel` · `create.cutout.copyOriginal` · `create.cutout.makingCopy` (original path) · `product.eyebrowTote` · `product.artistShareTote` · `product.meetMakerNoteTote` · `product.quantity*` · `product.placeOrder` · `admin.traceKeptOriginal` · maker method chips omitted.
+`create.speak.shaping` · `create.drawing.spoken` · `create.select.copyOne` · `create.select.groupLabel` · `create.cutout.copyOriginal` · `create.cutout.makingCopy` (original path) · `product.eyebrowTote` · `product.artistShareTote` · `product.meetMakerNoteTote` · `product.quantity*` · `product.placeOrder` · `admin.traceKeptOriginal` · maker method chips omitted.

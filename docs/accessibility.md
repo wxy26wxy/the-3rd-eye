@@ -16,7 +16,7 @@ Accessibility is a requirement for every screen, not polish. This page lists wha
 
 ## iOS
 The app uses iOS's own accessibility settings instead of copying them (decision 2026-10-29, T081):
-- **Speaking instead of typing:** the keyboard's dictation key. Text fields have no mic buttons. The voice idea path ("Say it out loud") and "Say what to change" record audio and send it to Muse Voice Transcribe; those are product features, not accessibility settings.
+- **Speaking instead of typing:** the keyboard's dictation key. Text fields have no mic buttons. Since v3 (T110) the only voice feature is "Say what to change" on Change it (the voice idea path "Say it out loud" is removed); it records audio and send it to Muse Voice Transcribe; those are product features, not accessibility settings.
 - **Hearing descriptions and messages:** VoiceOver. The app has no text-to-speech. Text that matters on arrival (the drawing confirmation, the clarifying question, the image description, "Your sticker is ready!" (or "Your tote bag is ready!"), "You're live!", "Video saved!", the story talking points, the drafted story, listing messages) is on screen and posted once as a VoiceOver announcement.
 - **Bigger text:** Dynamic Type, up to the largest accessibility size.
 - **Contrast:** Settings → Accessibility → Display & Text Size → Increase Contrast switches the app to the high-contrast palette.
@@ -95,3 +95,25 @@ Raised on the Figma file (key `vIOMPzc2kjP18BbgduLmc8`) during the T100 intake. 
 5. **"I already have an account"** is 14 px text on Welcome; give it a 44 px tall tap area (padding, not a larger font).
 6. **Primary CTA** is 56 px tall (was 60): above the 44 px minimum. "Both clients" above now says 56; `common.md` (outside the repo docs) still says 60 and should follow.
 7. **Icon-only parts:** the arrow circle in the CTA and the chevrons on method cards are decorative (hidden from VoiceOver); the button's text is its label.
+
+## Designer flags (v3, T110)
+Raised at the v3 intake (2026-11-01; file key in the newest row of the intake log in `docs/design/screens.md`). Ratios are WCAG 2.x, computed from the token hex values; photo ratios were sampled from `design/assets/hero-sky.png`.
+
+| Pair | Ratio | Use | Verdict |
+|---|---|---|---|
+| ink `#111827` on accentSoft `#E4F3C8` | 15.2:1 | shop and product chips, method icon circles | pass |
+| greenDeep `#173D2B` on accentSoft | 10.3:1 | chip text in green | pass |
+| textMuted `#6B7280` on accentSoft | 4.1:1 | — | do not use for text on accentSoft |
+| greenDeep on accent `#65C361` | 5.5:1 | selected card caption | pass (the brief's 5.9 was an estimate; measured 5.48) |
+| inkSoft `#374151` on white / page / surfaceAlt | 10.3:1 / 10.1:1 / 9.4:1 | muted text on the story-tag sheet (T106) and v3 secondary text | pass (darker than v2's `#263A35`, still well above 4.5) |
+| white on scrimStrong (ink 72 %) over the sky photo | 8.2–9.1:1 (7.0:1 even over pure white) | text on photos where a scrim is used | pass |
+| white on scrim (ink 55 %) over the sky photo | 4.9–5.8:1 (4.0:1 over pure white) | nav drawer, iOS Welcome | pass on the sky photo; use scrimStrong over bright or unknown photos |
+| white on the bare sky, Welcome · Web `2026:2865` | median 2.7–2.8:1 in the title band (top third), 2.6:1 at its brightest 10 % | web Welcome title and copy | **fails 4.5:1 and 3:1: accepted exception (R5)**, see 1 |
+| ink on the bare sky (text action "I already have an account") | about 6.4:1 | web Welcome text action | pass |
+
+1. **Welcome · Web on the bare sky (accepted exception, ruling R5).** The designer removed the panels (entry 5) and then the top gradient (entry 6) at the owner's request; the white title and sentence sit on the photo at about 2.5–2.9:1. The board wins. Mitigations that do not change the look: the title is real text (an `h1`) and the sentence is real text, so screen readers and zoom work; under `prefers-contrast: more` the page may add `--scrim` behind the text block (implementer's choice, not required). README says contrast passes "for every text except the web Welcome title, which sits on a photo by design". The iOS Welcome (`21:4229`) is unchanged and keeps its scrim.
+2. **Outfit draws capital I and lowercase l alike** (designer's own note, entry 9). Words like "Ill" read ambiguously out of context. No code change (R6): sign-in codes are safe because their alphabet (`web/lib/codes.ts` `CODE_ALPHABET`) has no I, L, O, 0 or 1. Flag kept for the designer.
+3. **Loading animation is 1x.** `sticker-loading.gif` is 320×320 in a 342×342 slot (about 1.07x upscaled on a 1x screen, soft on 2x/3x). 2x pending from the designer. Under reduced motion (iOS Reduce Motion, web `prefers-reduced-motion`) show the first frame still, no autoplay; the status line above it carries the meaning, so the animation is decorative (no alt text, hidden from VoiceOver).
+4. **Shop hero text sits on `color/page` beside the photo, never on it** (Note · Hero motion `2035:4133`). The v2 scrim panel and its 5.08:1 worst pixel no longer apply. No hero motion; any future motion stops under reduced motion.
+5. **"Add to bag" opens a sheet** (R1): the sheet is a modal dialog with a visible title ("Buy this piece"), focus moves into it and returns to "Add to bag" on close; the quantity stepper's − and + have the accessible names "Fewer" and "More" and the value is announced (copy diff, web).
+6. **Size options and quantity** are a radio group (Size) and a labelled number control (Quantity), not colour-only chips; the selected size has a border and a check, as product cards do.

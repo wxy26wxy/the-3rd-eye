@@ -3,77 +3,77 @@
 Shot-by-shot script for the submission video. Narration is plain, first person plural, and is meant to be read at a calm pace (about 2.5 words a second). Every live step has a fallback so a failed take never blocks the cut.
 
 ## Before recording
-- **Production site:** https://the-3rd-eye.vercel.app. Phone app: TestFlight build 0.5.0 of The 3rd Eye once the product owner has uploaded it (pending, see `docs/deployments.md`); until then a local build on the phone or the simulator.
+- **Production site:** https://the-3rd-eye.vercel.app. Phone app: TestFlight 0.5.0 build 3 of The 3rd Eye (the v0.8 build) once the product owner has uploaded it (pending, see `docs/deployments.md`); until then a local build on the phone or the simulator.
 - **Sign-in is done before every take**, so no code or sign-in screen is on camera.
 - **Creator codes:** open `web/.creator-codes.local` on the dev Mac. Never type a code on camera; paste it before the take starts or use the app link from `/admin`.
-  - **June Park** (voice flow): shot 2. June is one of our fictional example artists; say so in the narration and on the end card.
-  - **Leo** (drawing and photo flow, the Adjust-cutout shot): shot 3. Use a tester creator for rehearsals so the demo creators' data stays clean.
+  - **June Park** (photo, Change it by voice, Before and after, Your cutout): shots 2 and 3. June is one of our fictional example artists; say so in the narration and on the end card.
+  - **Leo**: his bus sticker is the product in shot 4. Use a tester creator for rehearsals so the demo creators' data stays clean (a change makes a new draft artwork each time).
 - **Mac:** Ollama running with `muse-glimmer`, the app pointed at the Mac only for the story-draft shot. On Vercel the same stage falls back to Muse Spark 1.3.
 - **Phone:** VoiceOver on, Settings > Accessibility > VoiceOver > Speech volume up, Do Not Disturb on, screen recording ready (Control Centre). Over-the-shoulder camera on a tripod for the three phone shots.
-- **Props:** one stitched toy (or a wallet), one printed die-cut sticker with an NFC tag written to `/t/<token>` of a test order (to do: print, cut and write it at the physical test before the Nov 2 freeze; method: a standard NFC writer app), a second phone to play the buyer.
+- **Props:** one rough pencil sketch on paper (a character with a book works well with the change "make the book red"), one printed die-cut sticker with an NFC tag written to `/t/<token>` of a test order (to do: print, cut and write it at the physical test before the freeze, Nov 3 9:00 AM; method: a standard NFC writer app), a second phone to play the buyer.
 - **Pre-recorded safety takes:** record each live step once in rehearsal and keep the clip, named `fallback-<shot>.mov`.
 
-## Screens on camera (iOS, in order)
-Welcome ("Your art, on things people love.", signed in beforehand, so only the first frame if at all) → Pick ("What do you want to make?": Sticker or Tote bag, Next) → Choose ("Choose how you want to bring your drawing into the studio.": the rows "Take a photo" ("Snap your drawing"), "Upload a picture" ("Pick one you already have") and "Say it out loud" ("Describe it, we draw it for you"), marked "NO DRAWING SKILL NEEDED") → Camera (button "Open the camera") or Upload (photo branch) or Speak, Drawing your idea and Voice result (voice branch) → Finding ("Finding your drawings…") → Adjust cutout → Design ready ("Your sticker is ready!", "Put it up for sale now?") → Listing details → Story video ("Tell buyers your story") → Video saved → You're live ("<title> is in the shop."). Shots 2 and 3 cover the voice and photo branches; shots 5 and 6 cover the Orders and Messages tabs.
+## Screens on camera (iOS, in order; v0.8 copy from `docs/design/copy-v3-ios.md`)
+Welcome ("Your art, on things people love.", signed in beforehand, so only the first frame if at all) → Pick ("What do you want to make?": Sticker or Tote bag, Next) → Choose ("How do you want to add your art?": "Take a photo" ("Snap your drawing") or "Upload a picture" ("Pick one you already have")) → Camera ("Open the camera") or the photo library → Finding ("Finding your drawings…") → Choose a pattern ("Tap the one you want.", "Use this") → Change it ("Change your art?": "Say what to change" or the "What to change" field, "Make the change", "Looks good as is") → Changing your art ("YOU ASKED") → Before and after ("Here's the change": Before, After, "WHAT THE IMAGE SHOWS", "Use this", "Change it again", "Back to my original") → Making your cutout → Your cutout ("Here's the cutout of your changed art. Fix the edges if you need to.", "Use this") → Making your sticker ("Adding the white border and getting it ready to print.") → Design ready ("Your sticker is ready!", "Put it up for sale now?") → Listing details → Story video ("Tell buyers your story") → Video saved → You're live ("<title> is in the shop."). Shots 2 and 3 cover the creation flow; shots 5 and 6 cover the Orders and Messages tabs.
 
 ## Beat sheet
 
 | Time | Shot | Capture | Meta model on screen |
 |---|---|---|---|
 | 0:00-0:20 | 1. The four problems | Title cards over still art | none |
-| 0:20-0:55 | 2. Describe it out loud | Phone, over the shoulder, then screen recording | Muse Voice Transcribe 1.0, Muse Spark 1.3, Muse Image 1.0 |
-| 0:55-1:15 | 3. Photograph a toy, adjust the cutout | Simulator capture (or phone) | SAM 3.1 |
+| 0:20-0:55 | 2. Photograph a sketch, change it by voice | Phone, over the shoulder, then screen recording | SAM 3.1, Muse Voice Transcribe 1.0, Muse Image 1.0 (edit), Muse Spark 1.3 |
+| 0:55-1:15 | 3. Before and after, then the cutout | Screen recording (phone), or simulator capture | Muse Spark 1.3, SAM 3.1 |
 | 1:15-1:40 | 4. A buyer finds it | Screen recording of the shop (phone-sized browser) | none (shop) |
 | 1:40-2:05 | 5. The creator says thank you | Simulator capture, then phone | Muse Voice Transcribe 1.0, Muse Glimmer (Ollama) |
 | 2:05-2:40 | 6. The sticker, the tap, the reply | Over the shoulder, then screen recording | Muse Voice Transcribe 1.0 (captions) |
 | 2:40-3:00 | 7. What runs where | Model-map card | all of them except Muse Code, which we have not used |
 
 ### 1. The four problems (0:00-0:20)
-Shot: four cards, one per problem, each held about 4 seconds over a still of a real sticker. No voice-over reading from a script on screen; the cards carry the text.
+Shot: four cards, one per problem, each held about 4 seconds over a still of a real sticker. No voice-over reading from a script on screen; the cards carry the text. Card 4 reads: "People who can't draw well still can't finish the piece they imagine. With a photo of a sketch and their voice, they change it until it is theirs."
 
 Narration:
-"Most studios can sell an original once, locally. Artists with disabilities are employed at about half the rate of others. Buyers never meet the maker. And people who are blind cannot put their ideas on paper. The 3rd Eye answers all four."
+"Most studios can sell an original once, locally. Artists with disabilities are employed at about half the rate of others. Buyers never meet the maker. And people who can't draw well can't finish the piece they imagine. The 3rd Eye answers all four."
 
 Fallback: none needed (stills).
 
-### 2. Describe it out loud, VoiceOver on (0:20-0:55)
-Creator: **June Park** (signed in beforehand). Capture: phone over the shoulder for the first 5 seconds (June's hand, VoiceOver on), then the phone's screen recording.
+### 2. Photograph a sketch, change it by voice, VoiceOver on (0:20-0:55)
+Creator: **June Park** (signed in beforehand). Capture: phone over the shoulder for the first 5 seconds (June's rough pencil sketch on the table, the phone photographing it, VoiceOver on), then the phone's screen recording.
 
 Steps and what the viewer sees:
-1. Create tab > Sticker > Next > "Say it out loud" (detail line "Describe it, we draw it for you"). Speak opens; VoiceOver reads "Start talking".
-2. June says: "a green frog wearing a tiny red hat". Muse Voice Transcribe 1.0 turns it into text; the card reads "YOU SAID, a green frog wearing a tiny red hat".
-3. If Muse Spark 1.3 asks a clarifying question, VoiceOver announces it and the "QUESTION" card shows it. Answer in one short sentence.
-4. "Drawing your idea" screen: the "I HEARD" card shows the shaped prompt while Muse Image 1.0 draws.
-5. **Voice result: VoiceOver reads the description card.** Hold this for the full sentence: "WHAT THE IMAGE SHOWS, ..." is Muse Spark 1.3's description. Cut to the card as text so deaf viewers get it too.
-6. "Say what to change", say "add a gold crown", the new picture and its new description arrive. "Use this".
+1. Create tab > Sticker > Next > "Take a photo" (detail line "Snap your drawing") > "Open the camera". "Finding your drawings…" shows while SAM 3.1 finds the pieces.
+2. **Choose a pattern:** "Tap the one you want." June picks the sketch ("Piece 1") and taps "Use this".
+3. **Change it:** "Change your art?" shows her piece as "Your art" with "WHAT THE IMAGE SHOWS". She taps "Say what to change" and says "make the book red, and give him a yellow raincoat". Muse Voice Transcribe 1.0 writes it down; the card reads "YOU SAID, …". She taps "Make the change".
+4. If Muse Spark 1.3 asks a clarifying question, VoiceOver announces it and the "QUESTION" card shows it. Answer in one short sentence.
+5. **Changing your art:** the "YOU ASKED" card shows her words while Muse Image 1.0 edits her own piece (the picture is the input image; nothing is drawn from words alone).
 
-Narration (leave about 10 s silent for VoiceOver speech and the generation wait):
-"June is one of our example artists; she is blind. She says her idea out loud. Muse Voice Transcribe writes it down, and Muse Spark turns it into a prompt. Muse Image draws it. Muse Spark then describes the picture, and VoiceOver reads that to her."
+Narration (leave about 10 s silent for VoiceOver speech and the edit wait):
+"June is one of our example artists. She photographs her sketch, and SAM finds it. Then she says what to change. Muse Voice Transcribe writes it down, and Muse Image changes her own drawing, not a new one."
 
-Fallback: if the live generation takes more than 40 seconds or fails, cut to `fallback-voice.mov` (the rehearsal take). If the phone microphone fails, use "Type instead" with the keyboard's dictation key and say so in the narration ("she uses dictation here"). With `AI_FIXTURES=1` on a local server the whole flow runs offline with synthetic art, but fixtures are not Meta output; do not use them for the final cut and do not narrate them as models.
+Fallback: if the live edit takes more than 40 seconds or fails ("Something went wrong. Please try again."), cut to `fallback-change.mov` (the rehearsal take). If the phone microphone fails, use "Type instead" with the keyboard's dictation key and say so in the narration ("she uses dictation here"). With `AI_FIXTURES=1` on a local server the whole flow runs offline with synthetic art, but fixtures are not Meta output; do not use them for the final cut and do not narrate them as models.
 
-### 3. Photograph a toy, adjust the cutout (0:55-1:15)
-Creator: **Leo** (signed in beforehand). Capture: simulator capture (the simulator uses a photo from the library) or the phone. Show the toy on the table for 2 seconds first.
+### 3. Before and after, then the cutout (0:55-1:15)
+Creator: **June Park**, continuing shot 2. Capture: the phone's screen recording (or the simulator, which uses a photo from the library).
 
 Steps:
-1. Create > Sticker > Next > "Take a photo" (detail line "Snap your drawing") > "Open the camera" (in the simulator: "Upload a picture", detail line "Pick one you already have" > "Choose from my photos"). "Finding your drawings…" shows while SAM 3.1 works; the toy comes back as 2 or 3 numbered pieces.
-2. **Adjust cutout:** tap pieces 1 and 2 to combine them (both selected; the line under the photo reads "Got 2 pieces. They are cut out together."), tap "Apply cutout". The cutout appears on the checkerboard. Optionally show "Draw a box" trimming a stray piece.
-3. "Use this". Design ready: "Your sticker is ready!" with the die-cut sticker preview and "Put it up for sale now?". Listing details, "Tell buyers your story" and "You're live" follow in the app; this shot stops at Design ready.
+1. **Before and after:** "Here's the change" with "Before" and "After" side by side. **VoiceOver reads the "WHAT THE IMAGE SHOWS" card**, Muse Spark 1.3's description of the result; if the change missed something, "Different from what you asked: …" says so. Cut to the card as text so deaf viewers get it too. Point at "Change it again" and "Back to my original" (the original is never lost); tap "Use this".
+2. **Making your cutout** ("Cutting out your art. This takes a few seconds.") while SAM 3.1 cuts the changed piece out.
+3. **Your cutout:** "Here's the cutout of your changed art. Fix the edges if you need to." Optionally show "Add area" fixing one edge, then "Use this".
+4. **Making your sticker** ("Adding the white border and getting it ready to print.", the looping sticker animation) → "Your sticker is ready!" and "Put it up for sale now?". Listing details, "Tell buyers your story" and "You're live" follow in the app; this shot stops at Design ready.
 
 Narration:
-"Makers who do not draw can photograph what they made. SAM 3.1 finds the pieces. If it split the toy in two, the maker combines the pieces, and we cut a clean sticker."
+"Muse Spark describes the result, and VoiceOver reads it to her, so she can compare before and after. She can change it again or go back. SAM cuts it out, and it becomes a sticker."
 
-Fallback: if SAM returns nothing on stage, use the stored photo of the bear or wallet from rehearsal (`fallback-adjust.mov`). Do not retry on camera more than once.
+Fallback: if SAM returns nothing on stage, use the rehearsal take (`fallback-cutout.mov`). Do not retry on camera more than once.
 
 ### 4. A buyer finds it (1:15-1:40)
 Capture: screen recording of https://the-3rd-eye.vercel.app in a phone-sized browser window. Product: Leo's bus sticker (or the sticker just published).
 
-Steps: shop home ("A story you can hold.") > The collection > the product page ("The story behind it") > "Buy this piece": enter a name, "Buy for {price}" (the page says "Demo checkout: no payment is taken yet.") > "Thank you!" with the "Open the story tag" link.
+Steps: shop home ("Art with a story in every piece.") > "New this week" > the product page (breadcrumb Shop / Stickers / the name, "Sticker · die-cut · waterproof", "Leo earns from every sticker sold.") > **Size** "4 in" > quantity "More" once (2) > **"Add to bag"** > the order sheet "Buy this piece": enter a name, "Place order" (the sheet says "Demo checkout: no payment is taken yet.") > "Thank you!" with the "Open the story tag" link.
 
 Narration:
-"A buyer finds the sticker in the shop and sees who made it. Checkout is staged in this demo: it creates the order but takes no payment. After buying, the buyer gets a link to the story tag."
+"A buyer finds the sticker in the shop and sees who made it. They pick a size and a quantity. Checkout is staged in this demo: it creates the order but takes no payment. Then they get a link to the story tag."
 
-Fallback: the shop has seeded products and orders; if the live site is slow, use a recording made in rehearsal.
+Fallback: the shop has seeded products and orders; if the live site is slow, use a recording made in rehearsal. `/admin` shows the order with "size × qty" for the edit if needed.
 
 ### 5. The creator says thank you (1:40-2:05)
 Capture: simulator capture of the Orders tab, then the phone for the 10-second video.
@@ -89,7 +89,7 @@ Fallback: if Ollama is down, the stage uses Muse Spark 1.3 and the response says
 Capture: over the shoulder for the print and tap; screen recordings for the page and the creator app.
 
 Steps:
-1. Show the printed die-cut sticker (print PNG and die SVG downloaded from `/admin`). Show the NFC tag on the back. The physical sticker and tag are done at the physical test before the Nov 2 freeze (method: a standard NFC writer app); until they exist, use the QR route in the fallback and do not narrate a tap.
+1. Show the printed die-cut sticker (print PNG and die SVG downloaded from `/admin`). Show the NFC tag on the back. The physical sticker and tag are done at the physical test before the freeze (Nov 3, 9:00 AM) (method: a standard NFC writer app); until they exist, use the QR route in the fallback and do not narrate a tap.
 2. **Tap the sticker with the buyer phone.** `/t/<token>` opens: the artist's captioned video, the thank-you, the note box.
 3. Buyer types a reply and sends it.
 4. **Switch to the creator app, Messages tab: the reply arrives** (within about 10 seconds of polling). Show it.
@@ -103,13 +103,13 @@ Fallback: if the tag does not read, scan the QR code on `/admin` for the same or
 Capture: one card listing the models, then the vote ask over the logo.
 
 Narration:
-"Muse Voice Transcribe 1.0 hears. Muse Spark 1.3 shapes, describes and writes the listing. Muse Image 1.0 draws. SAM 3.1 cuts. Muse Glimmer drafts stories on our own hardware. We built this from October 27 to November 4. Please vote for The 3rd Eye."
+"Muse Voice Transcribe 1.0 hears. Muse Spark 1.3 describes and writes the listing. Muse Image 1.0 edits the artist's drawing. SAM 3.1 finds and cuts. Muse Glimmer drafts stories on our own hardware. We built this from October 27 to November 4. Please vote for The 3rd Eye."
 
 Fallback: none needed.
 
 ## Edit notes
-- Keep VoiceOver audio audible in shot 2; lower any music under it.
+- Keep VoiceOver audio audible in shots 2 and 3; lower any music under it.
 - Burn in captions for all narration.
 - Do not show a creator code, a bearer token, the admin password or `.env.local`. Blur the URL bar if a sign-in link is visible.
 - Label example creators as fictional in the end card.
-- Narration totals 276 words (counted with wc -w: 42, 46, 33, 38, 44, 29, 44); each shot is written to fit its slot at 2.5 words a second. Time a read-through before recording; none has been done yet.
+- Narration totals 280 words (counted with wc -w: 43, 38, 35, 43, 44, 29, 48); each shot is written to fit its slot at 2.5 words a second. Time a read-through before recording; none has been done yet.

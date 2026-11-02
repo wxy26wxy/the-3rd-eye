@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { m } from "@/components/messages";
-import { loadProduct } from "@/components/data";
+import { loadCreatorProfile, loadProduct } from "@/components/data";
 import { ProductView } from "@/components/product/ProductView";
 import { Container } from "@/components/ui/Layout";
 
@@ -20,9 +20,11 @@ export const instant = false;
 export default async function ProductPage({ params }: PageProps<"/p/[id]">) {
   const product = await loadProduct((await params).id);
   if (!product) notFound();
+  // More from {name}: the maker's other published pieces (none for hidden creators: no public profile).
+  const profile = product.creator.hidden ? null : await loadCreatorProfile(product.creator.slug);
   return (
     <Container>
-      <ProductView product={product} />
+      <ProductView product={product} more={profile?.products ?? []} />
     </Container>
   );
 }

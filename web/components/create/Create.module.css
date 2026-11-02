@@ -228,7 +228,12 @@
 .photoPreview img { max-height: var(--size-photo-max-height); }
 
 /* Ready / Live */
-.body > .readyArt { width: auto; height: calc(var(--size-record) * 3); aspect-ratio: 1; justify-self: center; background: transparent; }
+.body > .readyArt, .readyCard .readyArt { width: auto; height: calc(var(--size-record) * 3); aspect-ratio: 1; justify-self: center; background: transparent; }
+/* Ready · tote (ruling 4): the art on the grey card. */
+.readyCard { display: grid; place-items: center; padding: var(--space-l); border-radius: var(--radius-card); background: var(--surface-alt); }
+/* A sticker preview on a white or grey screen: the soft shadow makes its white border read (T127). */
+.body .stickerShadow, .mockup .stickerShadow { overflow: visible; }
+.stickerShadow img { filter: drop-shadow(var(--shadow-soft)); }
 
 /* Listing (board 2030:3752) */
 .mockup { display: grid; place-items: center; padding: var(--space-l); border-radius: var(--radius-card); background: var(--surface-alt); }

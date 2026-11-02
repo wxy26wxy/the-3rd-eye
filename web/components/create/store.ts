@@ -1,11 +1,13 @@
 "use client";
 /**
  * Creator-flow draft, kept in sessionStorage so a refresh or a back/forward does not lose
- * work. Exposed through useSyncExternalStore; the server snapshot has `ready: false` so
- * screens can wait for hydration instead of flashing "missing" states.
+ * work, and tied to the current sign-in (`ms_creator_session`), so another creator never sees it.
+ * Exposed through useSyncExternalStore; the server snapshot has `ready: false` so screens can wait
+ * for hydration instead of flashing "missing" states.
  */
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { Box, ImageSize } from "./cutout";
+import { CREATOR_SESSION_COOKIE } from "./constants";
 import { api, type AgentStep, type Candidate, type Creator, type ListingDraft, type Product, type ProductType } from "./api";
 
 /** One "Change it" result: a child artwork of the piece (or of the previous change). */
@@ -87,20 +89,47 @@ const SERVER: State = { ready: false, draft: {}, creator: null };
 let state: State | null = null;
 const listeners = new Set<() => void>();
 
+/** The sign-in id in `document.cookie` (null when signed out or never set). */
+export function sessionMarker(cookie: string): string | null {
+  for (const part of cookie.split(";")) {
+    const [k, ...v] = part.trim().split("=");
+    if (k === CREATOR_SESSION_COOKIE) return decodeURIComponent(v.join("=")) || null;
+  }
+  return null;
+}
+
+/**
+ * The cached draft and profile, only when they were saved under the current sign-in id; after a
+ * sign-in as someone else (or a sign-out) the cache belongs to another creator and is dropped (T127).
+ */
+export function restore(raw: string | null, marker: string | null): { draft: Draft; creator: Creator | null } {
+  if (!raw) return { draft: {}, creator: null };
+  try {
+    const saved = JSON.parse(raw) as { draft?: Draft; creator?: Creator | null; session?: string | null };
+    if ((saved.session ?? null) !== marker) return { draft: {}, creator: null };
+    return { draft: saved.draft ?? {}, creator: saved.creator ?? null };
+  } catch {
+    return { draft: {}, creator: null };
+  }
+}
+
+function currentMarker(): string | null {
+  try { return typeof document === "undefined" ? null : sessionMarker(document.cookie); } catch { return null; }
+}
+
 function load(): State {
   if (state) return state;
   let draft: Draft = {};
   let creator: Creator | null = null;
   try {
-    const raw = sessionStorage.getItem(KEY);
-    if (raw) ({ draft = {}, creator = null } = JSON.parse(raw) as Partial<State>);
+    ({ draft, creator } = restore(sessionStorage.getItem(KEY), currentMarker()));
   } catch { /* storage blocked */ }
   state = { ready: true, draft, creator };
   return state;
 }
 function save(next: State) {
   state = next;
-  try { sessionStorage.setItem(KEY, JSON.stringify({ draft: next.draft, creator: next.creator })); } catch { /* storage blocked */ }
+  try { sessionStorage.setItem(KEY, JSON.stringify({ draft: next.draft, creator: next.creator, session: currentMarker() })); } catch { /* storage blocked */ }
   listeners.forEach((l) => l());
 }
 function subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }

@@ -19,6 +19,16 @@ export function Ready() {
   if (ready && !p) return <MissingState />;
   const tote = (p?.type ?? draft.product) === "tote";
   const art = draft.cutout?.artworkId === p?.artworkId ? draft.cutout : null;
+  // A sticker: the bordered preview with a soft shadow; a tote: its art on the grey card (ruling 4).
+  const picture = (
+    <ArtImage
+      src={productPicture(p, art)}
+      alt={art?.altText ?? fmt(m.create.ready.mockupAlt, { product: tote ? m.common.tote : m.common.sticker })}
+      placeholder={m.common.imageMissing}
+      eager
+      className={[styles.readyArt, tote ? "" : styles.stickerShadow].filter(Boolean).join(" ")}
+    />
+  );
   return (
     <CreateScreen
       title={tote ? m.create.ready.titleTote : m.create.ready.titleSticker}
@@ -30,13 +40,7 @@ export function Ready() {
         </>
       }
     >
-      <ArtImage
-        src={productPicture(p, art)}
-        alt={art?.altText ?? fmt(m.create.ready.mockupAlt, { product: tote ? m.common.tote : m.common.sticker })}
-        placeholder={m.common.imageMissing}
-        eager
-        className={styles.readyArt}
-      />
+      {tote ? <div className={styles.readyCard}>{picture}</div> : picture}
       {draft.cutoutNotice ? <NoticeCard>{draft.cutoutNotice}</NoticeCard> : null}
       <Title as="p" size="l">{m.create.ready.question}</Title>
     </CreateScreen>

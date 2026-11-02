@@ -5,6 +5,8 @@ export type StoryDraft = { headline: string; bio_short: string; story_text: stri
 export type Creator = {
   id: string; slug: string; displayName: string; studioName: string | null; avatarUrl: string | null;
   bioShort: string | null; storyText?: string | null; storyVideoUrl: string | null; mentionDisability: boolean; split: Split;
+  /** WebVTT captions of the story video (served at `/captions/{id}`); null when captioning failed. */
+  storyVideoVtt?: string | null;
   accessPrefs?: { speakDescriptions?: boolean } | null;
   /** Story drafted from the video transcript (Glimmer stage); null until a captioned video exists. */
   storyDraft?: StoryDraft | null;
@@ -27,7 +29,11 @@ export type ArtworkDetail = { artwork: Artwork; candidates: Candidate[]; imageSi
 export type CutoutResult = { artwork: Artwork; candidates: Candidate[]; imageSize: { w: number; h: number } };
 /** `POST /artworks/{id}/cleanup`: the saved cut plus products that could not follow it. */
 export type CleanupResult = Artwork & { details?: { failedProductIds: string[]; unpublishedProductIds: string[] } };
-export type Product = { id: string; artworkId: string; creatorId: string; type: ProductType; mockupUrl: string | null; printPngUrl: string | null; printSvgUrl: string | null; priceCents: number; status: string };
+export type Product = {
+  id: string; artworkId: string; creatorId: string; type: ProductType; mockupUrl: string | null; printPngUrl: string | null; printSvgUrl: string | null; priceCents: number; status: string;
+  /** Public bordered die-cut sticker PNG (R1, T121); null for a tote and before it exists. */
+  previewUrl?: string | null;
+};
 export type ListingDraft = { title: string; description: string; tags: string[]; price_cents: number; print_ok: boolean; notes: string };
 export type AgentStep = { step: number; tool?: string; args?: unknown; result?: unknown; text?: string };
 

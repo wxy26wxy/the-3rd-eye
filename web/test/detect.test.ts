@@ -7,7 +7,7 @@ import { emptyMask, maskFromAlpha, maskFromPng, placeMask } from "@/lib/image/ma
 const files = new Map<string, Buffer>();
 const rows = new Map<string, Record<string, unknown>>();
 const state = {
-  findCalls: [] as { w: number; h: number }[], segmentCalls: 0, rebuilt: [] as string[], products: [] as { id: string }[],
+  findCalls: [] as { w: number; h: number }[], findOpts: [] as unknown[], segmentCalls: 0, rebuilt: [] as string[], products: [] as { id: string }[],
   crop: [] as { mask: Mask; bbox: [number, number, number, number]; score: number; svgPath: string }[],
   updates: [] as Record<string, unknown>[],
 };
@@ -39,7 +39,8 @@ vi.mock("@/lib/ai/registry", () => ({
   ai: async () => ({
     segmenter: {
       segment: async () => { state.segmentCalls++; return null; },
-      findCandidates: async (img: { data?: Buffer; url?: string } | Buffer) => {
+      findCandidates: async (img: { data?: Buffer; url?: string } | Buffer, opts: unknown) => {
+        state.findOpts.push(opts);
         const buf = Buffer.isBuffer(img) ? img : (img as { data: Buffer }).data;
         const meta = await sharp(buf).metadata();
         state.findCalls.push({ w: meta.width!, h: meta.height! });
@@ -69,7 +70,7 @@ async function photoRow(extra: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
-  state.findCalls = []; state.segmentCalls = 0; state.rebuilt = []; state.products = []; state.crop = []; state.updates = [];
+  state.findCalls = []; state.findOpts = []; state.segmentCalls = 0; state.rebuilt = []; state.products = []; state.crop = []; state.updates = [];
 });
 
 describe("placeMask", () => {
@@ -91,6 +92,7 @@ describe("detectInBox", () => {
     state.crop = [seg(rect(200, 200, 10, 10, 40, 40), [10, 10, 40, 40], 0.95), seg(rect(200, 200, 60, 60, 160, 140), [60, 60, 160, 140], 0.8)];
     const out = await detectInBox(artwork, [100, 50, 300, 250]);
     expect(state.findCalls).toEqual([{ w: 200, h: 200 }]);
+    expect(state.findOpts[0]).toMatchObject({ maxCoverage: 1, dropContainers: false }); // a tight frame keeps a frame-filling piece
     expect(state.segmentCalls).toBe(0);
     expect(out.imageSize).toEqual({ w: W, h: H });
     expect(out.candidates.map((c) => c.bbox)).toEqual([[160, 110, 260, 190], [110, 60, 140, 90]]);
@@ -113,10 +115,14 @@ describe("detectInBox", () => {
     expect(out.candidates[0].bbox).toEqual([250, 200, 300, 250]);
   });
 
-  it("nothing inside the frame → 422 no_drawing_found, candidates cleared, lastError set", async () => {
-    const artwork = await photoRow();
+  it("nothing inside the frame, or a box outside the image → 422 no_drawing_found; the previous candidates and cut stay, only lastError is set", async () => {
+    const previous = [{ id: "k1", bbox: [0, 0, 5, 5], score: 1, thumbUrl: "t", maskUrl: "m" }];
+    const artwork = await photoRow({ candidates: previous, cleanedUrl: "old-cut.png", status: "ready" });
     await expect(detectInBox(artwork, [0, 0, 100, 100])).rejects.toMatchObject({ status: 422, code: "no_drawing_found" });
-    expect(state.updates.at(-1)).toEqual({ candidates: [], lastError: "no_drawing_found" });
+    expect(state.updates).toEqual([{ lastError: "no_drawing_found" }]);
+    await expect(detectInBox(artwork, [500, 400, 600, 500])).rejects.toMatchObject({ status: 422, code: "no_drawing_found" });
+    expect(state.updates).toEqual([{ lastError: "no_drawing_found" }, { lastError: "no_drawing_found" }]);
+    expect(rows.get("a1")).toMatchObject({ candidates: previous, cleanedUrl: "old-cut.png", status: "ready" });
   });
 
   it("a change result or a generated row → 409 not_a_photo, no SAM call", async () => {

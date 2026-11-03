@@ -70,7 +70,7 @@ export function fixtureRegistry(): Registry {
       findAll: (image, phrase, opts) => traced("segment", "fixture", "threshold", { phrase }, async () =>
         (await thresholdSegments(await loadImageRef(image))).map((s): Segment => ({ ...s, svgPath: "" })), opts.trace),
       findCandidates: (image, opts) => traced("segment", "fixture", "threshold", { candidates: true }, async () =>
-        dedupeSegmentsInfo((await thresholdSegments(await loadImageRef(image))).map((s): Segment => ({ ...s, svgPath: "" })), { max: opts.max }), opts.trace),
+        dedupeSegmentsInfo((await thresholdSegments(await loadImageRef(image))).map((s): Segment => ({ ...s, svgPath: "" })), { max: opts.max, maxCoverage: opts.maxCoverage, dropContainers: opts.dropContainers }), opts.trace),
       segment: (image, hint, opts) => traced("segment", "fixture", "threshold", hint, async () =>
         pickByHint((await thresholdSegments(await loadImageRef(image))).map((s): Segment => ({ ...s, svgPath: "" })), hint), opts.trace),
     },

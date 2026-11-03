@@ -255,14 +255,18 @@ export async function detectInBox(
   const W = meta.width ?? 0, H = meta.height ?? 0;
   const imageSize: ImageSize = { w: W, h: H };
   const b = clampBox(box, W, H);
+  // A failed detect leaves the row's candidates and cut as they were (a follow-up cleanup still works); only lastError is set.
   const none = async () => {
-    await updateArtwork(artwork.id, { candidates: [], lastError: "no_drawing_found" });
+    await updateArtwork(artwork.id, { lastError: "no_drawing_found" });
     return new ApiError(422, "no_drawing_found", "We could not find a drawing or object inside the frame. Move the frame or make it bigger.", { artworkId: artwork.id });
   };
   if (!b) throw await none();
   const [x0, y0, x1, y1] = b;
   const crop = await sharp(png).extract({ left: x0, top: y0, width: x1 - x0, height: y1 - y0 }).png().toBuffer();
-  const { segments } = await (await ai()).segmenter.findCandidates(pngRef(crop), { trace: traceFor(artwork.id, task, "segment"), max: MAX_CANDIDATES });
+  // Inside a tight frame the piece may fill the crop and contain its own parts: keep both (no background or container drop).
+  const { segments } = await (await ai()).segmenter.findCandidates(pngRef(crop), {
+    trace: traceFor(artwork.id, task, "segment"), max: MAX_CANDIDATES, maxCoverage: 1, dropContainers: false,
+  });
   const placed = segments.map((s): Segment => {
     const mask = placeMask(s.mask, W, H, x0, y0);
     return { ...s, mask, bbox: [s.bbox[0] + x0, s.bbox[1] + y0, s.bbox[2] + x0, s.bbox[3] + y0] };

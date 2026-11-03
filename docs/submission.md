@@ -70,7 +70,7 @@ What the video shows (beats from `docs/demo_script.md`):
 | Stage | Model id | What it does | Where in the repo |
 |---|---|---|---|
 | Find the drawings in a photo | `sam-3.1` | Two phrase searches ("drawing", "handmade object") on the creator's photo; results merged into at most 6 pieces to pick from | `web/lib/ai/meta/sam.ts` (`findCandidates`), `web/lib/pipeline/artworks.ts`, `web/app/api/v1/artworks/route.ts` |
-| Cut out the piece, fix the edges | `sam-3.1` | Cuts out the picked or changed piece; box and point prompts for "Your cutout" edge fixes; masks finished with hole filling and soft edges | `web/lib/ai/meta/sam.ts`, `web/lib/image/mask.ts`, `web/app/api/v1/artworks/[id]/select/route.ts`, `.../cutout/route.ts`, `.../cleanup/route.ts` |
+| Cut out the piece inside the area frame | `sam-3.1` | Cuts out the picked or changed piece; the **Adjust the area** frame is sent as a SAM box prompt and clips the cut (`clipToBox`); masks finished with hole filling and soft edges | `web/lib/ai/meta/sam.ts`, `web/lib/image/mask.ts`, `web/app/api/v1/artworks/[id]/select/route.ts`, `.../cutout/route.ts`, `.../cleanup/route.ts` |
 | Die-cut outline | `sam-3.1` (its mask) | The sticker's cut line is grown from the SAM mask; print PNG and die-cut SVG | `web/lib/image/sticker.ts`, `web/lib/pipeline/products.ts` |
 | Spoken change request; video captions | `muse-voice-transcribe-1.0` | Writes down what the artist says to change; captions story and thank-you videos (WAV in) | `web/lib/ai/meta/transcribe.ts`, `web/app/api/v1/transcribe/route.ts`, `web/lib/ai/meta/captions.ts` |
 | Change the picked piece | `muse-image-1.0` | Edit with the picked piece as `input_image` plus the instruction and a keep-the-style guard; the result is a child artwork, so the original is never lost | `web/lib/ai/meta/image.ts` (`editBody`), `web/lib/pipeline/artworks.ts` (`changeArtwork`), `web/app/api/v1/artworks/[id]/change/route.ts` |
@@ -96,7 +96,7 @@ The product only works if the art stays the artist's own. Muse Image 1.0 takes t
 
 **What worked**
 - **Responses API as a drop-in.** The `openai` npm SDK with `baseURL: https://api.meta.ai/v1` covered Spark, Image and SAM with one client (`web/lib/ai/meta/client.ts`). Strict `json_schema`, `reasoning.effort`, function tools with `previous_response_id` all worked when verified live on 2026-10-28 (5 tool calls in 4 turns on the listing smoke run).
-- **SAM streaming with `@meta-sam/parser`.** `parseImageStream` and `decodeMaskToRaster` turned the stream into masks with little code, and box and point prompts (`buildObjectPrompt`) used the same request shape as phrases.
+- **SAM streaming with `@meta-sam/parser`.** `parseImageStream` and `decodeMaskToRaster` turned the stream into masks with little code, and box prompts (`buildObjectPrompt`, which sends the Adjust the area frame) used the same request shape as phrases.
 - **Strict JSON schemas.** With `additionalProperties: false` and every property required, the description and listing outputs come back as fields we validate and show directly, which keeps the screen-reader text predictable.
 
 **What cost time**

@@ -80,7 +80,7 @@ Every artwork starts from the creator's own photo; no app screen creates an imag
 | `lib/ai/meta/transcribe.ts` (Voice Transcribe) | verified 2026-10-28 (probe + HTTP `/transcribe`, WAV and m4a→WAV via local ffmpeg) |
 | `lib/ai/meta/shape-prompt.ts` (Spark) | verified 2026-10-28 (clear and ambiguous ideas) |
 | `lib/ai/meta/image.ts` generate / refine / compose (Muse Image) | verified 2026-10-28 |
-| `lib/ai/meta/image.ts` edit (Muse Image with `input_image`, T111) | verified 2026-11-01 (one live call, recorded fixture); `changeArtwork` / `cutoutArtwork` unit-tested with stubs, not yet run end to end against Neon + Blob (migration 0004 pending) |
+| `lib/ai/meta/image.ts` edit (Muse Image with `input_image`, T111) | verified 2026-11-01 (one live call, recorded fixture); `changeArtwork` / `cutoutArtwork` unit-tested with stubs, and run end to end against Neon + Blob on 2026-11-03 (web live run of T123, after migration 0004: three changes on photo pieces, including a "Change it again" on a change result, each followed by `cutout`) |
 | `lib/ai/meta/describe.ts` (Spark vision) | verified 2026-10-28 |
 | `lib/ai/meta/sam.ts` findAll (SAM 3.1 + parser) | verified 2026-10-28; `segment` with a box and with positive + negative points verified 2026-10-29 (T080, recordings in `web/test/fixtures/segment/probe-{box,points}-events.json`); `findCandidates` (two phrases) checked live on two object photos 2026-10-29 |
 | `lib/image/sticker.ts` (moved from `lib/ai/meta/`, pure image math) | unit-tested; print files produced for the seeded stickers; tote print PNG since T050 |

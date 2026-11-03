@@ -227,6 +227,19 @@ export async function getCreatorProfile(slug: string): Promise<CreatorProfile | 
   return { ...toPublicCreator(c), products: products.map(toShopProduct) };
 }
 
+/** Where "See a story tag in action" goes when no example story tag exists yet. */
+export const STORY_TAG_FALLBACK_HREF = "/how-it-works#story-tags";
+
+/**
+ * "See a story tag in action" on the shop: a live story-tag page (`/t/<token>`) of an example
+ * creator with a story video (newest order), else the story-tags section of How it works (T128).
+ */
+export async function getDemoStoryTagHref(): Promise<string> {
+  await fresh();
+  const token = await q.getDemoStoryTagToken();
+  return token ? `/t/${encodeURIComponent(token)}` : STORY_TAG_FALLBACK_HREF;
+}
+
 /** WebVTT text for a creator's story video, or null. */
 export async function getCreatorCaptions(creatorId: string): Promise<string | null> {
   await fresh();

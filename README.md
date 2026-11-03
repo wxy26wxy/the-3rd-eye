@@ -55,7 +55,7 @@ Staged or limited:
 | Speech to text (the spoken change instruction, story and thank-you captions) | Muse Voice Transcribe 1.0 | `muse-voice-transcribe-1.0` |
 | Describe each result (Before and after, alt text, what differs from the request); listing agent | Muse Spark 1.3 | `muse-spark-1.3` |
 | Edit the picked piece with the change instruction (the piece is the input image); product mockups | Muse Image 1.0 | `muse-image-1.0` |
-| Find the drawings in a photo; cut out the picked or changed piece; fix the edges (add or remove areas, draw a box); die-cut outline | SAM 3.1 | `sam-3.1` |
+| Find the drawings in a photo; cut out the picked or changed piece, with the **Adjust the area** frame sent as a box prompt that also clips the cut; die-cut outline | SAM 3.1 | `sam-3.1` |
 | Draft the artist's story from their own words (open weights) | Muse Glimmer 30B via Ollama | `muse-glimmer` |
 
 Muse Code is not used in this project so far. Every model call is recorded in the `ai_calls` table and can be read at `/admin/trace`.

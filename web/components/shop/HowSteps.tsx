@@ -17,9 +17,10 @@ const STEPS = [
 /**
  * Story tags band (board 2018:1922 › 4010:4348): green band with the eyebrow, "Every piece / talks.",
  * three numbered steps (an ordered list), the primary link, and the phone preview at the right
- * (illustrative, hidden from assistive tech). `preview` is streamed in by the page.
+ * (illustrative, hidden from assistive tech). `preview` and `cta` (the link to a live example story tag)
+ * are streamed in by the page; without `cta` the link goes to How it works.
  */
-export function HowSteps({ id = "how", preview }: { id?: string; preview?: ReactNode }) {
+export function HowSteps({ id = "how", preview, cta }: { id?: string; preview?: ReactNode; cta?: ReactNode }) {
   return (
     <section id={id} aria-labelledby={`${id}-title`} className={styles.band} tabIndex={-1}>
       <div className={styles.bandCopy}>
@@ -38,11 +39,19 @@ export function HowSteps({ id = "how", preview }: { id?: string; preview?: React
             </li>
           ))}
         </ol>
-        <Button href="/how-it-works#story-tags" block>{m.shop.bandCta}</Button>
+        {cta ?? <StoryTagCta href={STORY_TAG_FALLBACK} />}
       </div>
       {preview ?? <PhonePreview name={null} studio={null} bio={null} product={null} />}
     </section>
   );
+}
+
+/** Where the band's link goes when there is no live example story tag (matches the contract's fallback). */
+export const STORY_TAG_FALLBACK = "/how-it-works#story-tags";
+
+/** "See a story tag in action": a live `/t/<token>` page, or How it works. */
+export function StoryTagCta({ href }: { href: string }) {
+  return <Button href={href} block>{m.shop.bandCta}</Button>;
 }
 
 /** Phone preview of a story-tag page (4010:4376). Illustrative: aria-hidden, nothing in it is focusable. */

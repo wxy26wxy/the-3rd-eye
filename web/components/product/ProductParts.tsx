@@ -6,15 +6,24 @@ import { StoryVideo } from "@/components/site/StoryVideo";
 import { CheckIcon, PlusIcon } from "@/components/ui/Icons";
 import { Display } from "@/components/ui/Display";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { splitPercents } from "@/lib/split";
 import styles from "./Product.module.css";
 
-/** "{name} earns from every sticker sold." (2019:2049): accentSoft note with a check. */
-export function PaysArtistNote({ name, type }: { name: string; type: ProductDetail["type"] }) {
+/**
+ * "{name} earns from every sticker sold." (2019:2049): accentSoft note with a check, and under it the
+ * maker's split of every sale ("50% artist · 30% studio · 20% production", from their `split`), as
+ * /how-it-works promises.
+ */
+export function PaysArtistNote({ name, type, split }: { name: string; type: ProductDetail["type"]; split?: ProductDetail["creator"]["split"] | null }) {
+  const s = splitPercents(split);
   return (
-    <p className={styles.pays}>
-      <span aria-hidden="true" className={styles.paysIcon}><CheckIcon size="1.25rem" /></span>
-      {fmt(type === "sticker" ? m.product.paysSticker : m.product.paysTote, { name })}
-    </p>
+    <div className={styles.paysGroup}>
+      <p className={styles.pays}>
+        <span aria-hidden="true" className={styles.paysIcon}><CheckIcon size="1.25rem" /></span>
+        {fmt(type === "sticker" ? m.product.paysSticker : m.product.paysTote, { name })}
+      </p>
+      <p className={styles.split}>{fmt(m.product.splitLine, { artist: s.artist, studio: s.studio, production: s.production })}</p>
+    </div>
   );
 }
 

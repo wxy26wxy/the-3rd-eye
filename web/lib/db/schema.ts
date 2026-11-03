@@ -6,6 +6,7 @@
 import {
   pgTable, pgEnum, uuid, text, integer, boolean, timestamp, jsonb,
 } from "drizzle-orm/pg-core";
+import { DEFAULT_SPLIT } from "../split";
 import { relations, sql } from "drizzle-orm";
 
 export const artworkSource = pgEnum("artwork_source", ["text2image", "canvas", "photo"]);
@@ -56,7 +57,7 @@ export const creators = pgTable("creators", {
   accessPrefs: jsonb("access_prefs").$type<AccessPrefs>().default({
     voiceFirst: true, simpleMode: true, speakDescriptions: true, highContrast: false, largeText: false, helperMode: false,
   }).notNull(),
-  split: jsonb("split").$type<Split>().default({ creator_bps: 5000, org_bps: 3000, production_bps: 2000 }).notNull(),
+  split: jsonb("split").$type<Split>().default({ ...DEFAULT_SPLIT }).notNull(),
   loginCode: text("login_code").unique(),          // dev-mode sign in
   isExample: boolean("is_example").default(false).notNull(),
   hidden: boolean("hidden").default(false).notNull(),   // testing: kept out of shop grids, /artists and /c/[slug] (T070)

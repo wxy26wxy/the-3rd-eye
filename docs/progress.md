@@ -368,4 +368,5 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Background-safe: `BackgroundWork` scope around the long calls and uploads; `clientRequestId` per attempt on `change` / `products`; `CreateFlow.reconcile` on a lost answer and on return to the app with a job in flight (change child, product, cut, listing draft, approval).
 - Mock: `ios/scripts/mock_api.py` as merged on main with T134 (the branch first carried a copy from `feat/backend-T134`; identical after the merge).
 - Verify: `xcodegen generate`, unit tests on the `The3rdEye` scheme, UI tests on `The3rdEyeUITests` against `python3 scripts/mock_api.py <port>` (see `docs/handoffs/ios.md`, "Round 3 (T136)").
+- Tests: 173 unit, 45 UI, green on a fresh simulator after merging main; AX3 + Increase Contrast screenshots of Adjust the area and Listing drafting taken outside the repo.
 - Unfinished: recovery from the change list is unit-tested only (the mock's `GET /artworks` lists no `p1` / `ch<n>` rows); not run on a device; `MARKETING_VERSION` / build number untouched.

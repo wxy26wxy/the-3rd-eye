@@ -457,6 +457,65 @@ describe("Round 4 ruling 2: the product is made before Change it", () => {
     expect(h.draft.changedArtworkId).toBe("k1");
   });
 
+  it("overlapping runs: an abandoned change A finishing late never takes over the screen nor clears B's request (either order)", async () => {
+    const chA = { artwork: { ...artwork({ id: "kA", parentArtworkId: "p1" }), previewUrl: "/kA.png" }, description: { alt: "A", spoken: "", differences: "" } };
+    const chB = { artwork: { ...artwork({ id: "kB", parentArtworkId: "p1" }), previewUrl: "/kB.png" }, description: { alt: "B", spoken: "", differences: "" } };
+    const setup = () => {
+      let next: unknown = chA;
+      const h = harness({ ...piece, made: { p1: { ...prod("pr1", "p1"), cut: "/piece.png" } } }, {});
+      // answers by artwork id in the path / body
+      h.api.mockImplementation((async (path: string, init?: { json?: unknown }) => {
+        h.calls.push(`api ${path} ${JSON.stringify(init?.json ?? null)}`);
+        if (path.endsWith("/change")) return next;
+        const id = path.split("/")[1];
+        if (path.endsWith("/cutout")) return { artwork: artwork({ id, cleanedUrl: `/${id}-cut.png` }), candidates: [], imageSize: { w: 10, h: 10 } };
+        const art = (init?.json as { artworkId: string }).artworkId;
+        return prod(`pr-${art}`, art);
+      }) as never);
+      return { h, setNext: (v: unknown) => { next = v; } };
+    };
+
+    // 1) A started, Back, B started and finished first, then A finishes → the screen stays on B
+    {
+      const { h, setNext } = setup();
+      submitChange(h.deps, "make it red", null);
+      const reqA = changeRequest(h.draft)!;
+      const runA = runChange(h.deps, reqA); // in flight
+      leaveChanging(h.deps);
+      submitChange(h.deps, "make it blue", null);
+      setNext(chB);
+      const reqB = changeRequest(h.draft)!;
+      // A's change call already went out with chA; B's gets chB
+      await runChange(h.deps, reqB);
+      expect(h.draft.changedArtworkId).toBe("kB");
+      await runA;
+      expect(h.draft.changedArtworkId).toBe("kB");
+      expect(h.draft.cutoutArtworkId).toBe("kB");
+      // A is still recorded (its cut and product too), just not on screen
+      expect(h.draft.changes?.map((c) => c.artworkId).sort()).toEqual(["kA", "kB"]);
+      expect(cutoutOf(h.draft, "kA")?.cleanedUrl).toBe("/kA-cut.png");
+      expect(h.draft.made?.kA?.id).toBe("pr-kA");
+    }
+
+    // 2) A started, Back, B started; A finishes while B is still running → B's request is not cleared
+    {
+      const { h, setNext } = setup();
+      submitChange(h.deps, "make it red", null);
+      const reqA = changeRequest(h.draft)!;
+      const runA = runChange(h.deps, reqA);
+      leaveChanging(h.deps);
+      submitChange(h.deps, "make it blue", "make it blue");
+      await runA;
+      expect(h.draft).toMatchObject({ changeInstruction: "make it blue", changeTranscript: "make it blue" });
+      expect(h.draft.changedArtworkId).toBeUndefined();
+      expect(h.calls).not.toContain("replace /create/compare");
+      setNext(chB);
+      await runChange(h.deps, changeRequest(h.draft)!);
+      expect(h.draft.changedArtworkId).toBe("kB");
+      expect(h.draft.changeInstruction).toBeUndefined();
+    }
+  });
+
   it("Fix the cutout round trip: Change it → Your cutout (Back returns) → Apply cutout → the cleanup answer's products give the rebuilt photo → Use this → Change it shows it, no POST", async () => {
     const listing = { title: "Fern", description: "", tags: [], price_cents: 500, print_ok: true, notes: "" };
     const start: Draft = { ...piece, made: { p1: { ...prod("pr1", "p1"), cut: "/piece.png" } }, productRecord: prod("pr1", "p1"), listing };

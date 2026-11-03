@@ -492,7 +492,11 @@ export async function runChange({ api, router, update, getDraft }: FlowDeps, req
     onStage("product");
     await runProduct({ api, update, getDraft }, child);
   }
-  update({ ...addChange(getDraft(), step), cutoutArtworkId: child, changeInstruction: undefined, changeTranscript: undefined });
+  // A run the creator abandoned (Back, then another "Make the change") keeps what it recorded (the
+  // change, its cut and product job) but never takes over the screen or clears the newer request.
+  const d = getDraft();
+  if (req.clientRequestId && d.changeNonce !== req.clientRequestId) return step;
+  update({ ...addChange(d, step), cutoutArtworkId: child, changeInstruction: undefined, changeTranscript: undefined });
   router.replace("/create/compare");
   return step;
 }

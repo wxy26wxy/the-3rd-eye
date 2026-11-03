@@ -1,7 +1,7 @@
 import XCTest
 
 /// Photo first, then "Change it" (T114) against scripts/mock_api.py: the app uses the generated
-/// test photo (UITEST_PHOTO=1); the mock answers two drawings, `change` makes child rows ch1, ch2…
+/// test photo (UITEST_PHOTO=1); the mock finds two drawings inside the frame (`detect`), `change` makes child rows ch1, ch2…
 /// with a description, and `cutout` cuts a changed picture. Bodies are read back with
 /// GET /__mock/last/<route>.
 final class ChangeItUITests: XCTestCase {
@@ -22,7 +22,7 @@ final class ChangeItUITests: XCTestCase {
   /// Making your cutout → Your cutout → Making your sticker → Listing details for the changed art.
   func testTypedChangeGoesOnToTheListing() throws {
     let app = launchPhotoFlow(code: "TEST-CODE")
-    pickPiece(app, "Piece 1")
+    cutPiece(app)
 
     XCTAssertTrue(app.staticTexts["WHAT SHOULD I CHANGE?"].waitForExistence(timeout: 10), "Change it")
     typeChange(app, "Make the sky purple")
@@ -67,7 +67,7 @@ final class ChangeItUITests: XCTestCase {
   /// sticker from the drawing's own cut-out (no cutout call).
   func testChangeAgainThenBackOneStepAtATime() throws {
     let app = launchPhotoFlow(code: "TEST-CODE")
-    pickPiece(app, "Piece 1")
+    cutPiece(app)
     typeChange(app, "Make the sky purple")
     tap(app, "Make the change")
     XCTAssertTrue(app.buttons["Change it again"].waitForExistence(timeout: 20))
@@ -110,12 +110,13 @@ final class ChangeItUITests: XCTestCase {
     XCTAssertEqual(try count("cutout"), 1)
   }
 
-  /// T131 order: Adjust the area → Making your cutout → Your cutout → Change it → "Looks good as is"
-  /// → Making your sticker → Listing details, from the piece's cut-out (no cutout call).
+  /// Round 3 order: Adjust the area → Making your cutout (`detect`) → Your cutout → Change it →
+  /// "Looks good as is" → Making your sticker → Listing details, from the piece's cut-out (no cutout call).
   func testLooksGoodGoesStraightToTheProduct() throws {
     let app = launchPhotoFlow(code: "TEST-CODE")
-    pickPiece(app, "Piece 1")
-    XCTAssertEqual(try lastBody("cleanup")["candidateIds"] as? [String], ["cand-1"], "cut on the way to Change it")
+    cutPiece(app)
+    XCTAssertEqual(try lastBody("detect")["box"] as? [Double], [0, 0, 1200, 1600], "detected inside the frame on the way to Change it")
+    XCTAssertEqual(try count("cleanup"), 0, "no cleanup without marks")
     tap(app, "Looks good as is")
     XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 20), "straight to Making your sticker, then Listing details")
     XCTAssertFalse(app.staticTexts["Your cutout is ready. Here it is."].exists)
@@ -123,24 +124,40 @@ final class ChangeItUITests: XCTestCase {
     XCTAssertEqual(try lastBody("products")["artworkId"] as? String, "p1", "the original drawing becomes the product")
   }
 
-  /// One drawing, already cut out (mock ONE…): no Choose a pattern, but Adjust the area still comes
-  /// first (ruling, T122) and its frame cuts it again (T131: the server's cut is not clipped). Then a
-  /// tote bag with the tote copy.
+  /// One drawing in the frame (mock ONE…): Your cutout has no strip of drawings. Then a tote bag
+  /// with the tote copy.
   func testSingleDrawingIsCutWithTheFrame() throws {
     let app = launchPhotoFlow(code: "ONE-CODE", product: "Tote bag, Natural canvas")
     XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 20), "Adjust the area right after the photo")
-    XCTAssertFalse(app.buttons["Piece 1"].exists)
     tap(app, "Use this area")
     XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 15), "Your cutout")
-    let body = try lastBody("cleanup")
-    XCTAssertEqual(body["candidateIds"] as? [String], ["cand-1"], "the auto-cut piece is cut with the frame")
-    XCTAssertEqual(body["clipToBox"] as? Bool, true)
+    XCTAssertEqual(try count("detect"), 1)
+    XCTAssertFalse(app.buttons["Piece 1"].exists, "one drawing: no strip")
     tap(app, "Use this")
     XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "then Change it")
     XCTAssertTrue(element(app, containing: "WHAT THE IMAGE SHOWS", and: "Cut-out of cand-1").exists)
     app.buttons["Looks good as is"].tap()
     XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 20), "Making your tote bag, then Listing details")
     XCTAssertEqual(try lastBody("products")["type"] as? String, "tote")
+  }
+
+  /// Round 3 ruling 6: the app is sent to the background while the art is changed and the answer is
+  /// lost (mock LOSTCHANGE…: the row is made, the connection dropped). Back in the app the change
+  /// is recovered from the server (Before and after, no error) and `change` was made once.
+  func testChangeSurvivesTheAppGoingToTheBackground() throws {
+    let app = launchPhotoFlow(code: "LOSTCHANGE-CODE")
+    cutPiece(app)
+    typeChange(app, "Make the sky purple")
+    tap(app, "Make the change")
+    // The mock takes 2 s to answer: leave the app right away.
+    XCUIDevice.shared.press(.home)
+    sleep(4)
+    app.activate()
+    XCTAssertTrue(app.staticTexts["Here's the change"].waitForExistence(timeout: 20), "Before and after, recovered")
+    XCTAssertFalse(app.buttons["Try again"].exists)
+    XCTAssertEqual(try count("change"), 1, "made once")
+    XCTAssertEqual(try count("change-posts"), 1, "and sent once: recovered from the list, not sent again")
+    XCTAssertNotNil(try lastBody("change")["clientRequestId"] as? String, "with its request id")
   }
 
   /// "Make the change" waits for words; the mic button is there with its label.
@@ -193,13 +210,10 @@ final class ChangeItUITests: XCTestCase {
     return app
   }
 
-  private func pickPiece(_ app: XCUIApplication, _ name: String) {
-    let piece = app.buttons[name]
-    XCTAssertTrue(piece.waitForExistence(timeout: 20), "Choose a pattern shows the drawings")
-    piece.tap()
-    tap(app, "Use this")
-    // Adjust the area (T122): the frame on the piece as it starts; Making your cutout, then Your
-    // cutout (T131), whose Use this goes on to Change it.
+  /// Adjust the area on the whole photo, Making your cutout (`detect`), then Your cutout, whose Use
+  /// this goes on to Change it.
+  private func cutPiece(_ app: XCUIApplication) {
+    XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 20), "Adjust the area right after the photo")
     tap(app, "Use this area")
     XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 15), "Your cutout of the piece")
     tap(app, "Use this")

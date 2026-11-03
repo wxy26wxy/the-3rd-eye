@@ -136,8 +136,8 @@ final class DesignsUITests: XCTestCase {
     XCTAssertEqual(edits["description"] as? String, "A blue bird singing on a branch.")
   }
 
-  /// Re-do the cutout opens Adjust the area on the saved photo (T122); "Use this area" sends the
-  /// piece with the frame and comes back.
+  /// Re-do the cutout opens Adjust the area on the saved photo (T122); "Use this area" sends `detect`
+  /// with the frame (round 3) and comes back.
   func testRedoCutoutReturnsToTheDesign() throws {
     let app = openDesigns()
     open(app, "Red flower, Didn't work")
@@ -147,10 +147,10 @@ final class DesignsUITests: XCTestCase {
     XCTAssertFalse(app.buttons["Reset"].isEnabled, "the frame is where it started")
     tap(app, "Use this area")
     XCTAssertTrue(app.buttons["Re-do the cutout"].waitForExistence(timeout: 10), "back on the design")
-    let body = try lastBody("cleanup")
-    XCTAssertEqual(body["candidateIds"] as? [String], ["cand-1"])
+    let body = try lastBody("detect")
+    XCTAssertEqual(body["artworkId"] as? String, "d3")
     XCTAssertEqual((body["box"] as? [Double])?.count, 4, "the frame is sent as the box")
-    XCTAssertNil(body["points"], "no marks any more")
+    XCTAssertEqual(try count("cleanup"), 0, "detect, not cleanup, on a photo")
     XCTAssertTrue(app.buttons["Make a sticker"].waitForExistence(timeout: 5), "the new cutout can be made into products")
   }
 
@@ -253,16 +253,38 @@ final class DesignsUITests: XCTestCase {
     XCTAssertTrue(app.buttons["Edit listing"].waitForExistence(timeout: 5), "closed, so tearDown can sign out")
   }
 
-  /// 409 print_check_failed on Approve and list it explains what to do.
-  func testPrintCheckRefusalIsExplained() {
+  /// Round 3 ruling 2: faint colours (mock NOPRINT…: 409 print_check_failed, check contrast) are a
+  /// warning: the reason in plain words and "Use anyway", which approves with acceptPrintWarning.
+  func testContrastWarningCanBeUsedAnyway() throws {
     let app = openDesigns(code: "NOPRINT-CODE")
     open(app, "Green frog with a gold crown, Draft")
     tap(app, "Edit listing")
     XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 10))
     tap(app, "Approve and list it")
-    XCTAssertTrue(text(app, containing: "This picture won't print well yet.").waitForExistence(timeout: 10))
-    XCTAssertFalse(text(app, containing: "dpi").exists, "the server's note is not shown")
+    XCTAssertTrue(text(app, containing: "it may look faint when printed").waitForExistence(timeout: 10))
+    XCTAssertFalse(text(app, containing: "chroma").exists, "the server's note is not shown")
+    XCTAssertNil(try lastBody("approve")["acceptPrintWarning"])
+    tap(app, "Use anyway")
+    XCTAssertTrue(text(app, containing: "You're live").waitForExistence(timeout: 15), "listed")
+    XCTAssertEqual(try lastBody("approve")["acceptPrintWarning"] as? Bool, true)
+  }
+
+  /// A picture too small to print sharply (mock NORES…: check resolution) is refused: no "Use
+  /// anyway", the way out is Re-do the cutout.
+  func testResolutionRefusalCannotBeUsedAnyway() throws {
+    let app = openDesigns(code: "NORES-CODE")
+    open(app, "Green frog with a gold crown, Draft")
+    tap(app, "Edit listing")
+    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 10))
+    tap(app, "Approve and list it")
+    XCTAssertTrue(text(app, containing: "too small to print sharply").waitForExistence(timeout: 10))
+    XCTAssertFalse(app.buttons["Use anyway"].exists, "a resolution failure cannot be accepted")
     XCTAssertTrue(app.buttons["Approve and list it"].exists, "still on Listing details")
+    // Review I1: Re-do the cutout opens the frame on the design's photo (My designs tab).
+    tap(app, "Re-do the cutout")
+    XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 10), "Adjust the area on the design")
+    tap(app, "Use this area")
+    XCTAssertTrue(app.buttons["Re-do the cutout"].waitForExistence(timeout: 15), "back on the design")
   }
 
   // MARK: Helpers

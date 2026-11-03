@@ -268,9 +268,6 @@
     "Enter a price between $1.00 and $1,000.00, like 5.00." : {
 
     },
-    "Finding your drawings…" : {
-
-    },
     "Finish the listing and put it in the shop" : {
 
     },
@@ -293,16 +290,19 @@
     "Frame your art again and cut it out" : {
 
     },
+    "Getting your photo ready…" : {
+
+    },
     "Go back" : {
 
     },
     "Goes back to the art before this change" : {
 
     },
-    "Goes on to change it or keep it as it is" : {
+    "Goes back to the frame on your photo" : {
 
     },
-    "Goes on to set the area around your art" : {
+    "Goes on to change it or keep it as it is" : {
 
     },
     "Goes on to your sticker draft" : {
@@ -408,6 +408,9 @@
     "Listing saved" : {
 
     },
+    "Lists it even though the colors may look faint when printed" : {
+
+    },
     "Loading order" : {
 
     },
@@ -415,6 +418,9 @@
 
     },
     "Loading your designs" : {
+
+    },
+    "Looking for your drawing in the frame and cutting it out. This takes a few seconds." : {
 
     },
     "Looks good as is" : {
@@ -612,6 +618,12 @@
     "Price in dollars" : {
 
     },
+    "Print check: might print blurry" : {
+
+    },
+    "Print check: the colors may look faint" : {
+
+    },
     "Puts it in the shop" : {
 
     },
@@ -648,6 +660,9 @@
     "Records your voice" : {
 
     },
+    "Redo" : {
+
+    },
     "Remove area" : {
 
     },
@@ -667,9 +682,6 @@
 
     },
     "Reset" : {
-
-    },
-    "Retake" : {
 
     },
     "Save changes" : {
@@ -787,6 +799,9 @@
     "Snap your drawing" : {
 
     },
+    "Some colors in your art are close together, so it may look faint when printed. You can use it anyway or re-do the cutout." : {
+
+    },
     "Some words in the name or description can't go in the shop. Change them and try again." : {
 
     },
@@ -836,19 +851,16 @@
     "Stops recording and writes down what you said" : {
 
     },
+    "Stops writing the listing and goes back to your cutout" : {
+
+    },
     "Story saved" : {
 
     },
     "Take a photo" : {
 
     },
-    "Takes a new photo" : {
-
-    },
     "Takes a photo of your drawing" : {
-
-    },
-    "Tap the one you want." : {
 
     },
     "Tap the parts to leave out. Tap a mark again to remove it." : {
@@ -914,6 +926,9 @@
     "This one didn't work. Re-do the cutout, or delete it." : {
 
     },
+    "This picture is too small to print sharply. Re-do the cutout with more of the photo, or use a bigger photo." : {
+
+    },
     "This picture won't print well yet. Re-do the cutout in My designs, or try a bigger, clearer photo." : {
 
     },
@@ -950,6 +965,9 @@
     "Uploading…" : {
 
     },
+    "Use anyway" : {
+
+    },
     "Use this" : {
 
     },
@@ -984,25 +1002,13 @@
     "We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again." : {
 
     },
-    "We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it." : {
-
-    },
     "We couldn't load your video. Try again later." : {
 
     },
     "We filled in your code from the link. Tap Sign in." : {
 
     },
-    "We found %lld drawings in your photo. Pick one to change and turn into a sticker." : {
-
-    },
-    "We found %lld drawings in your photo. Pick one to change and turn into a tote bag." : {
-
-    },
-    "We found one drawing in your photo. Use it to change and turn into a sticker." : {
-
-    },
-    "We found one drawing in your photo. Use it to change and turn into a tote bag." : {
+    "We found %lld drawings in the frame. Tap the one you want." : {
 
     },
     "We kept the first 15 seconds of your video." : {
@@ -1144,9 +1150,6 @@
 
     },
     "Your photo" : {
-
-    },
-    "Your photo with the drawings we found" : {
 
     },
     "Your product" : {

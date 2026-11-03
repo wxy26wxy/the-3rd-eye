@@ -13,7 +13,12 @@ import SwiftUI
 /// pixels of that picture. Taps on the picture: on a mark's dot it deletes that mark, anywhere else
 /// it adds one.
 ///
-/// VoiceOver: the picture offers "Add the area around your art"; each mark is a button that deletes it.
+/// Round 3: when `detect` (or a change's `cutout`) found several drawings, a strip of them sits under
+/// the picture; picking another sends `cleanup {candidateIds: [it], box, clipToBox: true}`. One
+/// drawing: no strip.
+///
+/// VoiceOver: the picture offers "Add the area around your art"; each mark is a button that deletes
+/// it; the strip is a list of buttons ("Piece n", selected trait).
 struct YourCutoutView: View {
   enum Mode: CaseIterable, Hashable {
     case add, remove
@@ -40,7 +45,7 @@ struct YourCutoutView: View {
     }
   }
 
-  private enum Work { case apply, use }
+  private enum Work { case apply, use, pick }
 
   /// The artwork whose cut-out this is (the photo, or a change).
   let artworkId: String
@@ -80,6 +85,7 @@ struct YourCutoutView: View {
           } else if error == nil {
             ProgressView().tint(colors.text).frame(minHeight: Theme.Size.record)
           }
+          if Self.showsStrip(cut) { strip(cut) }
           tools
         } else {
           ErrorCard(message: String(localized: "Your art is missing. Go back and pick it again."))
@@ -139,6 +145,71 @@ struct YourCutoutView: View {
   private var piece: Candidate? {
     guard let cut else { return nil }
     return cut.candidates.first { cut.selected.contains($0.id) }
+  }
+
+  /// The strip of drawings shows only when there are several to choose from (round 3).
+  static func showsStrip(_ cut: Cut) -> Bool { cut.candidates.count >= 2 }
+
+  /// Picking another drawing on the strip: the same frame (the whole picture after a change), no marks.
+  static func pick(_ candidate: Candidate, on cut: Cut) -> CleanupRequest? {
+    let box = cut.box ?? cut.imageSize.flatMap { $0.isUsable ? [0, 0, $0.w, $0.h] : nil }
+    guard let box else { return nil }
+    return CleanupRequest(candidateIds: [candidate.id], box: box, clipToBox: true)
+  }
+
+  // MARK: Strip
+
+  private func strip(_ cut: Cut) -> some View {
+    VStack(alignment: .leading, spacing: Theme.Space.xs) {
+      Text("We found \(cut.candidates.count) drawings in the frame. Tap the one you want.")
+        .themeFont(.body)
+        .foregroundStyle(colors.text)
+        .fixedSize(horizontal: false, vertical: true)
+      ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: Theme.Space.m) {
+          ForEach(Array(cut.candidates.enumerated()), id: \.element.id) { index, candidate in
+            pieceChip(candidate, index: index, on: cut.selected.first == candidate.id)
+          }
+        }
+        .padding(.vertical, Theme.Space.xs)
+      }
+    }
+    .disabled(work != nil)
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("cutout-strip")
+  }
+
+  /// Figma `Piece chip`: 80 pt white thumbnail; picked = 2 pt ink border and a check badge, not
+  /// picked = 1 pt border and dimmed art. "Piece n" under it.
+  private func pieceChip(_ candidate: Candidate, index: Int, on: Bool) -> some View {
+    let shape = RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
+    return Button {
+      guard !on, let cut, let request = Self.pick(candidate, on: cut) else { return }
+      start(.pick) { await apply(request, picked: true) }
+    } label: {
+      VStack(spacing: Theme.Space.xs) {
+        RemoteImage(url: candidate.thumbUrl.flatMap(URL.init(string:)), altText: nil)
+          .padding(Theme.Space.xs)
+          .opacity(on ? 1 : ThemeEffects.unselectedPieceOpacity)
+          .frame(width: ThemeEffects.pieceThumb, height: ThemeEffects.pieceThumb)
+          .background(shape.fill(colors.surface))
+          .clipShape(shape)
+          .overlay(shape.strokeBorder(on ? colors.text : colors.border, lineWidth: on ? ThemeEffects.selectedStroke : Theme.Border.thin))
+          .overlay(alignment: .topTrailing) {
+            if on { CheckBadge(size: Theme.Size.radio).offset(x: Theme.Space.xs, y: -Theme.Space.s + 2) }
+          }
+        Text("Piece \(index + 1)").themeFont(.body).fontWeight(TextRole.caption.weight).foregroundStyle(colors.text)
+      }
+      .padding(.top, Theme.Space.s)
+      .padding(.trailing, Theme.Space.xs)
+    }
+    .buttonStyle(.plain)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(Text("Piece \(index + 1)"))
+    .accessibilityValue(on ? Text(verbatim: "") : Text("Not selected"))
+    .accessibilityHint(on ? Text(verbatim: "") : Text("Picks this drawing"))
+    .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
+    .accessibilityIdentifier("piece-\(index + 1)")
   }
 
   // MARK: Tools
@@ -416,16 +487,24 @@ struct YourCutoutView: View {
   /// "Apply cutout": the server cuts again with the marks, and the flow's cut-out follows it right
   /// away. Written to the flow the request started with, even if the screen or tab changed.
   private func apply() async {
-    let flow = flow
     guard let request = currentRequest else { return }
-    let sent = points
+    await apply(request, picked: false)
+  }
+
+  /// Sends `request` (the marks, or another drawing picked on the strip, which drops the marks and,
+  /// on the photo, the changes made from the old piece).
+  private func apply(_ request: CleanupRequest, picked: Bool) async {
+    let flow = flow
+    let sent = picked ? [] : points
     do {
       let result = try await app.api.cleanup(artworkId: artworkId, request)
       var cut = result.artwork
       if cut.altText?.isEmpty ?? true { cut.altText = flow.cut(for: artworkId)?.artwork.altText }
       if cut.spokenDescription?.isEmpty ?? true { cut.spokenDescription = flow.cut(for: artworkId)?.artwork.spokenDescription }
-      flow.recordCut(of: artworkId, cut)
+      if picked, isPhoto { flow.resetChange() }
+      flow.recordCut(of: artworkId, cut, request: picked ? request : nil)
       flow.cutoutNotice = result.productNotice
+      if picked { points = [] }
       appliedPoints = sent
       showingCutout = true
       notice = result.productNotice

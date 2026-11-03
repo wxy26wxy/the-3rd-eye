@@ -125,6 +125,9 @@ enum ThemeEffects {
   static let beforeAfterHeight: CGFloat = 240
   /// Making your sticker / tote bag (`4037:4389`): the loading animation is a 342 × 342 square.
   static let productLoadingAspect: CGFloat = 1
+  /// Listing details while the listing is written (round 3 ruling 5): the product picture is above,
+  /// so the drafting card's animation stays at the compact preview height.
+  static let draftingCardMaxHeight: CGFloat = artPreviewCompactHeight
   /// My story video (T122, board B2): the selfie video plays in a 3 : 4 card.
   static let storyVideoAspect: CGFloat = 3.0 / 4.0
   /// Story video recording limit in seconds.

@@ -129,3 +129,9 @@ Every page now draws with the Sky look (Inter, white page, ink, accent green); s
 - Product page: the main picture's contained art starts below the "Comes with a story tag" pill (`.mainImage > .slideContain` top padding `max(12%, 24 px + 44 px)`). An 846×1200 preview at 390 starts at 68 px, under the pill's 53 px.
 - Creator screens: the sticker preview has `filter: drop-shadow(var(--shadow-soft))` (`.stickerShadow`) on Ready and Listing, so its white border reads on white. Ready shows a tote's art on the grey card (`.readyCard`, ruling 4). You're live shows only the shop mascot, so there is no product picture to shade there.
 - Adjust the area sends `clipToBox: true` (T126), so the cut never extends past the frame. A frame that clips everything away answers 422 `no_drawing_found`, shown as `adjust.notFound` ("Make the frame bigger or move it…").
+
+## T128 (2026-11-03, mock judge #2 fixes)
+- Home hero: "By default, half of every sale goes to the artist." (payments are staged; the share is the rule; the product page shows each maker's split).
+- Product page: under the pays-the-artist note, the maker's split "50% artist · 30% studio · 20% production" (`product.splitLine`, from `creator.split`; defaults in `lib/split.ts`, also the database default).
+- "See a story tag in action" opens `/t/<DEMO_STORY_TAG_TOKEN>` when that server-side env var is set, else `/how-it-works#story-tags` (fix round 1: no query picks a real buyer's order). To turn it on, the product owner places a staged demo order as "Demo buyer" on an example creator's product that has a story video, and sets its story-tag token as `DEMO_STORY_TAG_TOKEN` in Vercel.
+- `/accessibility`: captions are described as made automatically with Muse Voice Transcribe on upload (no "every video" claim).

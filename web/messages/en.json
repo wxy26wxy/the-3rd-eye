@@ -54,7 +54,7 @@
     "heroCopy": "Every sticker and tote comes with a story tag. Tap it with your phone to meet the artist who made it, in their own words.",
     "ctaShop": "Shop new arrivals",
     "ctaHow": "How story tags work",
-    "heroTrust": "Every purchase pays the artist directly.",
+    "heroTrust": "By default, half of every sale goes to the artist.",
     "heroChipTitle": "Tap the tag",
     "heroChipMeet": "Meet {name}",
     "heroChipFallback": "See how it works",
@@ -144,7 +144,8 @@
     "nameRequired": "Please tell us your name.",
     "noteRejected": "Please keep your note kind and friendly, then try again.",
     "noteUnavailable": "We could not check your note just now. Remove the note and try again, or try again in a minute.",
-    "sizeInvalid": "Pick a size and an amount from 1 to 10, then try again."
+    "sizeInvalid": "Pick a size and an amount from 1 to 10, then try again.",
+    "splitLine": "{artist}% artist · {studio}% studio · {production}% production"
   },
   "success": {
     "metaTitle": "Order placed",
@@ -226,7 +227,7 @@
     "intro": "{brand} is built for artists with disabilities first. Here is what the app does today.",
     "voiceFirst": "Typing works everywhere: every creation step has a text option, and works with a keyboard or screen reader.",
     "spoken": "Image descriptions: after an image is made, you get a written description of what it shows, which your screen reader can announce.",
-    "captions": "Captions: every story video has captions.",
+    "captions": "Captions: story videos are captioned automatically with Muse Voice Transcribe when they are uploaded.",
     "contrast": "High contrast: the site follows your device's high-contrast setting.",
     "targets": "Large targets: buttons are at least 44 points, and main actions are 56 points tall.",
     "keyboard": "Keyboard and screen readers: every control has a label and a visible focus ring.",

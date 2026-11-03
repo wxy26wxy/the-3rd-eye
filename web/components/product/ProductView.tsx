@@ -69,7 +69,7 @@ export function ProductView({ product: p, more = [] }: { product: ProductDetail;
             {p.creator.isExample ? <Chip tone="cream">{m.common.example}</Chip> : null}
           </div>
           <ProductBuy action={action} type={p.type} title={p.title} priceCents={p.priceCents} />
-          <PaysArtistNote name={p.creator.displayName} type={p.type} />
+          <PaysArtistNote name={p.creator.displayName} type={p.type} split={p.creator.split} />
           <MeetMakerCard product={p} />
           <Disclosures product={p} />
         </div>

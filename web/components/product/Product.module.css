@@ -193,6 +193,9 @@
   line-height: var(--type-body-lh);
 }
 .paysIcon { display: inline-flex; flex: none; }
+.paysGroup { display: grid; gap: var(--space-xs); }
+/* The split of every sale, under the note (T128). */
+.split { padding-inline: var(--space-l); color: var(--text-muted); font-size: var(--type-caption-size); line-height: var(--type-caption-lh); }
 
 /* Meet the maker (4012:4365): white card, video on top, text below. */
 .makerCard { overflow: hidden; border: var(--border-thin) solid var(--border); border-radius: var(--radius-card); background: var(--surface); }

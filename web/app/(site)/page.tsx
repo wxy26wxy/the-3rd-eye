@@ -1,9 +1,9 @@
 import { Suspense } from "react";
-import { loadCreatorProfile, loadFeaturedCreator } from "@/components/data";
+import { loadCreatorProfile, loadDemoStoryTagHref, loadFeaturedCreator } from "@/components/data";
 import { m } from "@/components/messages";
 import { Collection, CollectionFallback } from "@/components/shop/Collection";
 import { Hero, HeroChip } from "@/components/shop/Hero";
-import { HowSteps, PhonePreview } from "@/components/shop/HowSteps";
+import { HowSteps, PhonePreview, STORY_TAG_FALLBACK, StoryTagCta } from "@/components/shop/HowSteps";
 import { MakersHeader, MeetMakers } from "@/components/shop/MeetArtist";
 import { Container } from "@/components/ui/Layout";
 import styles from "@/components/shop/Shop.module.css";
@@ -26,6 +26,11 @@ async function FeaturedPreview() {
   );
 }
 
+/** "See a story tag in action" → a live example story tag when one exists (T128). */
+async function DemoTagCta() {
+  return <StoryTagCta href={await loadDemoStoryTagHref()} />;
+}
+
 /**
  * Shop · Sky v3 (board 2018:1789): hero → filters and New this week → story tags band → Meet the makers.
  * Phones stack the same sections (the 390 board 2018:1970 still shows the v2 layout).
@@ -39,7 +44,8 @@ export default function ShopPage({ searchParams }: PageProps<"/">) {
           <Collection searchParams={searchParams} />
         </Suspense>
       </section>
-      <HowSteps preview={<Suspense fallback={<PhonePreview name={null} studio={null} bio={null} product={null} />}><FeaturedPreview /></Suspense>} />
+      <HowSteps preview={<Suspense fallback={<PhonePreview name={null} studio={null} bio={null} product={null} />}><FeaturedPreview /></Suspense>}
+        cta={<Suspense fallback={<StoryTagCta href={STORY_TAG_FALLBACK} />}><DemoTagCta /></Suspense>} />
       <section aria-labelledby="makers-title" className={styles.makersSection}>
         <MakersHeader />
         <Suspense fallback={<p role="status">{m.common.loading}</p>}>

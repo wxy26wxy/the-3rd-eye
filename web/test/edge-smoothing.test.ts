@@ -4,6 +4,7 @@ import sharp from "sharp";
 import type { Mask } from "@/lib/ai/types";
 import { emptyMask, finishMask, resizeMask, type AlphaMask } from "@/lib/image/mask";
 import { composeSticker } from "@/lib/image/sticker";
+import { placeRasterData } from "@/lib/ai/meta/sam";
 
 /** A working-scale mask whose top edge is a 1:2 staircase (the edge rises 1 px every 2 px), filled below. */
 function staircase(w: number, h: number): Mask {
@@ -91,5 +92,38 @@ describe("composeSticker soft border alpha", () => {
       const o = (y * info.width + full) * info.channels;
       expect([data[o], data[o + 1], data[o + 2]]).toEqual([255, 255, 255]);
     }
+  });
+});
+
+describe("coarse SAM raster → finishMask (T134 fix round, the source of the terraces)", () => {
+  /** Flat runs of the 50 % contour and the worst distance from its least-squares line, over columns xs. */
+  function contourStats(a: AlphaMask, xs: number[]) {
+    const ys = xs.map((x) => edgeAt(a, x));
+    let run = 0, longest = 0;
+    for (let i = 1; i < ys.length; i++) { run = Math.abs(ys[i] - ys[i - 1]) < 0.1 ? run + 1 : 0; longest = Math.max(longest, run); }
+    const n = xs.length, mx = xs.reduce((p, v) => p + v, 0) / n, my = ys.reduce((p, v) => p + v, 0) / n;
+    const slope = xs.reduce((p, x, i) => p + (x - mx) * (ys[i] - my), 0) / xs.reduce((p, x) => p + (x - mx) ** 2, 0);
+    const worst = Math.max(...xs.map((x, i) => Math.abs(ys[i] - (my + slope * (x - mx)))));
+    return { longest, worst, slope };
+  }
+
+  it("a ×4 raster (each raster pixel = 4 frame pixels) finished ×2 has no flat run ≥ 3 columns and stays within 1 px of the ideal line", async () => {
+    const rw = 60, rh = 50, step = 4;
+    const raster = new Uint8Array(rw * rh);
+    for (let x = 0; x < rw; x++) for (let y = 10 + Math.floor(x / 2); y < rh; y++) raster[y * rw + x] = 1; // 1:2 staircase in raster pixels
+    const bounds = { left: 20, top: 10, right: 20 + rw * step, bottom: 10 + rh * step };
+    const placed = await placeRasterData(raster, rw, rh, bounds, 300, 240);
+    const a = await finishMask(placed, { width: 600, height: 480 });
+    const xs = Array.from({ length: 300 }, (_, i) => 2 * (20 + 40) + i); // middle of the edge, target pixels
+    const { longest, worst, slope } = contourStats(a, xs);
+    expect(slope).toBeCloseTo(0.5, 1);
+    expect(longest).toBeLessThan(3);
+    expect(worst).toBeLessThanOrEqual(1);
+  });
+
+  it("a raster at its bounds' resolution is copied unchanged", async () => {
+    const raster = new Uint8Array([0, 1, 1, 0, 1, 1]);
+    const m = await placeRasterData(raster, 3, 2, { left: 1, top: 1, right: 4, bottom: 3 }, 5, 4);
+    expect(Array.from(m.data)).toEqual([0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0]);
   });
 });

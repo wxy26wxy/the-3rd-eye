@@ -110,21 +110,46 @@ export async function* untilCompleted(source: AsyncIterable<StreamEvent>): Async
   }
 }
 
-/** Places a SAM raster (H×W covering `bounds`) into a full-frame mask, scaling nearest-neighbour. */
-export function placeRaster(rec: SegmentationMaskRecord, frameW: number, frameH: number): Mask {
-  const raster = decodeMaskToRaster(rec.mask);
-  const { width: rw, height: rh } = rec.mask;
-  const { left, top, right, bottom } = rec.bounds;
+export type RasterBounds = { left: number; top: number; right: number; bottom: number };
+
+/** Blur of a coarse SAM raster after its bilinear upsampling, in raster steps (σ = this × step; T134 fix round). */
+export const RASTER_EDGE_SIGMA = 0.5;
+
+/**
+ * Places a SAM raster (rh×rw covering `bounds`) into a full-frame mask. When the raster is coarser
+ * than its bounds (one raster pixel spans `step` > 1 frame pixels) it is sampled bilinearly as grey,
+ * blurred by RASTER_EDGE_SIGMA × step and thresholded at 127, so its blocks become the smooth outline
+ * they approximate instead of terraces (T134, ruling 4). A raster at its bounds' resolution is copied as is.
+ */
+export async function placeRasterData(raster: Uint8Array, rw: number, rh: number, bounds: RasterBounds, frameW: number, frameH: number): Promise<Mask> {
+  const { left, top, right, bottom } = bounds;
   const bw = Math.max(1, right - left), bh = Math.max(1, bottom - top);
   const out = emptyMask(frameW, frameH);
+  const step = Math.max(bw / rw, bh / rh);
+  let grid: Uint8Array;
+  if (rw === bw && rh === bh) {
+    grid = raster;
+  } else {
+    const grey = Buffer.alloc(rw * rh);
+    for (let i = 0; i < grey.length; i++) grey[i] = raster[i] ? 255 : 0;
+    let img = sharp(grey, { raw: { width: rw, height: rh, channels: 1 } }).resize(bw, bh, { kernel: "linear", fit: "fill" });
+    const up = await img.raw().toBuffer({ resolveWithObject: true });
+    img = sharp(up.data, { raw: { width: up.info.width, height: up.info.height, channels: up.info.channels } });
+    if (step > 1.05) img = img.blur(Math.max(0.3, RASTER_EDGE_SIGMA * step));
+    const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
+    grid = new Uint8Array(bw * bh);
+    for (let i = 0; i < grid.length; i++) grid[i] = data[i * info.channels] > 127 ? 1 : 0;
+  }
+  const gw = rw === bw && rh === bh ? rw : bw;
   for (let y = Math.max(0, top); y < Math.min(frameH, bottom); y++) {
-    const ry = Math.min(rh - 1, Math.floor(((y - top) * rh) / bh));
-    for (let x = Math.max(0, left); x < Math.min(frameW, right); x++) {
-      const rx = Math.min(rw - 1, Math.floor(((x - left) * rw) / bw));
-      out.data[y * frameW + x] = raster[ry * rw + rx];
-    }
+    for (let x = Math.max(0, left); x < Math.min(frameW, right); x++) out.data[y * frameW + x] = grid[(y - top) * gw + (x - left)];
   }
   return out;
+}
+
+/** Places a SAM mask record into a full-frame mask (see placeRasterData). */
+export async function placeRaster(rec: SegmentationMaskRecord, frameW: number, frameH: number): Promise<Mask> {
+  return placeRasterData(decodeMaskToRaster(rec.mask), rec.mask.width, rec.mask.height, rec.bounds, frameW, frameH);
 }
 
 /** Shifts and scales the numbers of a polygonal M/L/Z path. */
@@ -172,7 +197,7 @@ export class MetaSegmenter implements Segmenter {
       for (const m of recordsOfKind(result.records, "mask")) latest.set(m.identity, m);
       const segs: Segment[] = [];
       for (const rec of latest.values()) {
-        const small = placeRaster(rec, prep.sentW, prep.sentH);
+        const small = await placeRaster(rec, prep.sentW, prep.sentH);
         const mask = await scaleMask(small, prep.width, prep.height);
         const bbox = bboxOf(mask);
         if (!bbox) continue;

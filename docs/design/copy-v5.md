@@ -36,7 +36,7 @@ The screen opens on the stored photo with the frame at the whole photo; "Use thi
 | `create.adjust.copy` | `Drag the corners so the frame covers your drawing.` | unchanged | unchanged (now the only lead) |
 | `create.adjust.copyNone` | `We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it.` | We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it. | **removed**: the frame always starts at the whole photo |
 | `create.adjust.notFound` | `We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again.` | unchanged | unchanged; now the answer to a detect `422 no_drawing_found` (web: focused and scrolled into view) |
-| `create.adjust.reset` | `Reset` (hint `Puts the frame back around your drawing`) | Reset (puts the frame back on the piece) | Reset (text unchanged; it now puts the frame back on the whole photo, or on the last frame after a re-cut). The iOS hint is to confirm after T136. |
+| `create.adjust.reset` | `Reset` (hint `Puts the frame back around your drawing`) | Reset (puts the frame back on the piece) | Reset (text unchanged; it now always puts the frame back on the whole photo on the web). The iOS hint is to confirm after T136. |
 | — | — | — | **Parked (T135 review, ruling):** Adjust the area needs a "Take a new photo" secondary action to match "or use a bigger photo" in the resolution message. Today a bigger photo is reachable only through Back. A later round adds the action and its string. |
 
 ## Making your cutout (the detect job)

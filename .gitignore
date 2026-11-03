@@ -27,5 +27,7 @@ skills-lock.json
 # written by next dev
 web/AGENTS.md
 web/.creator-codes.local
+# pnpm replace-art --dry-run output
+.replace-art/
 __pycache__/
 *.pyc

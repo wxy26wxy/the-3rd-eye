@@ -38,9 +38,10 @@ export type CandidateSearch = { segments: Segment[]; droppedContainer: boolean }
  * `maxCoverage`: results covering more than this share of the frame are dropped as the background
  * (default 0.95). `dropContainers`: drop a large result whose box holds a higher-scoring one as the
  * paper/table (default true). `detect` on a frame passes 1 and false: inside a tight frame the piece
- * itself may fill the frame (T134 fix round).
+ * itself may fill the frame (T134 fix round). `phrases`: the SAM phrases to search with instead of
+ * the default pair (T148: `pnpm replace-art --phrase`).
  */
-export type FindCandidatesOpts = { trace: Trace; max?: number; maxCoverage?: number; dropContainers?: boolean };
+export type FindCandidatesOpts = { trace: Trace; max?: number; maxCoverage?: number; dropContainers?: boolean; phrases?: readonly string[] };
 export interface Segmenter {
   findAll(image: ImageRef, phrase: string, opts: { trace: Trace }): Promise<Segment[]>;
   /**

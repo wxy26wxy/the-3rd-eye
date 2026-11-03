@@ -51,6 +51,9 @@ products is echoed on the row; a repeat with the same id answers 200 with the sa
 client_request_conflict. GET /listings/<id> answers {product, listing, draft} (nulls before a run).
 NOPRINT...: run gives print_ok false + print_check "contrast", approve answers 409 print_check_failed with
 check "contrast", and 200 with acceptPrintWarning: true. NORES...: check "resolution", 409 even with the flag.
+Recovery (T136): GET /artworks also lists the change rows ch<n> made since sign-in (as the server lists
+children); sign-in LOSTCHANGE... makes the first change store its row and then drop the connection without
+an answer (the app sees a transport error and recovers the row from GET /artworks).
 """
 import json
 import math
@@ -239,6 +242,8 @@ def change_artwork(artwork_id, body):
         "alt": child["altText"], "spoken": child["spokenDescription"], "differences": differences}}
     if rid is not None:
         REQUESTS["change"][rid] = (artwork_id, response)
+    if MODE.get("lostchange") and CHANGES["n"] == 1:
+        raise DropConnection()
     return 201, response
 
 
@@ -301,6 +306,10 @@ def create_artwork(body):
 def select(body):
     LAST["select"] = body
     return photo_artwork(f"{BASE}/img.png?select={body.get('candidateId')}", f"Cut-out of {body.get('candidateId')}")
+
+
+class DropConnection(Exception):
+    """Close the socket without an answer (a lost response)."""
 
 
 class MockError(Exception):
@@ -602,6 +611,7 @@ def sign_in(body):
     MODE["slow"] = code.startswith("SLOW")
     MODE["noprint"] = code.startswith("NOPRINT")
     MODE["nores"] = code.startswith("NORES")
+    MODE["lostchange"] = code.startswith("LOSTCHANGE")
     MODE["novideo"] = code.startswith("NOVIDEO")
     STORY["url"], STORY["vtt"] = (None, None) if MODE["novideo"] else (STORY_VIDEO_PATH, STORY_VTT)
     LAST.clear()
@@ -634,7 +644,8 @@ ROUTES = {
     ("GET", "/api/v1/artworks/p1"): artwork_detail,
     # Blob client upload: token event, then the PUT the app sends to MOCK_BLOB_API (= BASE/blob/).
     ("POST", "/api/v1/uploads"): lambda b: {"clientToken": "vercel_blob_client_mockstore_token"},
-    ("GET", "/api/v1/artworks"): lambda b: {"artworks": DESIGNS["list"]},
+    ("GET", "/api/v1/artworks"): lambda b: {"artworks": DESIGNS["list"] + [
+        {**row, "products": []} for row in reversed(list(CHANGES["rows"].values()))]},
     ("POST", "/api/v1/products"): create_product,
     ("GET", "/api/v1/orders"): lambda b: {"orders": [], "unread": 0},
 }
@@ -716,6 +727,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(status, result)
         except MockError as e:
             self._send(e.status, {"error": {"code": e.code, "message": e.message, **e.extra}})
+        except DropConnection:
+            self.close_connection = True
 
     def do_GET(self):
         self._handle("GET")

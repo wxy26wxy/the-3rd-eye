@@ -141,10 +141,11 @@ final class ChangeItUITests: XCTestCase {
     XCTAssertEqual(try lastBody("products")["type"] as? String, "tote")
   }
 
-  /// Round 3 ruling 6: the app is sent to the background while the art is changed and comes back:
-  /// the change arrives (Before and after) and `change` was sent once.
+  /// Round 3 ruling 6: the app is sent to the background while the art is changed and the answer is
+  /// lost (mock LOSTCHANGE…: the row is made, the connection dropped). Back in the app the change
+  /// is recovered from the server (Before and after, no error) and `change` was made once.
   func testChangeSurvivesTheAppGoingToTheBackground() throws {
-    let app = launchPhotoFlow(code: "TEST-CODE")
+    let app = launchPhotoFlow(code: "LOSTCHANGE-CODE")
     cutPiece(app)
     typeChange(app, "Make the sky purple")
     tap(app, "Make the change")
@@ -152,8 +153,9 @@ final class ChangeItUITests: XCTestCase {
     XCUIDevice.shared.press(.home)
     sleep(4)
     app.activate()
-    XCTAssertTrue(app.staticTexts["Here's the change"].waitForExistence(timeout: 20), "Before and after")
-    XCTAssertEqual(try count("change"), 1, "sent once")
+    XCTAssertTrue(app.staticTexts["Here's the change"].waitForExistence(timeout: 20), "Before and after, recovered")
+    XCTAssertFalse(app.buttons["Try again"].exists)
+    XCTAssertEqual(try count("change"), 1, "made once")
     XCTAssertNotNil(try lastBody("change")["clientRequestId"] as? String, "with its request id")
   }
 

@@ -32,7 +32,13 @@ struct MakingCutoutView: View {
       backLabel: "Back to my art"
     )
     .task(id: attempt) {
-      guard !running, error == nil else { return }
+      // Review I5: back on screen after a tab switch, the job may be done already (or this screen
+      // is no longer the top one): never send it a second time.
+      guard !running, error == nil, app.createPath.last == .makingCutout(job) else { return }
+      if Self.isDone(job, in: app.flow) {
+        leave(to: Self.target(of: job, in: app.flow), flow: app.flow)
+        return
+      }
       running = true
       let flow = app.flow
       await Task { @MainActor in await run(flow) }.value
@@ -48,6 +54,21 @@ struct MakingCutoutView: View {
     switch job {
     case .detect(let box): await detect(box, flow: flow)
     case .change(let id): await cutChange(id, flow: flow)
+    }
+  }
+
+  /// The flow already has this job's cut: the frame's piece, or the change's cut-out.
+  static func isDone(_ job: CutJob, in flow: CreateFlow) -> Bool {
+    switch job {
+    case .detect(let box): return flow.pieceBox == box && flow.pieceArtwork?.cleanedUrl != nil
+    case .change(let id): return flow.changeCuts[id] != nil
+    }
+  }
+
+  static func target(of job: CutJob, in flow: CreateFlow) -> String {
+    switch job {
+    case .detect: return flow.photoArtwork?.id ?? ""
+    case .change(let id): return id
     }
   }
 

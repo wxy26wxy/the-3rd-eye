@@ -33,6 +33,7 @@ enum ListingPhase: Equatable {
 struct ListingDetailsView: View {
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
+  @Environment(\.colorSchemeContrast) private var contrast
   @State private var title = ""
   @State private var description = ""
   @State private var priceText = ""
@@ -92,8 +93,8 @@ struct ListingDetailsView: View {
               Task { await approve(via: "tap", acceptPrintWarning: true) }
             }
           } else {
-            PillButton("Re-do the cutout", hint: "Goes back to your cutout", kind: .secondary, showsArrow: false) {
-              redo()
+            PillButton("Re-do the cutout", hint: "Goes back to the frame on your photo", kind: .secondary, showsArrow: false) {
+              Task { await redoArea() }
             }
           }
         }
@@ -108,6 +109,8 @@ struct ListingDetailsView: View {
     }
     .task { await createProductIfNeeded() }
     .onChange(of: app.flow.resumeCount) { _, _ in
+      // Review I3: only a run that is no longer in flight (its answer was lost) is looked for.
+      guard runTask == nil else { return }
       Task { @MainActor in await recoverRun() }
     }
   }
@@ -120,6 +123,9 @@ struct ListingDetailsView: View {
       .padding(Theme.Space.l)
       .frame(maxWidth: .infinity, maxHeight: ThemeEffects.mockupMaxHeight)
       .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(colors.surfaceAlt))
+      // With Increase Contrast the card is the page colour: a thin edge shows where it is.
+      .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+        .strokeBorder(contrast == .increased ? colors.border : .clear, lineWidth: Theme.Border.thin))
       .accessibilityIdentifier("listing-picture")
   }
 
@@ -213,7 +219,7 @@ struct ListingDetailsView: View {
     creatingProduct = true
     defer { creatingProduct = false }
     let flow = app.flow
-    let job = flow.startJob(.product(artworkId: artwork.id, type: type))
+    let job = flow.startJob(.product(artworkId: artwork.id, type: type), knownProductIds: flow.knownProductIds(of: artwork))
     do {
       let product: Product
       do {
@@ -264,7 +270,8 @@ struct ListingDetailsView: View {
     refusal = nil
     UIAccessibility.post(notification: .announcement, argument: String(localized: "Writing your listing…"))
     defer { improving = false }
-    let job = flow.startJob(.listing(productId: product.id))
+    let job = flow.startJob(.listing(productId: product.id),
+                            shownListing: PendingJob.ShownListing(title: title, description: description))
     do {
       let res = try await app.api.runListingAgent(productId: product.id)
       guard flow.finishJob(job) else { return }
@@ -323,8 +330,19 @@ struct ListingDetailsView: View {
     return ApproveListingResponse(product: res.product, listing: listing, storyVideoNeeded: needsVideo)
   }
 
-  /// "Redo" (drafting) and "Re-do the cutout" (a resolution refusal): the run stops, the creator
-  /// goes back to Your cutout with the draft product kept.
+  /// "Re-do the cutout" after a resolution refusal (review I1): back to Adjust the area, so the frame
+  /// can take more of the photo; the draft product is kept.
+  private func redoArea() async {
+    do {
+      try await app.backToArea()
+    } catch {
+      if APIError.isCancellation(error) { return }
+      self.error = error.localizedDescription
+    }
+  }
+
+  /// "Redo" while the listing is written: the run stops, the creator goes back to Your cutout with
+  /// the draft product kept.
   private func redo() {
     if let job = app.flow.pendingJob, case .listing = job.kind { app.flow.finishJob(job) }
     runTask?.cancel()

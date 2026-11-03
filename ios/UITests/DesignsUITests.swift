@@ -279,8 +279,12 @@ final class DesignsUITests: XCTestCase {
     tap(app, "Approve and list it")
     XCTAssertTrue(text(app, containing: "too small to print sharply").waitForExistence(timeout: 10))
     XCTAssertFalse(app.buttons["Use anyway"].exists, "a resolution failure cannot be accepted")
-    XCTAssertTrue(app.buttons["Re-do the cutout"].exists)
     XCTAssertTrue(app.buttons["Approve and list it"].exists, "still on Listing details")
+    // Review I1: Re-do the cutout opens the frame on the design's photo (My designs tab).
+    tap(app, "Re-do the cutout")
+    XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 10), "Adjust the area on the design")
+    tap(app, "Use this area")
+    XCTAssertTrue(app.buttons["Re-do the cutout"].waitForExistence(timeout: 15), "back on the design")
   }
 
   // MARK: Helpers

@@ -201,6 +201,100 @@ final class RoundThreeTests: XCTestCase {
     XCTAssertEqual(CreateFlow.recoveredChange(in: exact, job: job)?.id, "chX", "its clientRequestId wins")
     let skew = [child("ch4", at: "2026-11-03T09:59:00.000Z")]
     XCTAssertEqual(CreateFlow.recoveredChange(in: skew, job: job)?.id, "ch4", "a minute of clock difference is allowed")
+    // Review I4: the same instruction asked again a minute earlier made ch5 with its own id.
+    let earlierAttempt = [child("ch5", at: "2026-11-03T10:00:20.000Z", rid: "r0")]
+    XCTAssertNil(CreateFlow.recoveredChange(in: earlierAttempt, job: job), "another attempt's child is not this answer")
+  }
+
+  /// Review I2: a product the artwork already had (Make another sticker next to a published one)
+  /// is never taken for the lost answer.
+  func testRecoveredProductIsNeverOneKnownAtTheStart() {
+    let job = PendingJob(kind: .product(artworkId: "d1", type: .sticker), startedAt: started, clientRequestId: "r2",
+                         knownProductIds: ["live"])
+    var art = Artwork(id: "d1", cleanedUrl: "u")
+    art.products = [ArtworkProduct(id: "live", type: .sticker, status: "published")]
+    XCTAssertNil(CreateFlow.recoveredProduct(in: [art], job: job), "the published sticker is not the new one")
+    art.products = [ArtworkProduct(id: "new", type: .sticker, status: "draft"), ArtworkProduct(id: "live", type: .sticker, status: "published")]
+    XCTAssertEqual(CreateFlow.recoveredProduct(in: [art], job: job)?.id, "new")
+    let flow = CreateFlow()
+    XCTAssertEqual(flow.knownProductIds(of: art), ["new", "live"])
+  }
+
+  /// Review I2: a lost `products` answer is asked again with the same request id (the server answers
+  /// the product it made), before any scan of the list.
+  func testProductRecoverySendsTheSameRequestAgain() async throws {
+    BackgroundWork.host = RecordingBackgroundHost()
+    let stub = StubTransport(status: 200, body: #"{"id":"pr9","artworkId":"d1","type":"sticker","clientRequestId":"r2"}"#)
+    let api = APIClient(baseURL: base, transport: stub, token: "t0k")
+    let job = PendingJob(kind: .product(artworkId: "d1", type: .sticker), startedAt: started, clientRequestId: "r2", knownProductIds: ["live"])
+    guard case .product(let product)? = await CreateFlow.reconcile(job, api: api) else { return XCTFail("the product") }
+    XCTAssertEqual(product.id, "pr9")
+    XCTAssertEqual(stub.requests.count, 1)
+    XCTAssertEqual(stub.requests[0].url?.path, "/api/v1/products")
+    let sent = try JSONSerialization.jsonObject(with: stub.requests[0].httpBody!) as? [String: Any]
+    XCTAssertEqual(sent?["clientRequestId"] as? String, "r2")
+  }
+
+  /// Review I3: the draft that was on screen when the run started is not its answer.
+  func testRecoveredListingMustDifferFromWhatWasShown() {
+    let job = PendingJob(kind: .listing(productId: "pr1"), startedAt: started, clientRequestId: "r5",
+                         shownListing: PendingJob.ShownListing(title: "Old Frog", description: "Old words"))
+    XCTAssertFalse(CreateFlow.recoveredListing(ListingDraft(title: "Old Frog", description: "Old words"), job: job))
+    XCTAssertTrue(CreateFlow.recoveredListing(ListingDraft(title: "New Frog", description: "Old words"), job: job))
+    XCTAssertTrue(CreateFlow.recoveredListing(ListingDraft(title: "Old Frog", description: "New words"), job: job))
+    XCTAssertFalse(CreateFlow.recoveredListing(ListingDraft(title: " "), job: job))
+  }
+
+  func testANewPhotoOrPieceDropsTheJobInFlight() {
+    let flow = CreateFlow()
+    _ = flow.startJob(.change(baseId: "p1", instruction: "x"))
+    flow.resetChange()
+    XCTAssertNil(flow.pendingJob)
+    _ = flow.startJob(.listing(productId: "pr1"))
+    flow.setPhoto(artwork: Artwork(id: "p2"), candidates: [], imageSize: nil)
+    XCTAssertNil(flow.pendingJob)
+  }
+
+  /// Review I5: Making your cutout back on screen with its cut already made sends nothing.
+  func testCutJobDoneIsNotSentAgain() {
+    let flow = CreateFlow()
+    flow.setPhoto(artwork: Artwork(id: "p1"), candidates: [], imageSize: ImageSize(w: 100, h: 100))
+    let box: [Double] = [0, 0, 100, 100]
+    XCTAssertFalse(MakingCutoutView.isDone(.detect(box), in: flow))
+    flow.recordDetect(DetectResponse(artwork: Artwork(id: "p1", cleanedUrl: "c"), candidates: [], imageSize: nil), box: box)
+    XCTAssertTrue(MakingCutoutView.isDone(.detect(box), in: flow))
+    XCTAssertFalse(MakingCutoutView.isDone(.detect([0, 0, 50, 50]), in: flow), "a new frame is a new job")
+    XCTAssertFalse(MakingCutoutView.isDone(.change("ch1"), in: flow))
+    flow.changeCuts["ch1"] = Cut(artwork: Artwork(id: "ch1", cleanedUrl: "x"), candidates: [], imageSize: nil, selected: [], box: nil)
+    XCTAssertTrue(MakingCutoutView.isDone(.change("ch1"), in: flow))
+    XCTAssertEqual(MakingCutoutView.target(of: .detect(box), in: flow), "p1")
+  }
+
+  /// Review I1: "Re-do the cutout" after a resolution refusal goes back to the frame.
+  func testResolutionRedoGoesBackToTheFrame() async throws {
+    let stub = StubTransport(body: "{}")
+    let app = AppState(api: APIClient(baseURL: base, transport: stub, token: nil))
+    app.flow.artwork = Artwork(id: "p1", cleanedUrl: "c")
+    app.createPath = [.chooseMethod, .camera(.library), .adjustArea, .yourCutout("p1"), .changeIt, .listingDetails]
+    try await app.backToArea()
+    XCTAssertTrue(stub.requests.isEmpty, "no call: the frame is in the path")
+    XCTAssertEqual(app.createPath.last, .adjustArea)
+    XCTAssertEqual(app.createPath.count, 3)
+  }
+
+  func testResolutionRedoOnASavedDesignOpensItsFrame() async throws {
+    BackgroundWork.host = RecordingBackgroundHost()
+    let detail = #"{"artwork":{"id":"d2","cleanedUrl":"https://x/d2.png"},"candidates":[{"id":"c1","bbox":[0,0,10,10]}],"imageSize":{"w":1200,"h":1600},"originalUrl":"https://x/o.png"}"#
+    let stub = StubTransport(body: detail)
+    let app = AppState(api: APIClient(baseURL: base, transport: stub, token: "t0k"))
+    app.continueFrom(artwork: Artwork(id: "d2", cleanedUrl: "https://x/d2.png"), productType: .sticker)
+    try await app.backToArea()
+    XCTAssertEqual(stub.requests.last?.url?.path, "/api/v1/artworks/d2")
+    XCTAssertEqual(app.selectedTab, .designs)
+    XCTAssertEqual(app.designsPath, [.detail("d2"), .adjustArea])
+    XCTAssertEqual(app.designFlow.cutoutArtwork?.id, "d2")
+    XCTAssertEqual(app.designFlow.imageSize, ImageSize(w: 1200, h: 1600))
+    XCTAssertEqual(app.designFlow.productType, .sticker)
   }
 
   func testRecoveredProductIsOfThatArtworkAndType() {

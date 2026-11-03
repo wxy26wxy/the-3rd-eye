@@ -211,6 +211,30 @@ final class AppState {
     createPath = [.yourCutout(art.id)]
   }
 
+  /// "Re-do the cutout" after a resolution refusal (review I1, web parity): back to Adjust the area
+  /// so the frame can take more of the photo. In a creation that is the Adjust the area in the path;
+  /// for a draft opened from My designs, Adjust the area on that design (`GET /artworks/{id}`) in
+  /// the My designs tab, which comes back to the design.
+  func backToArea() async throws {
+    if let index = createPath.lastIndex(of: .adjustArea) {
+      createPath = Array(createPath.prefix(through: index))
+      return
+    }
+    guard let art = flow.artwork else { return }
+    let detail = try await api.artworkDetail(id: art.id)
+    let redo = CreateFlow()
+    redo.artwork = detail.artwork
+    redo.resetCutout(artwork: detail.artwork, candidates: detail.candidates, imageSize: detail.imageSize)
+    redo.productType = flow.productType
+    designFlow = redo
+    // One screen at a time, after the tab shows: a stack given two screens at once while its tab
+    // is hidden draws an empty page.
+    selectedTab = .designs
+    designsPath = [.detail(art.id)]
+    try? await Task.sleep(for: .milliseconds(400))
+    if designsPath == [.detail(art.id)] { designsPath.append(.adjustArea) }
+  }
+
   // MARK: Persistence
 
   private static let prefsKey = "accessPrefs"
@@ -421,6 +445,7 @@ final class CreateFlow {
 
   /// No changes: the art is the picked piece again, and the changes' cut-outs go.
   func resetChange() {
+    pendingJob = nil
     changes = []
     changedArtworkId = nil
     changeCuts = [:]
@@ -478,6 +503,13 @@ final class CreateFlow {
     productCut = artwork.cleanedUrl
   }
 
+  /// Products already known for `artwork` when a product job starts (never that job's answer).
+  func knownProductIds(of artwork: Artwork) -> Set<String> {
+    var ids = Set((artwork.products ?? []).map(\.id))
+    if let product { ids.insert(product.id) }
+    return ids
+  }
+
   /// The draft with the mockup and price the server has now (`GET /artworks` products), or the
   /// draft as it was when the list does not have it.
   static func refreshed(_ product: Product, in artworks: [Artwork]) -> Product {
@@ -504,9 +536,11 @@ final class CreateFlow {
 
   /// The job for a call about to be sent: the one in flight for the same work (Try again after a
   /// lost answer keeps its `clientRequestId`), else a new one.
-  func startJob(_ kind: PendingJob.Kind, now: Date = Date()) -> PendingJob {
+  func startJob(_ kind: PendingJob.Kind, now: Date = Date(), knownProductIds: Set<String> = [],
+                shownListing: PendingJob.ShownListing? = nil) -> PendingJob {
     if let job = pendingJob, job.kind == kind { return job }
-    let job = PendingJob(kind: kind, startedAt: now, clientRequestId: UUID().uuidString)
+    let job = PendingJob(kind: kind, startedAt: now, clientRequestId: UUID().uuidString,
+                         knownProductIds: knownProductIds, shownListing: shownListing)
     pendingJob = job
     return job
   }
@@ -542,7 +576,12 @@ final class CreateFlow {
       guard let artworks = try? await api.myArtworks(), let child = recoveredChange(in: artworks, job: job) else { return nil }
       let description = ChangeDescription(alt: child.altText, spoken: child.spokenDescription, differences: child.differencesFromPrompt)
       return .change(ChangeResponse(artwork: child, description: description))
-    case .product:
+    case .product(let artworkId, let type):
+      // Review I2: the same request again with the same id answers the product the lost call made
+      // (200), or makes it now if that call never landed; never another product.
+      if let product = try? await api.createProduct(artworkId: artworkId, type: type, clientRequestId: job.clientRequestId) {
+        return .product(product)
+      }
       guard let artworks = try? await api.myArtworks(), let product = recoveredProduct(in: artworks, job: job) else { return nil }
       return .product(product)
     case .cut(let id, _, _):
@@ -550,7 +589,7 @@ final class CreateFlow {
       return .cut(detail)
     case .listing(let productId):
       guard let res = try? await api.listing(productId: productId), let draft = res.draft,
-            !draft.title.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+            recoveredListing(draft, job: job) else { return nil }
       return .listing(draft)
     }
   }
@@ -566,19 +605,33 @@ final class CreateFlow {
     let children = artworks.filter { $0.parentArtworkId == baseId && $0.changeInstruction == instruction }
     if let exact = children.first(where: { $0.clientRequestId == job.clientRequestId }) { return exact }
     let since = job.startedAt.addingTimeInterval(-clockSlack)
+    // Review I4: a child made by another attempt (another request id) is not this job's answer.
     return children
+      .filter { $0.clientRequestId == nil }
       .compactMap { child in date(child.createdAt).map { (child, $0) } }
       .filter { $0.1 >= since }
       .max { $0.1 < $1.1 }?.0
   }
 
-  /// A product of the job's artwork and type (not archived; the list is newest first).
+  /// A product of the job's artwork and type made by this job: not one known when it started (a
+  /// draft before a published one; not archived; the list is newest first). Only a second check
+  /// after the same request again could not be sent.
   static func recoveredProduct(in artworks: [Artwork], job: PendingJob) -> Product? {
-    guard case .product(let artworkId, let type) = job.kind,
-          let found = artworks.first(where: { $0.id == artworkId })?.products?.first(where: { $0.type == type && !$0.isArchived })
-    else { return nil }
+    guard case .product(let artworkId, let type) = job.kind else { return nil }
+    let fresh = (artworks.first(where: { $0.id == artworkId })?.products ?? [])
+      .filter { $0.type == type && !$0.isArchived && !job.knownProductIds.contains($0.id) }
+    guard let found = fresh.first(where: { !$0.isPublished }) ?? fresh.first else { return nil }
     return Product(id: found.id, artworkId: artworkId, type: type, mockupUrl: found.mockupUrl, previewUrl: found.previewUrl,
                    priceCents: found.priceCents, status: found.status)
+  }
+
+  /// The listing draft on the server is not the one on screen when the run started (review I3).
+  static func recoveredListing(_ draft: ListingDraft, job: PendingJob) -> Bool {
+    let title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !title.isEmpty else { return false }
+    guard let shown = job.shownListing else { return true }
+    return title != shown.title.trimmingCharacters(in: .whitespacesAndNewlines)
+      || (draft.description ?? "") != shown.description
   }
 
   /// The artwork has a cut-out it did not have when the job started (for `detect`, with the drawings).
@@ -610,9 +663,19 @@ struct PendingJob: Equatable {
     case listing(productId: String)
   }
 
+  /// The name and description on screen when a listing run started.
+  struct ShownListing: Equatable {
+    var title: String
+    var description: String
+  }
+
   let kind: Kind
   let startedAt: Date
   let clientRequestId: String
+  /// Products of the artwork known when a product job started (never its answer).
+  var knownProductIds: Set<String> = []
+  /// The listing on screen when a listing run started (its answer must differ).
+  var shownListing: ShownListing?
 }
 
 /// One change in a creation's chain: the result, the art it was made from, what was asked and how

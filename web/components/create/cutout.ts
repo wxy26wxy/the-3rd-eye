@@ -54,7 +54,7 @@ export function wholeImageBox(image: ImageSize | null | undefined): Box | null {
  */
 export function marksRequest(candidateIds: readonly string[], box: Box, points: readonly CutoutPoint[]): CleanupRequest {
   const ids = candidateIds.slice(0, MAX_CANDIDATES);
-  const marks = points.slice(0, MAX_POINTS).map((p) => ({ ...p }));
+  const marks = points.slice(0, MAX_POINTS).map((p) => ({ x: Math.round(p.x), y: Math.round(p.y), label: p.label }));
   return { ...(ids.length ? { candidateIds: [...ids] } : {}), box: [...box] as Box, ...(marks.length ? { points: marks } : {}), clipToBox: true };
 }
 
@@ -66,7 +66,7 @@ export function sameMarks(a: readonly CutoutPoint[], b: readonly CutoutPoint[]):
 /** "Add the area around your art" (keyboard and screen readers): an Add area mark at the centre of the piece, else of the box. */
 export function centrePoint(box: readonly number[] | null | undefined): CutoutPoint | null {
   if (!box || box.length !== 4 || !(box[0] < box[2] && box[1] < box[3])) return null;
-  return { x: (box[0] + box[2]) / 2, y: (box[1] + box[3]) / 2, label: "positive" };
+  return { x: Math.round((box[0] + box[2]) / 2), y: Math.round((box[1] + box[3]) / 2), label: "positive" };
 }
 
 /** A 422 ("nothing left to cut") after Remove area marks were sent: the trim advice, not the server's reason. */

@@ -86,6 +86,12 @@ export function cutArea({ router, update, getDraft }: Pick<FlowDeps, "router" | 
   const d = getDraft();
   const area = d.area;
   if (!area) return;
+  // A second tap while the same cut is on its way (T133): no second cleanup, the same Making screen.
+  const p = d.pendingArea;
+  if (p && p.artworkId === area.artworkId && p.candidateId === area.candidateId && sameBox(p.box, box)) {
+    router.push("/create/cutout");
+    return;
+  }
   if (d.pieceArtworkId === area.artworkId && d.pieceCandidateId === area.candidateId && sameBox(d.pieceBox, box) && d.pieceUrl && cutoutOf(d, area.artworkId)) {
     update({ changedArtworkId: undefined, changes: undefined, changeInstruction: undefined, changeTranscript: undefined, cutoutArtworkId: area.artworkId });
     router.push("/create/cutout");
@@ -231,9 +237,20 @@ export async function busyWhile<T>(set: (v: T) => void, busy: T, idle: T, run: (
  * the draft, so "Change it again" from Before and after still works.
  */
 export function changeItBack(d: Draft): string {
-  if (d.cutoutArtworkId && cutoutOf(d, d.cutoutArtworkId)) return "/create/cutout";
+  if (changeItCut(d)) return "/create/cutout";
   if (d.area) return "/create/adjust";
   return d.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
+}
+
+/**
+ * The cut Change it's Back opens (T133): the cut of the art on screen when it has one, else the
+ * piece's cut; null when there is none. Change it keeps `cutoutArtworkId` on it, so Back never opens
+ * the cut of a change that is no longer on screen.
+ */
+export function changeItCut(d: Draft): string | null {
+  const target = currentArtworkId(d);
+  if (target && cutoutOf(d, target)) return target;
+  return d.pieceArtworkId && cutoutOf(d, d.pieceArtworkId) ? d.pieceArtworkId : null;
 }
 
 /**

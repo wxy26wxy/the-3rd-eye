@@ -10,13 +10,14 @@ import { ai } from "@/lib/ai/registry";
 import type { Description, GeneratedImage, Mask, Segment, SegmentPoint, Trace } from "@/lib/ai/types";
 import { cutUpscale, ensureDpi, previewCutPath, removeBackground } from "@/lib/image/sticker";
 import { pngRef } from "@/lib/image/ref";
-import { alphaToMask, alphaToPng, area, bboxOf, clampBox, clipToBox, emptyMask, finishMask, maskFromPng, maskToPng, removePiecesAt, unionMasks, type BBox } from "@/lib/image/mask";
+import { alphaToMask, alphaToPng, area, bboxOf, clampBox, clipToBox, emptyMask, finishMask, maskFromPng, maskToPng, placeMask, removePiecesAt, unionMasks, type BBox } from "@/lib/image/mask";
 import { insertArtwork, listProductsForArtwork, updateArtwork, type ArtworkRow } from "@/lib/db/queries";
 import { rebuildProductFiles } from "@/lib/pipeline/products";
 import { clientUploadPath, creatorPath, readClientUpload, storage } from "@/lib/storage";
 import { isSourceUpload } from "@/lib/storage/refs";
 import type { SamCandidate } from "@/lib/db/schema";
 import { DeadlineError, trackArtwork } from "@/lib/deadline";
+import { descriptionOf, existingChange, insertOnce } from "@/lib/pipeline/idempotency";
 import { ApiError } from "@/lib/http";
 
 const MAX_CANDIDATES = 6;
@@ -168,10 +169,14 @@ const AUTO_SELECT_MAX_COVERAGE = 0.5;
 /** Longest side of the image candidate thumbnails are cut from (thumbs are 320 px). */
 const THUMB_SOURCE_SIDE = 1024;
 
-/** Photo or canvas upload → original stored privately, SAM finds every drawing or object as a candidate. */
+/**
+ * Photo or canvas upload → original stored privately, SAM finds every drawing or object as a candidate.
+ * With `detect: false` (T134, round 3) only the original is stored (`candidates: []`, no SAM call, never
+ * 422): the creator frames the area first and `detectInBox` runs SAM inside the frame.
+ */
 export async function createFromImage(
   creatorId: string,
-  input: { source: "photo" | "canvas"; imageUrl: string; product: "sticker" | "tote" },
+  input: { source: "photo" | "canvas"; imageUrl: string; product: "sticker" | "tote"; detect?: boolean },
   task = "T010",
 ): Promise<{ artwork: ArtworkRow; candidates: SamCandidate[]; imageSize: ImageSize }> {
   const uploadPath = clientUploadPath(input.imageUrl, creatorId);
@@ -189,7 +194,9 @@ export async function createFromImage(
   }
   let artwork = await insertArtwork({
     id, creatorId, source: input.source, originalUrl: original.pathname, shapingTrace: { product: input.product, imageSize }, status: "draft", createdByTask: task,
+    ...(input.detect === false ? { candidates: [] } : {}),
   });
+  if (input.detect === false) return { artwork, candidates: [], imageSize };
   const { segments: segs, droppedContainer } = await (await ai()).segmenter.findCandidates(pngRef(png), { trace: traceFor(id, task, "segment"), max: MAX_CANDIDATES });
   const candidates = await storeCandidates(creatorId, png, imageSize, segs);
   artwork = await updateArtwork(id, { candidates });
@@ -221,6 +228,50 @@ async function storeCandidates(creatorId: string, png: Buffer, imageSize: ImageS
   }));
 }
 
+/**
+ * "Use this area" on Adjust the area (T134, round 3): SAM (both phrases) on the crop of `box` of the
+ * photo row's original; the masks are placed back at the frame's offset, stored as the row's candidates
+ * (largest first, replacing earlier ones), and the largest is cut out clipped to the box (no second SAM
+ * call). Products made from the row are rebuilt as after a cleanup.
+ */
+export async function detectInBox(
+  artwork: ArtworkRow, box: BBox, task = "T134",
+): Promise<RecutResult & { candidates: SamCandidate[]; imageSize: ImageSize }> {
+  assertPhotoRow(artwork);
+  if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
+  trackArtwork(artwork.id);
+  const png = await storage().read(artwork.originalUrl);
+  const meta = await sharp(png).metadata();
+  const W = meta.width ?? 0, H = meta.height ?? 0;
+  const imageSize: ImageSize = { w: W, h: H };
+  const b = clampBox(box, W, H);
+  const none = async () => {
+    await updateArtwork(artwork.id, { candidates: [], lastError: "no_drawing_found" });
+    return new ApiError(422, "no_drawing_found", "We could not find a drawing or object inside the frame. Move the frame or make it bigger.", { artworkId: artwork.id });
+  };
+  if (!b) throw await none();
+  const [x0, y0, x1, y1] = b;
+  const crop = await sharp(png).extract({ left: x0, top: y0, width: x1 - x0, height: y1 - y0 }).png().toBuffer();
+  const { segments } = await (await ai()).segmenter.findCandidates(pngRef(crop), { trace: traceFor(artwork.id, task, "segment"), max: MAX_CANDIDATES });
+  const placed = segments.map((s): Segment => {
+    const mask = placeMask(s.mask, W, H, x0, y0);
+    return { ...s, mask, bbox: [s.bbox[0] + x0, s.bbox[1] + y0, s.bbox[2] + x0, s.bbox[3] + y0] };
+  }).filter((s) => area(s.mask) > 0).sort((p, q) => area(q.mask) - area(p.mask));
+  if (!placed.length) throw await none();
+  const candidates = await storeCandidates(artwork.creatorId, png, imageSize, placed);
+  const st = (artwork.shapingTrace as Record<string, unknown> | null) ?? {};
+  const row = await updateArtwork(artwork.id, { candidates, shapingTrace: { ...st, imageSize } });
+  const out = await recut(row, png, [placed[0].mask], { prompt: artwork.shapedPrompt ?? undefined, task, clip: b });
+  return { ...out, candidates, imageSize };
+}
+
+/** `detect` works on the photo row only: a change result is re-cut with `cutout`, a generated row has no photo. */
+export function assertPhotoRow(artwork: Pick<ArtworkRow, "id" | "source" | "changeInstruction">): void {
+  if (artwork.changeInstruction || (artwork.source !== "photo" && artwork.source !== "canvas")) {
+    throw new ApiError(409, "not_a_photo", "Use cutout for a changed picture", { artworkId: artwork.id });
+  }
+}
+
 /** Longest side of the picture sent to Muse Image edit (its output is 1600 px square whatever the input). */
 const EDIT_INPUT_SIDE = 1024;
 /** White margin around the picked piece in the edit input, as a share of its longest side. */
@@ -248,7 +299,7 @@ export async function changeInput(artwork: ArtworkRow, read: (pathname: string) 
   return sharp(squared).flatten({ background: "#ffffff" }).png().toBuffer(); // opaque: composite adds an alpha channel
 }
 
-export type ChangeResult = { artwork: ArtworkRow; description: Description };
+export type ChangeResult = { artwork: ArtworkRow; description: Description; repeated?: boolean };
 
 /**
  * "Change it" (T111): Muse Image edits the picked piece (or the previous change result) as the
@@ -256,7 +307,9 @@ export type ChangeResult = { artwork: ArtworkRow; description: Description };
  * transcript, genResponseId) whose edited picture is stored privately (originalUrl, for the cutout)
  * and publicly (shapingTrace.previewUrl), then Muse Spark describes it against the instruction.
  */
-export async function changeArtwork(parent: ArtworkRow, input: { instruction: string; transcript?: string | null }, task = "T111"): Promise<ChangeResult> {
+export async function changeArtwork(
+  parent: ArtworkRow, input: { instruction: string; transcript?: string | null; clientRequestId?: string | null }, task = "T111",
+): Promise<ChangeResult> {
   const instruction = input.instruction.trim();
   const source = await changeInput(parent);
   const registry = await ai();
@@ -275,12 +328,15 @@ export async function changeArtwork(parent: ArtworkRow, input: { instruction: st
     storage().putPublic(creatorPath(parent.creatorId, "previews", "png"), png, "image/png"),
   ]);
   const product = (parent.shapingTrace as { product?: string } | null)?.product ?? null;
-  trackArtwork(id);
-  await insertArtwork({
+  const key = input.clientRequestId ?? null;
+  // A concurrent call with the same clientRequestId may have inserted first (T134): return its row.
+  const inserted = await insertOnce(key, () => insertArtwork({
     id, creatorId: parent.creatorId, source: "photo", transcript: input.transcript?.trim() || null, changeInstruction: instruction,
     shapingTrace: { product, imageSize, previewUrl: preview.url, changedFrom: parent.id }, originalUrl: original.pathname,
-    genResponseId: img.responseId || null, parentArtworkId: parent.id, status: "draft", createdByTask: task,
-  });
+    genResponseId: img.responseId || null, parentArtworkId: parent.id, status: "draft", createdByTask: task, clientRequestId: key,
+  }), () => existingChange(parent.creatorId, key!, parent.id));
+  if (inserted.repeated) return { artwork: inserted.row, description: descriptionOf(inserted.row), repeated: true };
+  trackArtwork(id);
   const description = await registry.describer.describe(pngRef(png), { prompt: instruction, trace: traceFor(id, task, "describe") });
   const artwork = await updateArtwork(id, {
     altText: description.alt_text, spokenDescription: description.spoken, differencesFromPrompt: description.differences_from_prompt || null,

@@ -5,9 +5,21 @@ import { json, notFound, parseJson, route } from "@/lib/http";
 import { getArtworkForCreator } from "@/lib/db/queries";
 import { toArtworkVariant } from "@/lib/api/dto";
 import { changeArtwork } from "@/lib/pipeline/artworks";
+import { ClientRequestId, descriptionOf, existingChange } from "@/lib/pipeline/idempotency";
+import type { ArtworkRow } from "@/lib/db/queries";
+import type { Description } from "@/lib/ai/types";
 
 export const maxDuration = 300;
-const Body = z.object({ instruction: z.string().trim().min(1).max(1000), transcript: z.string().max(4000).optional() });
+const Body = z.object({
+  instruction: z.string().trim().min(1).max(1000), transcript: z.string().max(4000).optional(),
+  /** T134: idempotency key; a repeat answers 200 with the row the first call made. */
+  clientRequestId: ClientRequestId.optional(),
+});
+
+const answer = (artwork: ArtworkRow, description: Description, status: number) => json({
+  artwork: toArtworkVariant(artwork),
+  description: { alt: description.alt_text, spoken: description.spoken, differences: description.differences_from_prompt ?? "" },
+}, status);
 
 /** "Change it" (docs/api.md T111): Muse Image edits the picked piece; the result is a new child row. */
 export const POST = route<{ params: Promise<{ id: string }> }>(async (req, { params }) => {
@@ -16,9 +28,10 @@ export const POST = route<{ params: Promise<{ id: string }> }>(async (req, { par
   const body = await parseJson(req, Body);
   const parent = await getArtworkForCreator(id, creatorId);
   if (!parent) notFound("Artwork");
-  const { artwork, description } = await runPipeline(() => changeArtwork(parent, body));
-  return json({
-    artwork: toArtworkVariant(artwork),
-    description: { alt: description.alt_text, spoken: description.spoken, differences: description.differences_from_prompt ?? "" },
-  }, 201);
+  if (body.clientRequestId) {
+    const done = await existingChange(creatorId, body.clientRequestId, parent.id);
+    if (done) return answer(done, descriptionOf(done), 200);
+  }
+  const { artwork, description, repeated } = await runPipeline(() => changeArtwork(parent, body));
+  return answer(artwork, description, repeated ? 200 : 201);
 });

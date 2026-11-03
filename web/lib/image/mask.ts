@@ -241,6 +241,17 @@ export function clampBox([x0, y0, x1, y1]: BBox, width: number, height: number):
   return b[0] < b[2] && b[1] < b[3] ? b : null;
 }
 
+/** A mask of a crop placed back into a `width`×`height` frame with its top-left at (`x0`, `y0`); the rest is empty (T134 detect). */
+export function placeMask(mask: Mask, width: number, height: number, x0: number, y0: number): Mask {
+  const out = emptyMask(width, height);
+  const w = Math.min(mask.width, width - x0);
+  if (w <= 0) return out;
+  for (let y = 0; y < mask.height && y + y0 < height; y++) {
+    out.data.set(mask.data.subarray(y * mask.width, y * mask.width + w), (y + y0) * width + x0);
+  }
+  return out;
+}
+
 /** Pixel-wise AND of a mask with a box (pixels outside the box are cleared). Same size as the input. */
 export function clipToBox(mask: Mask, box: BBox): Mask {
   const out = emptyMask(mask.width, mask.height);

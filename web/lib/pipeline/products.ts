@@ -12,6 +12,7 @@ import {
 import { creatorPath, storage } from "@/lib/storage";
 import { ApiError } from "@/lib/http";
 import { ensureDpi } from "@/lib/image/sticker";
+import { existingProduct, insertOnce } from "@/lib/pipeline/idempotency";
 
 /**
  * Builds and stores a product's print PNG (+ die-cut SVG), mockup and, for a sticker, the public
@@ -37,13 +38,21 @@ async function buildProductFiles(artwork: ArtworkRow, type: ProductKind, task: s
   };
 }
 
-export async function createProduct(artwork: ArtworkRow, type: ProductKind, task = "T010"): Promise<ProductRow> {
+export async function createProduct(artwork: ArtworkRow, type: ProductKind, task = "T010", clientRequestId?: string | null): Promise<ProductRow> {
+  return (await createProductOnce(artwork, type, task, clientRequestId)).row;
+}
+
+/** `createProduct` with the T134 idempotency key: a concurrent call that inserted first wins (`repeated`). */
+export async function createProductOnce(
+  artwork: ArtworkRow, type: ProductKind, task = "T010", clientRequestId?: string | null,
+): Promise<{ row: ProductRow; repeated: boolean }> {
   const files = await buildProductFiles(artwork, type, task);
   const mid = Math.round((files.spec.priceRange.min + files.spec.priceRange.max) / 2 / 50) * 50;
-  return insertProduct({
+  const key = clientRequestId ?? null;
+  return insertOnce(key, () => insertProduct({
     artworkId: artwork.id, creatorId: artwork.creatorId, type, mockupUrl: files.mockupUrl, previewUrl: files.previewUrl,
-    printPngUrl: files.printPngUrl, printSvgUrl: files.printSvgUrl, priceCents: mid, status: "draft", createdByTask: task,
-  });
+    printPngUrl: files.printPngUrl, printSvgUrl: files.printSvgUrl, priceCents: mid, status: "draft", createdByTask: task, clientRequestId: key,
+  }), () => existingProduct(artwork.creatorId, key!, artwork.id, type));
 }
 
 export type RebuildResult = { product: ProductRow; printOk: boolean; unpublished: boolean };

@@ -24,6 +24,8 @@ Every change in this project can be traced and undone. Use the smallest step tha
 
 ### Local private-store credentials expired
 - Symptom: a local upload or cut fails with `503 storage_credentials_expired` "Storage is unavailable; try again later." (before T108: a 500 "Cannot use private access on a public store"). The server log says once "Storage credentials expired; run `vercel env pull`" and whether `VERCEL_OIDC_TOKEN` is missing or expired.
+
+> **`vercel env pull` overwrites `web/.env.local` and drops keys that exist only locally** (on 2026-11-03 it removed `META_API_KEY`, `ADMIN_PASSWORD`, `CREATOR_SESSION_SECRET`, `AI_STORY`, `OLLAMA_BASE_URL`, `PAYMENTS_MODE`, `NEXT_PUBLIC_SITE_URL`). Before pulling, copy the file (`cp web/.env.local web/.env.local.bak`); after pulling, append the missing lines back from the copy. Only `VERCEL_OIDC_TOKEN` (expires after hours) and `BLOB_PRIVATE_WEBHOOK_PUBLIC_KEY` normally change.
 - Cause: the local OIDC token from `vercel env pull` lasts about 12 h. On Vercel the credential is automatic, so deployments are not affected.
 - Fix: from `web/`, `vercel env pull .env.local` (the project must be linked: `vercel link`), then restart `pnpm dev`. Nothing was written to the private store by the failed call.
 - Do not point private files at the public token to work around it; `lib/storage` ignores any token that is not the private store's.

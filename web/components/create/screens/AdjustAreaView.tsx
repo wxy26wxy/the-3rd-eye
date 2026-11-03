@@ -33,8 +33,8 @@ export type AdjustAreaViewProps = {
 /**
  * Adjust the area (round 3; boards "Adjust the area · Web · Sky"): title and copy, the stored photo on
  * the green photo card with the frame (the whole photo at first), the keyboard hint, the advice card
- * when nothing was found in the frame, then Use this area / Reset in
- * the pinned bar. While the cut is made, Back and the frame are locked and only Use this area shows
+ * when nothing was found in the frame, then Use this area / Reset / Take a new photo
+ * in the pinned bar. While the cut is made, Back and the frame are locked and only Use this area shows
  * (dimmed).
  */
 export function AdjustAreaView({ on, errorRef, ...p }: AdjustAreaViewProps) {
@@ -44,6 +44,7 @@ export function AdjustAreaView({ on, errorRef, ...p }: AdjustAreaViewProps) {
     <>
       <Button block onClick={on.use} disabled={!p.canUse}>{a.use}</Button>
       <Button block variant="secondary" arrow={false} onClick={on.reset} disabled={!p.photo}>{a.reset}</Button>
+      <Button block variant="secondary" arrow={false} href={p.retake}>{a.newPhoto}</Button>
     </>
   );
   return (

@@ -7,7 +7,7 @@ import { frameSize, initialFrame } from "../area";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { usableSize, type Box, type ImageSize } from "../cutout";
 import { describeError, revealError, type ScreenError } from "../errors";
-import { adjustBack, cutArea } from "../flow";
+import { adjustBack, cutArea, takeNewPhoto } from "../flow";
 import { getDraft, useCreate } from "../store";
 import { useOriginal } from "../useOriginal";
 import { AdjustAreaView } from "./AdjustAreaView";
@@ -55,7 +55,7 @@ function AreaFlow() {
   const { detail, onImageError } = useOriginal(area.artworkId);
   const imageSize = detail.state === "ok" && detail.imageSize ? detail.imageSize : usableSize(draft.imageSize) ? draft.imageSize : null;
   const originalUrl = detail.state === "ok" ? detail.originalUrl : null;
-  const retake = draft.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
+  const retake = takeNewPhoto(draft);
   // Coming back to the cut photo shows the frame it was cut with; Reset always goes to the whole photo.
   const returning = draft.pieceArtworkId === area.artworkId ? draft.pieceBox ?? null : null;
   const [edited, setEdited] = useState<Box | null>(null);

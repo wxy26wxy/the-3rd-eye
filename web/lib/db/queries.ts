@@ -507,6 +507,67 @@ export async function getOrderConfirmation(orderId: string): Promise<{ orderId: 
   return row ?? null;
 }
 
+/** A product as `pnpm move-orders` checks it (T149): deleted rows included, so the guard can say why it refuses. */
+export type MoveOrdersProduct = {
+  id: string; creatorId: string; type: ProductType; status: ProductRow["status"]; deleted: boolean; title: string | null;
+};
+export type MoveOrdersCandidate = { id: string; buyerName: string; status: OrderStatus; createdAt: Date };
+
+/**
+ * What `moveOrdersToProduct` would see (T149, read only): both products (deleted ones too, flagged) and
+ * the source product's non-deleted orders, or only `orderIds` among them. The script runs its guards on
+ * this to explain a refusal and to list a dry run; the UPDATE re-checks the same guards in SQL.
+ */
+export async function getMoveOrdersPlan(fromProductId: string, toProductId: string, orderIds?: string[]): Promise<{
+  from: MoveOrdersProduct | null; to: MoveOrdersProduct | null; orders: MoveOrdersCandidate[];
+}> {
+  const productRows = await db().select({
+    id: products.id, creatorId: products.creatorId, type: products.type, status: products.status,
+    deletedAt: products.deletedAt, title: listings.title,
+  }).from(products).leftJoin(listings, eq(listings.productId, products.id))
+    .where(inArray(products.id, [fromProductId, toProductId]));
+  const pick = (id: string): MoveOrdersProduct | null => {
+    const r = productRows.find((p) => p.id === id);
+    return r ? { id: r.id, creatorId: r.creatorId, type: r.type, status: r.status, deleted: r.deletedAt !== null, title: r.title } : null;
+  };
+  const conds = [eq(orders.productId, fromProductId), isNull(orders.deletedAt)];
+  if (orderIds) conds.push(inArray(orders.id, orderIds));
+  const candidates = orderIds?.length === 0 ? [] : await db()
+    .select({ id: orders.id, buyerName: orders.buyerName, status: orders.status, createdAt: orders.createdAt })
+    .from(orders).where(and(...conds)).orderBy(orders.createdAt);
+  return { from: pick(fromProductId), to: pick(toProductId), orders: candidates };
+}
+
+/**
+ * Re-points orders from one product to another of the same creator (T149, `pnpm move-orders`): one
+ * UPDATE that sets `product_id` and nothing else (amounts, shares, status, statusUpdatedAt, buyer, story
+ * tag, thank-you and messages hang off the order id and stay). The guards live in the statement, so a
+ * product changed since the plan was read moves nothing: the target is published and not deleted, the
+ * source is archived or published, both products and the order belong to the same creator, both products
+ * are the same type (sticker → sticker, tote → tote) unless `allowTypeChange`, and only non-deleted
+ * orders of the source (or only `orderIds` among them) move. No product field is copied onto
+ * orders (every reader joins `products`/`listings` by `product_id`), so there is nothing else to update.
+ * Returns the moved order ids.
+ */
+export async function moveOrdersToProduct(
+  fromProductId: string, toProductId: string, orderIds?: string[], opts: { allowTypeChange?: boolean } = {},
+): Promise<string[]> {
+  if (orderIds && orderIds.length === 0) return [];
+  const sameType = opts.allowTypeChange ? sql`` : sql` and src.type = dst.type`;
+  const conds = [
+    eq(orders.productId, fromProductId),
+    isNull(orders.deletedAt),
+    sql`exists (select 1 from ${products} as src, ${products} as dst
+      where src.id = ${fromProductId} and dst.id = ${toProductId}
+        and src.creator_id = dst.creator_id and dst.creator_id = "orders"."creator_id"
+        and dst.status = 'published' and dst.deleted_at is null
+        and src.status in ('archived', 'published')${sameType})`,
+  ];
+  if (orderIds) conds.push(inArray(orders.id, orderIds));
+  const rows = await db().update(orders).set({ productId: toProductId }).where(and(...conds)).returning({ id: orders.id });
+  return rows.map((r) => r.id);
+}
+
 export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<OrderRow | null> {
   const [row] = await db().update(orders).set({ status, statusUpdatedAt: new Date() })
     .where(and(eq(orders.id, orderId), isNull(orders.deletedAt))).returning();

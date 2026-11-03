@@ -486,6 +486,7 @@
       "photoLabel": "Your photo",
       "use": "Use this area",
       "reset": "Reset",
+      "newPhoto": "Take a new photo",
       "resetDone": "Frame reset",
       "applying": "Cutting out your art…",
       "keyboardHint": "With a keyboard: arrow keys move the frame, Shift and arrow keys change its size.",
@@ -582,7 +583,7 @@
       "copy": "Here's the cutout of your changed art.",
       "makingTitle": "Making your cutout",
       "makingCopy": "Cutting out your changed art.",
-      "makingCopyOriginal": "Cutting out your art.",
+      "makingCopyOriginal": "Looking for your drawing in the frame and cutting it out…",
       "copyOriginal": "Here's the cutout of your art.",
       "adjustCopy": "Fix the edges if you need to. Tap the photo to add or remove an area."
     },

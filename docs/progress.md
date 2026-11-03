@@ -372,3 +372,9 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Review fix round 1: resolution "Re-do the cutout" → Adjust the area; product recovery re-sends `products` with the same `clientRequestId` (scan skips known products); listing recovery only after a lost answer and only to a different draft; no change child of another request id; Making your cutout never re-sends a done job; mock `GET /artworks` lists change rows and `LOSTCHANGE…` drops the first change answer (the background UI test now goes through the recovery); picture card edge with Increase Contrast; a new photo or piece drops the job in flight.
 - Re-review fix: no recovery while the job's call is still in flight (a return during the product build no longer re-sends `products`); the background test counts every change POST.
 - Unfinished: not run on a device; `MARKETING_VERSION` / build number untouched.
+
+## T138 web · Round 3 parked minors (2026-11-03)
+
+- Making your cutout, photo detect: `create.cutout.makingCopyOriginal` is now "Looking for your drawing in the frame and cutting it out…" (iOS wording is canonical). The change-result line ("Cutting out your changed art.") is unchanged.
+- Adjust the area: new secondary action "Take a new photo" (`create.adjust.newPhoto`) under Use this area / Reset, a link to the photo step for the draft's method (`takeNewPhoto(d)` in `flow.ts`, tested). Hidden while the cut runs, like Reset.
+- For the docs owner (copy-v5 not on this branch): add these two strings.

@@ -215,6 +215,8 @@ describe("Adjust the area view (R2)", () => {
     before(out, "PHOTO", ad.keyboardHint);
     before(out, ad.keyboardHint, ad.use);
     before(out, ad.use, ad.reset);
+    before(out, ad.reset, ad.newPhoto);
+    expect(out).toMatch(/<a [^>]*href="\/create\/photo\?mode=camera"[^>]*>(?:(?!<\/a>).)*Take a new photo/);
     expect(out).toContain('<p id="h"');
     expect(out).toContain('<p id="sz" class="visually-hidden">Frame covers 54 by 61 percent of the photo</p>');
     expect(out).toMatch(/role="status" aria-live="polite"/);
@@ -245,6 +247,7 @@ describe("Adjust the area view (R2)", () => {
     expect(out).not.toContain('aria-label="Back"');
     expect(out).toContain(t.applying);
     expect(out).not.toContain(">" + ad.reset + "<");
+    expect(out).not.toContain(ad.newPhoto);
     expect(out).toMatch(btnDisabled(ad.use));
   });
 
@@ -579,6 +582,11 @@ describe("Making your cutout view (T113, board 2038:4369)", () => {
     expect(out).toMatch(/<video[^>]*src="\/assets\/sticker-loading\.mp4"/);
     beforeRaw(out, "<video", t.applying);
     expect(out).toMatch(btnDisabled(t.use));
+  });
+
+  it("T138: the photo's detect says the iOS wording", () => {
+    expect(m.create.cutout.makingCopyOriginal).toBe("Looking for your drawing in the frame and cutting it out…");
+    expect(m.create.cutout.makingCopy).toBe("Cutting out your changed art.");
   });
 
   it("round 3: the photo's detect shows the searching magnifier (moved from the upload step), no video", () => {

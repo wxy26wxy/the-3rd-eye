@@ -202,7 +202,7 @@ What the apps do since round 4 that the boards still do not show; the code is th
 3. **Making your cutout** (iOS `4030:4482`, web `2038:4369`): the first cut only (the change result is cut inside Changing); the magnifier, as listed in round 3 item 2.
 4. **Photo step on the web** (`2027:3184`): "Opening your photo…" while the file is read, and the reload notice card "Your photo was not kept when the page reloaded. Take or choose it again."
 5. **Tote variants** of the new making board and of Change it / Before and after ("Making your tote bag…", "Your tote bag is being made", "Your tote bag, before and after", label "Your tote bag").
-6. **Web Change it label:** the board says "Your sticker" (ruling); the web app still shows "YOUR ART" (follow-up in `docs/design/copy-v6.md`).
+6. **Web Change it label:** the board says "Your sticker" (ruling); the web app still shows "Your art" (shown in capitals) (follow-up in `docs/design/copy-v6.md`).
 7. Ready / Listing boards are reached from Change it's "Looks good as is" with the product already made (no flow arrow from Making product any more).
 
 ## Public site

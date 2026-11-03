@@ -44,7 +44,7 @@ No upload before "Use this area", so the upload step and its line go.
 | `create.result.makingSticker` / `makingTote` **new** | `Making your sticker…` / `Making your tote bag…` **new** | Making your {product}… this can take a minute. (`create.result.making`, web); iOS `Making your sticker` (Making product title) | Making your sticker… / Making your tote bag… (status in the picture area while `POST /products` runs) |
 | `create.result.beingMadeSticker` / `beingMadeTote` **new** | `Your sticker is being made` / `Your tote bag is being made` **new** | — | the hint under "Make the change" and "Looks good as is" while they wait (web `aria-describedby`; iOS their VoiceOver hint) |
 | `create.result.readySticker` / `readyTote` **new** | `Your sticker is ready!` / `Your tote bag is ready!` (existed) | — (web); iOS on the removed Making product screen | announced when the product photo arrives. The web has no "!", iOS keeps it: align in a later pass (PM default: keep both). |
-| `create.speak.artLabel` | `Your sticker` / `Your tote bag` **new** | Your art | **PM ruling: "Your sticker" / "Your tote bag" on both platforms** (the picture is the product now). iOS done on the branch; **web follow-up**: the web Change it still shows "YOUR ART" (key `create.speak.artLabel`) above the product photo. |
+| `create.speak.artLabel` | `Your sticker` / `Your tote bag` **new** | Your art | **PM ruling: "Your sticker" / "Your tote bag" on both platforms** (the picture is the product now). iOS done on the branch; **web follow-up**: the web Change it still shows "Your art" (shown in capitals; key `create.speak.artLabel`) above the product photo. |
 | `create.result.productAlt` **new** | — | — | Your {product} with your art (web alt of the product photo; on Before and after followed by ": " and what the image shows) |
 | `create.result.fixCutout` **new** | `Fix the cutout` **new** (hint `Opens your cutout to add or remove areas`) | — | Fix the cutout (text link under the two buttons; web hides it while the product is made, iOS dims it) |
 | — | `Keeps your art as it is and goes on` | unchanged | unchanged ("Looks good as is" now goes to Listing with no call) |
@@ -75,6 +75,6 @@ No upload before "Use this area", so the upload step and its line go.
 | — | `Uses this cutout and makes your product`, `This takes a few seconds…` | (iOS hints and the Finding line) |
 
 ## Follow-ups (PM rulings, 2026-11-03)
-1. **Web Change it label:** "YOUR ART" → "Your sticker" / "Your tote bag" (`create.speak.artLabel` → two keys by product). iOS already says so.
+1. **Web Change it label:** "Your art" (shown in capitals) → "Your sticker" / "Your tote bag" (`create.speak.artLabel` → two keys by product). iOS already says so.
 2. **iOS "Take a new photo" on Adjust the area:** a text link under the pinned bar instead of a third pill (iOS fix round).
 3. "Your sticker is ready" (web) vs "Your sticker is ready!" (iOS): optional alignment.

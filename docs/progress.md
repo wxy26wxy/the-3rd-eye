@@ -373,8 +373,13 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Re-review fix: no recovery while the job's call is still in flight (a return during the product build no longer re-sends `products`); the background test counts every change POST.
 - Unfinished: not run on a device; `MARKETING_VERSION` / build number untouched.
 
-## T138 web · Round 3 parked minors (2026-11-03)
+## T137 docs + design · Feedback round 3 (2026-11-03)
+- Figma (designer's file, edited in place): Changelog entry 14; Choose a pattern boards retired with note frames; Adjust the area frame at the whole photo; Listing drafting with the AI product photo and Redo (iOS and web); the AI photo on the tile component, the first shop tile and gallery slide 1; new board Listing · Print warning · Web `6006:4657`. Node ids in `docs/design/screens.md` "Feedback round 3"; what the boards still lack in "Round 3 — to mirror in Figma".
+- `docs/design/copy-v5.md` (web keys as shipped, iOS keys as merged; the iOS Making your cutout line is canonical and the web follows it since T138, which also added "Take a new photo" on the web; iOS has no such action).
+- `docs/accessibility.md`: web and iOS scripts for Adjust the area on the raw photo, the candidate strip, Listing drafting with the picture and Redo, the print warning with Use anyway vs the resolution block, and (iOS) leaving the app while it works; designer flags for round 3. `docs/demo_script.md` beats in the round 3 order. `docs/design/screens.md` statuses (Choose a pattern retired; changed boards implemented by T135 / T136). ADR "Feedback round 3", `docs/deployments.md` v0.9 (preview made, promotion and TestFlight pending), `docs/architecture.md`, README, `docs/submission.md` flow sentence, `docs/plan.md` mirror, handoffs.
+- Verify: `bash scripts/check_clean.sh` ok. Not done: README screenshot of Adjust the area on the raw photo (the local `/create/adjust` redirects to the creator sign-in, and no creator code is used for screenshots); a named version in the Figma history (to save by hand); scripts not yet run with VoiceOver on a device.
 
+## T138 web · Round 3 parked minors (2026-11-03)
 - Making your cutout, photo detect: `create.cutout.makingCopyOriginal` is now "Looking for your drawing in the frame and cutting it out…" (iOS wording is canonical). The change-result line ("Cutting out your changed art.") is unchanged.
 - Adjust the area: new secondary action "Take a new photo" (`create.adjust.newPhoto`) under Use this area / Reset, a link to the photo step for the draft's method (`takeNewPhoto(d)` in `flow.ts`, tested). Hidden while the cut runs, like Reset.
 - For the docs owner (copy-v5 not on this branch): add these two strings.

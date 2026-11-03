@@ -35,7 +35,7 @@ The 3rd Eye helps artists with disabilities turn their art into products people 
 3. **No connection between buyers and creators.**
 4. **People who can't draw well still can't finish the piece they imagine.**
 
-The artist photographs or uploads their own drawing, Meta's SAM 3.1 finds the drawings in the photo, and they pick one. They say what to change (Muse Voice Transcribe 1.0 writes it down) or type it. Muse Image 1.0 edits the picked piece, which it receives as the input image, and Muse Spark 1.3 describes the result so they can compare before and after on screen or through VoiceOver. SAM 3.1 cuts out the picked piece and they check it (adding or removing area if it missed a detail). They can then change it again, go back to the original, or keep it as is; a changed picture is cut out and checked again. It becomes a die-cut sticker or tote bag, with an NFC tag that opens a short captioned video of the artist.
+The artist photographs or uploads their own drawing, draws a frame around it, and Meta's SAM 3.1 finds the drawing inside the frame and cuts it out; they check the cutout (adding or removing area if it missed a detail). Then they say what to change (Muse Voice Transcribe 1.0 writes it down) or type it, or keep it as is. Muse Image 1.0 edits the cut-out piece, which it receives as the input image, and Muse Spark 1.3 describes the result so they can compare before and after on screen or through VoiceOver. They can change it again or go back to the original; a changed picture is cut out and checked again. It becomes a die-cut sticker or tote bag, with an NFC tag that opens a short captioned video of the artist.
 
 It is for artists with disabilities, their studios, and buyers who want to know who made what they buy.
 

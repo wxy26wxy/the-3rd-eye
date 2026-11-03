@@ -2,7 +2,7 @@
 
 Source: rulings 1–3 of feedback round 4 (2026-11-03; ADR "Feedback round 4" in `docs/decisions.md`), the strings the web shipped in T140 (`web/messages/en.json` on main bd6ac0f) and the iOS catalogue of T141 (`ios/App/Resources/Localizable.xcstrings` on `feat/ios-T140`, in review; key = the English string). Boards: Changelog entry 15 in the designer's file (node ids in `docs/design/screens.md`, "Feedback round 4"). One file for both platforms; the web column is the shipped copy.
 
-- **iOS keys are from the T141 branch, to confirm at merge** (the review may still change a label; the PM says so before the merge). Old keys removed on the branch are listed so the catalogue can be checked after the merge.
+- **iOS keys are from the T141 branch,** (the review may still change a label; the PM says so before the merge). Old keys removed on the branch are listed so the catalogue can be checked after the merge.
 - "Old" is the string at v0.9 (web `en.json` at 084ac4f; the iOS catalogue on main bd6ac0f).
 - The iOS UI tests find controls by label: change test labels in the same commit as the string.
 

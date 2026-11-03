@@ -490,8 +490,10 @@ final class CreateFlow {
   @discardableResult
   func dropRowsOnRetake(api: APIClient) -> [Task<Void, Never>] {
     var tasks: [Task<Void, Never>] = []
+    let hadEmpty = emptyRowId != nil
     if let t = dropEmptyRow(api: api) { tasks.append(t) }
-    if let old = supersedes, let t = dropRow(old, api: api) { tasks.append(t) }
+    // The earlier piece goes only with a 422 row (a failed re-frame, or Back during the call, keeps it).
+    if hadEmpty, let old = supersedes, let t = dropRow(old, api: api) { tasks.append(t) }
     supersedes = nil
     return tasks
   }

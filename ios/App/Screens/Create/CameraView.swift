@@ -85,6 +85,8 @@ struct CameraView: View {
 
   private func use(_ image: UIImage) {
     // A new photo: whatever came from the last one (drawings, changes, cut-out) goes.
+    // T146: Back → a new photo deletes the 422 row and the superseded piece row, as "Take a new photo" does.
+    app.flow.dropRowsOnRetake(api: app.api)
     app.flow.discardPhoto()
     // Up to 4096 px (web parity): the crop of a small frame keeps enough pixels to print.
     app.flow.photo = ImageTools.normalized(image, maxPixels: 4096)

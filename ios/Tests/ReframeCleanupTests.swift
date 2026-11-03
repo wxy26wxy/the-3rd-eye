@@ -96,6 +96,16 @@ final class ReframeCleanupTests: XCTestCase {
     XCTAssertTrue(flow.dropRowsOnRetake(api: api(stub)).isEmpty)
   }
 
+  /// A failed re-frame (no 422 row) keeps the earlier piece on Take a new photo / a new camera photo.
+  func testRetakeWithoutAnEmptyRowKeepsTheEarlierPiece() async {
+    let stub = StubTransport(body: okBody)
+    let flow = flowWithPiece("p1")
+    flow.beginReframe()
+    XCTAssertTrue(flow.dropRowsOnRetake(api: api(stub)).isEmpty)
+    XCTAssertTrue(deletes(stub).isEmpty)
+    XCTAssertNil(flow.supersedes)
+  }
+
   /// A row with a published product the flow knows about is never deleted.
   func testPublishedRowIsKept() async {
     let stub = StubTransport(body: okBody)

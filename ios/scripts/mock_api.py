@@ -14,6 +14,8 @@ Sign-in NOCUT... makes cleanup answer 422, DETAILS... gives cleanup non-empty de
 cleanup take 4 s (switching tabs meanwhile must not lose the cut).
 T146: sign-in REFRAME... gives the second and later crops their own row ids (p2, p3, ...); every
 DELETE /artworks/<id> is counted at /__mock/count/artworks-deletes (a crop row p<n> answers 200).
+REFRAME... supports the delete count only: p2's detail, cleanup and detect routes answer 404.
+My designs d7 is a no_drawing_found row with no cut (the app hides it).
 GET /__mock/last/<cleanup|select|artworks|products|approve|delete> returns the last body the app sent there
 (for delete: {"id": ...}). Cleanup accepts clipToBox (boolean, needs box; T126) and echoes it there.
 My designs (T083): GET /artworks lists four designs, d1 in the shop (photo, published sticker),
@@ -488,6 +490,8 @@ def designs():
               "priceCents": 700, "description": "A second fish.", "mockupUrl": f"{BASE}/img.png?m=6b"},
              {"id": "pr-d6", "type": "sticker", "status": "published", "title": "Orange Fish Sticker",
               "priceCents": 900, "description": "An orange fish.", "mockupUrl": f"{BASE}/img.png?m=6"}]),
+        # T146: a crop row that answered 422 no_drawing_found; My designs does not list it.
+        row("d7", "photo", None, "Hidden sketch", [], last_error="no_drawing_found"),
     ]
 
 

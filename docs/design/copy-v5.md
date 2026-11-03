@@ -37,13 +37,13 @@ The screen opens on the stored photo with the frame at the whole photo; "Use thi
 | `create.adjust.copyNone` | `We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it.` | We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it. | **removed**: the frame always starts at the whole photo |
 | `create.adjust.notFound` | `We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again.` | unchanged | unchanged; now the answer to a detect `422 no_drawing_found` (web: focused and scrolled into view) |
 | `create.adjust.reset` | `Reset` (hint `Puts the frame back around your drawing`) | Reset (puts the frame back on the piece) | Reset (text unchanged; it now always puts the frame back on the whole photo on the web). The iOS hint is unchanged (on a new photo Reset also goes back to the whole photo; on a saved design, to its piece). |
-| — | — | — | **Parked (T135 review, ruling):** Adjust the area needs a "Take a new photo" secondary action to match "or use a bigger photo" in the resolution message. Today a bigger photo is reachable only through Back. A later round adds the action and its string. |
+| `create.adjust.newPhoto` **new** (T138) | — (iOS has no such action) | — | Take a new photo (web, done by T138: a secondary action under Use this area / Reset that goes back to the photo step for the draft's method, hidden while the cut runs; it answers "or use a bigger photo" in the resolution message). **iOS: not built**; on iOS a bigger photo is reached through Back. |
 
 ## Making your cutout (the detect job)
 
 | Web key | iOS key | Old | New |
 |---|---|---|---|
-| `create.cutout.makingCopyOriginal` | `Looking for your drawing in the frame and cutting it out. This takes a few seconds.` | Cutting out your art. (web) / `Cutting out your art. This takes a few seconds.` (iOS) | **Looking for your drawing in the frame and cutting it out. This takes a few seconds.** Ruling (PM, 2026-11-03): the iOS wording is canonical. **Web follow-up:** `create.cutout.makingCopyOriginal` in `web/messages/en.json` still says "Cutting out your art." and changes to this line in the next web task (not edited here). After a change both keep "Cutting out your art…" / `Cutting out your art. This takes a few seconds.` |
+| `create.cutout.makingCopyOriginal` | `Looking for your drawing in the frame and cutting it out. This takes a few seconds.` | Cutting out your art. (web) / `Cutting out your art. This takes a few seconds.` (iOS) | Ruling (PM, 2026-11-03): the iOS wording is canonical. iOS: "Looking for your drawing in the frame and cutting it out. This takes a few seconds." Web (done by T138): "Looking for your drawing in the frame and cutting it out…". After a change: web `create.cutout.makingCopy` "Cutting out your changed art.", iOS `Cutting out your art. This takes a few seconds.` (unchanged). |
 
 ## Your cutout · candidate strip (iOS `2013:618`, web `2038:4233`)
 
@@ -77,12 +77,12 @@ Contrast is a warning that "Use anyway" accepts; resolution is the only block.
 | `create.errors.useAnyway` **new** | `Use anyway` (hint `Lists it even though the colors may look faint when printed`) | — | Use anyway (contrast only; approve with `acceptPrintWarning: true`) |
 | `create.errors.redoCutout` **new** | `Re-do the cutout` (exists; hint `Goes back to the frame on your photo`) | — | Re-do the cutout (web: contrast → Your cutout, resolution → Adjust the area; iOS shows it only for resolution → Adjust the area, and only "Use anyway" for contrast) |
 | `create.errors.printCheck` | — | This won't print well yet: {reason} | unchanged; only for a 409 with no `check` |
-| — | `This picture won't print well yet. Re-do the cutout in My designs, or try a bigger, clearer photo.` | (the one iOS message) | **replaced** by the two lines above (`APIError.approveMessage` by `check`) |
+| — | `This picture won't print well yet. Re-do the cutout in My designs, or try a bigger, clearer photo.` | (the one iOS message for every 409) | **kept only for a 409 without `check`** (`APIError.approveMessage`, `case nil`); a 409 with `check` shows one of the two lines above |
 
 ## Pictures (ruling 1; no copy change)
 The sticker picture is the AI product photo everywhere (shop tile, gallery slide 1, Ready, Listing, Live; iOS Listing details, My designs, Design detail). Alt texts are unchanged (`create.ready.mockupAlt` "Your {product} preview"; the product's `altText` on the shop). Slide 2 is the bordered sticker preview.
 
 ## PM defaults and open items
-- Making your cutout: the iOS line is canonical; the web follow-up is recorded above.
+- Making your cutout: the iOS line is canonical; the web follows it since T138.
 - The iOS strip line has no web counterpart (optional).
-- Parked: "Take a new photo" on Adjust the area (copy and action in a later round).
+- "Take a new photo" on Adjust the area: web done by T138 (`create.adjust.newPhoto`); iOS has no such action yet (a later round).

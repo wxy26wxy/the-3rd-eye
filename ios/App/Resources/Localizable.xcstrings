@@ -49,6 +49,15 @@
     "Add a video" : {
 
     },
+    "Add area" : {
+
+    },
+    "Add the area around your art" : {
+
+    },
+    "Added area, mark %lld" : {
+
+    },
     "Adding the white border and getting it ready to print." : {
 
     },
@@ -59,6 +68,9 @@
 
     },
     "After" : {
+
+    },
+    "Apply cutout" : {
 
     },
     "Approve and list it" : {
@@ -83,6 +95,9 @@
 
     },
     "Back to my original" : {
+
+    },
+    "Back to your last change" : {
 
     },
     "Back to your original art" : {
@@ -157,6 +172,9 @@
     "Choose how you want to bring your drawing into the studio." : {
 
     },
+    "Clear marks" : {
+
+    },
     "Continue the sticker draft" : {
 
     },
@@ -164,6 +182,9 @@
 
     },
     "Create" : {
+
+    },
+    "Cuts it out again with your marks and shows it" : {
 
     },
     "Cuts out what is inside the frame" : {
@@ -185,6 +206,9 @@
 
     },
     "Delete this design?" : {
+
+    },
+    "Deletes this mark" : {
 
     },
     "Deleting…" : {
@@ -223,9 +247,6 @@
     "Draws a new version with your change" : {
 
     },
-    "Drops the changes and shows your art as it was" : {
-
-    },
     "Edit it" : {
 
     },
@@ -253,6 +274,9 @@
     "Finish the listing and put it in the shop" : {
 
     },
+    "Fix the edges" : {
+
+    },
     "Frame covers %lld by %lld percent of the photo" : {
       "localizations" : {
         "en" : {
@@ -270,6 +294,12 @@
 
     },
     "Go back" : {
+
+    },
+    "Goes back to the art before this change" : {
+
+    },
+    "Goes on to change it or keep it as it is" : {
 
     },
     "Goes on to set the area around your art" : {
@@ -296,7 +326,10 @@
     "Here's the change" : {
 
     },
-    "Here's your cutout." : {
+    "Here's the cutout of your art. Fix the edges if you need to." : {
+
+    },
+    "Here's the cutout of your changed art. Fix the edges if you need to." : {
 
     },
     "How do you want to add your art?" : {
@@ -355,6 +388,9 @@
 
     },
     "Leave empty to keep it" : {
+
+    },
+    "Left out, mark %lld" : {
 
     },
     "Listening" : {
@@ -423,6 +459,12 @@
     "Making your tote bag. This can take up to a minute." : {
 
     },
+    "Mark added" : {
+
+    },
+    "Mark removed" : {
+
+    },
     "Mention my disability" : {
 
     },
@@ -484,6 +526,9 @@
 
     },
     "Note from the buyer: %@" : {
+
+    },
+    "Nothing was left in the cutout. Remove some marks, then tap Apply cutout." : {
 
     },
     "Off" : {
@@ -603,6 +648,12 @@
     "Records your voice" : {
 
     },
+    "Remove area" : {
+
+    },
+    "Removes every mark" : {
+
+    },
     "Repeats the last step" : {
 
     },
@@ -687,6 +738,9 @@
     "Sent with a picture or video." : {
 
     },
+    "Shows the picture so you can add marks" : {
+
+    },
     "Shows your live product" : {
 
     },
@@ -751,7 +805,7 @@
     "Starts a new design" : {
 
     },
-    "Starts again from the camera" : {
+    "Starts again from the choice of photo" : {
 
     },
     "Status: %@" : {
@@ -797,6 +851,12 @@
     "Tap the one you want." : {
 
     },
+    "Tap the parts to leave out. Tap a mark again to remove it." : {
+
+    },
+    "Tap the photo where the cutout should include more. Tap a mark again to remove it." : {
+
+    },
     "Tell buyers your story" : {
 
     },
@@ -825,6 +885,9 @@
 
     },
     "The photo is missing. Go back and take it again." : {
+
+    },
+    "Then tap on the photo. With VoiceOver, use the actions on the photo." : {
 
     },
     "This continues your sticker draft and replaces the design you're making in Create. To change the one in the shop, use Edit listing." : {
@@ -1012,6 +1075,9 @@
 
     },
     "YOU ASKED" : {
+
+    },
+    "You can add up to 10 marks. Tap a mark to remove it." : {
 
     },
     "You can make the other one later." : {

@@ -28,9 +28,12 @@ struct StoryVideoView: View {
   ]
 
   var body: some View {
+    // The first time, the listing is already approved: no Back (it would offer "Approve and list it"
+    // again, T131); Skip for now goes on.
     FlowScreen(title: "Tell buyers your story",
                subtitle: redo ? "Your new video replaces this one on all your products."
-                              : "Record a short video, about 30 seconds. Buyers see it when they tap the story tag. You only do this once.") {
+                              : "Record a short video, about 30 seconds. Buyers see it when they tap the story tag. You only do this once.",
+               showsBack: redo && !uploading) {
       VStack(alignment: .leading, spacing: Theme.Space.l) {
         ForEach(Array(prompts.enumerated()), id: \.offset) { index, prompt in
           HStack(alignment: .top, spacing: Theme.Space.m) {
@@ -97,7 +100,7 @@ struct StoryVideoView: View {
     .sheet(isPresented: Binding(get: { draft != nil }, set: { if !$0 { draftDone() } })) {
       if let draft { StoryDraftSheet(draft: draft) { draftDone() } }
     }
-    .navigationBarBackButtonHidden(uploading)
+    .navigationBarBackButtonHidden(uploading || !redo)
     .onAppear {
       guard redo, !loadedSetting else { return }
       loadedSetting = true

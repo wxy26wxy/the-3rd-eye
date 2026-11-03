@@ -1,9 +1,11 @@
 import XCTest
 
-/// Choose a pattern, Adjust the area (T122) and Your cutout against scripts/mock_api.py: the app uses a generated
+/// Choose a pattern, Adjust the area (T122) and Your cutout (T131: right after the frame, with the
+/// marks) against scripts/mock_api.py: the app uses a generated
 /// 600 × 800 test photo (UITEST_PHOTO=1), the mock answers two drawings (cand-1 at 100,160–500,693
 /// and cand-2 at 660,896–1060,1429 of a 1200 × 1600 original) and records each body at
-/// GET /__mock/last/<select|cleanup|cutout>. The test photo shows about 314 × 419 pt, so 1 pt ≈ 3.8 image px.
+/// GET /__mock/last/<select|cleanup|cutout> (the cleanup's artwork at /__mock/last/cleanup-target, call
+/// counts at /__mock/count/<route>). The test photo shows about 314 × 419 pt, so 1 pt ≈ 3.8 image px.
 final class CutoutUITests: XCTestCase {
   private var app: XCUIApplication?
 
@@ -21,7 +23,7 @@ final class CutoutUITests: XCTestCase {
   // MARK: Choose a pattern
 
   /// One drawing can be picked: a second pick replaces the first; "Use this" opens Adjust the area,
-  /// whose "Use this area" cuts that one out with the frame (T122: no `select`).
+  /// whose "Use this area" cuts that one out with the frame (T122: no `select`) and shows Your cutout.
   func testOneDrawingIsPicked() throws {
     let app = launchPhotoFlow(code: "TEST-CODE")
     let first = app.buttons["Piece 1"]
@@ -40,7 +42,7 @@ final class CutoutUITests: XCTestCase {
     XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 10), "Adjust the area")
     XCTAssertTrue(try lastBody("cleanup").isEmpty, "nothing is cut before Use this area")
     tap(app, "Use this area")
-    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "goes on to Change it")
+    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 15), "Making your cutout, then Your cutout")
     let body = try lastBody("cleanup")
     XCTAssertEqual(body["candidateIds"] as? [String], ["cand-2"])
     // cand-2 = 660,896–1060,1429 grown by 8 % (16 px and 21.3 px on each side).
@@ -86,7 +88,7 @@ final class CutoutUITests: XCTestCase {
     XCTAssertFalse(app.buttons["Reset"].isEnabled, "back where it started")
     corner.press(forDuration: 0.3, thenDragTo: photoPoint(area, 0.7, 0.6))
     tap(app, "Use this area")
-    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "Change it")
+    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 15), "Your cutout")
     let body = try lastBody("cleanup")
     XCTAssertEqual(body["candidateIds"] as? [String], ["cand-1"], "the picked piece goes with the frame")
     XCTAssertEqual(body["clipToBox"] as? Bool, true, "the frame limits the cut (T126)")
@@ -105,15 +107,19 @@ final class CutoutUITests: XCTestCase {
     XCTAssertFalse(app.buttons["Reset"].isEnabled, "the frame did not move")
   }
 
-  /// No drawing found (mock NONE…): straight to Adjust the area (no Choose a pattern); the frame
-  /// starts on the whole photo and is sent alone.
+  /// No drawing found (mock NONE…: 422 no_drawing_found with the photo's artworkId, as the server):
+  /// not a dead end (T131) but straight to Adjust the area (no Choose a pattern); the frame starts on
+  /// the whole photo and is sent alone, then Your cutout.
   func testNoDrawingUsesTheWholePhoto() throws {
     let app = launchPhotoFlow(code: "NONE-CODE")
     XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 20), "Adjust the area on the whole photo")
     let line = "We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it."
     XCTAssertTrue(app.staticTexts[line].exists)
     XCTAssertFalse(app.buttons["Retake"].exists, "no Choose a pattern step")
+    XCTAssertFalse(app.buttons["Try again"].exists, "no error screen")
     tap(app, "Use this area")
+    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 15), "Your cutout of the whole photo")
+    tap(app, "Use this")
     XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "a cut-out exists, so Change it")
     let body = try lastBody("cleanup")
     XCTAssertEqual(body["box"] as? [Double], [0, 0, 1200, 1600], "the whole photo")
@@ -132,7 +138,7 @@ final class CutoutUITests: XCTestCase {
     outside.press(forDuration: 0.3, thenDragTo: photoPoint(area, 0.25, 0.25))
     XCTAssertTrue(app.buttons["Reset"].isEnabled, "the corner moved")
     tap(app, "Use this area")
-    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10))
+    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 15))
     let box = try XCTUnwrap(try lastBody("cleanup")["box"] as? [Double])
     // The drag ran a quarter of the photo plus the 15 pt it started outside it.
     XCTAssertEqual(box[0], 300 + 15 * 1200 / photo.width, accuracy: 48, "the left edge followed the drag")
@@ -141,12 +147,15 @@ final class CutoutUITests: XCTestCase {
     XCTAssertEqual(box[3], 1600, accuracy: 0.5)
   }
 
-  /// A cut that finds nothing in the frame (mock NOCUT…: 422 no_drawing_found) says what to do and
-  /// stays on the screen.
+  /// A cut that finds nothing in the frame (mock NOCUT…: 422 no_drawing_found): Making your cutout
+  /// says what to do, with Try again and Back to my art (back on the frame).
   func testFailedCutShowsTheReason() {
     let app = openAdjustArea(code: "NOCUT-CODE")
     tap(app, "Use this area")
     XCTAssertTrue(element(app, containing: "We couldn't find a drawing in that area.").waitForExistence(timeout: 10))
+    XCTAssertTrue(app.buttons["Try again"].exists)
+    app.buttons["Back to my art"].tap()
+    XCTAssertTrue(app.buttons["Use this area"].waitForExistence(timeout: 5), "back on Adjust the area")
     XCTAssertTrue(app.buttons["Use this area"].isEnabled, "it can be tried again")
   }
 
@@ -158,32 +167,108 @@ final class CutoutUITests: XCTestCase {
     XCTAssertTrue(app.buttons["Blue bird on a branch, In the shop"].waitForExistence(timeout: 10))
     sleep(5)
     app.tabBars.buttons["Create"].tap()
-    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "the cut went on to Change it")
+    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 10), "the cut went on to Your cutout")
     XCTAssertEqual(try lastBody("cleanup")["candidateIds"] as? [String], ["cand-1"])
+    XCTAssertEqual(try count("cleanup"), 1, "sent once, not again when the tab came back")
   }
 
-  // MARK: Your cutout (simplified, T122 R3)
+  // MARK: Your cutout (T131: the tools are back, without Draw a box)
 
-  /// Only the cut-out, the status line, "Use this" and "Start over": no edge tools.
-  func testYourCutoutHasNoEdgeTools() throws {
-    let app = openYourCutout(code: "TEST-CODE")
+  /// Your cutout of the piece: the cut-out, Fix the edges, Add area / Remove area, Use this, Apply
+  /// cutout, Start over; no "Draw a box". "Use this" sends nothing more and goes on to Change it.
+  func testYourCutoutHasTheMarkTools() throws {
+    let app = openPieceCutout(code: "TEST-CODE")
     attachScreenshot(app, "your-cutout")
     XCTAssertTrue(app.otherElements["cutout-applied"].exists || app.images["cutout-applied"].exists)
-    for gone in ["Fix the edges", "Apply cutout", "Add area", "Remove area", "Draw a box", "Clear marks"] {
-      XCTAssertFalse(app.buttons[gone].exists, "\(gone) is gone")
+    for shown in ["Fix the edges", "Add area", "Remove area", "Use this", "Apply cutout", "Start over"] {
+      XCTAssertTrue(app.buttons[shown].exists, "\(shown) is there")
     }
-    XCTAssertTrue(app.buttons["Start over"].exists)
-    let cuts = try lastBody("cleanup")
+    XCTAssertFalse(app.buttons["Draw a box"].exists, "the frame is the box")
+    XCTAssertFalse(app.buttons["Apply cutout"].isEnabled, "nothing marked yet")
+    XCTAssertEqual(try count("cleanup"), 1)
     tap(app, "Use this")
-    XCTAssertTrue(app.buttons["Approve and list it"].waitForExistence(timeout: 20), "Making your sticker, then Listing details")
-    XCTAssertEqual(try lastBody("cleanup") as NSDictionary, cuts as NSDictionary, "Your cutout sends no cleanup")
+    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "Change it")
+    XCTAssertEqual(try count("cleanup"), 1, "Use this without marks sends nothing")
+  }
+
+  /// Marks on the piece: two Add area marks and one Remove area mark, a tap on a mark deletes it;
+  /// Apply cutout sends the piece, the marks and the Adjust the area frame (clipToBox) on the photo.
+  func testMarksApplyOnThePiece() throws {
+    let app = openPieceCutout(code: "TEST-CODE")
+    let frameBox = try XCTUnwrap(try lastBody("cleanup")["box"] as? [Double])
+    tap(app, "Fix the edges")
+    let photo = cutoutPhoto(app)
+    XCTAssertTrue(photo.waitForExistence(timeout: 10), "the photo with the frame")
+    photo.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.2)).tap()
+    photo.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.3)).tap()
+    XCTAssertTrue(app.buttons["Added area, mark 2"].waitForExistence(timeout: 5))
+    tap(app, "Remove area")
+    _ = cutoutPhoto(app)
+    photo.coordinate(withNormalizedOffset: CGVector(dx: 0.35, dy: 0.25)).tap()
+    XCTAssertTrue(app.buttons["Left out, mark 3"].waitForExistence(timeout: 5))
+    // A tap on mark 2's dot deletes it.
+    photo.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.3)).tap()
+    XCTAssertFalse(app.buttons["Left out, mark 3"].waitForExistence(timeout: 2), "the marks renumber")
+    XCTAssertTrue(app.buttons["Left out, mark 2"].exists)
+    attachScreenshot(app, "your-cutout-marks")
+    tap(app, "Apply cutout")
+    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 15), "the new cut-out is shown")
+    let body = try lastBody("cleanup")
+    XCTAssertEqual(try lastBody("cleanup-target")["artworkId"] as? String, "p1")
+    XCTAssertEqual(body["candidateIds"] as? [String], ["cand-1"], "the piece goes with the marks")
+    XCTAssertEqual(body["clipToBox"] as? Bool, true)
+    let box = try XCTUnwrap(body["box"] as? [Double])
+    for (sent, frame) in zip(box, frameBox) { XCTAssertEqual(sent, frame, accuracy: 0.01, "the frame is the box") }
+    let points = try XCTUnwrap(body["points"] as? [[String: Any]])
+    XCTAssertEqual(points.map { $0["label"] as? String }, ["positive", "negative"])
+    XCTAssertEqual(points[0]["x"] as? Double ?? 0, 240, accuracy: 40, "a fifth of the 1200 px photo")
+    XCTAssertEqual(points[0]["y"] as? Double ?? 0, 320, accuracy: 40)
+    XCTAssertFalse(app.buttons["Apply cutout"].isEnabled, "the cut matches the marks")
+    tap(app, "Use this")
+    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "Change it")
+    XCTAssertEqual(try count("cleanup"), 2, "applied once")
+  }
+
+  /// After a change, the same tools act on the change result: cleanup on ch1 with the piece its
+  /// cutout found and the whole picture as the box.
+  func testMarksApplyOnAChange() throws {
+    let app = openYourCutout(code: "TEST-CODE")
+    XCTAssertTrue(app.staticTexts["Here's the cutout of your changed art. Fix the edges if you need to."].exists)
+    tap(app, "Fix the edges")
+    let photo = cutoutPhoto(app)
+    XCTAssertTrue(photo.waitForExistence(timeout: 10))
+    photo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    XCTAssertTrue(app.buttons["Added area, mark 1"].waitForExistence(timeout: 5))
+    tap(app, "Apply cutout")
+    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 15))
+    XCTAssertEqual(try lastBody("cleanup-target")["artworkId"] as? String, "ch1", "the change result is cut again")
+    let body = try lastBody("cleanup")
+    XCTAssertEqual(body["candidateIds"] as? [String], ["cand-1"], "the piece the cutout found")
+    XCTAssertEqual(body["box"] as? [Double], [0, 0, 1200, 1600], "the whole picture")
+    XCTAssertEqual(body["clipToBox"] as? Bool, true)
+    XCTAssertEqual((body["points"] as? [[String: Any]])?.count, 1)
+    tap(app, "Use this")
+    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 30), "Making your sticker, then Listing details")
+    XCTAssertEqual(try lastBody("products")["artworkId"] as? String, "ch1")
+  }
+
+  /// Marks not applied yet are applied by Use this before going on.
+  func testUseThisAppliesPendingMarks() throws {
+    let app = openPieceCutout(code: "TEST-CODE")
+    tap(app, "Fix the edges")
+    let photo = cutoutPhoto(app)
+    XCTAssertTrue(photo.waitForExistence(timeout: 10))
+    photo.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.25)).tap()
+    tap(app, "Use this")
+    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 15), "Change it")
+    XCTAssertEqual((try lastBody("cleanup")["points"] as? [[String: Any]])?.count, 1, "the mark was sent")
   }
 
   /// The cutout of a change answered 422 (mock NOCUTOUT…): Making your cutout shows the reason with
   /// Try again and Back to my art; back goes to Before and after.
   func testCutoutFailureOffersTryAgain() {
-    let app = openAdjustArea(code: "NOCUTOUT-CODE")
-    tap(app, "Use this area")
+    let app = openPieceCutout(code: "NOCUTOUT-CODE")
+    tap(app, "Use this")
     typeChange(app)
     tap(app, "Make the change")
     tap(app, "Use this")
@@ -193,10 +278,13 @@ final class CutoutUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["Here's the change"].waitForExistence(timeout: 5), "back on Before and after")
   }
 
-  /// Start over drops everything and opens the photo picker again.
-  func testStartOverTakesANewPhoto() {
+  /// Start over drops everything and goes back to Choose method (T131); the next photo starts clean.
+  func testStartOverGoesBackToChooseMethod() {
     let app = openYourCutout(code: "TEST-CODE")
     tap(app, "Start over")
+    let upload = app.buttons["Upload a picture, Pick one you already have"]
+    XCTAssertTrue(upload.waitForExistence(timeout: 10), "Choose method")
+    upload.tap()
     XCTAssertTrue(app.buttons["Piece 1"].waitForExistence(timeout: 20), "a new photo, its drawings")
     XCTAssertFalse(app.buttons["Piece 1"].isSelected)
   }
@@ -249,11 +337,35 @@ final class CutoutUITests: XCTestCase {
     app.swipeUp()
   }
 
-  /// Piece 1 cut with its frame and changed ("Make the sky purple" → ch1), kept with "Use this":
-  /// Your cutout of the change.
-  private func openYourCutout(code: String) -> XCUIApplication {
+  /// Piece 1 cut with its frame: Your cutout of the piece.
+  private func openPieceCutout(code: String) -> XCUIApplication {
     let app = openAdjustArea(code: code)
     tap(app, "Use this area")
+    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 20), "Your cutout of the piece")
+    return app
+  }
+
+  /// "Your cutout is ready. Here it is." (the cut-out is shown).
+  private func yourCutout(_ app: XCUIApplication) -> XCUIElement {
+    app.staticTexts["Your cutout is ready. Here it is."]
+  }
+
+  /// The picture the marks go on, scrolled back to the top so all of it is on screen.
+  private func cutoutPhoto(_ app: XCUIApplication) -> XCUIElement {
+    app.swipeDown()
+    app.swipeDown()
+    return photoElement(app)
+  }
+
+  private func photoElement(_ app: XCUIApplication) -> XCUIElement {
+    app.otherElements["cutout-photo"]
+  }
+
+  /// Piece 1 cut with its frame, then changed ("Make the sky purple" → ch1), kept with "Use this":
+  /// Your cutout of the change.
+  private func openYourCutout(code: String) -> XCUIApplication {
+    let app = openPieceCutout(code: code)
+    tap(app, "Use this")
     typeChange(app)
     tap(app, "Make the change")
     tap(app, "Use this")

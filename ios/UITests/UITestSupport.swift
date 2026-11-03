@@ -56,6 +56,20 @@ extension XCTestCase {
     wait(for: [done], timeout: 10)
     return try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(received.data)) as? [String: Any])
   }
+
+  /// Calls the app made to a mock route since sign-in (`GET /__mock/count/<route>`).
+  func count(_ route: String) throws -> Int {
+    let url = mockAPIURL.appendingPathComponent("__mock/count/\(route)")
+    let done = expectation(description: "mock count \(route)")
+    let received = Received()
+    URLSession.shared.dataTask(with: url) { data, _, _ in
+      received.data = data
+      done.fulfill()
+    }.resume()
+    wait(for: [done], timeout: 10)
+    let json = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(received.data)) as? [String: Any])
+    return try XCTUnwrap(json["count"] as? Int)
+  }
 }
 
 /// Written once by the URLSession callback, read after the expectation is fulfilled.

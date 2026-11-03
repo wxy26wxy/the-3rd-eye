@@ -48,7 +48,8 @@ struct DesignDetailView: View {
     .continueConfirmation($pending, app: app)
     .onDisappear {
       // Popped back to the grid: the re-cut notice has been seen.
-      if !app.designsPath.contains(.detail(artworkId)), app.designFlow.photoArtwork?.id == artworkId {
+      // (The design flow holds the design as `cutoutArtwork`; it has no photo artwork, T131.)
+      if !app.designsPath.contains(.detail(artworkId)), app.designFlow.cutoutArtwork?.id == artworkId {
         app.designFlow.cutoutNotice = nil
       }
     }

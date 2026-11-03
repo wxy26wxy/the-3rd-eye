@@ -37,10 +37,13 @@ final class ListingStoryTests: XCTestCase {
                    "no preview yet: the cut-out, not the mockup")
   }
 
-  func testToteShowsTheArt() {
-    let tote = Product(id: "p2", type: .tote, mockupUrl: "https://x/mock.png", previewUrl: "https://x/preview.png")
-    XCTAssertEqual(ProductPicture.url(type: .tote, product: tote, artwork: art)?.absoluteString, "https://x/cut.png")
-    XCTAssertNil(ProductPicture.url(type: .tote, product: tote, artwork: nil), "never the mockup")
+  /// T131 (user ruling): a tote bag shows its AI mockup again; without one, the art.
+  func testToteShowsItsMockup() {
+    let tote = Product(id: "p2", type: .tote, mockupUrl: "https://x/mock.png", previewUrl: nil)
+    XCTAssertEqual(ProductPicture.url(type: .tote, product: tote, artwork: art)?.absoluteString, "https://x/mock.png")
+    XCTAssertEqual(ProductPicture.url(type: .tote, product: tote, artwork: nil)?.absoluteString, "https://x/mock.png")
+    let early = Product(id: "p2", type: .tote, mockupUrl: nil)
+    XCTAssertEqual(ProductPicture.url(type: .tote, product: early, artwork: art)?.absoluteString, "https://x/cut.png", "no mockup yet: the art")
   }
 
   func testDesignTilePrefersTheShopStickersPreview() {
@@ -54,7 +57,13 @@ final class ListingStoryTests: XCTestCase {
     ]
     XCTAssertEqual(design.creatorPictureURL?.absoluteString, "https://x/live.png")
     design.products = [ArtworkProduct(id: "t", type: .tote, status: "published", mockupUrl: "https://x/tote-mock.png")]
-    XCTAssertEqual(design.creatorPictureURL?.absoluteString, "https://x/cut.png", "a tote alone: the art")
+    XCTAssertEqual(design.creatorPictureURL?.absoluteString, "https://x/tote-mock.png", "a tote alone: its mockup (T131)")
+    design.products = [ArtworkProduct(id: "t1", type: .tote, status: "draft", mockupUrl: "https://x/draft-tote.png"),
+                       ArtworkProduct(id: "t2", type: .tote, status: "published", mockupUrl: "https://x/live-tote.png"),
+                       ArtworkProduct(id: "t3", type: .tote, status: "archived", mockupUrl: "https://x/old-tote.png")]
+    XCTAssertEqual(design.creatorPictureURL?.absoluteString, "https://x/live-tote.png", "the tote in the shop first")
+    design.products = [ArtworkProduct(id: "t", type: .tote, status: "published", title: "Older server")]
+    XCTAssertEqual(design.creatorPictureURL?.absoluteString, "https://x/cut.png", "no mockup: the art")
   }
 
   func testPreviewUrlDecodesOnProducts() throws {
@@ -108,16 +117,17 @@ final class AdjustAreaRouteTests: XCTestCase {
   private let one = Candidate(id: "c1", bbox: [100, 160, 500, 693])
   private let two = Candidate(id: "c2", bbox: [660, 896, 1060, 1429])
 
-  func testAutoCutPieceSkipsChooseAPatternButNotTheFrame() {
+  /// T131: the auto-cut piece skips Choose a pattern but is still cut with the frame (the server's
+  /// own cut is not clipped to it).
+  func testAutoCutPieceSkipsChooseAPatternButIsCutWithTheFrame() {
     let flow = CreateFlow()
     let cut = Artwork(id: "p1", cleanedUrl: "https://x/cut.png")
     flow.setPhoto(artwork: cut, candidates: [one], imageSize: size)
     XCTAssertEqual(flow.routeAfterFinding(artwork: cut), .adjustArea)
     XCTAssertEqual(flow.pieceCandidateId, "c1")
-    XCTAssertEqual(flow.pieceArtwork?.cleanedUrl, "https://x/cut.png")
-    XCTAssertEqual(flow.pieceCutFrom, "c1")
-    XCTAssertEqual(flow.pieceBox, AreaFrame.initial(piece: one, image: size).box,
-                   "kept with its starting frame: Use this area unchanged needs no new cut")
+    XCTAssertNil(flow.pieceArtwork, "no cut of ours yet")
+    let request = CutoutRequest.make(piece: one, area: AreaFrame.initial(piece: one, image: size))
+    XCTAssertEqual(flow.routeAfterArea(request), .makingCutout(.area(request)), "Use this area unchanged still cuts")
   }
 
   func testNoDrawingGoesStraightToTheFrame() {

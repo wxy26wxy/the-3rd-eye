@@ -140,7 +140,7 @@ final class CutoutTests: XCTestCase {
     flow.setPhoto(artwork: Artwork(id: "p1", status: "draft"), candidates: [one, two], imageSize: size)
     flow.pieceCandidateId = "c1"
     flow.pieceArtwork = Artwork(id: "p1", cleanedUrl: "u")
-    flow.changedArtwork = Artwork(id: "ch1", parentArtworkId: "p1")
+    flow.addChange(ChangeStep(artwork: Artwork(id: "ch1", parentArtworkId: "p1"), base: Artwork(id: "p1"), instruction: "Make it red"))
     flow.changeInstruction = "Make it red"
     flow.resetCutout(artwork: Artwork(id: "ch1"), candidates: [one, two], imageSize: size)
     flow.selectedCandidateIds = ["c1"]
@@ -165,7 +165,7 @@ final class CutoutTests: XCTestCase {
   /// A new photo: a single drawing starts picked; several wait for a choice; earlier changes go.
   func testSetPhotoPicksTheOnlyDrawingAndDropsChanges() {
     let flow = CreateFlow()
-    flow.changedArtwork = Artwork(id: "ch1")
+    flow.addChange(ChangeStep(artwork: Artwork(id: "ch1"), base: Artwork(id: "p0"), instruction: "x"))
     flow.changeInstruction = "x"
     flow.setPhoto(artwork: Artwork(id: "p1"), candidates: [one], imageSize: size)
     XCTAssertEqual(flow.pieceCandidateId, "c1")
@@ -182,8 +182,7 @@ final class CutoutTests: XCTestCase {
     let flow = CreateFlow()
     flow.pieceArtwork = Artwork(id: "p1", cleanedUrl: "u")
     XCTAssertEqual(flow.currentArt?.id, "p1")
-    flow.changeBase = flow.pieceArtwork
-    flow.changedArtwork = Artwork(id: "ch1", parentArtworkId: "p1")
+    flow.addChange(ChangeStep(artwork: Artwork(id: "ch1", parentArtworkId: "p1"), base: flow.pieceArtwork!, instruction: "x"))
     XCTAssertEqual(flow.currentArt?.id, "ch1")
     flow.resetChange()
     XCTAssertEqual(flow.currentArt?.id, "p1")

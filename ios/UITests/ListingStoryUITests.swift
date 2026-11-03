@@ -30,6 +30,9 @@ final class ListingStoryUITests: XCTestCase {
     let frame = app.buttons["Use this area"]
     XCTAssertTrue(frame.waitForExistence(timeout: 20), "Adjust the area")
     frame.tap()
+    let use = app.buttons["Use this"]
+    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 20), "Your cutout")
+    use.tap()
     let keep = app.buttons["Looks good as is"]
     XCTAssertTrue(keep.waitForExistence(timeout: 20))
     for _ in 0..<3 where !keep.isHittable { app.swipeUp() }
@@ -48,6 +51,27 @@ final class ListingStoryUITests: XCTestCase {
     XCTAssertFalse(drafting.exists)
     XCTAssertTrue(app.buttons["Approve and list it"].isEnabled)
     XCTAssertTrue(app.descendants(matching: .any)["listing-picture"].exists, "the product picture is shown")
+  }
+
+  /// T131: the listing agent runs by itself on the first visit in every mode (sign-in MULTI… turns
+  /// simple mode off): a reused draft without a listing name opens on the drafting card.
+  func testListingAgentRunsByItselfWithoutSimpleMode() throws {
+    let app = launch(code: "MULTI-CODE")
+    app.tabBars.buttons["My designs"].tap()
+    let tile = app.buttons["Blue bird on a branch, In the shop"]
+    XCTAssertTrue(tile.waitForExistence(timeout: 10))
+    tile.tap()
+    let make = app.buttons["Make a tote"]
+    XCTAssertTrue(make.waitForExistence(timeout: 10))
+    for _ in 0..<3 where !make.isHittable { app.swipeUp() }
+    make.tap()
+    let drafting = app.descendants(matching: .any)["listing-drafting"]
+    XCTAssertTrue(drafting.waitForExistence(timeout: 30), "the drafting card, without a tap on Improve with AI")
+    let name = app.textFields["Name"]
+    XCTAssertTrue(name.waitForExistence(timeout: 15))
+    XCTAssertEqual(name.value as? String, "Frog King Tote", "written by the listing agent")
+    XCTAssertEqual(try count("run"), 1)
+    XCTAssertEqual(try lastBody("run")["productId"] as? String, "pr-new-tote")
   }
 
   /// The Create tab's row says the video is there and opens My story video, whose "Record again"

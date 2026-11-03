@@ -272,7 +272,7 @@ def count(name):
     COUNTS[name] = COUNTS.get(name, 0) + 1
 # A sign-in code starting with ONE makes photo answers carry a single, already cut-out candidate.
 # NOCUT… makes every cleanup answer 422; DETAILS… makes it carry non-empty details.
-MODE = SessionDict("MODE", lambda: {"reframe": False, "nocutout": False, "single": False, "none": False, "fail": False,
+MODE = SessionDict("MODE", lambda: {"reframe": False, "lostchange": False, "nocutout": False, "single": False, "none": False, "fail": False,
                                     "details": False, "slow": False, "slowrun": False, "noprint": False, "nores": False,
                                     "novideo": False})
 CUTS = SessionDict("CUTS", lambda: {"n": 0})
@@ -324,7 +324,7 @@ def change_artwork(artwork_id, body):
     if again:
         return again
     count("change")
-    pause(LOSTCHANGE_DELAY_S if MODE["lostchange"] else None)
+    pause(LOSTCHANGE_DELAY_S if MODE.get("lostchange") else None)
     CHANGES["n"] += 1
     child_id = f"ch{CHANGES['n']}"
     differences = "" if "nothing" in instruction.lower() else "The sky is purple now; the bus and the trees are the same."

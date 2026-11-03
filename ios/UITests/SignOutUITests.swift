@@ -18,7 +18,7 @@ final class SignOutUITests: XCTestCase {
     XCTAssertTrue(details.waitToAppear(timeout: 5), "version, git sha and server are in the dialog")
 
     let confirm = signOutConfirm(app)
-    XCTAssertTrue(confirm.exists)
+    XCTAssertTrue(confirm.waitToAppear(timeout: 3))
     XCTAssertNotEqual(confirm.identifier, "sign-out", "the confirm, not the header button")
     confirm.tap()
     XCTAssertTrue(app.buttons["Start creating"].waitToAppear(timeout: 5), "signed out")

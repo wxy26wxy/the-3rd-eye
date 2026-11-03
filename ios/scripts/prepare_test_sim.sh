@@ -6,6 +6,10 @@
 #   scripts/prepare_test_sim.sh <sim id>
 set -euo pipefail
 sim="${1:?usage: scripts/prepare_test_sim.sh <sim id>}"
+# Only a full device UUID, so it can never act on "booted" or on another simulator by a partial match.
+if ! [[ "$sim" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then
+  echo "prepare_test_sim: give the simulator's full UUID (xcrun simctl list devices), not '$sim'" >&2; exit 2
+fi
 state=$(xcrun simctl list devices | grep "$sim" | grep -o "(Booted)" || true)
 [ -n "$state" ] || xcrun simctl boot "$sim"
 xcrun simctl bootstatus "$sim" >/dev/null

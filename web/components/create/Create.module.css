@@ -400,6 +400,7 @@
 
 /* Round 4 ruling 2: Change it and Before and after show the product photo, faded in once it is made. */
 .productPhoto { padding: 0; }
+.productPhoto .artLabel { z-index: 1; }
 .productPhoto .artPreviewImg { width: 100%; height: 100%; aspect-ratio: auto; }
 .productPhoto img { animation: productFadeIn var(--motion-slow) var(--motion-easing) both; }
 @keyframes productFadeIn { from { opacity: 0; } to { opacity: 1; } }

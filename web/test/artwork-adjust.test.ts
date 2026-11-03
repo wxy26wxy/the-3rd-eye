@@ -185,6 +185,30 @@ describe("cleanupArtwork", () => {
     expect(alpha.data[60 * alpha.width + 40]).toBe(1); // middle of the kept area is opaque
   });
 
+  it("Your cutout's Add area / Remove area on the piece: points + the frame + clipToBox (T129)", async () => {
+    const artwork = await setup();
+    // the piece is k1 + a separate blob at 130..150 (a negative point drops it whole); SAM adds 100..170 × 40..80
+    const k1plus = rect(20, 20, 120, 120);
+    for (let y = 90; y < 110; y++) for (let x = 130; x < 150; x++) k1plus.data[y * W + x] = 1;
+    files.set("m1.png", await maskToPng(k1plus));
+    state.products = [{ id: "p1" }];
+    state.segmentResult = { mask: rect(100, 40, 170, 80), bbox: [100, 40, 170, 80], score: 0.9, svgPath: "" };
+    const box: [number, number, number, number] = [10, 10, 160, 130]; // the frame: SAM's part past 160 is trimmed
+    const points = [{ x: 140, y: 60, label: "positive" as const }, { x: 140, y: 100, label: "negative" as const }];
+    const out = await cleanupArtwork(artwork, { candidateIds: ["k1"], points, box, clipToBox: true });
+    expect(state.segmentCalls).toEqual([{ points, box }]);
+    expect(state.rebuilt).toEqual(["p1"]);
+    const cleaned = files.get((out.artwork as unknown as { cleanedUrl: string }).cleanedUrl)!;
+    const meta = await sharp(cleaned).metadata();
+    // k1 (20..120 × 20..120) ∪ SAM clipped to 100..160 × 40..80 → 20..160 × 20..120 (140×100); the blob is gone
+    expect(meta.width! / meta.height!).toBeCloseTo(140 / 100, 1);
+    const alpha = await maskFromAlpha(cleaned);
+    const s = alpha.width / 140;
+    const at = (x: number, y: number) => alpha.data[Math.round((y - 20) * s) * alpha.width + Math.round((x - 20) * s)];
+    expect(at(150, 60)).toBe(1); // the added area, inside the frame
+    expect(at(140, 100)).toBe(0); // the removed blob
+  });
+
   it("clipToBox unset or false: the box only adds, the piece is not trimmed", async () => {
     for (const clipToBox of [undefined, false]) {
       const artwork = await setup();

@@ -333,3 +333,10 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - `docs/deployments.md`: entry "v0.8 (tag to follow at <sha of the docs merge>, 2026-11-03)": migrations 0004 and 0005 applied and the preview backfill run on 2026-11-03; production promotion and TestFlight 0.5.0 build 3 pending (product owner). README: Adjust the area screenshot (560 px, 96 KB, from the iOS simulator against its own mock) and the "Try it" steps follow the new flow.
 - Verify: `bash scripts/check_clean.sh` prints ok; links and image paths checked by hand.
 - Unfinished: the VoiceOver and keyboard scripts are not run by ear on a device; the tag `v0.8` and the sha in the deployments entry are filled in after the freeze; the screenshot was taken from the UI test's attachment (the screen after one corner drag) because `simctl io` cannot stop mid-test.
+
+## T129 backend · Cleanup on a change result, round 2b flow (2026-11-03)
+- `cleanup` already accepts a change result (candidates from `cutout`, SAM on the edited picture, product files rebuilt); the `409 not_a_change` guard stays on `cutout`. Pinned with tests for points + frame + `clipToBox` on a piece and for a negative point + whole-picture box on a change result.
+- Mock: `POST /artworks/ch<n>/cleanup` answers the change row and echoes the body in `/__mock/last/cleanup`; `GET /artworks/ch<n>` has candidates after its cutout.
+- `docs/api.md`: "Creator flow (round 2b)" lists the calls per step for web and iOS; the Create summary follows the new order. `docs/handoffs/backend.md` T129 entry.
+- Verify: `pnpm test`, `pnpm lint`, `pnpm build`, `bash scripts/check_clean.sh`.
+

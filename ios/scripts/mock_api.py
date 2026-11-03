@@ -27,6 +27,10 @@ containing "nothing" gives description.differences "" (the app shows its own cop
 a change result ch<n> (any other id: 409 not_a_change, as the server); sign-in NOCUT... makes it 422, and
 NOCUTOUT... makes only it 422 (Adjust the area still cuts; T122). Cleanup names the piece it was
 sent ("Cut-out of cand-1").
+Your cutout after a change (T129): POST /artworks/ch<n>/cleanup takes the same body (points, the
+whole-picture box or the frame, clipToBox) and answers that change row with the new cut (404 for an
+unknown ch<n>); the body is in GET /__mock/last/cleanup. GET /artworks/ch<n> has candidates and imageSize
+once its cutout ran (before: no candidates, as the server).
 change answers 201 like the server. GET /__mock/last/<change|cutout> as above.
 Sticker preview, listing run, story video (T121): every sticker product carries previewUrl
 (<base>/sticker-preview.png, a 240 px bordered die-cut sticker on transparency; totes: null).
@@ -166,7 +170,7 @@ def photo_artwork(cleaned=None, alt=None):
 
 
 # Change it (T111): each change makes a new child row ch1, ch2, ... (the last body is in LAST["change"]).
-CHANGES = {"n": 0, "rows": {}}
+CHANGES = {"n": 0, "rows": {}, "cut": set()}
 
 
 def change_artwork(artwork_id, body):
@@ -202,15 +206,31 @@ def cutout_artwork(artwork_id, body):
            "cutPathSvg": "M10 10 L90 10 L90 90 L10 90 Z", "lastError": None}
     row.pop("previewUrl", None)
     CHANGES["rows"][artwork_id] = {**row, "previewUrl": base.get("previewUrl")}
+    CHANGES["cut"].add(artwork_id)
     return {"artwork": row, "candidates": CANDIDATES, "imageSize": IMAGE_SIZE}
 
 
 def change_detail(artwork_id):
+    """GET a change result: like the server, its candidates exist only after its cutout."""
     row = CHANGES["rows"].get(artwork_id)
     if not row:
         raise MockError(404, "not_found", "no such artwork")
-    return {"artwork": {k: v for k, v in row.items() if k != "previewUrl"}, "candidates": CANDIDATES,
+    cands = CANDIDATES if artwork_id in CHANGES["cut"] else []
+    return {"artwork": {k: v for k, v in row.items() if k != "previewUrl"}, "candidates": cands,
             "imageSize": IMAGE_SIZE, "originalUrl": f"{BASE}/img.png", "previewUrl": row.get("previewUrl")}
+
+
+def change_cleanup(artwork_id, body):
+    """Your cutout after a change (T129): cleanup on ch<n> (points, the whole-picture box or the frame,
+    clipToBox) answers that change row with the new cut; the body is echoed in /__mock/last/cleanup."""
+    base = CHANGES["rows"].get(artwork_id)
+    if not base:
+        raise MockError(404, "not_found", "no such artwork")
+    result = cleanup(body)
+    row = {**base, "cleanedUrl": result["cleanedUrl"], "altText": result["altText"], "status": "ready",
+           "cutPathSvg": "M10 10 L90 10 L90 90 L10 90 Z", "lastError": None}
+    CHANGES["rows"][artwork_id] = row
+    return {**{k: v for k, v in row.items() if k != "previewUrl"}, "details": result["details"]}
 
 
 def create_artwork(body):
@@ -427,7 +447,7 @@ PATTERN_ROUTES = [
     ("POST", re.compile(r"^/api/v1/artworks/(d\d+)/cleanup$"), design_cleanup),
     ("POST", re.compile(r"^/api/v1/artworks/([\w-]+)/change$"), change_artwork),
     ("POST", re.compile(r"^/api/v1/artworks/([\w-]+)/cutout$"), cutout_artwork),
-    ("POST", re.compile(r"^/api/v1/artworks/(ch\d+)/cleanup$"), lambda i, b: {**cleanup(b), "id": i, "parentArtworkId": CHANGES["rows"].get(i, {}).get("parentArtworkId")}),
+    ("POST", re.compile(r"^/api/v1/artworks/(ch\d+)/cleanup$"), change_cleanup),
     ("GET", re.compile(r"^/api/v1/artworks/(ch\d+)$"), lambda i, b: change_detail(i)),
     ("POST", re.compile(r"^/api/v1/listings/([\w-]+)/approve$"), approve),
     ("POST", re.compile(r"^/api/v1/listings/([\w-]+)/run$"), run_listing),
@@ -454,7 +474,7 @@ def sign_in(body):
     STORY["url"], STORY["vtt"] = (None, None) if MODE["novideo"] else (STORY_VIDEO_PATH, STORY_VTT)
     LAST.clear()
     DESIGNS["list"] = designs()
-    CHANGES["n"], CHANGES["rows"] = 0, {}
+    CHANGES["n"], CHANGES["rows"], CHANGES["cut"] = 0, {}, set()
     creator = {**CREATOR, "accessPrefs": {**CREATOR["accessPrefs"], "simpleMode": not multi}}
     return {"token": "c-test.mock", "creator": creator}
 

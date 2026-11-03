@@ -349,7 +349,8 @@ export type CleanupHint = { candidateIds?: string[]; points?: SegmentPoint[]; bo
  * holds a negative point (no model call). SAM piece: with a box or a positive point, one SAM
  * object prompted with the box and all points. The cut is the union of both; with `clipToBox` (and a
  * box) it is then cut to the box, so a frame smaller than the piece trims it (T126, "Adjust the
- * area"). Products made from the artwork are rebuilt.
+ * area"). Products made from the artwork are rebuilt. A change result is re-cut the same way (T129):
+ * its original is the edited picture and its candidates are the ones `cutoutArtwork` stored.
  */
 export async function cleanupArtwork(artwork: ArtworkRow, hint: CleanupHint, task = "T080"): Promise<RecutResult> {
   if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");

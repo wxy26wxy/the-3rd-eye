@@ -13,16 +13,17 @@ import { Disclosures, MeetMakerCard, MoreFrom, PaysArtistNote } from "./ProductP
 import styles from "./Product.module.css";
 
 /**
- * Gallery pictures in board order (4011:4378): the sticker as it will look (the bordered preview, R1;
- * the cutout until it exists) on the accent, the art on a white card, the photo, the story tag.
+ * Gallery pictures in board order (4011:4378): the AI product photo first (round 3 ruling 1, stickers
+ * too; cover), then for a sticker the bordered die-cut preview contained on the accent ("sticker
+ * tone"; the cutout when it does not exist yet), the art on a white card, the story tag.
  */
 export function gallerySlides(p: Pick<ProductDetail, "type" | "artworkUrl" | "mockupUrl" | "previewUrl" | "creator">): GallerySlide[] {
-  const first = p.previewUrl ?? p.artworkUrl;
+  const preview = p.previewUrl ?? p.artworkUrl;
   const slides: (GallerySlide | null)[] = p.type === "sticker"
     ? [
-        first ? { kind: "image", src: first, fit: "contain", tone: "accent", sticker: !!p.previewUrl } : null,
-        p.artworkUrl ? { kind: "image", src: p.artworkUrl, fit: "contain", tone: "alt", card: true } : null,
         p.mockupUrl ? { kind: "image", src: p.mockupUrl, fit: "cover", tone: "alt" } : null,
+        preview ? { kind: "image", src: preview, fit: "contain", tone: "accent", sticker: !!p.previewUrl } : null,
+        p.artworkUrl ? { kind: "image", src: p.artworkUrl, fit: "contain", tone: "alt", card: true } : null,
       ]
     : [
         p.mockupUrl ? { kind: "image", src: p.mockupUrl, fit: "cover", tone: "white" } : null,

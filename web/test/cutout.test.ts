@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boxRescueArtworkId, percentRect, productNotice, usableSize } from "@/components/create/cutout";
+import { percentRect, productNotice, usableSize } from "@/components/create/cutout";
 import { api, ApiError } from "@/components/create/api";
 
 const IMG = { w: 1200, h: 1600 };
@@ -31,13 +31,7 @@ describe("productNotice", () => {
   });
 });
 
-describe("zero-pieces box path", () => {
-  it("boxRescueArtworkId reads the artwork id of a 422 no_drawing_found only", () => {
-    expect(boxRescueArtworkId(new ApiError(422, "no_drawing_found", "x", { artworkId: "a1" }))).toBe("a1");
-    expect(boxRescueArtworkId(new ApiError(422, "no_drawing_found", "x"))).toBeNull();
-    expect(boxRescueArtworkId(new ApiError(504, "deadline_exceeded", "x", { artworkId: "a1" }))).toBeNull();
-    expect(boxRescueArtworkId(new Error("x"))).toBeNull();
-  });
+describe("API error extras", () => {
   it("the web ApiError keeps the extra fields of the API error (artworkId)", async () => {
     const realFetch = globalThis.fetch;
     globalThis.fetch = (async () => Response.json({ error: { code: "no_drawing_found", message: "Nothing found", artworkId: "a9" } }, { status: 422 })) as typeof fetch;
@@ -46,7 +40,6 @@ describe("zero-pieces box path", () => {
       expect(err).toBeInstanceOf(ApiError);
       expect((err as ApiError).artworkId).toBe("a9");
       expect((err as ApiError).message).toBe("Nothing found");
-      expect(boxRescueArtworkId(err)).toBe("a9");
     } finally {
       globalThis.fetch = realFetch;
     }

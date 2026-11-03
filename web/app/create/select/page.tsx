@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** v0.8: picking a piece is Choose a pattern; its cutout tools moved to Your cutout. */
+/** v0.8: the old Select screen; round 3: Adjust the area (detection inside the frame), then Your cutout. */
 export default function Page() {
-  redirect("/create/pattern");
+  redirect("/create/adjust");
 }

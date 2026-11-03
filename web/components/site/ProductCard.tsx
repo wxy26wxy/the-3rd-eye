@@ -9,17 +9,26 @@ export type TileTone = (typeof TILE_TONES)[number];
 export const toneAt = (i: number): TileTone => TILE_TONES[i % TILE_TONES.length];
 
 /**
+ * The tile picture (round 3 ruling 1): the AI product photo for both types (cover); without one, a
+ * sticker's bordered preview or the cut-out art, contained (never cropped).
+ */
+export function tilePicture(p: Pick<ShopProduct, "type" | "mockupUrl" | "previewUrl" | "artworkUrl">): { src: string | null; contained: boolean } {
+  if (p.mockupUrl) return { src: p.mockupUrl, contained: false };
+  if (p.type === "sticker") { const src = p.previewUrl ?? p.artworkUrl; return { src, contained: !!src }; }
+  return { src: p.artworkUrl, contained: false };
+}
+
+/**
  * Web product card, Size=Tile (4006:4357): a tinted picture with the STORY TAG pill, then title and
- * price on one row and "STICKER · artist · studio" under it. A sticker shows its bordered die-cut
- * preview (R1, `previewUrl`; the cutout until it exists) contained on the tint, never cropped; a tote
- * (or a sticker with neither) shows its mockup photo filling the picture. The title link is
- * the accessible name; the whole tile is its click target.
+ * price on one row and "STICKER · artist · studio" under it. Every product shows its AI product photo
+ * (`mockupUrl`, round 3 ruling 1: stickers too) filling the picture; a sticker without one shows its
+ * bordered die-cut preview (`previewUrl`, else the cutout) contained on the tint, never cropped. The
+ * title link is the accessible name; the whole tile is its click target.
  */
 export function ProductCard({ product, headingLevel = "h3", tone = "accent" }: { product: ShopProduct; headingLevel?: "h2" | "h3"; tone?: TileTone }) {
   const H = headingLevel;
   const typeLabel = product.type === "sticker" ? m.common.sticker : m.common.tote;
-  const cutout = product.type === "sticker" ? product.previewUrl ?? product.artworkUrl : null;
-  const src = cutout ?? product.mockupUrl ?? product.artworkUrl;
+  const { src, contained: cutout } = tilePicture(product);
   const alt = product.altText ?? fmt(m.product.mockupAlt, { title: product.title, type: typeLabel });
   const byLine = [product.creator.displayName, product.creator.studioName].filter(Boolean).join(m.common.listSeparator);
   return (

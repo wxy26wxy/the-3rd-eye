@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/Button";
 import { Title } from "@/components/ui/Text";
 import { NoticeCard } from "../cards";
 import { CreateScreen, MissingState } from "../CreateScreen";
-import { cutoutOf, productPicture, resetDraft, useCreate } from "../store";
+import { cutoutOf, pictureOf, resetDraft, useCreate } from "../store";
 import styles from "../Create.module.css";
 
 /**
  * Your sticker / tote bag is ready (boards `2030:3726`, `4038:4644` tote, notice `2038:4443`): logo (no Back), centred title, the
- * product picture (the bordered sticker preview, R1; the tote's AI mockup photo, T130 ruling), the cutout notice card when the last cleanup reported one, the question, and
+ * product picture (the AI product photo for both types, round 3 ruling 1; a sticker's bordered preview until it exists), the cutout notice card when the last cleanup reported one, the question, and
  * Yes, list it! / Not now in the bar.
  */
 export function Ready() {
@@ -19,14 +19,15 @@ export function Ready() {
   if (ready && !p) return <MissingState />;
   const tote = (p?.type ?? draft.product) === "tote";
   const art = cutoutOf(draft, p?.artworkId);
-  // A sticker: the bordered preview with a soft shadow; a tote: its mockup photo on the grey card.
+  // The AI photo on the grey card; a sticker preview with a soft shadow so its white border reads.
+  const pic = pictureOf(p, art);
   const picture = (
     <ArtImage
-      src={productPicture(p, art)}
+      src={pic.src}
       alt={art?.altText ?? fmt(m.create.ready.mockupAlt, { product: tote ? m.common.tote : m.common.sticker })}
       placeholder={m.common.imageMissing}
       eager
-      className={[styles.readyArt, tote ? "" : styles.stickerShadow].filter(Boolean).join(" ")}
+      className={[styles.readyArt, pic.kind === "sticker" ? styles.stickerShadow : ""].filter(Boolean).join(" ")}
     />
   );
   return (
@@ -40,7 +41,7 @@ export function Ready() {
         </>
       }
     >
-      {tote ? <div className={styles.readyCard}>{picture}</div> : picture}
+      {pic.kind === "sticker" ? picture : <div className={styles.readyCard}>{picture}</div>}
       {draft.cutoutNotice ? <NoticeCard>{draft.cutoutNotice}</NoticeCard> : null}
       <Title as="p" size="l">{m.create.ready.question}</Title>
     </CreateScreen>

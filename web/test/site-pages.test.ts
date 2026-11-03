@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { fmt, m } from "@/components/messages";
 import { ASSETS } from "@/lib/assets";
 import type { ShopProduct } from "@/lib/db/queries.contract";
-import { ProductCard, toneAt } from "@/components/site/ProductCard";
+import { ProductCard, tilePicture, toneAt } from "@/components/site/ProductCard";
 import { FILTERS, FilterTabs } from "@/components/site/FilterTabs";
 import { Hero, HeroChip } from "@/components/shop/Hero";
 import { HowSteps, PhonePreview } from "@/components/shop/HowSteps";
@@ -69,18 +69,22 @@ describe("Shop v3 (board 2018:1789)", () => {
     expect(out).toContain(`>${m.common.sticker}</span> · Rosa M. · Sunny Studio`);
     expect(out).not.toMatch(/Made by voice/i);
     expect(out).toMatch(/class="[^"]*soft/);
-    // A sticker shows its cutout (contained); the default alt names the piece.
-    expect(out).toMatch(/<img src="https:\/\/blob\.example\/art\.png"[^>]*class="[^"]*cutout/);
+    // A sticker shows its AI product photo (round 3 ruling 1); the default alt names the piece.
+    expect(out).toMatch(/<img src="https:\/\/blob\.example\/mock\.png"[^>]*class="[^"]*photo/);
     expect(out).toContain(`alt="${fmt(m.product.mockupAlt, { title: product.title, type: m.common.sticker })}"`);
     // A tote shows its mockup photo.
     const tote = html(createElement(ProductCard, { product: { ...product, type: "tote" } as ShopProduct }));
     expect(tote).toMatch(/<img src="https:\/\/blob\.example\/mock\.png"[^>]*class="[^"]*photo/);
   });
 
-  it("R1: a sticker tile shows the bordered preview when it exists, contained (never cropped), the cutout until then", () => {
-    const out = html(createElement(ProductCard, { product: { ...product, previewUrl: "https://blob.example/preview.png" } }));
+  it("round 3 ruling 1: a sticker tile shows the AI photo first; without one the bordered preview, contained (never cropped), the cutout until then", () => {
+    const withBoth = html(createElement(ProductCard, { product: { ...product, previewUrl: "https://blob.example/preview.png" } }));
+    expect(withBoth).toMatch(/<img src="https:\/\/blob\.example\/mock\.png"[^>]*class="[^"]*photo/);
+    const out = html(createElement(ProductCard, { product: { ...product, mockupUrl: null, previewUrl: "https://blob.example/preview.png" } }));
     expect(out).toMatch(/<img src="https:\/\/blob\.example\/preview\.png"[^>]*class="[^"]*cutout/);
-    expect(html(createElement(ProductCard, { product: { ...product, previewUrl: null } }))).toContain('src="https://blob.example/art.png"');
+    expect(html(createElement(ProductCard, { product: { ...product, mockupUrl: null, previewUrl: null } }))).toMatch(/<img src="https:\/\/blob\.example\/art\.png"[^>]*class="[^"]*cutout/);
+    expect(tilePicture({ type: "tote", mockupUrl: null, previewUrl: null, artworkUrl: "/a.png" })).toEqual({ src: "/a.png", contained: false });
+    expect(tilePicture({ type: "sticker", mockupUrl: null, previewUrl: null, artworkUrl: null })).toEqual({ src: null, contained: false });
     // a tote never uses a preview
     expect(html(createElement(ProductCard, { product: { ...product, type: "tote", previewUrl: "https://blob.example/preview.png" } }))).toContain('src="https://blob.example/mock.png"');
     const css = readFileSync(resolve(__dirname, "../components/site/ProductCard.module.css"), "utf8");

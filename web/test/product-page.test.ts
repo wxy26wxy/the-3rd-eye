@@ -87,11 +87,16 @@ describe("Product page v3 (board 2019:2004)", () => {
     expect(out.match(/<button[^>]*><span[^>]*aria-hidden="true">/g)).toHaveLength(4);
   });
 
-  it("R1: gallery slide 1 of a sticker is the bordered preview (contained), the cutout until it exists", () => {
+  it("round 3 ruling 1: a sticker gallery leads with the AI photo (cover), slide 2 is the bordered preview (contained, accent); the cutout until it exists", () => {
     const withPreview = gallerySlides({ ...product, previewUrl: "https://blob.example/preview.png" });
-    expect(withPreview[0]).toMatchObject({ kind: "image", src: "https://blob.example/preview.png", fit: "contain", sticker: true });
-    expect(gallerySlides({ ...product, previewUrl: null })[0]).toMatchObject({ kind: "image", src: product.artworkUrl, fit: "contain" });
-    expect(html(createElement(Gallery, { slides: withPreview, alt: "x" }))).toMatch(/<img src="https:\/\/blob\.example\/preview\.png"[^>]*class="[^"]*slideContain[^"]*slideSticker/);
+    expect(withPreview[0]).toMatchObject({ kind: "image", src: product.mockupUrl, fit: "cover" });
+    expect(withPreview[1]).toMatchObject({ kind: "image", src: "https://blob.example/preview.png", fit: "contain", tone: "accent", sticker: true });
+    expect(withPreview.map((s) => s.kind === "image" ? s.src : s.kind)).toEqual([product.mockupUrl, "https://blob.example/preview.png", product.artworkUrl, "tag"]);
+    expect(gallerySlides({ ...product, previewUrl: null })[1]).toMatchObject({ kind: "image", src: product.artworkUrl, fit: "contain" });
+    // no AI photo yet: the preview leads
+    const noPhoto = gallerySlides({ ...product, mockupUrl: null, previewUrl: "https://blob.example/preview.png" });
+    expect(noPhoto[0]).toMatchObject({ kind: "image", src: "https://blob.example/preview.png", fit: "contain", sticker: true });
+    expect(html(createElement(Gallery, { slides: noPhoto, alt: "x" }))).toMatch(/<img src="https:\/\/blob\.example\/preview\.png"[^>]*class="[^"]*slideContain[^"]*slideSticker/);
     // the slide and thumbnail image must not keep its own aspect height as a grid item (review T123 I1)
     const css = readFileSync(resolve(__dirname, "../components/product/Product.module.css"), "utf8");
     expect(css).toMatch(/\n\.slideContain \{[^}]*min-width: 0; min-height: 0;[^}]*object-fit: contain/);

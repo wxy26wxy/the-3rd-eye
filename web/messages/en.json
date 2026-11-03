@@ -443,22 +443,16 @@
       "pickCamera": "Open the camera",
       "pickUpload": "Choose a picture",
       "uploading": "Uploading your picture…",
-      "finding": "Finding your drawing…",
+      "finding": "Getting your photo ready…",
       "preview": "Your picture",
       "retake": "Retake",
-      "drawBox": "Draw a box around your drawing",
       "error": "We couldn't use that picture. Try another one.",
       "mascotAlt": "Our green mascot holds up a drawing, with tote bags and stickers floating around."
     },
     "select": {
-      "title": "Tap the one you want.",
-      "copyOne": "We found one drawing in your photo. Use it to change and turn into a {product}.",
-      "copyMany": "We found {n} drawings in your photo. Pick one to change and turn into a {product}.",
       "groupLabel": "Drawings found",
       "candidate": "Piece {n}",
-      "photoLabel": "Your photo with the pieces we found",
       "loadingPhoto": "Getting your photo…",
-      "photoMissing": "We couldn't show your photo. You can still pick pieces below.",
       "applying": "Cutting out your art…",
       "applied": "Your cutout is ready. Here it is.",
       "cutoutAlt": "Your cutout",
@@ -489,7 +483,6 @@
     "adjust": {
       "title": "Adjust the area",
       "copy": "Drag the corners so the frame covers your drawing.",
-      "copyNone": "We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it.",
       "photoLabel": "Your photo",
       "use": "Use this area",
       "reset": "Reset",
@@ -533,7 +526,9 @@
       "nameRequired": "Please give it a name.",
       "priceInvalid": "Please enter a price like 5 or 5.50.",
       "traceNote": "note",
-      "draftingHint": "We'll show the name, price and description when it's ready."
+      "draftingHint": "We'll show the name, price and description when it's ready.",
+      "redo": "Redo",
+      "printWarnContrast": "the colors may look faint"
     },
     "story": {
       "title": "Make your story video!",
@@ -576,7 +571,11 @@
       "noDrawing": "We could not find a drawing in that picture. Try a photo with the drawing on plain paper, in good light.",
       "timeout": "That took too long. Your work is saved, so you can try again.",
       "retry": "Try again",
-      "retake": "Retake the photo"
+      "retake": "Retake the photo",
+      "printContrast": "Some colors in your art are close together, so it may look faint when printed. You can use it anyway or re-do the cutout.",
+      "printResolution": "This picture is too small to print sharply. Re-do the cutout with more of the photo, or use a bigger photo.",
+      "useAnyway": "Use anyway",
+      "redoCutout": "Re-do the cutout"
     },
     "cutout": {
       "title": "Your cutout",

@@ -50,15 +50,12 @@ export type Draft = {
   candidates?: Candidate[];
   /** Pixels of the stored original for `photoArtworkId` (the space of `Candidate.bbox`). */
   imageSize?: ImageSize | null;
-  /**
-   * What Adjust the area frames (R2): the photo artwork and the piece (picked on Choose a pattern,
-   * `fromPattern`, or the single piece the server found); no `candidateId` when no drawing was
-   * found: the frame starts at the whole photo.
-   */
-  area?: { artworkId: string; candidateId?: string; fromPattern?: boolean };
+  /** What Adjust the area frames (round 3): the photo artwork; the frame starts at the whole photo. */
+  area?: { artworkId: string };
+  /** The last `detect` found nothing in the frame: Adjust the area says to move or grow it. */
+  areaNotFound?: boolean;
   /** The cut piece (Adjust the area's `cleanup`); the same row as `photoArtworkId`. */
   pieceArtworkId?: string;
-  pieceCandidateId?: string;
   pieceUrl?: string | null;
   pieceAlt?: string | null;
   pieceSpoken?: string | null;
@@ -80,7 +77,7 @@ export type Draft = {
    * The cut "Use this area" asked for, run by Making your cutout (T130); `nonce` is new per "Use
    * this area", so a kept-mounted /create/cutout never re-sends an older one.
    */
-  pendingArea?: { artworkId: string; candidateId?: string; box: Box; nonce: string };
+  pendingArea?: { artworkId: string; box: Box; nonce: string };
   /** The row that "Your cutout" works on (the piece, or the change result after `cutout`). */
   cutoutArtworkId?: string;
   /** Every cut made in this draft, by artwork (a change result is cut once, T130). */
@@ -89,6 +86,10 @@ export type Draft = {
   cutoutNotice?: string;
   /** The artwork the product was made from. */
   artworkId?: string;
+  /** `clientRequestId` of the `POST /products` for the current "Use this" (Try again reuses it). */
+  productRequestId?: string;
+  /** Nonce of the listing agent run on screen; a result for another one (Redo) is dropped. */
+  listingRun?: string;
   productRecord?: Product;
   /** The cut-out (`cleanedUrl`) `productRecord`'s files were made from; another one means the server rebuilt them. */
   productCut?: string | null;
@@ -187,9 +188,13 @@ export function once<T>(key: string, run: () => Promise<T>): Promise<T> {
   return p;
 }
 
-/** POST /products for the chosen artwork and remember it (`attempt` makes a retry a new request). */
-export async function makeProduct(artworkId: string, type: ProductType, attempt = 0, cut: string | null = null): Promise<Product> {
-  const product = await once(`product:${artworkId}:${type}:${attempt}`, () => api<Product>("products", { json: { artworkId, type } }));
+/**
+ * POST /products for the chosen artwork and remember it (`attempt` makes a retry a new request; the
+ * same `clientRequestId` on a retry returns the row the server already made).
+ */
+export async function makeProduct(artworkId: string, type: ProductType, attempt = 0, cut: string | null = null, clientRequestId?: string): Promise<Product> {
+  const json = clientRequestId ? { artworkId, type, clientRequestId } : { artworkId, type };
+  const product = await once(`product:${artworkId}:${type}:${attempt}`, () => api<Product>("products", { json }));
   updateDraft({ productRecord: product, productCut: cut, artworkId, listing: undefined, trace: undefined });
   return product;
 }
@@ -207,11 +212,15 @@ export function productToMake(d: Draft): "make" | "reuse" | "refresh" {
   return cut && d.productCut !== undefined && d.productCut !== cut ? "refresh" : "reuse";
 }
 
-/** The product's pictures again after a rebuild (`GET /artworks` carries each product's `mockupUrl` / `previewUrl`). */
+/**
+ * The product's pictures again after a rebuild (`GET /artworks` carries each product's `mockupUrl` /
+ * `previewUrl`). The rebuild made the old listing's print check stale, so the listing is dropped and
+ * Get it ready for the shop drafts it again.
+ */
 export async function refreshProduct(p: Product, cut: string | null): Promise<void> {
   const res = await api<{ artworks: { id: string; products: { id: string; mockupUrl: string | null; previewUrl: string | null }[] }[] }>("artworks");
   const fresh = res.artworks.find((a) => a.id === p.artworkId)?.products.find((x) => x.id === p.id);
-  updateDraft({ productRecord: fresh ? { ...p, mockupUrl: fresh.mockupUrl, previewUrl: fresh.previewUrl } : p, productCut: cut });
+  updateDraft({ productRecord: fresh ? { ...p, mockupUrl: fresh.mockupUrl, previewUrl: fresh.previewUrl } : p, productCut: cut, listing: undefined, trace: undefined, listingRun: undefined });
 }
 
 /** The change on screen, when there is one. */
@@ -248,11 +257,13 @@ export function withCutout(d: Draft, cut: CutoutState): Partial<Draft> {
 }
 
 /**
- * The product picture creator screens show: a sticker's bordered preview (R1), a tote's Muse Image
- * mockup (T130 ruling: the AI tote photo again), else the cut-out art.
+ * The product picture creator screens show (Ready, Listing; round 3 ruling 1): the AI product photo
+ * (`mockupUrl`) for both types, else a sticker's bordered preview, else the cut-out art; with how to
+ * show it: "photo" (the AI photo, on the grey card), "sticker" (the bordered
+ * preview, soft shadow so its white border reads), "art" (the cut-out).
  */
-export function productPicture(p: Pick<Product, "type" | "previewUrl" | "mockupUrl"> | null | undefined, cut: Pick<CutoutState, "cleanedUrl"> | null | undefined): string | null {
-  if (p?.type === "tote" && p.mockupUrl) return p.mockupUrl;
-  if (p && p.type !== "tote" && p.previewUrl) return p.previewUrl;
-  return cut?.cleanedUrl ?? null;
+export function pictureOf(p: Pick<Product, "type" | "previewUrl" | "mockupUrl"> | null | undefined, cut: Pick<CutoutState, "cleanedUrl"> | null | undefined): { src: string | null; kind: "photo" | "sticker" | "art" } {
+  if (p?.mockupUrl) return { src: p.mockupUrl, kind: "photo" };
+  if (p && p.type !== "tote" && p.previewUrl) return { src: p.previewUrl, kind: "sticker" };
+  return { src: cut?.cleanedUrl ?? null, kind: "art" };
 }

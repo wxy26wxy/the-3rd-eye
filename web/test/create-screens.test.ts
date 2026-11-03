@@ -1,18 +1,19 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { fmt, m } from "@/components/messages";
 import { YourCutoutView, type YourCutoutViewProps } from "@/components/create/screens/YourCutoutView";
+import { retryOf } from "@/components/create/screens/YourCutout";
+import { revealError } from "@/components/create/errors";
+import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { CutoutPhoto } from "@/components/create/screens/CutoutPhoto";
 import { AdjustAreaView, type AdjustAreaViewProps } from "@/components/create/screens/AdjustAreaView";
 import { AreaFrame } from "@/components/create/screens/AreaFrame";
 import { sizeText } from "@/components/create/screens/AdjustArea";
 import { StoryVideoRowView } from "@/components/create/StoryVideoRow";
 import { MascotPicture } from "@/components/create/art";
-import { ListingView, LISTING_FORM, type ListingViewProps } from "@/components/create/screens/ListingView";
-import { ChoosePatternView, type ChoosePatternViewProps } from "@/components/create/screens/ChoosePatternView";
+import { ListingView, LISTING_FORM, printStatus, type ListingViewProps } from "@/components/create/screens/ListingView";
 import { ChangeItView, CHANGE_FORM, type ChangeItViewProps } from "@/components/create/screens/ChangeItView";
 import { BeforeAfterView, type BeforeAfterViewProps } from "@/components/create/screens/BeforeAfterView";
 import { MakingCutoutView } from "@/components/create/screens/MakingCutoutView";
@@ -40,7 +41,10 @@ const before = (out: string, a: string, b: string) => {
 
 const cutOn = { mode: noop, addAround: noop, removeMark: noop, clearMarks: noop, showCut: noop, fixEdges: noop, use: noop, apply: noop, retry: noop, startOver: noop };
 function cutoutView(over: Partial<YourCutoutViewProps> = {}): string {
-  const props: YourCutoutViewProps = {
+  return html(createElement(YourCutoutView, { ...cutoutProps(), ...over }));
+}
+function cutoutProps(): YourCutoutViewProps {
+  return {
     uid: "u",
     title: m.create.cutout.title,
     lead: m.create.cutout.copyOriginal,
@@ -59,9 +63,7 @@ function cutoutView(over: Partial<YourCutoutViewProps> = {}): string {
     canUse: true,
     canApply: false,
     on: cutOn,
-    ...over,
   };
-  return html(createElement(YourCutoutView, props));
 }
 /** Fix the edges open: the picture, no saved cut on screen. */
 const fixing = (over: Partial<YourCutoutViewProps> = {}) => cutoutView({ cut: null, lead: m.create.cutout.adjustCopy, photo: createElement("div", null, "PHOTO"), ...over });
@@ -78,6 +80,56 @@ describe("Your cutout view (T130: the cut, then Fix the edges with Add area / Re
     before(out, t.use, m.common.startOver);
     for (const gone of [t.apply, t.modeAdd, t.modeRemove, t.clearMarks]) expect(out).not.toContain(gone);
     expect(out).not.toContain('type="radio"');
+  });
+
+  it("round 3: the candidate strip shows the pieces found inside the frame only when there are two or more", () => {
+    const pieces = [{ id: "c1", thumbUrl: "/c1.png" }, { id: "c2", thumbUrl: "/c2.png" }];
+    const out = cutoutView({ pieces, picked: "c2" });
+    // buttons with aria-pressed, not radios (review I1)
+    expect(out).not.toContain('type="radio"');
+    expect(out.match(/<button type="button"[^>]*aria-pressed="(true|false)"/g)).toHaveLength(2);
+    expect(out).toMatch(new RegExp(`aria-pressed="true"[^>]*>(?:(?!</button>).)*${fmt(t.candidate, { n: 2 })}`));
+    expect(out).toMatch(/role="group" aria-labelledby="u-pieces"/);
+    expect(text(out)).toContain(t.groupLabel);
+    before(out, t.applied, t.groupLabel);
+    expect(cutoutView({ pieces: [pieces[0]] })).not.toContain("aria-pressed");
+    expect(cutoutView({ pieces: null })).not.toContain("aria-pressed");
+    // kept mounted but disabled while a request runs
+    const busy = cutoutView({ pieces, work: "pick" });
+    expect(busy.match(/<button type="button"[^>]*aria-pressed="[^"]*"[^>]*disabled=""/g)).toHaveLength(2);
+  });
+
+  it("review I1: a keyboard move over the strip never re-cuts — only a press (click, Enter, Space) calls pick", () => {
+    const picked: string[] = [];
+    const pieces = [{ id: "c1", thumbUrl: "/c1.png" }, { id: "c2", thumbUrl: "/c2.png" }, { id: "c3", thumbUrl: "/c3.png" }];
+    const tree = YourCutoutView({ ...cutoutProps(), pieces, picked: "c1", on: { ...cutOn, pick: (id) => picked.push(id) } });
+    const buttons: ReactElement<Record<string, unknown>>[] = [];
+    const walk = (n: ReactNode) => {
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      if (!isValidElement(n)) return;
+      const props = n.props as Record<string, unknown>;
+      if (n.type === "button" && "aria-pressed" in props) buttons.push(n as ReactElement<Record<string, unknown>>);
+      walk(props.children as ReactNode);
+    };
+    walk(tree);
+    expect(buttons).toHaveLength(3);
+    for (const b of buttons) {
+      // no change / key handlers that a roving arrow key could fire
+      expect(b.props.onChange).toBeUndefined();
+      expect(b.props.onKeyDown).toBeUndefined();
+      expect(b.props.onKeyUp).toBeUndefined();
+      expect(b.props.onFocus).toBeUndefined();
+    }
+    expect(picked).toEqual([]);
+    (buttons[2].props.onClick as () => void)();
+    expect(picked).toEqual(["c3"]);
+  });
+
+  it("review I4: Try again after a failed pick repeats that pick, not Apply cutout", () => {
+    expect(retryOf("pick", "c2")).toEqual({ kind: "pick", id: "c2" });
+    expect(retryOf("apply", null)).toEqual({ kind: "apply" });
+    expect(retryOf("use", "c2")).toEqual({ kind: "use" });
+    expect(retryOf("pick", null)).toEqual({ kind: "apply" });
   });
 
   it("Fix the edges: picture, Add area / Remove area, instruction, keyboard hint, Add the area around your art; Use this / Apply cutout / Start over; never Draw a box", () => {
@@ -146,7 +198,7 @@ describe("Your cutout view (T130: the cut, then Fix the edges with Add area / Re
 const ad = m.create.adjust;
 function adjust(over: Partial<AdjustAreaViewProps> = {}): string {
   const props: AdjustAreaViewProps = {
-    hintId: "h", sizeId: "sz", sizeText: "Frame covers 54 by 61 percent of the photo", back: "/create/pattern", retake: "/create/photo?mode=camera", none: false, busy: false,
+    hintId: "h", sizeId: "sz", sizeText: "Frame covers 54 by 61 percent of the photo", back: "/create/photo?mode=camera", retake: "/create/photo?mode=camera", busy: false,
     photo: createElement("div", null, "PHOTO"), photoState: "loading", announce: "", canUse: true, error: null,
     on: { use: noop, reset: noop },
     ...over,
@@ -169,8 +221,23 @@ describe("Adjust the area view (R2)", () => {
     expect([ad.title, ad.copy, ad.use, ad.reset, ad.frameLabel]).toEqual(["Adjust the area", "Drag the corners so the frame covers your drawing.", "Use this area", "Reset", "Area frame"]);
   });
 
-  it("no drawing found: the whole-photo copy", () => {
-    expect(text(adjust({ none: true }))).toContain(ad.copyNone);
+  it("review I2: the advice card sits in a focusable wrapper, and revealError scrolls it above the bar and focuses it", () => {
+    const out = adjust({ error: { message: ad.notFound, action: "none" } });
+    beforeRaw(out, 'tabindex="-1"', 'role="alert"');
+    beforeRaw(out, 'role="alert"', "find a drawing in that area");
+    expect(adjust()).not.toContain('role="alert"');
+    const calls: string[] = [];
+    revealError({ scrollIntoView: (o?: unknown) => { calls.push(`scroll ${JSON.stringify(o)}`); }, focus: (o?: unknown) => { calls.push(`focus ${JSON.stringify(o)}`); } } as never);
+    expect(calls).toEqual(['scroll {"block":"center"}', 'focus {"preventScroll":true}']);
+    revealError(null);
+  });
+
+  it("round 3: nothing found inside the frame shows the move-or-grow advice on Adjust the area (no Retake)", () => {
+    const out = adjust({ error: { message: ad.notFound, action: "none" } });
+    before(out, "PHOTO", ad.notFound);
+    expect(out).toContain('role="alert"');
+    expect(out).not.toContain(m.create.errors.retake);
+    expect(m.create.photo.finding).toBe("Getting your photo ready…");
   });
 
   it("cutting: no Back, the cutting line, only Use this area (dimmed)", () => {
@@ -246,6 +313,7 @@ describe("My story video row (R6)", () => {
   });
 });
 
+const listingOn: ListingViewProps["on"] = { title: noop, description: noop, price: noop, improve: noop, retry: noop, toggleTrace: noop, submit: noop, redo: noop };
 function listing(over: Partial<ListingViewProps> = {}): string {
   const props: ListingViewProps = {
     uid: "l",
@@ -262,7 +330,7 @@ function listing(over: Partial<ListingViewProps> = {}): string {
     trace: [{ step: 1, tool: "check_print", text: "ok" }] as ListingViewProps["trace"],
     showTrace: false,
     error: null,
-    on: { title: noop, description: noop, price: noop, improve: noop, retry: noop, toggleTrace: noop, submit: noop },
+    on: listingOn,
     ...over,
   };
   return html(createElement(ListingView, props));
@@ -300,6 +368,48 @@ describe("Listing view (T105, board 2030:3752: element order follows the board)"
     expect(out).toMatch(new RegExp(`<button[^>]*disabled[^>]*>(?:(?!</button>).)*${m.create.listing.submit}`));
   });
 
+  it("round 3 ruling 5: drafting keeps the picture on top, the drafting card replaces only the fields, then a secondary Redo", () => {
+    const out = listing({ drafting: true, canRedo: true });
+    beforeRaw(out, 'alt="Your Sticker preview"', "draftingCard");
+    beforeRaw(out, "draftingCard", "<video");
+    beforeRaw(out, m.create.listing.drafting, `>${m.create.listing.redo}<`);
+    expect(out).not.toContain("<input");
+    expect(m.create.listing.redo).toBe("Redo");
+    // Redo is offered only while drafting, and only when it has somewhere to go
+    expect(listing({ drafting: false, canRedo: true })).not.toContain(`>${m.create.listing.redo}<`);
+    expect(listing({ drafting: true, canRedo: false })).not.toContain(`>${m.create.listing.redo}<`);
+  });
+
+  it("round 3 ruling 2: a contrast 409 says the colors may look faint with Use anyway and Re-do the cutout; resolution only Re-do", async () => {
+    const { ApiError } = await import("@/components/create/api");
+    const { describeError } = await import("@/components/create/errors");
+    const contrast = describeError(new ApiError(409, "print_check_failed", "contrast 1.2:1", { check: "contrast" }));
+    expect(contrast).toEqual({ message: m.create.errors.printContrast, action: "accept" });
+    const resolution = describeError(new ApiError(409, "print_check_failed", "dpi", { check: "resolution" }));
+    expect(resolution).toEqual({ message: m.create.errors.printResolution, action: "redo" });
+    // an older server without `check`: the reason as before
+    expect(describeError(new ApiError(409, "print_check_failed", "too small")).message).toBe(fmt(m.create.errors.printCheck, { reason: "too small" }));
+    const on = { ...listingOn, accept: noop, redoCut: noop };
+    const out = listing({ error: contrast, on });
+    before(out, m.create.errors.printContrast, m.create.errors.useAnyway);
+    before(out, m.create.errors.useAnyway, m.create.errors.redoCutout);
+    const res = listing({ error: resolution, on });
+    expect(res).toMatch(new RegExp(`<button[^>]*>(?:(?!</button>).)*${m.create.errors.redoCutout}`));
+    expect(res).not.toContain(m.create.errors.useAnyway);
+    expect(m.create.errors.useAnyway).toBe("Use anyway");
+    // no Re-do when there is no cut to go back to
+    expect(listing({ error: resolution, on: { ...listingOn, accept: noop } })).not.toMatch(new RegExp(`<button[^>]*>(?:(?!</button>).)*${m.create.errors.redoCutout}`));
+  });
+
+  it("round 3: the print check line follows print_check", () => {
+    const l = m.create.listing;
+    expect(printStatus(true, null)).toBe(l.printOk);
+    expect(printStatus(false, "contrast")).toBe(l.printWarnContrast);
+    expect(printStatus(false, "resolution")).toBe(l.printWarn);
+    expect(printStatus(false, null)).toBe(l.printWarn);
+    expect(text(listing({ printOk: false, printCheck: "contrast" }))).toContain(l.printCheck.replace("{status}", l.printWarnContrast));
+  });
+
   it("409 print check / moderation: the error card sits after the print check, above the bar", () => {
     const message = fmt(m.create.errors.printCheck, { reason: "the picture is too small for a 3 inch sticker." });
     const out = listing({ printOk: undefined, trace: [], error: { message, action: "fix" } });
@@ -316,47 +426,11 @@ describe("Listing view (T105, board 2030:3752: element order follows the board)"
 });
 
 
-function pattern(over: Partial<ChoosePatternViewProps> = {}): string {
-  const props: ChoosePatternViewProps = {
-    lead: fmt(t.copyMany, { n: 3, product: "sticker" }),
-    retake: "/create/photo?mode=camera",
-    photo: createElement("div", null, "PHOTO"),
-    photoState: "loading",
-    candidates: [{ id: "a", thumbUrl: "/a.png" }, { id: "b", thumbUrl: "/b.png" }, { id: "c", thumbUrl: "/c.png" }],
-    picked: "a",
-    on: { pick: noop, use: noop },
-    ...over,
-  };
-  return html(createElement(ChoosePatternView, props));
-}
-
-describe("Choose a pattern view (T113, board 2027:3254)", () => {
-  it("title, copy, photo, the Drawings found radio strip, then Use this / Retake; no cutout tools", () => {
-    const out = pattern();
-    expect(t.title).toBe("Tap the one you want.");
-    expect(text(out)).toContain("We found 3 drawings in your photo. Pick one to change and turn into a sticker.");
-    before(out, t.title, "PHOTO");
-    before(out, "PHOTO", fmt(t.candidate, { n: 1 }));
-    before(out, fmt(t.candidate, { n: 3 }), t.use);
-    before(out, t.use, t.retake);
-    // single pick: one radio group, one checked
-    expect(out.match(/type="radio"/g)?.length).toBe(3);
-    expect(out.match(/type="radio"[^>]*checked/g)?.length).toBe(1);
-    expect(out).toContain(`<legend class="visually-hidden">${t.groupLabel}</legend>`);
-    for (const tool of ["Add area", "Box around this piece", "Apply cutout"]) expect(out).not.toContain(tool);
-  });
-
-  it("tote: the copy names the tote bag", () => {
-    expect(text(pattern({ lead: fmt(t.copyMany, { n: 2, product: "tote bag" }) }))).toContain("turn into a tote bag.");
-  });
-
-});
-
 const s = m.create.speak;
 const r = m.create.result;
 function change(over: Partial<ChangeItViewProps> = {}): string {
   const props: ChangeItViewProps = {
-    back: "/create/pattern",
+    back: "/create/cutout",
     phase: "idle",
     micOff: null,
     art: { src: "/piece.png", alt: "A fern" },
@@ -504,6 +578,15 @@ describe("Making your cutout view (T113, board 2038:4369)", () => {
     beforeRaw(out, m.create.cutout.makingCopy, "<video");
     expect(out).toMatch(/<video[^>]*src="\/assets\/sticker-loading\.mp4"/);
     beforeRaw(out, "<video", t.applying);
+    expect(out).toMatch(btnDisabled(t.use));
+  });
+
+  it("round 3: the photo's detect shows the searching magnifier (moved from the upload step), no video", () => {
+    const out = html(createElement(MakingCutoutView, { changed: false, error: null, back: "/create/adjust", onRetry: noop }));
+    before(out, m.create.cutout.makingTitle, m.create.cutout.makingCopyOriginal);
+    expect(out).not.toContain("sticker-loading");
+    expect(out).toMatch(/magnifier/i);
+    expect(out).toContain(t.applying);
     expect(out).toMatch(btnDisabled(t.use));
   });
 

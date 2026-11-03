@@ -141,19 +141,6 @@
 .cutPhoto { position: relative; width: 100%; max-height: var(--size-photo-max-height); }
 .cutStage { position: absolute; top: 0; left: 50%; transform: translateX(-50%); height: 100%; max-width: 100%; }
 .cutImg { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; }
-.outline {
-  position: absolute; pointer-events: none;
-  border: calc(var(--border-thin) * 2) dashed var(--text); border-radius: var(--radius-m);
-  box-shadow: 0 0 0 var(--border-thin) var(--surface);
-}
-/* Choose a pattern: a tap on an outline picks that piece. */
-.outlinePick { pointer-events: auto; cursor: pointer; }
-.outlineOn { border-style: solid; background: color-mix(in srgb, var(--surface-alt) 35%, transparent); }
-.outlineCheck {
-  position: absolute; top: calc(var(--space-s) * -1); right: calc(var(--space-s) * -1);
-  display: grid; place-items: center; width: var(--size-radio); height: var(--size-radio);
-  border-radius: var(--radius-pill); background: var(--text); color: var(--surface); font-size: var(--type-caption-size);
-}
 .checker {
   position: relative; width: 100%; max-height: var(--size-photo-max-height); overflow: hidden;
   border: var(--border-thin) solid var(--border); border-radius: var(--radius-card);
@@ -162,7 +149,13 @@
 .checker img { display: block; width: 100%; height: 100%; object-fit: contain; padding: var(--space-xl); }
 /* Piece strip: 80 px thumbnails; chosen = 2 px ink border and the check badge, not chosen = dimmed art. */
 .pieces { display: flex; flex-wrap: wrap; gap: var(--space-m); list-style: none; padding-top: var(--space-s); }
-.piece { display: grid; justify-items: center; gap: var(--space-xs); cursor: pointer; }
+/* The candidate strip (round 3): each piece is a button with aria-pressed; a press re-cuts, arrow keys do nothing. */
+.piece {
+  display: grid; justify-items: center; gap: var(--space-xs); cursor: pointer;
+  border: 0; padding: 0; background: transparent; color: inherit; font: inherit;
+}
+.piece:disabled { cursor: default; opacity: var(--opacity-disabled); }
+.piece:focus-visible { outline: none; }
 .pieceThumb {
   position: relative; display: block; width: calc(var(--size-cta) + var(--size-radio)); aspect-ratio: 1;
   /* Unchosen tile: a muted boundary (4.8:1 on white; UI boundaries need 3:1); chosen: 2 px ink. */
@@ -174,10 +167,10 @@
   display: none; place-items: center; width: var(--size-radio); height: var(--size-radio);
   border-radius: var(--radius-pill); background: var(--text); color: var(--surface); font-size: var(--type-caption-size);
 }
-.piece:has(input:checked) .pieceThumb { border: calc(var(--border-thin) * 2) solid var(--text); }
-.piece:has(input:checked) .pieceArt { opacity: 1; }
-.piece:has(input:checked) .pieceCheck { display: grid; }
-.piece:has(input:focus-visible) .pieceThumb { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
+.piece[aria-pressed="true"] .pieceThumb { border: calc(var(--border-thin) * 2) solid var(--text); }
+.piece[aria-pressed="true"] .pieceArt { opacity: 1; }
+.piece[aria-pressed="true"] .pieceCheck { display: grid; }
+.piece:focus-visible .pieceThumb { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
 .pieceName { font-size: var(--type-body-size); font-weight: var(--type-caption-weight); }
 .keyboardHint { font-size: var(--type-body-size); line-height: var(--type-body-lh); color: var(--color-ink-soft); text-align: center; justify-self: center; }
 .resultHeading { font-size: var(--type-body-size); font-weight: var(--type-body-weight); text-align: center; justify-self: center; }
@@ -287,6 +280,8 @@
 /* Listing (board 2030:3752) */
 .mockup { display: grid; place-items: center; padding: var(--space-l); border-radius: var(--radius-card); background: var(--surface-alt); }
 .mockup .mockupArt { width: auto; height: calc(var(--size-record) * 1.55); aspect-ratio: 1; background: transparent; }
+/* Listing drafting (round 3 ruling 5): the card stands in for the text fields only; the picture stays above it. */
+.draftingCard { display: grid; gap: var(--space-m); padding: var(--space-l); border-radius: var(--radius-card); border: var(--border-thin) solid var(--border); }
 .earn {
   display: flex; justify-content: space-between; align-items: center; gap: var(--space-m);
   padding: var(--space-l) var(--space-xl);
@@ -320,7 +315,7 @@
 
 /* Forced colours: fills disappear, so the chosen picture / piece gets a Highlight outline. */
 @media (forced-colors: active) {
-  .mode:has(input:checked), .piece:has(input:checked) .pieceThumb {
+  .mode:has(input:checked), .piece[aria-pressed="true"] .pieceThumb {
     outline: calc(var(--border-thin) * 3) solid Highlight;
     outline-offset: calc(var(--border-thin) * -3);
   }

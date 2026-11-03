@@ -18,8 +18,10 @@ export type ListingViewProps = {
   uid: string;
   /** The product picture; `shadow` for a sticker preview (its white border reads on the grey card). */
   mockup: { src: string | null; alt: string; shadow?: boolean };
-  /** The agent is writing the first draft: the picture, the creating-cutout animation and the writing line; no fields. */
+  /** The agent is writing the first draft: the picture, then the drafting card in place of the fields (and Redo). */
   drafting: boolean;
+  /** "Redo" is offered while drafting (the product's artwork has a cut to go back to). */
+  canRedo?: boolean;
   /** "Improve with AI" is running (the form stays). */
   improving: boolean;
   submitting: boolean;
@@ -30,31 +32,49 @@ export type ListingViewProps = {
   /** What the creator earns per sale, in cents (null while the price is not valid). */
   earnCents: number | null;
   printOk: boolean | undefined;
+  /** Which check flagged it (round 3): the warning line follows it. */
+  printCheck?: "resolution" | "contrast" | null;
   trace: AgentStep[];
   showTrace: boolean;
   error: ScreenError | null;
   /** Wraps the error card, so the screen can bring it into view above the pinned bar. */
   errorRef?: Ref<HTMLDivElement>;
   on: {
+    /** "Redo" while drafting: drop the run and go back to Your cutout of the product's artwork (ruling 5). */
+    redo?: () => void;
     title: (v: string) => void;
     description: (v: string) => void;
     price: (v: string) => void;
     improve: () => void;
     /** Repeats the call that failed (approve or the agent). */
     retry: () => void;
+    /** "Use anyway" after a contrast warning: approve with `acceptPrintWarning: true`. */
+    accept?: () => void;
+    /** "Re-do the cutout" after a print check: Your cutout of the product's artwork. */
+    redoCut?: () => void;
     toggleTrace: () => void;
     submit: (e: FormEvent) => void;
   };
 };
+
+/** The print check line's status: fine, the colors may look faint (contrast), or blurry (resolution). */
+export function printStatus(ok: boolean, check?: "resolution" | "contrast" | null): string {
+  const l = m.create.listing;
+  if (check === "contrast") return l.printWarnContrast;
+  if (check === "resolution") return l.printWarn;
+  return ok ? l.printOk : l.printWarn;
+}
 
 /**
  * Get it ready for the shop (boards `2030:3752`, drafting `2030:3804`, error `2030:3832`). Element order
  * follows the board (ruling): the product picture (sticker preview, R1; the tote's AI mockup photo, T130) → Improve with AI → Name → Description → Price → You earn per sale
  * → print check → Show how the AI decided (disclosure) → error card; Put it in the shop in the bar,
  * which submits the form through its `form` attribute. Field errors sit under their field. While the
- * agent drafts (R5) the form is not rendered: the animation (still under reduced motion) and the line.
+ * agent drafts (round 3 ruling 5) the product picture stays at the top and the drafting card (the
+ * animation, still under reduced motion, and the line) takes the place of the text fields only,
+ * followed by a secondary "Redo".
  */
-export function ListingView({ uid, mockup, drafting, improving, submitting, title, description, price, errors, earnCents, printOk, trace, showTrace, error, errorRef, on }: ListingViewProps) {
+export function ListingView({ uid, mockup, drafting, canRedo, improving, submitting, title, description, price, errors, earnCents, printOk, printCheck, trace, showTrace, error, errorRef, on }: ListingViewProps) {
   const traceId = `${uid}-trace`;
   return (
     <CreateScreen
@@ -67,9 +87,12 @@ export function ListingView({ uid, mockup, drafting, improving, submitting, titl
       </div>
       {drafting ? (
         <>
-          <StickerLoading />
-          <Loading inline label={m.create.listing.drafting} />
-          <p className={styles.keyboardHint}>{m.create.listing.draftingHint}</p>
+          <div className={styles.draftingCard}>
+            <StickerLoading />
+            <Loading inline label={m.create.listing.drafting} />
+            <p className={styles.keyboardHint}>{m.create.listing.draftingHint}</p>
+          </div>
+          {canRedo && on.redo ? <Button block variant="secondary" arrow={false} onClick={on.redo}>{m.create.listing.redo}</Button> : null}
         </>
       ) : (
         <form id={LISTING_FORM} onSubmit={on.submit} className={styles.form} noValidate>
@@ -86,7 +109,7 @@ export function ListingView({ uid, mockup, drafting, improving, submitting, titl
           {printOk !== undefined ? (
             <p className={styles.printCheck}>
               <span aria-hidden="true" className={styles.printIcon}>{printOk ? <CheckIcon /> : <WarningIcon />}</span>
-              {m.create.listing.printCheck.replace("{status}", printOk ? m.create.listing.printOk : m.create.listing.printWarn)}
+              {m.create.listing.printCheck.replace("{status}", printStatus(printOk, printCheck))}
             </p>
           ) : null}
           {trace.length ? (
@@ -107,7 +130,7 @@ export function ListingView({ uid, mockup, drafting, improving, submitting, titl
               </div>
             </>
           ) : null}
-          <div ref={errorRef} tabIndex={-1} className={styles.errorSpot}><ErrorNotice error={error} onRetry={on.retry} /></div>
+          <div ref={errorRef} tabIndex={-1} className={styles.errorSpot}><ErrorNotice error={error} onRetry={on.retry} onAccept={on.accept} onRedo={on.redoCut} /></div>
         </form>
       )}
     </CreateScreen>

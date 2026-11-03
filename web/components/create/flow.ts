@@ -1,11 +1,11 @@
 /**
- * The creator flow's routing and draft decisions (canonical order, T130: photo → pattern → adjust
- * the area → making your cutout → your cutout → change it → [changing → compare → making your
- * cutout → your cutout] → making the product),
+ * The creator flow's routing and draft decisions (canonical order, round 3: photo → adjust the area
+ * on the whole photo → making your cutout (`detect`) → your cutout → change it → [changing → compare
+ * → making your cutout → your cutout] → making the product),
  * kept out of the screens so they can be tested with a mocked `api` and router.
  */
 import { m } from "@/components/messages";
-import type { Artwork, Candidate, ChangeResult, CleanupResult, CutoutResult } from "./api";
+import { uuid, type Artwork, type Candidate, type ChangeResult, type CleanupResult, type CutoutResult, type DetectResult } from "./api";
 import { sameBox } from "./area";
 import { productNotice, wholeImageBox, type Box, type CleanupRequest } from "./cutout";
 import { addChange, currentArtworkId, currentChange, cutoutOf, withCutout, type ChangeStep, type CutoutState, type Draft } from "./store";
@@ -16,7 +16,7 @@ export type FlowDeps = { api: FlowApi; router: FlowRouter; update: (patch: Parti
 
 /** Everything picked, changed or cut for an earlier piece. */
 export const NEW_PIECE: Partial<Draft> = {
-  pieceArtworkId: undefined, pieceCandidateId: undefined, pieceUrl: undefined, pieceAlt: undefined, pieceSpoken: undefined, pieceBox: undefined,
+  pieceArtworkId: undefined, pieceUrl: undefined, pieceAlt: undefined, pieceSpoken: undefined, pieceBox: undefined,
   changes: undefined, changedArtworkId: undefined, changeInstruction: undefined, changeTranscript: undefined,
   pendingArea: undefined, cutoutArtworkId: undefined, cutouts: undefined, cutoutNotice: undefined,
 };
@@ -28,59 +28,26 @@ const NOTICE_COPY = { failed: m.create.select.failedProducts, unpublished: m.cre
 export type PhotoResult = { artwork: Artwork; candidates: Candidate[]; imageSize?: { w: number; h: number } | null };
 
 /**
- * After `POST /artworks` (photo): one piece the server already cut → Adjust the area on that piece
- * (R2: the area is always set there; the server's cut is replaced by the frame's); otherwise →
- * Choose a pattern.
+ * After `POST /artworks {detect:false}` (round 3): always Adjust the area on the stored photo, the
+ * frame at the whole photo; detection runs inside the frame on "Use this area".
  */
 export function afterPhoto({ router, update }: Pick<FlowDeps, "router" | "update">, res: PhotoResult): void {
-  const fresh = { ...NEW_PIECE, area: undefined, photoArtworkId: res.artwork.id, candidates: res.candidates, imageSize: res.imageSize ?? null };
-  if (res.artwork.cleanedUrl) {
-    update({ ...fresh, area: { artworkId: res.artwork.id, candidateId: res.candidates[0]?.id } });
-    router.push("/create/adjust");
-    return;
-  }
-  update(fresh);
-  router.push("/create/pattern");
-}
-
-/** Zero pieces found ("Draw a box around your drawing"): Adjust the area on this photo, framed on the whole photo. */
-export function adjustWholePhoto({ router, update }: Pick<FlowDeps, "router" | "update">, artworkId: string): void {
-  update({ ...NEW_PIECE, photoArtworkId: artworkId, candidates: [], imageSize: null, area: { artworkId } });
+  update({ ...NEW_PIECE, areaNotFound: undefined, photoArtworkId: res.artwork.id, candidates: [], imageSize: res.imageSize ?? null, area: { artworkId: res.artwork.id } });
   router.push("/create/adjust");
 }
 
-// ---- Choose a pattern
+// ---- Adjust the area
 
-/** "Use this" on Choose a pattern: Adjust the area opens framed on that piece (no call yet). */
-export function pickPiece({ router, update }: Pick<FlowDeps, "router" | "update">, artworkId: string, candidateId: string): void {
-  update({ area: { artworkId, candidateId, fromPattern: true } });
-  router.push("/create/adjust");
-}
-
-// ---- Adjust the area (R2)
-
-/** Back from Adjust the area: Choose a pattern when the piece was picked there, else the photo screen. */
+/** Back from Adjust the area: the photo screen it came from. */
 export function adjustBack(d: Draft): string {
-  if (d.area?.fromPattern) return "/create/pattern";
   return d.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
 }
 
 /**
- * The `cleanup` body for the frame: the picked piece plus the box (only the box when no piece was
- * found), with `clipToBox` so nothing of the cut lies outside the frame (T126; a frame that leaves
- * nothing answers 422 `no_drawing_found`, shown as "move or grow the frame").
- */
-export function areaRequest(area: { candidateId?: string }, box: Box): { candidateIds?: string[]; box: Box; clipToBox: true } {
-  return area.candidateId
-    ? { candidateIds: [area.candidateId], box: [...box] as Box, clipToBox: true }
-    : { box: [...box] as Box, clipToBox: true };
-}
-
-/**
- * "Use this area" (T130): on to /create/cutout, where Making your cutout sends `POST
- * /artworks/{id}/cleanup {candidateIds:[piece], box, clipToBox: true}` (`runAreaCut`). The same
- * piece with the same frame as last time keeps its cut (no call) and shows Your cutout again, on
- * the piece (a change made before is dropped: it was made from the old cut).
+ * "Use this area" (round 3): on to /create/cutout, where Making your cutout sends `POST
+ * /artworks/{id}/detect {box}` (`runAreaCut`; a re-framed area always detects again). The same
+ * frame as last time keeps its cut (no call) and shows Your cutout again, on the piece (a change
+ * made before is dropped: it was made from the old cut).
  */
 export function cutArea({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, box: Box): void {
   const d = getDraft();
@@ -88,38 +55,65 @@ export function cutArea({ router, update, getDraft }: Pick<FlowDeps, "router" | 
   if (!area) return;
   // A second tap while the same cut is on its way (T133): no second cleanup, the same Making screen.
   const p = d.pendingArea;
-  if (p && p.artworkId === area.artworkId && p.candidateId === area.candidateId && sameBox(p.box, box)) {
+  if (p && p.artworkId === area.artworkId && sameBox(p.box, box)) {
     router.push("/create/cutout");
     return;
   }
-  if (d.pieceArtworkId === area.artworkId && d.pieceCandidateId === area.candidateId && sameBox(d.pieceBox, box) && d.pieceUrl && cutoutOf(d, area.artworkId)) {
-    update({ changedArtworkId: undefined, changes: undefined, changeInstruction: undefined, changeTranscript: undefined, cutoutArtworkId: area.artworkId });
+  if (d.pieceArtworkId === area.artworkId && sameBox(d.pieceBox, box) && d.pieceUrl && cutoutOf(d, area.artworkId)) {
+    update({ areaNotFound: undefined, changedArtworkId: undefined, changes: undefined, changeInstruction: undefined, changeTranscript: undefined, cutoutArtworkId: area.artworkId });
     router.push("/create/cutout");
     return;
   }
-  update({ ...NEW_PIECE, cutoutArtworkId: area.artworkId, pendingArea: { artworkId: area.artworkId, candidateId: area.candidateId, box: [...box] as Box, nonce: newNonce() } });
+  update({ ...NEW_PIECE, areaNotFound: undefined, cutoutArtworkId: area.artworkId, pendingArea: { artworkId: area.artworkId, box: [...box] as Box, nonce: newNonce() } });
   router.push("/create/cutout");
 }
 
 /**
- * Making your cutout for "Use this area": the `cleanup` call, then the cut piece is the piece and
- * its cut is on Your cutout (the screen follows the draft; no navigation). A result for a frame
+ * Making your cutout for "Use this area": `POST /artworks/{id}/detect {box}` (SAM inside the frame,
+ * the largest piece cut out and clipped), then that piece is the piece and its cut is on Your
+ * cutout with the pieces found (the screen follows the draft; no navigation). A result for a frame
  * that was replaced meanwhile (Back, a new frame) is dropped.
  */
 export async function runAreaCut({ api, update, getDraft }: Pick<FlowDeps, "api" | "update" | "getDraft">, job: NonNullable<Draft["pendingArea"]>): Promise<void> {
-  const art = await api<CleanupResult>(`artworks/${job.artworkId}/cleanup`, { json: areaRequest(job, job.box) });
+  const res = await api<DetectResult>(`artworks/${job.artworkId}/detect`, { json: { box: [...job.box] } });
   const d = getDraft();
   if (d.pendingArea?.nonce !== job.nonce) return;
+  const art = res.artwork;
+  const first = res.candidates[0]?.id;
   const cut: CutoutState = {
-    artworkId: job.artworkId, candidates: d.candidates ?? [], imageSize: d.imageSize ?? null,
-    selectedIds: job.candidateId ? [job.candidateId] : [], cleanedUrl: art.cleanedUrl, altText: art.altText, box: [...job.box] as Box, points: [],
+    artworkId: job.artworkId, candidates: res.candidates, imageSize: res.imageSize ?? d.imageSize ?? null,
+    selectedIds: first ? [first] : [], cleanedUrl: art.cleanedUrl, altText: art.altText, box: [...job.box] as Box, points: [],
   };
   update({
-    pendingArea: undefined, pieceArtworkId: job.artworkId, pieceCandidateId: job.candidateId, pieceBox: [...job.box] as Box,
+    pendingArea: undefined, candidates: res.candidates, imageSize: res.imageSize ?? d.imageSize ?? null,
+    pieceArtworkId: job.artworkId, pieceBox: [...job.box] as Box,
     pieceUrl: art.cleanedUrl, pieceAlt: art.altText, pieceSpoken: art.spokenDescription,
     ...withCutout(d, cut), cutoutArtworkId: job.artworkId,
-    cutoutNotice: productNotice(art.details, NOTICE_COPY) ?? undefined,
+    cutoutNotice: productNotice(res.details, NOTICE_COPY) ?? undefined,
   });
+}
+
+/**
+ * `detect` found nothing inside the frame (`422 no_drawing_found`): back to Adjust the area, which
+ * says to move or grow the frame (only for the frame still waiting; nothing was cut).
+ */
+export function areaNotFound({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, job: NonNullable<Draft["pendingArea"]>): void {
+  if (getDraft().pendingArea?.nonce !== job.nonce) return;
+  update({ pendingArea: undefined, areaNotFound: true });
+  router.replace("/create/adjust");
+}
+
+/**
+ * The candidate strip on Your cutout (shown for two pieces or more): picking another piece re-cuts
+ * it with the frame, `cleanup {candidateIds:[picked], box, clipToBox: true}` (marks start over).
+ */
+export function pickRequest(candidateId: string, box: Box): { candidateIds: string[]; box: Box; clipToBox: true } {
+  return { candidateIds: [candidateId], box: [...box] as Box, clipToBox: true };
+}
+
+/** The candidate strip shows only when several pieces were found. */
+export function showsPieces(cut: Pick<CutoutState, "candidates">): boolean {
+  return cut.candidates.length >= 2;
 }
 
 /** Making your cutout for a change result: `POST /artworks/{id}/cutout` (once per artwork); the box for later marks is the whole picture. */
@@ -189,10 +183,12 @@ export function takeCutout({ router, update, getDraft }: Pick<FlowDeps, "router"
 
 /**
  * On to Making your sticker / tote bag for `artworkId`. The draft product is kept: Making reuses
- * it for the same artwork and type (consistency item 6, `productToMake`).
+ * it for the same artwork and type (consistency item 6, `productToMake`). Each "Use this" mints the
+ * `clientRequestId` its `POST /products` carries (round 3 ruling 6); Try again reuses it, so a retry
+ * after a lost answer gets the same row back.
  */
 export function toMaking({ router, update }: Pick<FlowDeps, "router" | "update">, artworkId: string): void {
-  update({ artworkId });
+  update({ artworkId, productRequestId: uuid() });
   router.push("/create/making");
 }
 
@@ -207,8 +203,9 @@ export function submitChange({ router, update }: Pick<FlowDeps, "router" | "upda
   return true;
 }
 
+/** A new request id (a uuid): the `changeNonce` doubles as the change's `clientRequestId` (round 3 ruling 6). */
 function newNonce(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return uuid();
 }
 
 /**
@@ -285,16 +282,26 @@ export function changingEntry(d: Draft): "run" | "compare" | "missing" {
   return "missing";
 }
 
-/** The request Changing your art sends, captured on arrival. */
-export function changeRequest(d: Draft): { base: string; instruction: string; transcript?: string } | null {
+export type ChangeRequest = { base: string; instruction: string; transcript?: string; clientRequestId?: string };
+
+/** The request Changing your art sends, captured on arrival; its `clientRequestId` is the "Make the change" nonce. */
+export function changeRequest(d: Draft): ChangeRequest | null {
   const base = currentArtworkId(d);
-  return base && d.changeInstruction ? { base, instruction: d.changeInstruction, transcript: d.changeTranscript } : null;
+  if (!base || !d.changeInstruction) return null;
+  return { base, instruction: d.changeInstruction, transcript: d.changeTranscript, ...(d.changeNonce ? { clientRequestId: d.changeNonce } : {}) };
 }
 
-/** `POST /artworks/{base}/change`, then the child goes on screen and Before and after opens. */
-export async function runChange({ api, router, update, getDraft }: FlowDeps, req: { base: string; instruction: string; transcript?: string }): Promise<ChangeStep> {
+/**
+ * `POST /artworks/{base}/change`, then the child goes on screen and Before and after opens. Try again
+ * sends the same `clientRequestId`, so a change the server already made comes back instead of a second one.
+ */
+export async function runChange({ api, router, update, getDraft }: FlowDeps, req: ChangeRequest): Promise<ChangeStep> {
   const { artwork, description } = await api<ChangeResult>(`artworks/${req.base}/change`, {
-    json: req.transcript ? { instruction: req.instruction, transcript: req.transcript } : { instruction: req.instruction },
+    json: {
+      instruction: req.instruction,
+      ...(req.transcript ? { transcript: req.transcript } : {}),
+      ...(req.clientRequestId ? { clientRequestId: req.clientRequestId } : {}),
+    },
   });
   const step: ChangeStep = {
     artworkId: artwork.id, parentId: req.base, instruction: req.instruction, transcript: req.transcript,
@@ -318,6 +325,67 @@ export function artOnScreen(d: Draft): { src: string | null; alt: string | null;
   return step
     ? { src: step.previewUrl, alt: step.alt, shows: step.spoken ?? step.alt }
     : { src: d.pieceUrl ?? null, alt: d.pieceAlt ?? null, shows: d.pieceSpoken ?? d.pieceAlt ?? null };
+}
+
+// ---- Get it ready for the shop
+
+/** Where a redo from the listing goes: Your cutout of the product's artwork, or Adjust the area on the photo. */
+export type RedoTarget = "cutout" | "adjust";
+
+/**
+ * The redo destination for `prefer`, falling back to the other one (round 3 review m1/m2): Your
+ * cutout needs the product's cut in this draft, Adjust the area needs the photo. Null: neither.
+ */
+export function redoTarget(d: Draft, prefer: RedoTarget): RedoTarget | null {
+  const cut = !!d.productRecord && !!cutoutOf(d, d.productRecord.artworkId);
+  const photo = !!d.photoArtworkId;
+  if (prefer === "cutout") return cut ? "cutout" : photo ? "adjust" : null;
+  return photo ? "adjust" : cut ? "cutout" : null;
+}
+
+function goRedo({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, target: RedoTarget, patch: Partial<Draft>): void {
+  const d = getDraft();
+  if (target === "cutout" && d.productRecord) {
+    update({ ...patch, cutoutArtworkId: d.productRecord.artworkId });
+    router.push("/create/cutout");
+  } else if (d.photoArtworkId) {
+    update({ ...patch, area: { artworkId: d.photoArtworkId }, areaNotFound: undefined });
+    router.push("/create/adjust");
+  }
+}
+
+/**
+ * "Redo" while the listing drafts (round 3 ruling 5): the run is dropped by its nonce (the server
+ * finishes it and the answer is ignored; `listings/run` upserts), and Your cutout of the product's
+ * artwork opens (Adjust the area on the photo when that cut is not in the draft). The draft product
+ * is kept, so Use this reuses it (no second `POST /products`).
+ */
+export function redoListing(deps: Pick<FlowDeps, "router" | "update" | "getDraft">): void {
+  const target = redoTarget(deps.getDraft(), "cutout");
+  if (target) goRedo(deps, target, { listingRun: undefined, listing: undefined, trace: undefined });
+}
+
+/** Redo is offered while drafting when it has somewhere to go. */
+export function canRedoListing(d: Draft): boolean {
+  return !!d.productRecord && redoTarget(d, "cutout") !== null;
+}
+
+/**
+ * "Re-do the cutout" after a print check on approve (round 3 review I3): a picture too small to print
+ * (`resolution`, the only hard block, which marks cannot fix) goes to Adjust the area on the photo,
+ * where the frame can grow or Retake gives a bigger photo; a contrast warning goes to Your cutout.
+ * The listing stays until the product is rebuilt: a re-cut makes Making refresh the product, which
+ * drops the old listing and its print check (`refreshProduct`). Clearing it here would start a new
+ * agent run on the Listing screen that is still showing.
+ */
+export function redoCutout(deps: Pick<FlowDeps, "router" | "update" | "getDraft">, check: "resolution" | "contrast" | null): void {
+  const target = redoTarget(deps.getDraft(), check === "resolution" ? "adjust" : "cutout");
+  if (target) goRedo(deps, target, { listingRun: undefined });
+}
+
+/** Whether "Re-do the cutout" has somewhere to go for this check. */
+export function canRedoCutout(d: Draft, check: "resolution" | "contrast" | null): boolean {
+  return !!d.productRecord && redoTarget(d, check === "resolution" ? "adjust" : "cutout") !== null;
 }
 
 // ---- Story video (R6)

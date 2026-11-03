@@ -9,6 +9,10 @@ vi.mock("@/lib/db/queries", () => ({
       ? { id: "ch1", creatorId: "c1", originalUrl: "o2", parentArtworkId: "a1", changeInstruction: "make it purple", candidates: [{ id: "k9" }], status: "ready", createdAt: new Date(0) }
       : null),
   markArtworksFailed: async () => undefined,
+  // T143: the row's products after the rebuild (the DB shape; the route maps it to ArtworkProduct).
+  listArtworkProductSummaries: async (id: string) => (id === "a1"
+    ? [{ id: "p1", type: "sticker", status: "draft", priceCents: 500, title: "Bird", description: null, mockupUrl: "https://x/m2.png", previewUrl: "https://x/v2.png" }]
+    : []),
 }));
 vi.mock("@/lib/pipeline/artworks", () => ({
   cleanupArtwork: async (a: { id: string }, hint: unknown) => {
@@ -31,6 +35,7 @@ describe("POST /artworks/{id}/cleanup", () => {
     const body = await res.json();
     expect(body.cleanedUrl).toBe("new.png");
     expect(body.details).toEqual({ failedProductIds: ["p2"], unpublishedProductIds: [] });
+    expect(body.products).toEqual([{ id: "p1", type: "sticker", status: "draft", priceCents: 500, title: "Bird", description: null, mockupUrl: "https://x/m2.png", previewUrl: "https://x/v2.png" }]);
     expect(calls.at(-1)).toEqual({ candidateIds: ["k1", "k2"], points: [{ x: 5, y: 6, label: "negative" }] });
   });
 
@@ -63,6 +68,7 @@ describe("POST /artworks/{id}/cleanup", () => {
     expect(out.id).toBe("ch1");
     expect(out.parentArtworkId).toBe("a1");
     expect(out.changeInstruction).toBe("make it purple");
+    expect(out.products).toEqual([]);
     expect(calls.at(-1)).toEqual(body);
     expect((await post("ch1", { points: body.points, box: body.box, clipToBox: true })).status).toBe(200);
     expect((await post("ch1", { candidateIds: ["k1"], box: body.box, clipToBox: true })).status).toBe(400); // the original's pieces are not this row's

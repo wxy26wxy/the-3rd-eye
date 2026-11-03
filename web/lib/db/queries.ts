@@ -253,6 +253,21 @@ export async function listArtworksWithProducts(creatorId: string): Promise<Artwo
   return groupArtworkProducts(rows);
 }
 
+/**
+ * Live products of an artwork in the `GET /artworks` tile shape (with the listing title and
+ * description), newest first (T143: the `products` of cleanup / cutout responses, read after the rebuild).
+ */
+export async function listArtworkProductSummaries(artworkId: string): Promise<ArtworkProductRow[]> {
+  const rows = await db().select({
+    id: products.id, type: products.type, status: products.status, priceCents: products.priceCents,
+    mockupUrl: products.mockupUrl, previewUrl: products.previewUrl, title: listings.title, description: listings.description,
+  }).from(products)
+    .leftJoin(listings, and(eq(listings.productId, products.id), isNull(listings.deletedAt)))
+    .where(and(eq(products.artworkId, artworkId), isNull(products.deletedAt), ne(products.status, "archived")))
+    .orderBy(desc(products.createdAt));
+  return rows.map((r) => ({ ...r, mockupUrl: r.mockupUrl ?? null, previewUrl: r.previewUrl ?? null, title: r.title ?? null, description: r.description ?? null }));
+}
+
 /** Live (not deleted, not archived) products made from an artwork. */
 export async function listProductsForArtwork(artworkId: string): Promise<ProductRow[]> {
   return db().select().from(products)

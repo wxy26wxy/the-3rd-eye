@@ -57,8 +57,9 @@ an answer (the app sees a transport error and recovers the row from GET /artwork
 /__mock/count/change-posts counts every change POST, repeats with the same clientRequestId included.
 Round 4 (T143): POST /artworks {source: photo, framed: true} (the uploaded crop) answers like detect on p1
 in one call (2 s; ONE...: one candidate; NONE.../NOCUT...: 422 no_drawing_found with artworkId p1;
-framed with detect false: 400); photo posts are counted at /__mock/count/artworks-posts, GET /artworks at /__mock/count/artworks. cleanup (p1, d<n>,
-ch<n>) and cutout answer with "products": the row's products after the rebuild (each mockupUrl gets a new
+framed with detect false: 400); photo POSTs are counted at /__mock/count/artworks-posts and GET /artworks
+(the My designs list) at /__mock/count/artworks. cleanup (p1, d<n>,
+ch<n>) and cutout answer with "products" (cutout also with "details"): the row's products after the rebuild (each mockupUrl gets a new
 &v=, so a swap is visible). POST /products takes ch<n> rows (404 unknown, 409 artwork_not_ready before its
 cutout; id pr-ch<n>-<type>; p1 and d<n> keep pr-new-<type>) and counts per row at
 /__mock/count/products/<artworkId> beside the total /__mock/count/products (repeats not counted).
@@ -273,6 +274,7 @@ def cutout_artwork(artwork_id, body):
     CHANGES["cut"].add(artwork_id)
     CUTS["n"] += 1
     return {"artwork": row, "candidates": CANDIDATES, "imageSize": IMAGE_SIZE,
+            "details": {"failedProductIds": [], "unpublishedProductIds": []},
             "products": row_products(artwork_id, rebuild=True)}
 
 
@@ -303,11 +305,11 @@ def change_cleanup(artwork_id, body):
 def create_artwork(body):
     if body.get("source") in ("photo", "canvas"):
         LAST["artworks"] = body
+        if body.get("framed") is True and body.get("detect") is False:
+            raise MockError(400, "invalid_request", "framed needs detection")
         count("artworks-posts")
         if body.get("framed") is True:
             # Round 4 (T143): the upload is the creator's crop; detection on the whole crop, the largest cut.
-            if body.get("detect") is False:
-                raise MockError(400, "invalid_request", "framed needs detection")
             return 201, detect("p1", {"box": [0, 0, IMAGE_SIZE["w"], IMAGE_SIZE["h"]]}, counted=False)
         if body.get("detect") is False:
             # Round 3 (T134): the photo is stored, no detection ran, so never 422.
@@ -632,6 +634,14 @@ def get_listing(product_id, _body):
     return {"product": product, "listing": listing, "draft": draft}
 
 
+def list_artworks(_body):
+    """GET /artworks: the designs plus the change rows with their products; counted as "artworks" (T144:
+    the list is not refetched on every appearance)."""
+    count("artworks")
+    return {"artworks": DESIGNS["list"] + [
+        {**row, "products": row_products(row["id"])} for row in reversed(list(CHANGES["rows"].values()))]}
+
+
 # Routes with an id in the path: (method, regex) -> fn(id, body).
 PATTERN_ROUTES = [
     ("GET", re.compile(r"^/api/v1/artworks/(d\d+)$"), lambda i, b: design_detail(i)),
@@ -718,9 +728,7 @@ ROUTES = {
     ("GET", "/api/v1/artworks/p1"): artwork_detail,
     # Blob client upload: token event, then the PUT the app sends to MOCK_BLOB_API (= BASE/blob/).
     ("POST", "/api/v1/uploads"): lambda b: {"clientToken": "vercel_blob_client_mockstore_token"},
-    # T141: GET /artworks calls at /__mock/count/artworks (the quiet My designs refresh); photo posts at artworks-posts.
-    ("GET", "/api/v1/artworks"): lambda b: count("artworks") or {"artworks": DESIGNS["list"] + [
-        {**row, "products": row_products(row["id"])} for row in reversed(list(CHANGES["rows"].values()))]},
+    ("GET", "/api/v1/artworks"): list_artworks,
     ("POST", "/api/v1/products"): create_product,
     ("GET", "/api/v1/orders"): lambda b: {"orders": [], "unread": 0},
 }

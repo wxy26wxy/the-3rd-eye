@@ -7,7 +7,7 @@ vi.mock("@vercel/blob", () => {
   return { ...sdk, issueSignedToken: vi.fn(), presignUrl: vi.fn(), BlobNotFoundError };
 });
 
-const { BlobStorage, STORAGE_CREDENTIALS_HINT, STORAGE_UNAVAILABLE, oidcTokenState, privateCreds, storageError, usablePrivateCreds } = await import("@/lib/storage/blob");
+const { BlobStorage, PUBLIC_CACHE_MAX_AGE, STORAGE_CREDENTIALS_HINT, STORAGE_UNAVAILABLE, oidcTokenState, privateCreds, storageError, usablePrivateCreds } = await import("@/lib/storage/blob");
 const { ApiError } = await import("@/lib/http");
 
 // Fake values only (shape of the real ones, no secrets).
@@ -111,5 +111,20 @@ describe("credential failures surface clearly (T108)", () => {
     for (const f of Object.values(sdk)) expect(f).not.toHaveBeenCalled();
     log.mockRestore();
     vi.unstubAllEnvs();
+  });
+});
+
+describe("public files are cached for a year (T143)", () => {
+  beforeEach(() => { for (const f of Object.values(sdk)) f.mockReset(); });
+
+  it("putPublic writes once (allowOverwrite false) with cacheControlMaxAge one year", async () => {
+    const { BlobNotFoundError } = await import("@vercel/blob");
+    sdk.head.mockRejectedValue(new BlobNotFoundError());
+    sdk.put.mockResolvedValue({ pathname: "creators/c1/mockups/x.png", url: "https://pub.example/creators/c1/mockups/x.png" });
+    const out = await new BlobStorage().putPublic("creators/c1/mockups/x.png", Buffer.from("png"), "image/png");
+    expect(out).toEqual({ pathname: "creators/c1/mockups/x.png", url: "https://pub.example/creators/c1/mockups/x.png" });
+    expect(PUBLIC_CACHE_MAX_AGE).toBe(31536000);
+    expect(sdk.put).toHaveBeenCalledWith("creators/c1/mockups/x.png", expect.anything(),
+      expect.objectContaining({ access: "public", allowOverwrite: false, cacheControlMaxAge: 31536000 }));
   });
 });

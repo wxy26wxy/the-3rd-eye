@@ -6,7 +6,14 @@
 `web/lib/**` (extends but does not break `lib/ai/types.ts`, `lib/db/schema.ts`), `web/app/api/**`, `web/app/media/**`, `web/drizzle/**`, `web/test/**`, `web/vitest.config.ts`, `scripts/seed.ts`, `scripts/probe_meta.ts`, appends to `docs/architecture.md`, `docs/decisions.md`, `docs/progress.md`.
 
 ## Current task
-None open. Round 3 closed: T134 merged (2026-11-03; review `docs/reviews/2026-11-03-backend-T134.md`); migration 0006 applied by the founder on 2026-11-02 (evening); v0.9 preview `dpl_H8yBD8xygcwpSi43a5P2UL2Hn1x5`, production promotion pending (`docs/deployments.md`). Parked minors from the review (a lone raster pixel dropped at step 4, `lastError` kept beside an old cut, a second describe on a racing repeat) stay as ruled.
+T143 · Feedback round 4 backend — on `feat/backend-T143` (from main 115429c, main 60d69fd merged), left for review. Contract: `docs/api.md` → "Creator flow (round 4)".
+- `POST /artworks {source:"photo", imageUrl: <crop>, product, framed: true}`: the upload is the creator's crop; `createFromImage` stores it and runs `detectInBox(row, [0,0,w,h], "T143", png)` (frame rules, largest first, largest cut) → 201 with `details`; `framed` + `detect:false` → 400. The plain default is unchanged (round 2b build).
+- `cleanup` and `cutout` answer with `products: ArtworkProduct[]` (live products after the rebuild, `listArtworkProductSummaries` in `lib/db/queries.ts`, `toArtworkProduct` in `lib/api/dto.ts`); `GET /artworks` already carried `mockupUrl` + `previewUrl`.
+- `POST /products` on a change result works once its `cutout` ran (tests `test/round4-routes.test.ts`, `test/change-product.test.ts`).
+- Caching: `putPublic` passes `cacheControlMaxAge` one year (`PUBLIC_CACHE_MAX_AGE`); `/media` 302 `private, max-age=540` + `Vary: Authorization, Cookie`; the streamed fallback stays `no-store`.
+- Mock: `framed`, `products` on cleanup/cutout, `ch<n>` products, `/__mock/count/products/<artworkId>`. No migration.
+
+Earlier: T134 merged (2026-11-03; review `docs/reviews/2026-11-03-backend-T134.md`); migration 0006 applied by the founder on 2026-11-02 (evening). Parked minors from the review (a lone raster pixel dropped at step 4, `lastError` kept beside an old cut, a second describe on a racing repeat) stay as ruled.
 
 Before: T134 · Feedback round 3 backend — on `feat/backend-T134` (from main 20e248b). Contract: `docs/api.md` → "Creator flow (round 3)".
 - `POST /artworks {detect:false}` stores the photo only (no SAM, `candidates: []`, never 422); `POST /artworks/{id}/detect {box}` (`detectInBox` in `lib/pipeline/artworks.ts`): SAM on the crop, masks placed back (`placeMask` in `lib/image/mask.ts`), candidates largest first, the largest cut and clipped, products rebuilt; `409 not_a_photo` on a change result or generated row; `422 no_drawing_found` when nothing is inside the frame.

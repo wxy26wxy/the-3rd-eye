@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { runPipeline } from "@/lib/pipeline/run";
 import { requireCreator } from "@/lib/auth";
-import { json, parseJson, route } from "@/lib/http";
+import { ApiError, json, parseJson, route } from "@/lib/http";
 import { listArtworksWithProducts } from "@/lib/db/queries";
 import { toArtwork, toArtworkListItem, toArtworkVariant, toCandidates } from "@/lib/api/dto";
 import { createFromImage, createFromText } from "@/lib/pipeline/artworks";
@@ -17,6 +17,8 @@ const Body = z.discriminatedUnion("source", [
     source: z.enum(["photo", "canvas"]), imageUrl: z.string().min(1), product: z.enum(["sticker", "tote"]),
     /** T134: false = store the photo only (no SAM, `candidates: []`); the frame then goes to `detect`. */
     detect: z.boolean().optional(),
+    /** T143 (round 4): the picture is the creator's crop; detection as `detect {box: [0,0,w,h]}`, the largest cut. */
+    framed: z.boolean().optional(),
   }),
 ]);
 
@@ -27,8 +29,14 @@ export const POST = route(async (req) => {
     const rows = await runPipeline(() => createFromText(creatorId, { prompt: body.prompt, transcript: body.transcript, n: body.n ?? 2, product: body.product }));
     return json({ artworks: rows.map(toArtworkVariant) }, 201);
   }
-  const { artwork, imageSize } = await runPipeline(() => createFromImage(creatorId, { source: body.source, imageUrl: body.imageUrl, product: body.product, detect: body.detect }));
-  return json({ artwork: toArtwork(artwork), candidates: toCandidates(artwork), imageSize }, 201);
+  if (body.framed && body.detect === false) throw new ApiError(400, "invalid_request", "framed needs detection: leave detect out");
+  const out = await runPipeline(() => createFromImage(creatorId, {
+    source: body.source, imageUrl: body.imageUrl, product: body.product, detect: body.detect, framed: body.framed,
+  }, body.framed ? "T143" : "T010"));
+  return json({
+    artwork: toArtwork(out.artwork), candidates: toCandidates(out.artwork), imageSize: out.imageSize,
+    ...(out.details ? { details: out.details } : {}),
+  }, 201);
 });
 
 export const GET = route(async (req) => {

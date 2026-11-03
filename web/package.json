@@ -13,7 +13,8 @@
     "seed": "dotenv -e .env.local -- tsx --conditions=react-server ../scripts/seed.ts",
     "probe": "dotenv -e .env.local -- tsx ../scripts/probe_meta.ts",
     "migrate": "dotenv -e .env.local -- node scripts/apply-migration.mjs",
-    "backfill:previews": "dotenv -e .env.local -- tsx --conditions=react-server scripts/backfill_previews.ts"
+    "backfill:previews": "dotenv -e .env.local -- tsx --conditions=react-server scripts/backfill_previews.ts",
+    "avatar": "dotenv -e .env.local -- tsx --conditions=react-server scripts/set_avatar.ts"
   },
   "dependencies": {
     "@meta-sam/parser": "^0.1.0",

@@ -235,6 +235,8 @@ struct AdjustAreaView: View {
   private func useThisArea() {
     guard let area, app.createPath.last == .adjustArea else { return }
     flow.areaBox = area.box
+    // T146: a row that answered "no drawing" is deleted now, whether or not the frame changed.
+    flow.dropEmptyRow(api: app.api)
     if flow.emptyBox == area.box {
       // Review M5: this frame's crop had nothing in it; say so again instead of sending it again.
       let advice = String(localized: "We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again.")
@@ -249,6 +251,8 @@ struct AdjustAreaView: View {
   /// "Take a new photo": the photo and everything made from it go; the camera or library again.
   private func takeNewPhoto() {
     let source = flow.photoSource
+    // T146: the 422 row, and the earlier piece row the re-frame began from, are not wanted any more.
+    flow.dropRowsOnRetake(api: app.api)
     flow.discardPhoto()
     app.createPath = [.chooseMethod, .camera(source)]
   }

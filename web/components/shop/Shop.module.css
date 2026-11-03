@@ -269,6 +269,7 @@
   letter-spacing: var(--type-display-l-ls);
   line-height: var(--type-display-l-lh);
 }
+.posterPhoto { object-fit: cover; }
 .posterLabel {
   position: absolute;
   left: var(--space-xl);

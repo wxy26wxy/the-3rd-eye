@@ -59,9 +59,9 @@ What the video shows (beats from `docs/demo_script.md`):
 1. 0:00 The four problems, one card each.
 2. 0:20 June, a fictional example artist, photographs a sketch; SAM 3.1 finds it; she says what to change; Muse Voice Transcribe writes it down and Muse Image 1.0 edits her own drawing.
 3. 0:55 Before and after: VoiceOver reads Muse Spark 1.3's description; SAM 3.1 cuts it out and it becomes a sticker.
-4. 1:15 A buyer finds the sticker in the shop and places a staged order (no payment taken).
-5. 1:40 The creator records a thank-you with captions; Muse Glimmer on our own Mac drafts the artist's story.
-6. 2:05 The printed sticker's NFC tag opens the artist's captioned video, the buyer writes back, and the reply reaches the creator app; the video closes on the model map (2:40).
+4. 1:15 A buyer finds June's sticker in the shop and places a staged order (no payment taken).
+5. 1:40 June records a thank-you with captions; Muse Glimmer on our own Mac drafts the artist's story.
+6. 2:05 The printed sticker's NFC tag opens June's captioned video, the buyer writes back, and the reply reaches the creator app; the video closes on the model map (2:40).
 
 ---
 

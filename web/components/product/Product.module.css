@@ -201,6 +201,8 @@
 .makerCard { overflow: hidden; border: var(--border-thin) solid var(--border); border-radius: var(--radius-card); background: var(--surface); }
 .makerCard .makerVideo { aspect-ratio: 114 / 55; border-radius: 0; }
 .makerText { display: grid; gap: var(--space-s); padding: calc(var(--space-l) + var(--border-thin) * 2) var(--space-xl) var(--space-xl); }
+.makerWhoRow { display: flex; align-items: center; gap: var(--space-m); }
+.makerWho { font-size: var(--type-title-l-size); font-weight: var(--type-title-l-weight); line-height: var(--type-title-l-lh); color: var(--text); }
 .quote { font-size: var(--type-body-l-size); line-height: var(--type-body-l-lh); color: var(--text); }
 .scan { font-size: var(--type-caption-size); font-weight: var(--type-caption-weight); line-height: var(--type-caption-lh); color: var(--text-muted); }
 

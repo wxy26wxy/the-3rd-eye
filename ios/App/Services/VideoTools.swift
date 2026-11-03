@@ -175,6 +175,10 @@ struct VideoUpload {
   private static let log = Logger(subsystem: "com.the3rdeye.app", category: "video")
 
   func upload(_ picked: URL, creatorId: String, kind: BlobUploader.Kind, maxSeconds: Double) async throws -> Result {
+    try await BackgroundWork.run("video-upload") { try await send(picked, creatorId: creatorId, kind: kind, maxSeconds: maxSeconds) }
+  }
+
+  private func send(_ picked: URL, creatorId: String, kind: BlobUploader.Kind, maxSeconds: Double) async throws -> Result {
     let (video, trimmed) = try await VideoTools.capped(picked, maxSeconds: maxSeconds)
     let ext = video.pathExtension.lowercased() == "mp4" ? "mp4" : "mov"
     let data = try Data(contentsOf: video)

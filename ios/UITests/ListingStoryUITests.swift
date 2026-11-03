@@ -43,6 +43,8 @@ final class ListingStoryUITests: XCTestCase {
     XCTAssertFalse(app.textFields["Name"].exists, "no fields while the listing is written")
     XCTAssertFalse(app.textFields["Price in dollars"].exists)
     XCTAssertFalse(app.buttons["Approve and list it"].isEnabled, "nothing to approve yet")
+    XCTAssertTrue(app.descendants(matching: .any)["listing-picture"].exists, "the product picture while the listing is written")
+    XCTAssertTrue(app.buttons["Redo"].exists, "Redo while drafting")
     attachScreenshot(app, "listing-drafting")
 
     let name = app.textFields["Name"]
@@ -51,6 +53,57 @@ final class ListingStoryUITests: XCTestCase {
     XCTAssertFalse(drafting.exists)
     XCTAssertTrue(app.buttons["Approve and list it"].isEnabled)
     XCTAssertTrue(app.descendants(matching: .any)["listing-picture"].exists, "the product picture is shown")
+    XCTAssertFalse(app.buttons["Redo"].exists, "Redo only while drafting")
+  }
+
+  /// Round 3 ruling 5: Redo while the listing is written goes back to Your cutout; going on again
+  /// reuses the draft product (no second POST /products) and writes the listing again.
+  func testRedoWhileDraftingGoesBackToTheCutout() throws {
+    let app = launch(code: "ONE-CODE")
+    goToListing(app)
+    let drafting = app.descendants(matching: .any)["listing-drafting"]
+    XCTAssertTrue(drafting.waitForExistence(timeout: 20), "the drafting card")
+    app.buttons["Redo"].tap()
+    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 10), "back on Your cutout")
+    XCTAssertFalse(app.textFields["Name"].exists)
+    app.buttons["Use this"].tap()
+    let keep = app.buttons["Looks good as is"]
+    XCTAssertTrue(keep.waitForExistence(timeout: 20))
+    for _ in 0..<3 where !keep.isHittable { app.swipeUp() }
+    keep.tap()
+    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 30), "the listing is written again")
+    XCTAssertEqual(try count("products"), 1, "the draft product is reused")
+    XCTAssertEqual(try count("run"), 2)
+  }
+
+  /// The run's print check line (mock NOPRINT…: print_check contrast) is on the form.
+  func testPrintCheckLineOnTheForm() {
+    let app = launch(code: "NOPRINT-CODE")
+    goToListing(app)
+    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 30))
+    let line = app.descendants(matching: .any)["listing-print-check"]
+    for _ in 0..<3 where !line.exists { app.swipeUp() }
+    XCTAssertTrue(line.exists)
+    XCTAssertEqual(line.label, "Print check: the colors may look faint")
+  }
+
+  /// Sticker → upload → Adjust the area → Your cutout → Change it → Looks good as is → Listing details.
+  private func goToListing(_ app: XCUIApplication) {
+    let sticker = app.buttons["Sticker, Die-cut, waterproof"]
+    XCTAssertTrue(sticker.waitForExistence(timeout: 10))
+    sticker.tap()
+    let upload = app.buttons["Upload a picture, Pick one you already have"]
+    XCTAssertTrue(upload.waitForExistence(timeout: 5))
+    upload.tap()
+    let frame = app.buttons["Use this area"]
+    XCTAssertTrue(frame.waitForExistence(timeout: 20), "Adjust the area")
+    frame.tap()
+    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 20), "Your cutout")
+    app.buttons["Use this"].tap()
+    let keep = app.buttons["Looks good as is"]
+    XCTAssertTrue(keep.waitForExistence(timeout: 20))
+    for _ in 0..<3 where !keep.isHittable { app.swipeUp() }
+    keep.tap()
   }
 
   /// T131: the listing agent runs by itself on the first visit in every mode (sign-in MULTI… turns

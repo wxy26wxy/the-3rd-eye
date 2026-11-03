@@ -138,7 +138,6 @@ final class CutoutTests: XCTestCase {
     let flow = CreateFlow()
     flow.photo = UIImage()
     flow.setPhoto(artwork: Artwork(id: "p1", status: "draft"), candidates: [one, two], imageSize: size)
-    flow.pieceCandidateId = "c1"
     flow.pieceArtwork = Artwork(id: "p1", cleanedUrl: "u")
     flow.addChange(ChangeStep(artwork: Artwork(id: "ch1", parentArtworkId: "p1"), base: Artwork(id: "p1"), instruction: "Make it red"))
     flow.changeInstruction = "Make it red"
@@ -149,7 +148,6 @@ final class CutoutTests: XCTestCase {
     XCTAssertNil(flow.photo)
     XCTAssertNil(flow.photoArtwork)
     XCTAssertTrue(flow.photoCandidates.isEmpty)
-    XCTAssertNil(flow.pieceCandidateId)
     XCTAssertNil(flow.pieceArtwork)
     XCTAssertNil(flow.pieceBox)
     XCTAssertNil(flow.changedArtwork)
@@ -162,17 +160,18 @@ final class CutoutTests: XCTestCase {
 
   // MARK: T114: photo first, Change it
 
-  /// A new photo: a single drawing starts picked; several wait for a choice; earlier changes go.
-  func testSetPhotoPicksTheOnlyDrawingAndDropsChanges() {
+  /// A new photo: earlier changes and the old piece go.
+  func testSetPhotoDropsChangesAndThePiece() {
     let flow = CreateFlow()
     flow.addChange(ChangeStep(artwork: Artwork(id: "ch1"), base: Artwork(id: "p0"), instruction: "x"))
     flow.changeInstruction = "x"
-    flow.setPhoto(artwork: Artwork(id: "p1"), candidates: [one], imageSize: size)
-    XCTAssertEqual(flow.pieceCandidateId, "c1")
+    flow.pieceArtwork = Artwork(id: "p0", cleanedUrl: "u")
+    flow.areaError = "old"
+    flow.setPhoto(artwork: Artwork(id: "p1"), candidates: [], imageSize: size)
     XCTAssertNil(flow.changedArtwork)
     XCTAssertEqual(flow.changeInstruction, "")
-    flow.setPhoto(artwork: Artwork(id: "p2"), candidates: [one, two], imageSize: size)
-    XCTAssertNil(flow.pieceCandidateId)
+    XCTAssertNil(flow.pieceArtwork)
+    XCTAssertNil(flow.areaError)
     XCTAssertEqual(flow.photoImageSize, size)
   }
 
@@ -187,16 +186,6 @@ final class CutoutTests: XCTestCase {
     flow.resetChange()
     XCTAssertEqual(flow.currentArt?.id, "p1")
     XCTAssertNil(flow.changeBase)
-  }
-
-  /// Choose a pattern: a tap on the photo picks the smallest drawing under it.
-  @MainActor
-  func testTapOnThePhotoPicksTheDrawingUnderIt() {
-    let outer = Candidate(id: "big", bbox: [0, 0, 1000, 1000])
-    let inner = Candidate(id: "small", bbox: [100, 100, 300, 300])
-    XCTAssertEqual(ChoosePatternView.candidate(at: CGPoint(x: 200, y: 200), in: [outer, inner])?.id, "small")
-    XCTAssertEqual(ChoosePatternView.candidate(at: CGPoint(x: 600, y: 600), in: [outer, inner])?.id, "big")
-    XCTAssertNil(ChoosePatternView.candidate(at: CGPoint(x: 2000, y: 10), in: [outer, inner]))
   }
 
   /// My designs hides changes that were never cut out.

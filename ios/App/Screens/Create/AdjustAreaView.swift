@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// "Adjust the area" (T122, after Choose a pattern; also "Re-do the cutout" on a saved design): the
-/// photo on the green card with a frame around the picked drawing (its `bbox` grown by 8 %, the whole
-/// photo when no drawing was found). The four corners (44 pt handles) and the four edges drag; a drag
-/// inside the frame moves it. "Use this area" goes on to Making your cutout, which cuts out what the
-/// frame holds (`cleanup {candidateIds: [piece], box, clipToBox: true}`), then Your cutout (T131; a
-/// saved design: the cut is made here and it goes back to the design);
-/// "Reset" puts the frame back where it started.
+/// "Adjust the area" (round 3: right after the photo; also "Re-do the cutout" on a saved design): the
+/// stored photo on the green card with the frame over the whole photo (a saved design starts on its
+/// piece's `bbox` grown by 8 %). The four corners (44 pt handles) and the four edges drag; a drag
+/// inside the frame moves it. "Use this area" goes on to Making your cutout, which looks for the
+/// drawing inside the frame and cuts it out (`detect {box}`), then Your cutout; nothing found comes
+/// back here with "move or grow the frame". A saved design is cut here (`detect` on a photo, `cleanup`
+/// on a changed picture) and goes back to the design. "Reset" puts the frame back where it started.
 ///
 /// Coordinates: the frame is kept in pixels of the stored original and drawn with the same
 /// view ↔ image mapping as the other photo screens (`CutoutGeometry.fitRect` / `viewRect`).
@@ -51,7 +51,15 @@ struct AdjustAreaView: View {
     }
     .navigationBarBackButtonHidden(working)
     .task { await loadPictureIfNeeded() }
-    .onAppear { if area == nil { area = startArea } }
+    .onAppear {
+      if area == nil { area = startArea }
+      // Back from Making your cutout: nothing was found in the frame.
+      if !isRedo, let message = flow.areaError {
+        flow.areaError = nil
+        error = message
+        UIAccessibility.post(notification: .announcement, argument: message)
+      }
+    }
     .onChange(of: imageSize) { _, _ in if area == nil { area = startArea } }
   }
 
@@ -64,13 +72,11 @@ struct AdjustAreaView: View {
   /// The artwork the cut is made on: the photo (Create), or the saved design.
   private var artwork: Artwork? { isRedo ? flow.cutoutArtwork : flow.photoArtwork }
 
-  /// The drawing the frame starts on and the cut is made from; nil when no drawing was found. A
-  /// saved design with several pieces starts on the one picked before, else the first.
+  /// The drawing the frame starts on: a saved design's piece (the one picked before, else the first);
+  /// none for a new photo (the frame covers the whole photo, round 3).
   private var piece: Candidate? {
-    if isRedo {
-      return flow.candidates.first { flow.selectedCandidateIds.contains($0.id) } ?? flow.candidates.first
-    }
-    return flow.photoCandidates.first { $0.id == flow.pieceCandidateId }
+    guard isRedo else { return nil }
+    return flow.candidates.first { flow.selectedCandidateIds.contains($0.id) } ?? flow.candidates.first
   }
 
   private var localPhoto: UIImage? { isRedo ? nil : flow.photo }
@@ -85,11 +91,7 @@ struct AdjustAreaView: View {
 
   private var startArea: AreaFrame? { imageSize.map { AreaFrame.initial(piece: piece, image: $0) } }
 
-  private var subtitle: LocalizedStringKey {
-    piece == nil
-      ? "We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it."
-      : "Drag the corners so the frame covers your drawing."
-  }
+  private var subtitle: LocalizedStringKey { "Drag the corners so the frame covers your drawing." }
 
   /// "Frame covers 45 by 33 percent of the photo" (copy v4).
   static func sizeText(_ area: AreaFrame, image: ImageSize) -> String {
@@ -254,7 +256,6 @@ struct AdjustAreaView: View {
         if isRedo { flow.imageSize = size } else { flow.photoImageSize = size }
       }
       if isRedo, flow.candidates.isEmpty { flow.candidates = detail.candidates }
-      if !isRedo, flow.photoCandidates.isEmpty { flow.photoCandidates = detail.candidates }
       originalURL = detail.originalUrl.flatMap(URL.init(string:))
       if area == nil { area = startArea }
     } catch {
@@ -263,24 +264,37 @@ struct AdjustAreaView: View {
     }
   }
 
-  /// "Use this area": on to Making your cutout, which sends `cleanup` with the piece and the frame
-  /// (T131); the same piece and frame already cut (Back from Your cutout, then Use this area again)
-  /// go straight to Your cutout. On a saved design the cut is made here and the screen goes back to
-  /// it; the result is written to the flow the request started with, even if the tab changed.
+  /// "Use this area": on to Making your cutout, which sends `detect` with the frame (round 3); the
+  /// frame already cut (Back from Your cutout, then Use this area again) goes straight to Your
+  /// cutout. On a saved design the cut is made here (`detect` on the photo row, `cleanup` with the
+  /// piece on a changed picture, which `detect` refuses with `409 not_a_photo`) and the screen goes
+  /// back to it; the result is written to the flow the request started with, even if the tab changed.
   private func useThisArea() async {
     let flow = flow
     guard artwork != nil, let area else { return }
-    let request = CutoutRequest.make(piece: piece, area: area)
+    error = nil
     guard isRedo else {
-      if app.createPath.last == .adjustArea, let next = flow.routeAfterArea(request) { app.push(next) }
+      if app.createPath.last == .adjustArea, let next = flow.routeAfterArea(box: area.box) { app.push(next) }
       return
     }
     guard let artwork else { return }
     working = true
-    error = nil
     defer { working = false }
     do {
-      let result = try await app.api.cleanup(artworkId: artwork.id, request)
+      let result: CleanupResult
+      if Self.isPhotoRow(artwork) {
+        do {
+          let found = try await app.api.detect(artworkId: artwork.id, box: area.box)
+          flow.candidates = found.candidates
+          flow.selectedCandidateIds = found.candidates.first.map { [$0.id] } ?? []
+          if let size = found.imageSize, size.isUsable { flow.imageSize = size }
+          result = found.cleanupResult
+        } catch APIError.server(409, "not_a_photo", _) {
+          result = try await app.api.cleanup(artworkId: artwork.id, CutoutRequest.make(piece: piece, area: area))
+        }
+      } else {
+        result = try await app.api.cleanup(artworkId: artwork.id, CutoutRequest.make(piece: piece, area: area))
+      }
       if flow.cutoutArtwork == nil { flow.cutoutArtwork = artwork }
       flow.recordCut(result)
       if let cut = flow.cutoutArtwork { app.designs.replace(cut) }
@@ -290,6 +304,14 @@ struct AdjustAreaView: View {
     } catch {
       if let message = CleanupResult.errorMessage(for: error) { self.error = message }
     }
+  }
+}
+
+extension AdjustAreaView {
+  /// `detect` works on the photo row only (round 3): not on a changed picture or a drawn idea.
+  static func isPhotoRow(_ artwork: Artwork) -> Bool {
+    artwork.parentArtworkId == nil && (artwork.changeInstruction ?? "").isEmpty
+      && (artwork.source == nil || artwork.source == "photo" || artwork.source == "canvas")
   }
 }
 

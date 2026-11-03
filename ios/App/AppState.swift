@@ -3,17 +3,17 @@ import SwiftUI
 
 enum HomeTab: Hashable { case create, designs, orders, messages }
 
-/// Pushed screens of the creator flow (root is PickProductView). Photo first, canonical order (T131):
-/// camera → Finding drawings → Choose a pattern → Adjust the area → Making your cutout → Your cutout →
-/// Change it → [Changing your art → Before and after → Making your cutout → Your cutout] → Making your
-/// sticker / tote bag → Listing details. "My story video" (T122) also opens from the root.
+/// Pushed screens of the creator flow (root is PickProductView). Photo first, round 3 order (T136):
+/// camera → Finding ("Getting your photo ready…", the upload) → Adjust the area (the whole photo) →
+/// Making your cutout (`detect` inside the frame) → Your cutout → Change it → [Changing your art →
+/// Before and after → Making your cutout → Your cutout] → Making your sticker / tote bag → Listing
+/// details. "My story video" (T122) also opens from the root.
 enum CreateRoute: Hashable {
   case chooseMethod
   case camera(PhotoSource)
+  /// Uploads the photo (`POST /artworks {detect: false}`); no drawing is looked for yet.
   case findingDrawings
-  /// Pick one of the drawings SAM found on the photo.
-  case choosePattern
-  /// The frame around the picked drawing; "Use this area" goes on to Making your cutout.
+  /// The frame on the photo (the whole photo at first); "Use this area" goes on to Making your cutout.
   case adjustArea
   /// Say or type what to change, or keep the art as it is.
   case changeIt
@@ -21,7 +21,7 @@ enum CreateRoute: Hashable {
   case changing
   /// The change next to the art it was made from.
   case beforeAfter
-  /// Loading screen while the art is cut out: the frame on the photo (`cleanup`), or a kept change (`cutout`).
+  /// Loading screen while the art is cut out: the frame on the photo (`detect`), or a kept change (`cutout`).
   case makingCutout(CutJob)
   /// The cut-out of the artwork with this id (the photo's piece, or a change), with the edge tools.
   case yourCutout(String)
@@ -39,8 +39,9 @@ enum CreateRoute: Hashable {
 
 /// What Making your cutout cuts.
 enum CutJob: Hashable {
-  /// Adjust the area's frame on the photo: `cleanup {candidateIds?, box, clipToBox: true}`.
-  case area(CleanupRequest)
+  /// Adjust the area's frame on the photo (round 3): `detect {box}` finds the drawings inside it and
+  /// cuts out the largest, clipped to the frame.
+  case detect([Double])
   /// A kept change (`cutout`, once per artwork; later visits use `CreateFlow.changeCuts`).
   case change(String)
 }
@@ -150,6 +151,9 @@ final class AppState {
       orders.stop()
     case .active:
       if isSignedIn { orders.start() }
+      // Round 3 ruling 6: a long call in flight may have finished (or been dropped) while the app
+      // was away; its screen reconciles from the server before any retry.
+      flow.appBecameActive()
     default:
       break
     }
@@ -192,6 +196,45 @@ final class AppState {
     selectedTab = .create
   }
 
+  /// Listing details › "Redo" (round 3 ruling 5): back to Your cutout of the product's art, the
+  /// draft product kept (Use this again reuses it). From a saved design (no Your cutout in the
+  /// path) Your cutout opens on the design's cut-out.
+  func backToCutout() {
+    guard let art = flow.artwork else { return }
+    if let index = createPath.lastIndex(of: .yourCutout(art.id)) {
+      createPath = Array(createPath.prefix(through: index))
+      return
+    }
+    if flow.cut(for: art.id) == nil {
+      flow.changeCuts[art.id] = Cut(artwork: art, candidates: [], imageSize: nil, selected: [], box: nil)
+    }
+    createPath = [.yourCutout(art.id)]
+  }
+
+  /// "Re-do the cutout" after a resolution refusal (review I1, web parity): back to Adjust the area
+  /// so the frame can take more of the photo. In a creation that is the Adjust the area in the path;
+  /// for a draft opened from My designs, Adjust the area on that design (`GET /artworks/{id}`) in
+  /// the My designs tab, which comes back to the design.
+  func backToArea() async throws {
+    if let index = createPath.lastIndex(of: .adjustArea) {
+      createPath = Array(createPath.prefix(through: index))
+      return
+    }
+    guard let art = flow.artwork else { return }
+    let detail = try await api.artworkDetail(id: art.id)
+    let redo = CreateFlow()
+    redo.artwork = detail.artwork
+    redo.resetCutout(artwork: detail.artwork, candidates: detail.candidates, imageSize: detail.imageSize)
+    redo.productType = flow.productType
+    designFlow = redo
+    // One screen at a time, after the tab shows: a stack given two screens at once while its tab
+    // is hidden draws an empty page.
+    selectedTab = .designs
+    designsPath = [.detail(art.id)]
+    try? await Task.sleep(for: .milliseconds(400))
+    if designsPath == [.detail(art.id)] { designsPath.append(.adjustArea) }
+  }
+
   // MARK: Persistence
 
   private static let prefsKey = "accessPrefs"
@@ -218,14 +261,19 @@ final class CreateFlow {
   var photoArtwork: Artwork?
   var photoCandidates: [Candidate] = []
   var photoImageSize: ImageSize?
-  /// Choose a pattern: the drawing picked.
-  var pieceCandidateId: String?
-  /// The picked drawing, cut out (`select`), or the whole photo when none was found, and the
-  /// drawing it was cut from.
+  /// The drawing cut out of the photo (`detect`, or a pick / marks on Your cutout) and the drawing
+  /// it was cut from.
   var pieceArtwork: Artwork?
   var pieceCutFrom: String?
   /// The frame (Adjust the area) `pieceArtwork` was cut with.
   var pieceBox: [Double]?
+  /// `detect` found nothing in the frame: Adjust the area shows this when it comes back on screen.
+  var areaError: String?
+  /// The long call in flight (round 3 ruling 6) and how often the app came back while it ran.
+  private(set) var pendingJob: PendingJob?
+  private(set) var resumeCount = 0
+  /// Long calls still waiting for their answer (re-review N1): no recovery runs while one is.
+  private(set) var callsInFlight = 0
   /// Every change made in this creation, oldest first (T131: "Back to my original" steps back one
   /// change and keeps the chain).
   var changes: [ChangeStep] = []
@@ -325,21 +373,34 @@ final class CreateFlow {
       updateChange(cut)
     } else {
       changeCuts[artworkId]?.artwork = cut
+      if let ids = request?.candidateIds, !ids.isEmpty { changeCuts[artworkId]?.selected = ids }
       updateChange(cut)
     }
   }
 
+  /// A `detect` answer for the frame `box`: the drawings found inside it, the largest cut out. A new
+  /// piece drops the changes made from the old one.
+  func recordDetect(_ res: DetectResponse, box: [Double]) {
+    guard let photo = photoArtwork else { return }
+    var cut = res.artwork
+    if cut.altText?.isEmpty ?? true { cut.altText = photo.altText }
+    photoCandidates = res.candidates
+    if let size = res.imageSize, size.isUsable { photoImageSize = size }
+    resetChange()
+    pieceCutFrom = res.candidates.first?.id
+    pieceBox = box
+    pieceArtwork = cut
+  }
+
   // MARK: Route table (T131)
 
-  /// Adjust the area › "Use this area": the same piece and frame already cut go straight to Your
-  /// cutout; otherwise Making your cutout runs the `cleanup` (always the first time, even for the
-  /// piece the server cut on its own).
-  func routeAfterArea(_ request: CleanupRequest) -> CreateRoute? {
+  /// Adjust the area › "Use this area" (round 3): the frame already cut goes straight to Your cutout;
+  /// otherwise Making your cutout sends `detect` with the frame (the first time, and again for every
+  /// new frame; marks on Your cutout keep `cleanup`).
+  func routeAfterArea(box: [Double]) -> CreateRoute? {
     guard let photoId = photoArtwork?.id else { return nil }
-    if let piece = pieceArtwork, piece.cleanedUrl != nil, pieceCutFrom == request.candidateIds?.first, pieceBox == request.box {
-      return .yourCutout(photoId)
-    }
-    return .makingCutout(.area(request))
+    if let piece = pieceArtwork, piece.cleanedUrl != nil, pieceBox == box { return .yourCutout(photoId) }
+    return .makingCutout(.detect(box))
   }
 
   /// Your cutout › "Use this": the piece goes on to Change it; a change's cut-out is the product's art.
@@ -372,31 +433,21 @@ final class CreateFlow {
     return changeCuts[change.id] != nil ? .yourCutout(change.id) : .makingCutout(.change(change.id))
   }
 
-  /// A new photo answer: its drawings; a single one starts picked.
+  /// A new photo answer (stored, no drawings looked for yet in round 3).
   func setPhoto(artwork: Artwork, candidates: [Candidate], imageSize: ImageSize?) {
     photoArtwork = artwork
     photoCandidates = candidates
     photoImageSize = imageSize
-    pieceCandidateId = candidates.count == 1 ? candidates.first?.id : nil
+    areaError = nil
     pieceArtwork = nil
     pieceCutFrom = nil
     pieceBox = nil
     resetChange()
   }
 
-  /// Where Finding drawings goes with the photo answer (ruling, T122): Adjust the area always comes
-  /// before Change it. No drawing found, or one the server already cut out: straight to Adjust the
-  /// area (no choice to make). The auto-cut piece is still cut with the frame there (T131: the
-  /// server's cut is not clipped to it). Otherwise Choose a pattern first.
-  func routeAfterFinding(artwork: Artwork) -> CreateRoute {
-    if photoCandidates.isEmpty { return .adjustArea }
-    guard photoCandidates.count == 1, artwork.cleanedUrl != nil, let only = photoCandidates.first else { return .choosePattern }
-    pieceCandidateId = only.id
-    return .adjustArea
-  }
-
   /// No changes: the art is the picked piece again, and the changes' cut-outs go.
   func resetChange() {
+    pendingJob = nil
     changes = []
     changedArtworkId = nil
     changeCuts = [:]
@@ -420,7 +471,8 @@ final class CreateFlow {
     photoArtwork = nil
     photoCandidates = []
     photoImageSize = nil
-    pieceCandidateId = nil
+    areaError = nil
+    pendingJob = nil
     pieceArtwork = nil
     pieceCutFrom = nil
     pieceBox = nil
@@ -453,6 +505,13 @@ final class CreateFlow {
     productCut = artwork.cleanedUrl
   }
 
+  /// Products already known for `artwork` when a product job starts (never that job's answer).
+  func knownProductIds(of artwork: Artwork) -> Set<String> {
+    var ids = Set((artwork.products ?? []).map(\.id))
+    if let product { ids.insert(product.id) }
+    return ids
+  }
+
   /// The draft with the mockup and price the server has now (`GET /artworks` products), or the
   /// draft as it was when the list does not have it.
   static func refreshed(_ product: Product, in artworks: [Artwork]) -> Product {
@@ -475,6 +534,160 @@ final class CreateFlow {
     cutoutNotice = result.productNotice
   }
 
+  // MARK: Long calls (round 3 ruling 6)
+
+  /// The job for a call about to be sent: the one in flight for the same work (Try again after a
+  /// lost answer keeps its `clientRequestId`), else a new one.
+  func startJob(_ kind: PendingJob.Kind, now: Date = Date(), knownProductIds: Set<String> = [],
+                shownListing: PendingJob.ShownListing? = nil) -> PendingJob {
+    if let job = pendingJob, job.kind == kind { return job }
+    let job = PendingJob(kind: kind, startedAt: now, clientRequestId: UUID().uuidString,
+                         knownProductIds: knownProductIds, shownListing: shownListing)
+    pendingJob = job
+    return job
+  }
+
+  /// The job's answer arrived (or it failed for good): a result applies only while its job is still
+  /// the one in flight, so a late answer after a recovery is not applied twice.
+  @discardableResult
+  func finishJob(_ job: PendingJob) -> Bool {
+    guard pendingJob == job else { return false }
+    pendingJob = nil
+    return true
+  }
+
+  /// Back in the app: screens reconcile only a job whose call is no longer waiting for its answer
+  /// (it failed, or its answer was lost). A call still in flight is left alone, so a return during
+  /// a long build never sends it again (re-review N1).
+  func appBecameActive() {
+    if pendingJob != nil, callsInFlight == 0 { resumeCount += 1 }
+  }
+
+  /// Runs a job's call, counted as in flight until it answers or fails.
+  func inFlight<T>(_ call: () async throws -> T) async rethrows -> T {
+    callsInFlight += 1
+    defer { callsInFlight -= 1 }
+    return try await call()
+  }
+
+  /// A job's result found on the server.
+  enum Recovered {
+    case change(ChangeResponse)
+    case product(Product)
+    case cut(ArtworkDetailResponse)
+    case listing(ListingDraft)
+  }
+
+  /// What the server already has for `job` (after a lost answer, or on return to the app): a change
+  /// child (`GET /artworks`), a product of the artwork and type, a new cut (`GET /artworks/{id}`),
+  /// the listing draft (`GET /listings/{id}`). Nil when it is not there (yet), or the server cannot
+  /// be reached.
+  static func reconcile(_ job: PendingJob, api: APIClient) async -> Recovered? {
+    switch job.kind {
+    case .change:
+      guard let artworks = try? await api.myArtworks(), let child = recoveredChange(in: artworks, job: job) else { return nil }
+      let description = ChangeDescription(alt: child.altText, spoken: child.spokenDescription, differences: child.differencesFromPrompt)
+      return .change(ChangeResponse(artwork: child, description: description))
+    case .product(let artworkId, let type):
+      // Review I2: the same request again with the same id answers the product the lost call made
+      // (200), or makes it now if that call never landed; never another product.
+      if let product = try? await api.createProduct(artworkId: artworkId, type: type, clientRequestId: job.clientRequestId) {
+        return .product(product)
+      }
+      guard let artworks = try? await api.myArtworks(), let product = recoveredProduct(in: artworks, job: job) else { return nil }
+      return .product(product)
+    case .cut(let id, _, _):
+      guard let detail = try? await api.artworkDetail(id: id), recoveredCut(detail, job: job) else { return nil }
+      return .cut(detail)
+    case .listing(let productId):
+      guard let res = try? await api.listing(productId: productId), let draft = res.draft,
+            recoveredListing(draft, job: job) else { return nil }
+      return .listing(draft)
+    }
+  }
+
+  /// Device and server clocks differ a little: a child made up to this long before the job started
+  /// still counts.
+  static let clockSlack: TimeInterval = 120
+
+  /// The change child of the job: its `clientRequestId`, else a child of the same base with the
+  /// same instruction created after the job started (the newest).
+  static func recoveredChange(in artworks: [Artwork], job: PendingJob) -> Artwork? {
+    guard case .change(let baseId, let instruction) = job.kind else { return nil }
+    let children = artworks.filter { $0.parentArtworkId == baseId && $0.changeInstruction == instruction }
+    if let exact = children.first(where: { $0.clientRequestId == job.clientRequestId }) { return exact }
+    let since = job.startedAt.addingTimeInterval(-clockSlack)
+    // Review I4: a child made by another attempt (another request id) is not this job's answer.
+    return children
+      .filter { $0.clientRequestId == nil }
+      .compactMap { child in date(child.createdAt).map { (child, $0) } }
+      .filter { $0.1 >= since }
+      .max { $0.1 < $1.1 }?.0
+  }
+
+  /// A product of the job's artwork and type made by this job: not one known when it started (a
+  /// draft before a published one; not archived; the list is newest first). Only a second check
+  /// after the same request again could not be sent.
+  static func recoveredProduct(in artworks: [Artwork], job: PendingJob) -> Product? {
+    guard case .product(let artworkId, let type) = job.kind else { return nil }
+    let fresh = (artworks.first(where: { $0.id == artworkId })?.products ?? [])
+      .filter { $0.type == type && !$0.isArchived && !job.knownProductIds.contains($0.id) }
+    guard let found = fresh.first(where: { !$0.isPublished }) ?? fresh.first else { return nil }
+    return Product(id: found.id, artworkId: artworkId, type: type, mockupUrl: found.mockupUrl, previewUrl: found.previewUrl,
+                   priceCents: found.priceCents, status: found.status)
+  }
+
+  /// The listing draft on the server is not the one on screen when the run started (review I3).
+  static func recoveredListing(_ draft: ListingDraft, job: PendingJob) -> Bool {
+    let title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !title.isEmpty else { return false }
+    guard let shown = job.shownListing else { return true }
+    return title != shown.title.trimmingCharacters(in: .whitespacesAndNewlines)
+      || (draft.description ?? "") != shown.description
+  }
+
+  /// The artwork has a cut-out it did not have when the job started (for `detect`, with the drawings).
+  static func recoveredCut(_ detail: ArtworkDetailResponse, job: PendingJob) -> Bool {
+    guard case .cut(_, let previous, let needsCandidates) = job.kind,
+          let cut = detail.artwork.cleanedUrl, !cut.isEmpty, cut != previous else { return false }
+    return !needsCandidates || !detail.candidates.isEmpty
+  }
+
+  private static func date(_ iso: String?) -> Date? {
+    guard let iso else { return nil }
+    let precise = ISO8601DateFormatter()
+    precise.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return precise.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+  }
+}
+
+/// A long call in flight (round 3 ruling 6): what it makes, when it started and the
+/// `clientRequestId` it carries (one per attempt, kept for Try again after a lost answer).
+struct PendingJob: Equatable {
+  enum Kind: Equatable {
+    /// `change` of `baseId` with the instruction.
+    case change(baseId: String, instruction: String)
+    /// `products` for the artwork and type.
+    case product(artworkId: String, type: ProductType)
+    /// `detect` (needs the drawings) or `cutout` of the artwork; `previousCut` is its cut-out before.
+    case cut(artworkId: String, previousCut: String?, needsCandidates: Bool)
+    /// `listings/{id}/run`.
+    case listing(productId: String)
+  }
+
+  /// The name and description on screen when a listing run started.
+  struct ShownListing: Equatable {
+    var title: String
+    var description: String
+  }
+
+  let kind: Kind
+  let startedAt: Date
+  let clientRequestId: String
+  /// Products of the artwork known when a product job started (never its answer).
+  var knownProductIds: Set<String> = []
+  /// The listing on screen when a listing run started (its answer must differ).
+  var shownListing: ShownListing?
 }
 
 /// One change in a creation's chain: the result, the art it was made from, what was asked and how

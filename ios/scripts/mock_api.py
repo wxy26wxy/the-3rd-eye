@@ -3,6 +3,16 @@
 
 Usage: python3 ios/scripts/mock_api.py [port]   (default 3999)
 Build the app against it: xcodebuild ... API_BASE_URL=http://localhost:3999
+Delays (T145): MOCK_DELAY_MS (environment, default 150) is how long the calls that used to sleep 2 s
+take (framed photo, detect, change, listing run, text2image); e.g. MOCK_DELAY_MS=2000 brings back the
+old pace for a demo. The windows a test needs stay fixed and apply only in their modes: SLOW... 4 s
+(framed photo, cleanup, products), LOSTCHANGE... 4 s (the change), a code holding SLOWRUN 2 s (the
+listing run), NONE.../NOCUT... 2 s (the framed photo's 422). The UI tests pass nothing: the default
+is fast.
+Sessions (T145): parallel UI test runners share one mock. A sign-in code ending in -S<digits> opens
+that session (its own modes, counts, last bodies and designs) and answers the token c-test.mock.<digits>,
+which keeps later calls in it; the path prefix /s/<digits>/ does the same for /__mock/... reads and
+blob PUTs. Without either, calls use the default session, as before. Sign-in resets only its session.
 Shapes follow docs/api.md. Images point at a 1x1 PNG served here.
 Photo flow: launch the app with UITEST_PHOTO=1 and MOCK_BLOB_API=<base>/blob/ (UI tests do);
 POST /artworks {source: photo} answers 2 candidates and imageSize 1200x1600 (sign-in code ONE...: 1,
@@ -11,7 +21,8 @@ GET /artworks/p1 then has no candidates; T131).
 GET /__mock/count/<route> returns {"count": n}, the calls to that route since sign-in (cutout, cleanup,
 run, products, ...); GET /__mock/last/cleanup-target returns {"artworkId": ...} of the last cleanup.
 Sign-in NOCUT... makes cleanup answer 422, DETAILS... gives cleanup non-empty details, SLOW... makes
-cleanup take 4 s (switching tabs meanwhile must not lose the cut).
+cleanup take 4 s (switching tabs meanwhile must not lose the cut; T145: the framed photo too, and
+GET /__mock/count/framed-answers counts its answers).
 T146: sign-in REFRAME... gives the second and later crops their own row ids (p2, p3, ...); every
 DELETE /artworks/<id> is counted at /__mock/count/artworks-deletes (a crop row p<n> answers 200).
 REFRAME... supports the delete count only: p2's detail, cleanup and detect routes answer 404.
@@ -27,7 +38,7 @@ signing in again restores the list.
 Approve refusals (T091): a title or description containing "unkind" answers 409 moderation_failed;
 sign-in NOPRINT... makes every approve answer 409 print_check_failed. Both carry technical messages,
 as the server's can, so the app must show its own words.
-Change it (T111): POST /artworks/<id>/change {instruction, transcript?} sleeps 2 s and answers a child
+Change it (T111): POST /artworks/<id>/change {instruction, transcript?} waits MOCK_DELAY_MS and answers a child
 artwork ch<n> (parentArtworkId = <id>, previewUrl, cleanedUrl null) with a description; an instruction
 containing "nothing" gives description.differences "" (the app shows its own copy). POST
 /artworks/<id>/cutout answers the cut-out row, the two candidates (largest first) and imageSize, only for
@@ -41,12 +52,12 @@ once its cutout ran (before: no candidates, as the server).
 change answers 201 like the server. GET /__mock/last/<change|cutout> as above.
 Sticker preview, listing run, story video (T121): every sticker product carries previewUrl
 (<base>/sticker-preview.png, a 240 px bordered die-cut sticker on transparency; totes: null).
-POST /listings/<id>/run sleeps 2 s and answers {listing, trace} (title/description/price_cents filled;
+POST /listings/<id>/run (2 s with SLOWRUN in the code, else MOCK_DELAY_MS) answers {listing, trace} (title/description/price_cents filled;
 GET /__mock/last/run has the product id). GET /creators/me returns storyVideoUrl (a pathname the mock
 serves at /media/<pathname>, a short MP4 with Range support) and storyVideoVtt; sign-in NOVIDEO...
 returns both null ("No story video yet"); POST /creators/me/story-video replaces them.
 Round 3 (T134): POST /artworks {source: photo, detect: false} answers the stored photo with candidates []
-and imageSize (every mode, never 422). POST /artworks/<p1|d<n>>/detect {box} sleeps 2 s and answers
+and imageSize (every mode, never 422). POST /artworks/<p1|d<n>>/detect {box} waits MOCK_DELAY_MS and answers
 {artwork, candidates, imageSize, details} (ONE...: one candidate; NONE.../NOCUT...: 422 no_drawing_found
 with artworkId; ch<n>: 409 not_a_photo; bad box: 400); body in GET /__mock/last/detect, calls in
 /__mock/count/detect; GET /artworks/p1 then lists the detected candidates. clientRequestId on change and
@@ -57,10 +68,11 @@ NOPRINT...: run gives print_ok false + print_check "contrast", approve answers 4
 check "contrast", and 200 with acceptPrintWarning: true. NORES...: check "resolution", 409 even with the flag.
 Recovery (T136): GET /artworks also lists the change rows ch<n> made since sign-in (as the server lists
 children); sign-in LOSTCHANGE... makes the first change store its row and then drop the connection without
-an answer (the app sees a transport error and recovers the row from GET /artworks).
+an answer after 4 s (the app sees a transport error and recovers the row from GET /artworks; the drop is
+counted at /__mock/count/change-dropped).
 /__mock/count/change-posts counts every change POST, repeats with the same clientRequestId included.
 Round 4 (T143): POST /artworks {source: photo, framed: true} (the uploaded crop) answers like detect on p1
-in one call (2 s; ONE...: one candidate; NONE.../NOCUT...: 422 no_drawing_found with artworkId p1;
+in one call (MOCK_DELAY_MS; ONE...: one candidate; NONE.../NOCUT...: 422 no_drawing_found with artworkId p1;
 framed with detect false: 400); photo POSTs are counted at /__mock/count/artworks-posts and GET /artworks
 (the My designs list) at /__mock/count/artworks. cleanup (p1, d<n>,
 ch<n>) and cutout answer with "products" (cutout also with "details"): the row's products after the rebuild (each mockupUrl gets a new
@@ -75,13 +87,82 @@ import os
 import re
 import struct
 import sys
+import threading
 import time
 import zlib
+from collections.abc import MutableMapping
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 3999
 BASE = f"http://localhost:{PORT}"
+
+# T145: every artificial delay. MOCK_DELAY_MS (default 150) is the ordinary answer time of the calls
+# that took 2 s before (framed photo, detect, change, listing run, text2image); the in-flight windows a
+# test needs are fixed below and apply only in their sign-in modes.
+try:
+    DELAY_S = max(0, int(os.environ.get("MOCK_DELAY_MS") or 150)) / 1000
+except ValueError:
+    sys.exit("mock_api: MOCK_DELAY_MS must be a whole number of milliseconds")
+SLOW_DELAY_S = 4.0        # SLOW...: framed photo, cleanup, products (tab switch, background, making state)
+LOSTCHANGE_DELAY_S = 4.0  # LOSTCHANGE...: the change is in flight while the app goes to the background
+SLOWRUN_DELAY_S = 2.0     # ...SLOWRUN... in the code: the listing run (the drafting card, Redo while drafting)
+# NONE.../NOCUT...: the framed photo's 422 keeps the old 2 s. An answer that comes back while Making your
+# cutout is still sliding in loses the "move or grow the frame" advice on Adjust the area (an app race
+# found in T145, reported; the real detection takes seconds).
+NOTHING_FOUND_DELAY_S = 2.0
+
+
+def pause(seconds=None):
+    time.sleep(DELAY_S if seconds is None else seconds)
+
+
+# T145: state per test session, so parallel UI test runners (one per simulator clone) share one mock.
+# A runner signs in with a code ending in -S<digits>; that session's token is c-test.mock.<digits>,
+# and the runner's own calls (and the app's blob PUTs, via MOCK_BLOB_API) use the path prefix
+# /s/<digits>. Without a session everything lands in the default session "" (as before).
+_LOCAL = threading.local()
+_SESSIONS = {}
+_SESSIONS_LOCK = threading.Lock()
+_FACTORIES = {}
+
+
+def session_state():
+    sid = getattr(_LOCAL, "sid", "")
+    with _SESSIONS_LOCK:
+        if sid not in _SESSIONS:
+            _SESSIONS[sid] = {name: make() for name, make in _FACTORIES.items()}
+        return _SESSIONS[sid]
+
+
+class SessionDict(MutableMapping):
+    """A module-level dict whose contents belong to the current request's session."""
+
+    def __init__(self, name, make):
+        self._name = name
+        _FACTORIES[name] = make
+
+    def _d(self):
+        return session_state()[self._name]
+
+    def __getitem__(self, key):
+        return self._d()[key]
+
+    def __setitem__(self, key, value):
+        self._d()[key] = value
+
+    def __delitem__(self, key):
+        del self._d()[key]
+
+    def __iter__(self):
+        return iter(self._d())
+
+    def __len__(self):
+        return len(self._d())
+
+    def clear(self):
+        self._d().clear()
+
 PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d4948445200000001000000010806000000"
     "1f15c4890000000d49444154789c63f8cfc0f01f0005000201a5d8b1c9"
@@ -119,7 +200,7 @@ STORY_MP4_PATH = os.path.join(_HERE, "..", "App", "Resources", "Animations", "st
 STORY_VIDEO_PATH = "creators/c-test/story-video/mock-story.mp4"
 STORY_VTT = ("WEBVTT\n\n00:00.000 --> 00:02.000\nHi, I am Test Artist.\n\n"
              "00:02.000 --> 00:04.000\nI draw frogs with crowns.\n")
-STORY = {"url": STORY_VIDEO_PATH, "vtt": STORY_VTT}
+STORY = SessionDict("STORY", lambda: {"url": STORY_VIDEO_PATH, "vtt": STORY_VTT})
 
 
 def preview_for(product_id, kind):
@@ -182,17 +263,19 @@ CANDIDATES = [
     {"id": "cand-2", "bbox": [660, 896, 1060, 1429], "score": 0.88, "thumbUrl": f"{BASE}/img.png"},
 ]
 # Last request body per route, read back by UI tests through GET /__mock/last/<name>.
-LAST = {}
+LAST = SessionDict("LAST", dict)
 # Calls per route since sign-in, read back through GET /__mock/count/<name> (T131: the cutout cache).
-COUNTS = {}
+COUNTS = SessionDict("COUNTS", dict)
 
 
 def count(name):
     COUNTS[name] = COUNTS.get(name, 0) + 1
 # A sign-in code starting with ONE makes photo answers carry a single, already cut-out candidate.
 # NOCUT… makes every cleanup answer 422; DETAILS… makes it carry non-empty details.
-MODE = {"reframe": False, "nocutout": False, "single": False, "none": False, "fail": False, "details": False, "slow": False, "noprint": False, "nores": False, "novideo": False}
-CUTS = {"n": 0}
+MODE = SessionDict("MODE", lambda: {"reframe": False, "lostchange": False, "nocutout": False, "single": False, "none": False, "fail": False,
+                                    "details": False, "slow": False, "slowrun": False, "noprint": False, "nores": False,
+                                    "novideo": False})
+CUTS = SessionDict("CUTS", lambda: {"n": 0})
 
 
 def photo_artwork(cleaned=None, alt=None):
@@ -206,10 +289,10 @@ def photo_artwork(cleaned=None, alt=None):
 
 
 # Change it (T111): each change makes a new child row ch1, ch2, ... (the last body is in LAST["change"]).
-CHANGES = {"n": 0, "rows": {}, "cut": set()}
+CHANGES = SessionDict("CHANGES", lambda: {"n": 0, "rows": {}, "cut": set()})
 # Round 3 (T134): clientRequestId -> (target, status-200 response) for change and products; detect state of p1.
-REQUESTS = {"change": {}, "products": {}}
-DETECT = {"candidates": None}
+REQUESTS = SessionDict("REQUESTS", lambda: {"change": {}, "products": {}})
+DETECT = SessionDict("DETECT", lambda: {"candidates": None})
 
 
 def check_request_id(body):
@@ -241,7 +324,7 @@ def change_artwork(artwork_id, body):
     if again:
         return again
     count("change")
-    time.sleep(2)
+    pause(LOSTCHANGE_DELAY_S if MODE.get("lostchange") else None)
     CHANGES["n"] += 1
     child_id = f"ch{CHANGES['n']}"
     differences = "" if "nothing" in instruction.lower() else "The sky is purple now; the bus and the trees are the same."
@@ -259,6 +342,8 @@ def change_artwork(artwork_id, body):
     if rid is not None:
         REQUESTS["change"][rid] = (artwork_id, response)
     if MODE.get("lostchange") and CHANGES["n"] == 1:
+        # T145: the UI test waits for this count instead of a fixed sleep.
+        count("change-dropped")
         raise DropConnection()
     return 201, response
 
@@ -314,11 +399,15 @@ def create_artwork(body):
         count("artworks-posts")
         if body.get("framed") is True:
             # Round 4 (T143): the upload is the creator's crop; detection on the whole crop, the largest cut.
-            res = detect("p1", {"box": [0, 0, IMAGE_SIZE["w"], IMAGE_SIZE["h"]]}, counted=False)
+            res = detect("p1", {"box": [0, 0, IMAGE_SIZE["w"], IMAGE_SIZE["h"]]}, counted=False,
+                         delay=SLOW_DELAY_S if MODE["slow"] else
+                         NOTHING_FOUND_DELAY_S if MODE["none"] or MODE["fail"] else None)
             n = COUNTS["artworks-posts"]
             if MODE["reframe"] and n > 1:
                 # T146: REFRAME... gives every later crop its own row (p2, p3, ...) so a re-frame can be told from the first.
                 res["artwork"]["id"] = f"p{n}"
+            # T145: the answer is on its way (the tab-switch test waits for it instead of a fixed sleep).
+            count("framed-answers")
             return 201, res
         if body.get("detect") is False:
             # Round 3 (T134): the photo is stored, no detection ran, so never 422.
@@ -330,7 +419,7 @@ def create_artwork(body):
             return {"artwork": photo_artwork(f"{BASE}/img.png?cut=0", "Cut-out of piece 1"),
                     "candidates": CANDIDATES[:1], "imageSize": IMAGE_SIZE}
         return {"artwork": photo_artwork(), "candidates": CANDIDATES, "imageSize": IMAGE_SIZE}
-    time.sleep(2)
+    pause()
     return {"artworks": [artwork(i + 1) for i in range(int(body.get("n") or 1))]}
 
 
@@ -385,7 +474,7 @@ def cleanup(body, artwork_id="p1"):
     print(f"mock_api: cleanup {json.dumps(body)}", file=sys.stderr, flush=True)
     check_cleanup(body)
     if MODE["slow"]:
-        time.sleep(4)
+        pause(SLOW_DELAY_S)
     if MODE["fail"]:
         raise MockError(422, "no_drawing_found", "Nothing was left in the cutout.")
     CUTS["n"] += 1
@@ -421,7 +510,7 @@ def row_products(artwork_id, rebuild=False):
     return [product_summary(p) for p in live]
 
 
-def detect(artwork_id, body, counted=True):
+def detect(artwork_id, body, counted=True, delay=None):
     """Round 3 (T134): SAM inside the frame on the photo row; the largest candidate is cut out."""
     if counted:
         LAST["detect"] = {**body, "artworkId": artwork_id}
@@ -433,7 +522,7 @@ def detect(artwork_id, body, counted=True):
     if set(body) - {"box"} or not isinstance(box, list) or len(box) != 4 \
             or not all(isinstance(v, (int, float)) and v >= 0 for v in box) or not (box[0] < box[2] and box[1] < box[3]):
         raise MockError(400, "invalid_request", "box must be [x0, y0, x1, y1] with x0 < x1 and y0 < y1")
-    time.sleep(2)
+    pause(delay)
     if MODE["none"] or MODE["fail"]:
         DETECT["candidates"] = []
         raise MockError(422, "no_drawing_found", "Nothing was found inside the frame.", artworkId=artwork_id)
@@ -498,7 +587,7 @@ def designs():
 SUGGESTED_CENTS = 500
 
 
-DESIGNS = {"list": designs()}
+DESIGNS = SessionDict("DESIGNS", lambda: {"list": designs()})
 
 
 def find_design(artwork_id):
@@ -547,7 +636,7 @@ def create_product(body):
     count(f"products/{artwork_id}")
     if MODE["slow"]:
         # T141: SLOW... also makes products take 4 s (the app goes to the background meanwhile).
-        time.sleep(4)
+        pause(SLOW_DELAY_S)
     if artwork_id in {d["id"] for d in DESIGNS["list"]} and not find_design(artwork_id)["cleanedUrl"]:
         raise MockError(409, "artwork_not_ready", "Pick and clean up the artwork first")
     # Round 4 (T143): a change result's product has its own id, so the parent's and the child's coexist.
@@ -599,7 +688,7 @@ def run_listing(product_id, _body):
     """POST /listings/<id>/run: the listing agent's draft after about 2 s (the app shows its drafting card meanwhile)."""
     LAST["run"] = {"productId": product_id}
     count("run")
-    time.sleep(2)
+    pause(SLOWRUN_DELAY_S if MODE["slowrun"] else None)
     kind, title, description = ("tote" if product_id.endswith("tote") else "sticker"), None, None
     for d in DESIGNS["list"]:
         for p in d["products"]:
@@ -624,8 +713,8 @@ def run_listing(product_id, _body):
 
 
 # Round 3 (T134): products made since sign-in and the last listing run per product.
-PRODUCTS = {}
-RUNS = {}
+PRODUCTS = SessionDict("PRODUCTS", dict)
+RUNS = SessionDict("RUNS", dict)
 
 
 def get_listing(product_id, _body):
@@ -711,6 +800,7 @@ def sign_in(body):
     MODE["fail"] = code.startswith("NOCUT") and not MODE["nocutout"]
     MODE["details"] = code.startswith("DETAILS")
     MODE["slow"] = code.startswith("SLOW")
+    MODE["slowrun"] = "SLOWRUN" in code
     MODE["noprint"] = code.startswith("NOPRINT")
     MODE["nores"] = code.startswith("NORES")
     MODE["lostchange"] = code.startswith("LOSTCHANGE")
@@ -725,7 +815,7 @@ def sign_in(body):
     PRODUCTS.clear()
     RUNS.clear()
     creator = {**CREATOR, "accessPrefs": {**CREATOR["accessPrefs"], "simpleMode": not multi}}
-    return {"token": "c-test.mock", "creator": creator}
+    return {"token": "c-test.mock" + (f".{_LOCAL.sid}" if getattr(_LOCAL, "sid", "") else ""), "creator": creator}
 
 
 ROUTES = {
@@ -792,6 +882,10 @@ class Handler(BaseHTTPRequestHandler):
         path, _, query = self.path.partition("?")
         length = int(self.headers.get("Content-Length") or 0)
         raw = self.rfile.read(length) if length else b""
+        _LOCAL.sid = self._session(path, raw)
+        prefixed = re.match(r"^/s/(\d+)(/.*)$", path)
+        if prefixed:
+            path = prefixed.group(2)
         if path == "/img.png":
             return self._send(200, PNG, "image/png")
         if path == "/sticker-preview.png":
@@ -836,6 +930,25 @@ class Handler(BaseHTTPRequestHandler):
             self._send(e.status, {"error": {"code": e.code, "message": e.message, **e.extra}})
         except DropConnection:
             self.close_connection = True
+
+    def _session(self, path, raw):
+        """The test session of this request (T145): the /s/<n> prefix, else the bearer token
+        c-test.mock.<n>, else a sign-in code ending in -S<n>; "" for none."""
+        prefixed = re.match(r"^/s/(\d+)/", path)
+        if prefixed:
+            return prefixed.group(1)
+        token = re.match(r"^Bearer c-test\.mock\.(\d+)$", self.headers.get("Authorization") or "")
+        if token:
+            return token.group(1)
+        if path == "/api/v1/auth/code":
+            try:
+                code = str(json.loads(raw or b"{}").get("code", ""))
+            except ValueError:
+                code = ""
+            coded = re.search(r"-S(\d+)$", code.strip().upper())
+            if coded:
+                return coded.group(1)
+        return ""
 
     def do_GET(self):
         self._handle("GET")

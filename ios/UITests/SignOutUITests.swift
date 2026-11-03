@@ -9,18 +9,18 @@ final class SignOutUITests: XCTestCase {
     let app = XCUIApplication()
     app.launch()
     signIn(app, code: "TEST-CODE")
-    XCTAssertTrue(app.tabBars.buttons["My designs"].waitForExistence(timeout: 10))
+    XCTAssertTrue(app.tabBars.buttons["My designs"].waitToAppear(timeout: 10))
     openSignOutDialog(app)
 
     // "Signed in as <name>. Version <version> (<sha>), <server>"
     let pattern = ".*Signed in as .+\\. Version [^ ]+ \\([^)]+\\), \(mockAPIURL.absoluteString).*"
     let details = app.descendants(matching: .any).matching(NSPredicate(format: "label MATCHES %@", pattern)).firstMatch
-    XCTAssertTrue(details.waitForExistence(timeout: 5), "version, git sha and server are in the dialog")
+    XCTAssertTrue(details.waitToAppear(timeout: 5), "version, git sha and server are in the dialog")
 
     let confirm = signOutConfirm(app)
-    XCTAssertTrue(confirm.exists)
+    XCTAssertTrue(confirm.waitToAppear(timeout: 3))
     XCTAssertNotEqual(confirm.identifier, "sign-out", "the confirm, not the header button")
     confirm.tap()
-    XCTAssertTrue(app.buttons["Start creating"].waitForExistence(timeout: 5), "signed out")
+    XCTAssertTrue(app.buttons["Start creating"].waitToAppear(timeout: 5), "signed out")
   }
 }

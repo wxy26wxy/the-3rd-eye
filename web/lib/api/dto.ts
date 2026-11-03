@@ -3,7 +3,7 @@
  * contract shared with the web and iOS clients: do not rename.
  */
 import type {
-  ArtworkRow, ArtworkWithProducts, CreatorRow, ListingRow, MessageRow, OrderSummaryRow, ProductRow, ThankYouRow,
+  ArtworkProductRow, ArtworkRow, ArtworkWithProducts, CreatorRow, ListingRow, MessageRow, OrderSummaryRow, ProductRow, ThankYouRow,
 } from "@/lib/db/queries";
 
 export function toCreator(c: CreatorRow) {
@@ -24,9 +24,17 @@ export function toArtwork(a: ArtworkRow) {
   };
 }
 
-/** `GET /artworks` item: the artwork plus its products for status badges (`previewUrl`: bordered sticker preview, T121). */
+/**
+ * `ArtworkProduct`: a product on a design tile (`GET /artworks`) and in the `products` of cleanup /
+ * cutout responses (T143). `mockupUrl` is the AI product photo, `previewUrl` the bordered sticker (T121).
+ */
+export function toArtworkProduct({ id, type, status, priceCents, title, description, mockupUrl, previewUrl }: ArtworkProductRow) {
+  return { id, type, status, priceCents, title, description, mockupUrl: mockupUrl ?? null, previewUrl: previewUrl ?? null };
+}
+
+/** `GET /artworks` item: the artwork plus its products for status badges and pictures. */
 export function toArtworkListItem(a: ArtworkWithProducts) {
-  return { ...toArtwork(a), products: a.products.map(({ id, type, status, priceCents, title, description, mockupUrl, previewUrl }) => ({ id, type, status, priceCents, title, description, mockupUrl, previewUrl })) };
+  return { ...toArtwork(a), products: a.products.map(toArtworkProduct) };
 }
 
 /** Public picture of a row: the cut-out when there is one, else the edited picture of a change result (T111). */

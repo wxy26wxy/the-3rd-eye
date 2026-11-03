@@ -50,3 +50,21 @@ describe("GET /media with ?tag=", () => {
     expect((await get(print, "", { authorization: auth })).status).toBe(302);
   });
 });
+
+describe("GET /media cache headers (T143)", () => {
+  it("the redirect may be reused per browser just under the 600 s presign, varying by sign-in", async () => {
+    process.env.ADMIN_PASSWORD = "pw-for-tests";
+    const auth = `Basic ${Buffer.from("admin:pw-for-tests").toString("base64")}`;
+    const res = await get(print, "", { authorization: auth });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("cache-control")).toBe("private, max-age=540");
+    expect(res.headers.get("vary")).toBe("Authorization, Cookie");
+  });
+
+  it("a refusal is not given a cache lifetime", async () => {
+    delete process.env.ADMIN_PASSWORD;
+    const res = await get(print);
+    expect(res.status).toBe(401);
+    expect(res.headers.get("cache-control") ?? "").not.toMatch(/max-age/);
+  });
+});

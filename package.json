@@ -10,6 +10,7 @@
     "check-clean": "bash scripts/check_clean.sh",
     "icon": "pnpm --filter web exec tsx ../scripts/gen_app_icon.ts",
     "assets": "pnpm --filter web exec tsx ../scripts/sync_assets.ts",
-    "avatar": "pnpm --filter web avatar"
+    "avatar": "pnpm --filter web avatar",
+    "replace-art": "pnpm --filter web replace-art"
   }
 }

@@ -231,11 +231,12 @@ export class MetaSegmenter implements Segmenter {
 
   async findCandidates(image: ImageRef, opts: FindCandidatesOpts): Promise<CandidateSearch> {
     const prep = await this.prepare(image);
-    const runs = await Promise.allSettled(SAM_PHRASES.map((p) => this.run(prep, p, opts.trace)));
+    const phrases = opts.phrases?.length ? opts.phrases : SAM_PHRASES;
+    const runs = await Promise.allSettled(phrases.map((p) => this.run(prep, p, opts.trace)));
     const all: Segment[] = [];
     runs.forEach((r, i) => {
       if (r.status === "fulfilled") all.push(...r.value);
-      else console.warn(`[sam] findCandidates "${SAM_PHRASES[i]}" failed:`, r.reason instanceof Error ? r.reason.message : r.reason);
+      else console.warn(`[sam] findCandidates "${phrases[i]}" failed:`, r.reason instanceof Error ? r.reason.message : r.reason);
     });
     const confident = all.filter((s) => s.score >= MIN_CANDIDATE_SCORE);
     const rules = { max: opts.max, maxCoverage: opts.maxCoverage, dropContainers: opts.dropContainers };

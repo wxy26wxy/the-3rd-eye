@@ -48,20 +48,7 @@ async function finishArtwork(
   artwork: ArtworkRow, original: Buffer, parts: Mask[], opts: { prompt?: string; task: string; clip?: BBox },
 ): Promise<ArtworkRow> {
   const trace = traceFor(artwork.id, opts.task, "describe");
-  // `parts` are at the original's size (callers guarantee it).
-  const { width: W, height: H } = parts[0];
-  const bbox = bboxOf(unionMasks(parts));
-  if (!bbox) throw new ApiError(422, "no_drawing_found", "Nothing was selected there. Try a box around the whole thing.", { artworkId: artwork.id });
-  const k = cutUpscale(bbox);
-  const tw = Math.round(W * k), th = Math.round(H * k);
-  const source = tw === W && th === H ? original : await sharp(original).resize(tw, th, { kernel: "lanczos3", fit: "fill" }).png().toBuffer();
-  const alpha = await finishMask(parts, { width: tw, height: th });
-  if (opts.clip) clipAlpha(alpha, opts.clip, k);
-  if (!bboxOf(alphaToMask(alpha))) {
-    throw new ApiError(422, "no_drawing_found", "That selection is too small to cut out. Try a box around the whole thing.", { artworkId: artwork.id });
-  }
-  const cut = await removeBackground(source, alpha);
-  const cleaned = cut.png;
+  const { cleaned, alpha } = await cutParts(original, parts, opts.clip, { artworkId: artwork.id });
   const [cleanedFile, maskFile, description, cutPathSvg] = await Promise.all([
     storage().putPublic(creatorPath(artwork.creatorId, "cleaned", "png"), cleaned, "image/png"),
     storage().putPrivate(creatorPath(artwork.creatorId, "masks", "png"), await alphaToPng(alpha), "image/png"),
@@ -73,6 +60,29 @@ async function finishArtwork(
     altText: description.alt_text, spokenDescription: description.spoken,
     differencesFromPrompt: description.differences_from_prompt || null, status: "ready", lastError: null,
   });
+}
+
+/**
+ * The cut of `finishArtwork` without storage or database (also `pnpm replace-art --dry-run`, T148): the
+ * opaque original upscaled when the cut would be under MIN_SHORT_SIDE, the union of `parts` finished at
+ * that size, clipped to `clip` (original pixels), applied as alpha and trimmed.
+ */
+export async function cutParts(
+  original: Buffer, parts: Mask[], clip?: BBox, details: Record<string, unknown> = {},
+): Promise<{ cleaned: Buffer; alpha: Awaited<ReturnType<typeof finishMask>> }> {
+  // `parts` are at the original's size (callers guarantee it).
+  const { width: W, height: H } = parts[0];
+  const bbox = bboxOf(unionMasks(parts));
+  if (!bbox) throw new ApiError(422, "no_drawing_found", "Nothing was selected there. Try a box around the whole thing.", details);
+  const k = cutUpscale(bbox);
+  const tw = Math.round(W * k), th = Math.round(H * k);
+  const source = tw === W && th === H ? original : await sharp(original).resize(tw, th, { kernel: "lanczos3", fit: "fill" }).png().toBuffer();
+  const alpha = await finishMask(parts, { width: tw, height: th });
+  if (clip) clipAlpha(alpha, clip, k);
+  if (!bboxOf(alphaToMask(alpha))) {
+    throw new ApiError(422, "no_drawing_found", "That selection is too small to cut out. Try a box around the whole thing.", details);
+  }
+  return { cleaned: (await removeBackground(source, alpha)).png, alpha };
 }
 
 /**
@@ -186,7 +196,7 @@ const THUMB_SOURCE_SIDE = 1024;
  */
 export async function createFromImage(
   creatorId: string,
-  input: { source: "photo" | "canvas"; imageUrl: string; product: "sticker" | "tote"; detect?: boolean; framed?: boolean },
+  input: { source: "photo" | "canvas"; imageUrl: string; product: "sticker" | "tote"; detect?: boolean; framed?: boolean; phrases?: readonly string[] },
   task = "T010",
 ): Promise<{ artwork: ArtworkRow; candidates: SamCandidate[]; imageSize: ImageSize; details?: Omit<RecutResult, "artwork"> }> {
   const uploadPath = clientUploadPath(input.imageUrl, creatorId);
@@ -209,7 +219,7 @@ export async function createFromImage(
   if (input.detect === false) return { artwork, candidates: [], imageSize };
   if (input.framed) {
     // Round 4 (T143): the upload is the creator's crop, so the whole picture is the frame.
-    const out = await detectInBox(artwork, [0, 0, imageSize.w, imageSize.h], task, png);
+    const out = await detectInBox(artwork, [0, 0, imageSize.w, imageSize.h], task, png, input.phrases);
     return { artwork: out.artwork, candidates: out.candidates, imageSize, details: { failedProductIds: out.failedProductIds, unpublishedProductIds: out.unpublishedProductIds } };
   }
   const { segments: segs, droppedContainer } = await (await ai()).segmenter.findCandidates(pngRef(png), { trace: traceFor(id, task, "segment"), max: MAX_CANDIDATES });
@@ -244,13 +254,45 @@ async function storeCandidates(creatorId: string, png: Buffer, imageSize: ImageS
 }
 
 /**
+ * SAM inside the clamped frame `b` of `png` (W × H): the crop is searched (both phrases, or `phrases`),
+ * the masks are placed back at the frame's offset, largest first. No storage, no database (T148 dry run).
+ */
+export async function segmentInBox(png: Buffer, size: ImageSize, b: BBox, trace: Trace, phrases?: readonly string[]): Promise<Segment[]> {
+  const [x0, y0, x1, y1] = b;
+  const crop = await sharp(png).extract({ left: x0, top: y0, width: x1 - x0, height: y1 - y0 }).png().toBuffer();
+  // Inside a tight frame the piece may fill the crop and contain its own parts: keep both (no background or container drop).
+  const { segments } = await (await ai()).segmenter.findCandidates(pngRef(crop), {
+    trace, max: MAX_CANDIDATES, maxCoverage: 1, dropContainers: false, ...(phrases?.length ? { phrases } : {}),
+  });
+  return segments.map((s): Segment => {
+    const mask = placeMask(s.mask, size.w, size.h, x0, y0);
+    return { ...s, mask, bbox: [s.bbox[0] + x0, s.bbox[1] + y0, s.bbox[2] + x0, s.bbox[3] + y0] };
+  }).filter((s) => area(s.mask) > 0).sort((p, q) => area(q.mask) - area(p.mask));
+}
+
+/**
+ * The `framed` upload path of `createFromImage` without storage or database (T148 `--dry-run`): the same
+ * normalisation, SAM on the whole picture, the largest piece cut. Returns the normalised picture and the cut.
+ */
+export async function previewFramedCut(raw: Buffer, opts: { phrases?: readonly string[]; task?: string } = {}): Promise<{ png: Buffer; cleaned: Buffer; pieces: number }> {
+  const png = await ensureDpi(await sharp(raw).rotate().flatten({ background: "#ffffff" }).png().toBuffer());
+  const meta = await sharp(png).metadata();
+  const size: ImageSize = { w: meta.width ?? 0, h: meta.height ?? 0 };
+  const b = clampBox([0, 0, size.w, size.h], size.w, size.h);
+  const placed = b ? await segmentInBox(png, size, b, { stage: "segment", task: opts.task ?? "T148" }, opts.phrases) : [];
+  if (!b || !placed.length) throw new ApiError(422, "no_drawing_found", "We could not find a drawing or object inside the frame. Move the frame or make it bigger.");
+  const { cleaned } = await cutParts(png, [placed[0].mask], b);
+  return { png, cleaned, pieces: placed.length };
+}
+
+/**
  * "Use this area" on Adjust the area (T134, round 3): SAM (both phrases) on the crop of `box` of the
  * photo row's original; the masks are placed back at the frame's offset, stored as the row's candidates
  * (largest first, replacing earlier ones), and the largest is cut out clipped to the box (no second SAM
  * call). Products made from the row are rebuilt as after a cleanup.
  */
 export async function detectInBox(
-  artwork: ArtworkRow, box: BBox, task = "T134", original?: Buffer,
+  artwork: ArtworkRow, box: BBox, task = "T134", original?: Buffer, phrases?: readonly string[],
 ): Promise<RecutResult & { candidates: SamCandidate[]; imageSize: ImageSize }> {
   assertPhotoRow(artwork);
   if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
@@ -267,16 +309,7 @@ export async function detectInBox(
     return new ApiError(422, "no_drawing_found", "We could not find a drawing or object inside the frame. Move the frame or make it bigger.", { artworkId: artwork.id });
   };
   if (!b) throw await none();
-  const [x0, y0, x1, y1] = b;
-  const crop = await sharp(png).extract({ left: x0, top: y0, width: x1 - x0, height: y1 - y0 }).png().toBuffer();
-  // Inside a tight frame the piece may fill the crop and contain its own parts: keep both (no background or container drop).
-  const { segments } = await (await ai()).segmenter.findCandidates(pngRef(crop), {
-    trace: traceFor(artwork.id, task, "segment"), max: MAX_CANDIDATES, maxCoverage: 1, dropContainers: false,
-  });
-  const placed = segments.map((s): Segment => {
-    const mask = placeMask(s.mask, W, H, x0, y0);
-    return { ...s, mask, bbox: [s.bbox[0] + x0, s.bbox[1] + y0, s.bbox[2] + x0, s.bbox[3] + y0] };
-  }).filter((s) => area(s.mask) > 0).sort((p, q) => area(q.mask) - area(p.mask));
+  const placed = await segmentInBox(png, { w: W, h: H }, b, traceFor(artwork.id, task, "segment"), phrases);
   if (!placed.length) throw await none();
   const candidates = await storeCandidates(artwork.creatorId, png, imageSize, placed);
   const st = (artwork.shapingTrace as Record<string, unknown> | null) ?? {};

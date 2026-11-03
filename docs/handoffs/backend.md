@@ -4,7 +4,9 @@
 `web/lib/**` (extends but does not break `lib/ai/types.ts`, `lib/db/schema.ts`), `web/app/api/**`, `web/app/media/**`, `web/drizzle/**`, `web/test/**`, `web/vitest.config.ts`, `scripts/seed.ts`, `scripts/probe_meta.ts`, appends to `docs/architecture.md`, `docs/decisions.md`, `docs/progress.md`.
 
 ## Current task
-T134 · Feedback round 3 backend — on `feat/backend-T134` (from main 20e248b). Contract: `docs/api.md` → "Creator flow (round 3)".
+None open. Round 3 closed: T134 merged (2026-11-03; review `docs/reviews/2026-11-03-backend-T134.md`); migration 0006 applied by the founder on 2026-11-02 (evening); v0.9 preview `dpl_H8yBD8xygcwpSi43a5P2UL2Hn1x5`, production promotion pending (`docs/deployments.md`). Parked minors from the review (a lone raster pixel dropped at step 4, `lastError` kept beside an old cut, a second describe on a racing repeat) stay as ruled.
+
+Before: T134 · Feedback round 3 backend — on `feat/backend-T134` (from main 20e248b). Contract: `docs/api.md` → "Creator flow (round 3)".
 - `POST /artworks {detect:false}` stores the photo only (no SAM, `candidates: []`, never 422); `POST /artworks/{id}/detect {box}` (`detectInBox` in `lib/pipeline/artworks.ts`): SAM on the crop, masks placed back (`placeMask` in `lib/image/mask.ts`), candidates largest first, the largest cut and clipped, products rebuilt; `409 not_a_photo` on a change result or generated row; `422 no_drawing_found` when nothing is inside the frame.
 - Print check (`lib/products/checks.ts`): contrast in Lab over opaque pixels (spread ≥ 30 or chroma ≥ 25 or mean L ≤ 50), a warning; resolution on the cleaned PNG with one ×2, the only hard gate; `measurePrintCheck`; stored checks carry `version: 2` and `check`; approve takes `acceptPrintWarning` and re-measures pre-T134 checks; the 409 carries `check`; a re-cut unpublishes only on resolution. `ListingDraft.print_check`.
 - Idempotency (`lib/pipeline/idempotency.ts`): `clientRequestId` on `change` and `products`, queries `getArtworkByClientRequest` / `getProductByClientRequest`, `isUniqueViolation` exported; `insertOnce` returns the winner's row on a race.

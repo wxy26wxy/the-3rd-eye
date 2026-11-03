@@ -55,6 +55,14 @@ Recovery (T136): GET /artworks also lists the change rows ch<n> made since sign-
 children); sign-in LOSTCHANGE... makes the first change store its row and then drop the connection without
 an answer (the app sees a transport error and recovers the row from GET /artworks).
 /__mock/count/change-posts counts every change POST, repeats with the same clientRequestId included.
+Round 4 (T143): POST /artworks {source: photo, framed: true} (the uploaded crop) answers like detect on p1
+in one call (2 s; ONE...: one candidate; NONE.../NOCUT...: 422 no_drawing_found with artworkId p1;
+framed with detect false: 400); photo posts are counted at /__mock/count/artworks-posts, GET /artworks at /__mock/count/artworks. cleanup (p1, d<n>,
+ch<n>) and cutout answer with "products": the row's products after the rebuild (each mockupUrl gets a new
+&v=, so a swap is visible). POST /products takes ch<n> rows (404 unknown, 409 artwork_not_ready before its
+cutout; id pr-ch<n>-<type>; p1 and d<n> keep pr-new-<type>) and counts per row at
+/__mock/count/products/<artworkId> beside the total /__mock/count/products (repeats not counted).
+GET /artworks lists the change rows with their products; every listed product has mockupUrl and previewUrl.
 """
 import json
 import math
@@ -263,7 +271,9 @@ def cutout_artwork(artwork_id, body):
     row.pop("previewUrl", None)
     CHANGES["rows"][artwork_id] = {**row, "previewUrl": base.get("previewUrl")}
     CHANGES["cut"].add(artwork_id)
-    return {"artwork": row, "candidates": CANDIDATES, "imageSize": IMAGE_SIZE}
+    CUTS["n"] += 1
+    return {"artwork": row, "candidates": CANDIDATES, "imageSize": IMAGE_SIZE,
+            "products": row_products(artwork_id, rebuild=True)}
 
 
 def change_detail(artwork_id):
@@ -286,12 +296,19 @@ def change_cleanup(artwork_id, body):
     row = {**base, "cleanedUrl": result["cleanedUrl"], "altText": result["altText"], "status": "ready",
            "cutPathSvg": "M10 10 L90 10 L90 90 L10 90 Z", "lastError": None}
     CHANGES["rows"][artwork_id] = row
-    return {**{k: v for k, v in row.items() if k != "previewUrl"}, "details": result["details"]}
+    return {**{k: v for k, v in row.items() if k != "previewUrl"}, "details": result["details"],
+            "products": result["products"]}
 
 
 def create_artwork(body):
     if body.get("source") in ("photo", "canvas"):
         LAST["artworks"] = body
+        count("artworks-posts")
+        if body.get("framed") is True:
+            # Round 4 (T143): the upload is the creator's crop; detection on the whole crop, the largest cut.
+            if body.get("detect") is False:
+                raise MockError(400, "invalid_request", "framed needs detection")
+            return 201, detect("p1", {"box": [0, 0, IMAGE_SIZE["w"], IMAGE_SIZE["h"]]}, counted=False)
         if body.get("detect") is False:
             # Round 3 (T134): the photo is stored, no detection ran, so never 422.
             DETECT["candidates"] = []
@@ -367,13 +384,37 @@ def cleanup(body, artwork_id="p1"):
     # Adjust the area (T122) sends the picked piece with the frame: the alt text names that piece.
     ids = body.get("candidateIds") or []
     alt = f"Cut-out of {ids[0]}" if ids else "Cut-out preview"
-    return {**photo_artwork(f"{BASE}/img.png?cut={CUTS['n']}", alt), "details": details}
+    return {**photo_artwork(f"{BASE}/img.png?cut={CUTS['n']}", alt), "details": details,
+            "products": row_products(artwork_id, rebuild=True)}
 
 
-def detect(artwork_id, body):
+def product_summary(p):
+    """The ArtworkProduct shape of GET /artworks (and of products on cleanup / cutout, T143)."""
+    run = RUNS.get(p["id"]) or {}
+    title = p.get("title") or (run.get("listing") or {}).get("title")
+    return {"id": p["id"], "type": p["type"], "status": p.get("status", "draft"),
+            "priceCents": p.get("priceCents"), "title": title, "description": p.get("description"),
+            "mockupUrl": p.get("mockupUrl"), "previewUrl": p.get("previewUrl")}
+
+
+def row_products(artwork_id, rebuild=False):
+    """Live products of a row, newest first (T143). rebuild: a re-cut gives every one a new mockupUrl."""
+    found = [p for p in reversed(list(PRODUCTS.values())) if p.get("artworkId") == artwork_id]
+    for d in DESIGNS["list"]:
+        if d["id"] == artwork_id:
+            found += [p for p in d["products"] if p["id"] not in {q["id"] for q in found}]
+    live = [p for p in found if p.get("status") != "archived"]
+    if rebuild:
+        for p in live:
+            p["mockupUrl"] = f"{BASE}/img.png?mockup={p['id']}&v={CUTS['n']}"
+    return [product_summary(p) for p in live]
+
+
+def detect(artwork_id, body, counted=True):
     """Round 3 (T134): SAM inside the frame on the photo row; the largest candidate is cut out."""
-    LAST["detect"] = {**body, "artworkId": artwork_id}
-    count("detect")
+    if counted:
+        LAST["detect"] = {**body, "artworkId": artwork_id}
+        count("detect")
     if artwork_id in CHANGES["rows"]:
         raise MockError(409, "not_a_photo", "Use cutout for a changed picture")
     design = find_design(artwork_id) if artwork_id != "p1" else None
@@ -415,7 +456,8 @@ def designs():
             "originalUrl": f"{BASE}/img.png", "cleanedUrl": cleaned, "maskUrl": None, "cutPathSvg": None,
             "altText": alt, "spokenDescription": None, "differencesFromPrompt": None, "genResponseId": None,
             "parentArtworkId": None, "changeInstruction": None, "status": "ready" if cleaned else "draft", "lastError": last_error,
-            "createdAt": created, "products": [{**p, "previewUrl": preview_for(p["id"], p["type"])} for p in products],
+            "createdAt": created,
+            "products": [{"mockupUrl": None, **p, "previewUrl": preview_for(p["id"], p["type"])} for p in products],
         }
     return [
         # Live price 8.00 differs from the agent's suggestion 5.00 (SUGGESTED_CENTS): an approve
@@ -479,12 +521,21 @@ def create_product(body):
     again = repeat_of("products", rid, (body.get("artworkId"), body.get("type")))
     if again:
         return again
-    count("products")
-    if body.get("artworkId") in {d["id"] for d in DESIGNS["list"]} and not find_design(body["artworkId"])["cleanedUrl"]:
+    artwork_id = body.get("artworkId")
+    is_change = str(artwork_id).startswith("ch")
+    if is_change and artwork_id not in CHANGES["rows"]:
+        raise MockError(404, "not_found", "no such artwork")
+    if is_change and artwork_id not in CHANGES["cut"]:
         raise MockError(409, "artwork_not_ready", "Pick and clean up the artwork first")
-    product_id = f"pr-new-{body.get('type')}"
-    product = {"id": product_id, "artworkId": body.get("artworkId"), "creatorId": "c-test",
-               "type": body.get("type"), "mockupUrl": f"{BASE}/img.png", "previewUrl": preview_for(product_id, body.get("type")),
+    count("products")
+    count(f"products/{artwork_id}")
+    if artwork_id in {d["id"] for d in DESIGNS["list"]} and not find_design(artwork_id)["cleanedUrl"]:
+        raise MockError(409, "artwork_not_ready", "Pick and clean up the artwork first")
+    # Round 4 (T143): a change result's product has its own id, so the parent's and the child's coexist.
+    product_id = f"pr-{artwork_id}-{body.get('type')}" if is_change else f"pr-new-{body.get('type')}"
+    product = {"id": product_id, "artworkId": artwork_id, "creatorId": "c-test",
+               "type": body.get("type"), "mockupUrl": f"{BASE}/img.png?mockup={product_id}",
+               "previewUrl": preview_for(product_id, body.get("type")),
                "printPngUrl": None, "printSvgUrl": None,
                "priceCents": 500, "status": "draft", "clientRequestId": rid}
     PRODUCTS[product_id] = product
@@ -602,6 +653,26 @@ def blob_put(_body, query=""):
     return {"url": f"{BASE}/img.png", "downloadUrl": f"{BASE}/img.png", "pathname": pathname, "contentType": "image/jpeg"}
 
 
+def jpeg_size(data):
+    """(width, height) from a JPEG's first SOF marker, else (None, None) (T141: the crop's size)."""
+    if data[:2] != b"\xff\xd8":
+        return None, None
+    i = 2
+    while i + 9 < len(data):
+        if data[i] != 0xFF:
+            i += 1
+            continue
+        marker = data[i + 1]
+        if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+            i += 2
+            continue
+        length = int.from_bytes(data[i + 2:i + 4], "big")
+        if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+            return int.from_bytes(data[i + 7:i + 9], "big"), int.from_bytes(data[i + 5:i + 7], "big")
+        i += 2 + length
+    return None, None
+
+
 def sign_in(body):
     # A code starting with MULTI signs in with simpleMode off, so the app asks for 3 pictures.
     multi = str(body.get("code", "")).upper().startswith("MULTI")
@@ -647,8 +718,9 @@ ROUTES = {
     ("GET", "/api/v1/artworks/p1"): artwork_detail,
     # Blob client upload: token event, then the PUT the app sends to MOCK_BLOB_API (= BASE/blob/).
     ("POST", "/api/v1/uploads"): lambda b: {"clientToken": "vercel_blob_client_mockstore_token"},
-    ("GET", "/api/v1/artworks"): lambda b: count("artworks-list") or {"artworks": DESIGNS["list"] + [
-        {**row, "products": []} for row in reversed(list(CHANGES["rows"].values()))]},
+    # T141: GET /artworks calls at /__mock/count/artworks (the quiet My designs refresh); photo posts at artworks-posts.
+    ("GET", "/api/v1/artworks"): lambda b: count("artworks") or {"artworks": DESIGNS["list"] + [
+        {**row, "products": row_products(row["id"])} for row in reversed(list(CHANGES["rows"].values()))]},
     ("POST", "/api/v1/products"): create_product,
     ("GET", "/api/v1/orders"): lambda b: {"orders": [], "unread": 0},
 }
@@ -705,9 +777,15 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 return self._send(404, {"error": {"code": "not_found", "message": "no sample video"}})
         if method == "PUT" and path == "/blob/":
+            # T141: uploads at /__mock/count/blob-put (one crop per "Use this area"); the last
+            # upload's size and, for a JPEG, its pixel size at /__mock/last/blob-put.
+            count("blob-put")
+            w, h = jpeg_size(raw)
+            LAST["blob-put"] = {"bytes": len(raw), "width": w, "height": h}
             return self._send(200, blob_put(None, query))
         if method == "GET" and path.startswith("/__mock/count/"):
-            return self._send(200, {"count": COUNTS.get(path.rsplit("/", 1)[1], 0)})
+            # The name may hold a slash: /__mock/count/products/<artworkId> (T143).
+            return self._send(200, {"count": COUNTS.get(path[len("/__mock/count/"):], 0)})
         if method == "GET" and path.startswith("/__mock/last/"):
             return self._send(200, LAST.get(path.rsplit("/", 1)[1]) or {})
         fn = ROUTES.get((method, path))

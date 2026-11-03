@@ -3,17 +3,15 @@ import SwiftUI
 
 enum HomeTab: Hashable { case create, designs, orders, messages }
 
-/// Pushed screens of the creator flow (root is PickProductView). Photo first, round 3 order (T136):
-/// camera → Finding ("Getting your photo ready…", the upload) → Adjust the area (the whole photo) →
-/// Making your cutout (`detect` inside the frame) → Your cutout → Change it → [Changing your art →
-/// Before and after → Making your cutout → Your cutout] → Making your sticker / tote bag → Listing
-/// details. "My story video" (T122) also opens from the root.
+/// Pushed screens of the creator flow (root is PickProductView). Photo first, round 4 order (T141):
+/// camera → Adjust the area (the local photo, no upload) → Making your cutout (the crop uploaded,
+/// `POST /artworks {framed: true}`) → Your cutout → Change it → [Changing your art → Before and
+/// after → Making your cutout → Your cutout] → Making your sticker / tote bag → Listing details.
+/// "My story video" (T122) also opens from the root.
 enum CreateRoute: Hashable {
   case chooseMethod
   case camera(PhotoSource)
-  /// Uploads the photo (`POST /artworks {detect: false}`); no drawing is looked for yet.
-  case findingDrawings
-  /// The frame on the photo (the whole photo at first); "Use this area" goes on to Making your cutout.
+  /// The frame on the local photo (the whole photo at first); "Use this area" goes on to Making your cutout.
   case adjustArea
   /// Say or type what to change, or keep the art as it is.
   case changeIt
@@ -21,7 +19,7 @@ enum CreateRoute: Hashable {
   case changing
   /// The change next to the art it was made from.
   case beforeAfter
-  /// Loading screen while the art is cut out: the frame on the photo (`detect`), or a kept change (`cutout`).
+  /// Loading screen while the art is cut out: the crop of the frame (upload + `POST /artworks`), or a kept change (`cutout`).
   case makingCutout(CutJob)
   /// The cut-out of the artwork with this id (the photo's piece, or a change), with the edge tools.
   case yourCutout(String)
@@ -39,9 +37,10 @@ enum CreateRoute: Hashable {
 
 /// What Making your cutout cuts.
 enum CutJob: Hashable {
-  /// Adjust the area's frame on the photo (round 3): `detect {box}` finds the drawings inside it and
-  /// cuts out the largest, clipped to the frame.
-  case detect([Double])
+  /// Adjust the area's frame (round 4): `[x0, y0, x1, y1]` in pixels of the local photo. The photo
+  /// is cropped to it on the device, the crop uploaded and `POST /artworks {framed: true}` cuts out
+  /// the largest drawing in it.
+  case area([Double])
   /// A kept change (`cutout`, once per artwork; later visits use `CreateFlow.changeCuts`).
   case change(String)
 }
@@ -51,8 +50,9 @@ enum PhotoSource: Hashable { case camera, library }
 /// Pushed screens of the My designs tab.
 enum DesignRoute: Hashable {
   case detail(String)
-  /// Adjust the area for a saved design (`AppState.designFlow`); "Use this area" comes back to the detail.
-  case adjustArea
+  /// Your cutout for a saved design (`AppState.designFlow`, round 4: marks on the stored crop, no
+  /// re-frame); "Use this" comes back to the detail.
+  case yourCutout(String)
 }
 
 /// Session, preferences and navigation shared by every screen.
@@ -217,28 +217,15 @@ final class AppState {
     createPath = [.yourCutout(art.id)]
   }
 
-  /// "Re-do the cutout" after a resolution refusal (review I1, web parity): back to Adjust the area
-  /// so the frame can take more of the photo. In a creation that is the Adjust the area in the path;
-  /// for a draft opened from My designs, Adjust the area on that design (`GET /artworks/{id}`) in
-  /// the My designs tab, which comes back to the design.
-  func backToArea() async throws {
-    if let index = createPath.lastIndex(of: .adjustArea) {
+  /// "Re-do the cutout" after a resolution refusal (round 4): Adjust the area on the local photo
+  /// while it is still in this creation, else Your cutout (marks on the stored crop) with "Take a
+  /// new photo".
+  func backToArea() {
+    if flow.photo != nil, let index = createPath.lastIndex(of: .adjustArea) {
       createPath = Array(createPath.prefix(through: index))
       return
     }
-    guard let art = flow.artwork else { return }
-    let detail = try await api.artworkDetail(id: art.id)
-    let redo = CreateFlow()
-    redo.artwork = detail.artwork
-    redo.resetCutout(artwork: detail.artwork, candidates: detail.candidates, imageSize: detail.imageSize)
-    redo.productType = flow.productType
-    designFlow = redo
-    // One screen at a time, after the tab shows: a stack given two screens at once while its tab
-    // is hidden draws an empty page.
-    selectedTab = .designs
-    designsPath = [.detail(art.id)]
-    try? await Task.sleep(for: .milliseconds(400))
-    if designsPath == [.detail(art.id)] { designsPath.append(.adjustArea) }
+    backToCutout()
   }
 
   // MARK: Persistence
@@ -263,17 +250,21 @@ final class CreateFlow {
   var productType: ProductType?
   var photo: UIImage?
   var photoSource: PhotoSource = .camera
-  /// The photo's artwork (`POST /artworks`), its drawings and the stored original's size.
+  /// The crop's artwork (`POST /artworks {framed: true}`), its drawings and the stored crop's size.
   var photoArtwork: Artwork?
   var photoCandidates: [Candidate] = []
   var photoImageSize: ImageSize?
-  /// The drawing cut out of the photo (`detect`, or a pick / marks on Your cutout) and the drawing
-  /// it was cut from.
+  /// The drawing cut out of the crop (the server's first cut, or a pick / marks on Your cutout) and
+  /// the drawing it was cut from.
   var pieceArtwork: Artwork?
   var pieceCutFrom: String?
-  /// The frame (Adjust the area) `pieceArtwork` was cut with.
-  var pieceBox: [Double]?
-  /// `detect` found nothing in the frame: Adjust the area shows this when it comes back on screen.
+  /// The frame on the local photo (pixels of `photo`) that `photoArtwork` was made from.
+  var cropBox: [Double]?
+  /// The last frame set on Adjust the area (Back to it starts there).
+  var areaBox: [Double]?
+  /// The crop already uploaded for a frame (Try again, or the same frame again, needs no second upload).
+  var cropUpload: CropUpload?
+  /// Nothing was found in the crop: Adjust the area shows this when it comes back on screen.
   var areaError: String?
   /// The long call in flight (round 3 ruling 6) and how often the app came back while it ran.
   private(set) var pendingJob: PendingJob?
@@ -349,20 +340,19 @@ final class CreateFlow {
 
   // MARK: Cut-outs (Your cutout)
 
-  /// The cut Your cutout shows for `artworkId`: the photo's piece (cut on Adjust the area, the frame
-  /// is its box), or a change's cut-out (the whole picture is its box).
+  /// The cut Your cutout shows for `artworkId`: the crop's piece, or a change's cut-out. Round 4:
+  /// the box is the whole picture for both (the server only has the crop).
   func cut(for artworkId: String) -> Cut? {
     if artworkId == photoArtwork?.id {
       guard let piece = pieceArtwork, piece.cleanedUrl != nil else { return nil }
-      return Cut(artwork: piece, candidates: photoCandidates, imageSize: photoPixelSize,
-                 selected: pieceCutFrom.map { [$0] } ?? [], box: pieceBox)
+      return Cut(artwork: piece, candidates: photoCandidates, imageSize: photoImageSize.flatMap { $0.isUsable ? $0 : nil },
+                 selected: pieceCutFrom.map { [$0] } ?? [], box: nil)
     }
     return changeCuts[artworkId]
   }
 
-  /// The photo's size in pixels of the stored original; the local photo's pixels when the server sent none.
-  var photoPixelSize: ImageSize? {
-    if let size = photoImageSize, size.isUsable { return size }
+  /// The local photo's size in pixels (the frame's coordinate space on Adjust the area).
+  var localPhotoSize: ImageSize? {
     guard let photo else { return nil }
     let size = ImageSize(w: photo.size.width * photo.scale, h: photo.size.height * photo.scale)
     return size.isUsable ? size : nil
@@ -371,10 +361,7 @@ final class CreateFlow {
   /// A new cut of `artworkId` (Making your cutout, or Apply cutout): the flow follows it.
   func recordCut(of artworkId: String, _ cut: Artwork, request: CleanupRequest? = nil) {
     if artworkId == photoArtwork?.id {
-      if let request {
-        pieceCutFrom = request.candidateIds?.first
-        if let box = request.box { pieceBox = box }
-      }
+      if let ids = request?.candidateIds, let first = ids.first { pieceCutFrom = first }
       pieceArtwork = cut
       updateChange(cut)
     } else {
@@ -384,29 +371,26 @@ final class CreateFlow {
     }
   }
 
-  /// A `detect` answer for the frame `box`: the drawings found inside it, the largest cut out. A new
-  /// piece drops the changes made from the old one.
-  func recordDetect(_ res: DetectResponse, box: [Double]) {
-    guard let photo = photoArtwork else { return }
-    var cut = res.artwork
-    if cut.altText?.isEmpty ?? true { cut.altText = photo.altText }
-    photoCandidates = res.candidates
-    if let size = res.imageSize, size.isUsable { photoImageSize = size }
-    resetChange()
-    pieceCutFrom = res.candidates.first?.id
-    pieceBox = box
-    pieceArtwork = cut
+  /// The answer for the crop of `box` (`POST /artworks {framed: true}`): a new row with the drawings
+  /// found in it and the largest cut out. The changes made from an earlier crop go.
+  func recordPhoto(_ res: PhotoArtworkResponse, box: [Double]) {
+    setPhoto(artwork: res.artwork, candidates: res.candidates, imageSize: res.imageSize)
+    cropBox = box
+    if res.artwork.cleanedUrl != nil {
+      pieceArtwork = res.artwork
+      pieceCutFrom = res.candidates.first?.id
+    }
   }
 
   // MARK: Route table (T131)
 
-  /// Adjust the area › "Use this area" (round 3): the frame already cut goes straight to Your cutout;
-  /// otherwise Making your cutout sends `detect` with the frame (the first time, and again for every
-  /// new frame; marks on Your cutout keep `cleanup`).
+  /// Adjust the area › "Use this area" (round 4): the frame already cut (same photo, same frame)
+  /// goes straight to Your cutout; any other frame is cropped, uploaded and cut on Making your
+  /// cutout (a new row each time).
   func routeAfterArea(box: [Double]) -> CreateRoute? {
-    guard let photoId = photoArtwork?.id else { return nil }
-    if let piece = pieceArtwork, piece.cleanedUrl != nil, pieceBox == box { return .yourCutout(photoId) }
-    return .makingCutout(.detect(box))
+    guard photo != nil else { return nil }
+    if let photoId = photoArtwork?.id, cropBox == box, pieceArtwork?.cleanedUrl != nil { return .yourCutout(photoId) }
+    return .makingCutout(.area(box))
   }
 
   /// Your cutout › "Use this": the piece goes on to Change it; a change's cut-out is the product's art.
@@ -439,7 +423,7 @@ final class CreateFlow {
     return changeCuts[change.id] != nil ? .yourCutout(change.id) : .makingCutout(.change(change.id))
   }
 
-  /// A new photo answer (stored, no drawings looked for yet in round 3).
+  /// A new row for the crop: its drawings and the stored crop's size.
   func setPhoto(artwork: Artwork, candidates: [Candidate], imageSize: ImageSize?) {
     photoArtwork = artwork
     photoCandidates = candidates
@@ -447,7 +431,7 @@ final class CreateFlow {
     areaError = nil
     pieceArtwork = nil
     pieceCutFrom = nil
-    pieceBox = nil
+    cropBox = nil
     resetChange()
   }
 
@@ -481,7 +465,9 @@ final class CreateFlow {
     pendingJob = nil
     pieceArtwork = nil
     pieceCutFrom = nil
-    pieceBox = nil
+    cropBox = nil
+    areaBox = nil
+    cropUpload = nil
     resetChange()
     resetCutout(artwork: nil, candidates: [], imageSize: nil)
     artwork = nil
@@ -545,10 +531,10 @@ final class CreateFlow {
   /// The job for a call about to be sent: the one in flight for the same work (Try again after a
   /// lost answer keeps its `clientRequestId`), else a new one.
   func startJob(_ kind: PendingJob.Kind, now: Date = Date(), knownProductIds: Set<String> = [],
-                shownListing: PendingJob.ShownListing? = nil) -> PendingJob {
+                knownArtworkIds: Set<String> = [], shownListing: PendingJob.ShownListing? = nil) -> PendingJob {
     if let job = pendingJob, job.kind == kind { return job }
     let job = PendingJob(kind: kind, startedAt: now, clientRequestId: UUID().uuidString,
-                         knownProductIds: knownProductIds, shownListing: shownListing)
+                         knownProductIds: knownProductIds, knownArtworkIds: knownArtworkIds, shownListing: shownListing)
     pendingJob = job
     return job
   }
@@ -581,6 +567,7 @@ final class CreateFlow {
     case change(ChangeResponse)
     case product(Product)
     case cut(ArtworkDetailResponse)
+    case photo(ArtworkDetailResponse)
     case listing(ListingDraft)
   }
 
@@ -605,6 +592,10 @@ final class CreateFlow {
     case .cut(let id, _, _):
       guard let detail = try? await api.artworkDetail(id: id), recoveredCut(detail, job: job) else { return nil }
       return .cut(detail)
+    case .photo:
+      guard let artworks = try? await api.myArtworks(), let row = recoveredPhoto(in: artworks, job: job),
+            let detail = try? await api.artworkDetail(id: row.id) else { return nil }
+      return .photo(detail)
     case .listing(let productId):
       guard let res = try? await api.listing(productId: productId), let draft = res.draft,
             recoveredListing(draft, job: job) else { return nil }
@@ -627,6 +618,18 @@ final class CreateFlow {
     return children
       .filter { $0.clientRequestId == nil }
       .compactMap { child in date(child.createdAt).map { (child, $0) } }
+      .filter { $0.1 >= since }
+      .max { $0.1 < $1.1 }?.0
+  }
+
+  /// The crop's row made by a photo job whose answer was lost: a photo row (not a change) created
+  /// after the job started, not known then, the newest. Its cut may be missing (nothing found).
+  static func recoveredPhoto(in artworks: [Artwork], job: PendingJob) -> Artwork? {
+    guard case .photo = job.kind else { return nil }
+    let since = job.startedAt.addingTimeInterval(-clockSlack)
+    return artworks
+      .filter { $0.parentArtworkId == nil && ($0.source ?? "photo") == "photo" && !job.knownArtworkIds.contains($0.id) }
+      .compactMap { row in date(row.createdAt).map { (row, $0) } }
       .filter { $0.1 >= since }
       .max { $0.1 < $1.1 }?.0
   }
@@ -675,8 +678,10 @@ struct PendingJob: Equatable {
     case change(baseId: String, instruction: String)
     /// `products` for the artwork and type.
     case product(artworkId: String, type: ProductType)
-    /// `detect` (needs the drawings) or `cutout` of the artwork; `previousCut` is its cut-out before.
+    /// `cutout` of the artwork; `previousCut` is its cut-out before.
     case cut(artworkId: String, previousCut: String?, needsCandidates: Bool)
+    /// The crop of the frame `box` (local photo pixels): upload + `POST /artworks {framed: true}`.
+    case photo(box: [Double])
     /// `listings/{id}/run`.
     case listing(productId: String)
   }
@@ -692,6 +697,8 @@ struct PendingJob: Equatable {
   let clientRequestId: String
   /// Products of the artwork known when a product job started (never its answer).
   var knownProductIds: Set<String> = []
+  /// Artworks known when a photo job started (never its answer).
+  var knownArtworkIds: Set<String> = []
   /// The listing on screen when a listing run started (its answer must differ).
   var shownListing: ShownListing?
 }
@@ -706,12 +713,18 @@ struct ChangeStep: Equatable {
 }
 
 /// A cut-out on Your cutout: the cut artwork, the pieces SAM found on its picture (in pixels of
-/// `imageSize`), the piece it was cut from and the box the edge tools send (the Adjust the area
-/// frame, or nil for the whole picture).
+/// `imageSize`), the piece it was cut from and the box the edge tools send (nil = the whole
+/// picture, which is every box since round 4).
 struct Cut: Equatable {
   var artwork: Artwork
   var candidates: [Candidate]
   var imageSize: ImageSize?
   var selected: [String]
   var box: [Double]?
+}
+
+/// The crop uploaded for a frame (pixels of the local photo) and its Blob URL.
+struct CropUpload: Equatable {
+  let box: [Double]
+  let url: String
 }

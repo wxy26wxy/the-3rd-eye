@@ -147,12 +147,12 @@ final class APIClient: @unchecked Sendable {
 
   // MARK: Create
 
-  /// Round 3 (docs/api.md "Creator flow (round 3)" step 1): the photo is stored without looking for
-  /// drawings (`detect: false`), so Adjust the area opens on the whole photo and `detect` looks inside
-  /// the frame. A server that still looks (or `detect: true`) may answer `422 no_drawing_found` with
-  /// the stored row's `artworkId`: thrown as `NoDrawingFound`, so the app still opens the photo.
-  func artworkFromPhoto(imageUrl: String, product: ProductType, source: String = "photo", detect: Bool? = false) async throws -> PhotoArtworkResponse {
-    let body = try Self.encoder.encode(PhotoArtworkRequest(source: source, imageUrl: imageUrl, product: product, detect: detect))
+  /// Round 4 (docs/api.md "Creator flow (round 4)" step 2): the picture is the crop of the frame
+  /// set on the device (`framed: true`); the server looks for drawings in the whole crop and cuts
+  /// out the largest (`candidates` largest first, `imageSize` = the stored crop). Nothing found →
+  /// `422 no_drawing_found` with the stored row's `artworkId`, thrown as `NoDrawingFound`.
+  func artworkFromPhoto(imageUrl: String, product: ProductType, source: String = "photo", framed: Bool = true) async throws -> PhotoArtworkResponse {
+    let body = try Self.encoder.encode(PhotoArtworkRequest(source: source, imageUrl: imageUrl, product: product, detect: nil, framed: framed ? true : nil))
     return try await long("artworks") {
       try await send(request("POST", "artworks", body: body, timeout: Self.longTimeout)) { status, data in
         guard status == 422, let envelope = try? Self.decoder.decode(NoDrawingEnvelope.self, from: data),
@@ -160,13 +160,6 @@ final class APIClient: @unchecked Sendable {
         return NoDrawingFound(artworkId: id, message: envelope.error.message)
       }
     }
-  }
-
-  /// Round 3 step 2: SAM looks for drawings inside the frame (`box`, pixels of `imageSize`) on the
-  /// photo row; the largest is cut out with the frame as a clip. Nothing found → `422
-  /// no_drawing_found`; a change result → `409 not_a_photo`.
-  func detect(artworkId: String, box: [Double]) async throws -> DetectResponse {
-    try await long("detect") { try await post("artworks/\(artworkId)/detect", DetectRequest(box: box), timeout: Self.longTimeout) }
   }
 
   func selectCandidate(artworkId: String, candidateId: String) async throws -> Artwork {

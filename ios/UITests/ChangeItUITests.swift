@@ -110,12 +110,12 @@ final class ChangeItUITests: XCTestCase {
     XCTAssertEqual(try count("cutout"), 1)
   }
 
-  /// Round 3 order: Adjust the area → Making your cutout (`detect`) → Your cutout → Change it →
+  /// Round 4 order: Adjust the area → Making your cutout (the crop, `framed`) → Your cutout → Change it →
   /// "Looks good as is" → Making your sticker → Listing details, from the piece's cut-out (no cutout call).
   func testLooksGoodGoesStraightToTheProduct() throws {
     let app = launchPhotoFlow(code: "TEST-CODE")
     cutPiece(app)
-    XCTAssertEqual(try lastBody("detect")["box"] as? [Double], [0, 0, 1200, 1600], "detected inside the frame on the way to Change it")
+    XCTAssertEqual(try lastBody("artworks")["framed"] as? Bool, true, "the crop was cut on the way to Change it")
     XCTAssertEqual(try count("cleanup"), 0, "no cleanup without marks")
     tap(app, "Looks good as is")
     XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 20), "straight to Making your sticker, then Listing details")
@@ -131,7 +131,8 @@ final class ChangeItUITests: XCTestCase {
     XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 20), "Adjust the area right after the photo")
     tap(app, "Use this area")
     XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 15), "Your cutout")
-    XCTAssertEqual(try count("detect"), 1)
+    XCTAssertEqual(try count("artworks-posts"), 1)
+    XCTAssertEqual(try count("detect"), 0)
     XCTAssertFalse(app.buttons["Piece 1"].exists, "one drawing: no strip")
     tap(app, "Use this")
     XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "then Change it")

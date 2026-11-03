@@ -16,6 +16,19 @@ enum ImageTools {
     }
   }
 
+  /// The frame `box` (`[x0, y0, x1, y1]` in pixels of the upright photo) cut out of `image`
+  /// (round 4: only the crop is uploaded). The orientation is applied first, so the box means what
+  /// the creator saw on Adjust the area; the box is clamped to the photo and rounded outwards.
+  static func crop(_ image: UIImage, to box: [Double]) -> UIImage? {
+    guard box.count == 4 else { return nil }
+    let upright = image.imageOrientation == .up && image.scale == 1 ? image : normalized(image, maxPixels: .greatestFiniteMagnitude)
+    guard let cg = upright.cgImage else { return nil }
+    let bounds = CGRect(x: 0, y: 0, width: cg.width, height: cg.height)
+    let rect = CGRect(x: box[0], y: box[1], width: box[2] - box[0], height: box[3] - box[1]).integral.intersection(bounds)
+    guard !rect.isNull, rect.width >= 1, rect.height >= 1, let cropped = cg.cropping(to: rect) else { return nil }
+    return UIImage(cgImage: cropped, scale: 1, orientation: .up)
+  }
+
   /// JPEG of the pixels only: no EXIF, GPS, TIFF (camera make/model) or maker notes
   /// from the original photo. Written with ImageIO so nothing but the quality is set.
   static func jpeg(_ image: UIImage, quality: CGFloat = 0.85) -> Data? {

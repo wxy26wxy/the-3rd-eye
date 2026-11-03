@@ -172,7 +172,7 @@ final class DesignsTests: XCTestCase {
     let stub = StubTransport(body: #"{"artworks":[{"id":"d1","products":[]}]}"#)
     let app = AppState(api: APIClient(baseURL: base, transport: stub, token: "t"))
     await app.designs.load()
-    app.designsPath = [.detail("d1"), .adjustArea]
+    app.designsPath = [.detail("d1"), .yourCutout("d1")]
     app.signOut()
     XCTAssertTrue(app.designs.artworks.isEmpty)
     XCTAssertTrue(app.designsPath.isEmpty)

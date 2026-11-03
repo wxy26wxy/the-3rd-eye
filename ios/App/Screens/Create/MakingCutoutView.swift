@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Board "Making your cutout" (`4030:4482`). Two jobs: the frame from Adjust the area (round 3:
-/// `POST /artworks/{id}/detect {box}` finds the drawings inside the frame and cuts out the largest,
-/// with the searching mascot), or a kept change is cut out (`POST /artworks/{id}/cutout`, once per
+/// Board "Making your cutout" (`4030:4482`). Two jobs: the frame from Adjust the area (round 4:
+/// the local photo is cropped to the frame, only the crop is uploaded and `POST /artworks {framed:
+/// true}` finds the drawings in it and cuts out the largest, with the searching mascot), or a kept
+/// change is cut out (`POST /artworks/{id}/cutout`, once per
 /// artwork: `CreateFlow.changeCuts`, with the making animation). Your cutout replaces this screen,
 /// so Back skips it. Nothing found in the frame goes back to Adjust the area, which says to move or
 /// grow the frame.
@@ -17,7 +18,7 @@ struct MakingCutoutView: View {
   @State private var attempt = 0
   @State private var running = false
 
-  private var isDetect: Bool { if case .detect = job { return true } else { return false } }
+  private var isDetect: Bool { if case .area = job { return true } else { return false } }
 
   var body: some View {
     LoadingScreen(
@@ -52,7 +53,7 @@ struct MakingCutoutView: View {
 
   private func run(_ flow: CreateFlow) async {
     switch job {
-    case .detect(let box): await detect(box, flow: flow)
+    case .area(let box): await cutArea(box, flow: flow)
     case .change(let id): await cutChange(id, flow: flow)
     }
   }
@@ -60,44 +61,81 @@ struct MakingCutoutView: View {
   /// The flow already has this job's cut: the frame's piece, or the change's cut-out.
   static func isDone(_ job: CutJob, in flow: CreateFlow) -> Bool {
     switch job {
-    case .detect(let box): return flow.pieceBox == box && flow.pieceArtwork?.cleanedUrl != nil
+    case .area(let box): return flow.cropBox == box && flow.pieceArtwork?.cleanedUrl != nil
     case .change(let id): return flow.changeCuts[id] != nil
     }
   }
 
   static func target(of job: CutJob, in flow: CreateFlow) -> String {
     switch job {
-    case .detect: return flow.photoArtwork?.id ?? ""
+    case .area: return flow.photoArtwork?.id ?? ""
     case .change(let id): return id
     }
   }
 
   private func pending(_ flow: CreateFlow) -> PendingJob? {
     switch job {
-    case .detect:
-      guard let photo = flow.photoArtwork else { return nil }
-      return flow.startJob(.cut(artworkId: photo.id, previousCut: flow.pieceArtwork?.cleanedUrl, needsCandidates: true))
+    case .area(let box):
+      var known = Set(app.designs.artworks.map(\.id))
+      if let photo = flow.photoArtwork { known.insert(photo.id) }
+      return flow.startJob(.photo(box: box), knownArtworkIds: known)
     case .change(let id):
       return flow.startJob(.cut(artworkId: id, previousCut: nil, needsCandidates: false))
     }
   }
 
-  /// The frame on the photo: SAM looks inside it; the largest drawing is cut out (clipped to the
-  /// frame). A new piece drops the changes made from the old one.
-  private func detect(_ box: [Double], flow: CreateFlow) async {
-    guard let photo = flow.photoArtwork, let pending = pending(flow) else {
-      error = String(localized: "Your art is missing. Go back and pick it again.")
+  /// The frame on the local photo (round 4): the photo cropped to it (orientation applied first),
+  /// the crop uploaded (once per frame: Try again reuses it), then `POST /artworks {framed: true}`:
+  /// a new row whose largest drawing is cut out. The changes made from an earlier crop go.
+  private func cutArea(_ box: [Double], flow: CreateFlow) async {
+    guard let photo = flow.photo, let product = flow.productType, let pending = pending(flow) else {
+      error = String(localized: "The photo is missing. Go back and take it again.")
       return
     }
     do {
+      let url: String
+      if let upload = flow.cropUpload, upload.box == box {
+        url = upload.url
+      } else {
+        guard let crop = ImageTools.crop(photo, to: box), let data = ImageTools.jpeg(crop, quality: 0.92) else {
+          flow.finishJob(pending)
+          error = String(localized: "The photo is missing. Go back and take it again.")
+          return
+        }
+        if app.creator == nil { await app.refreshCreator() }
+        guard let creatorId = app.creator?.id else { throw APIError.unauthorized }
+        let api = app.api
+        let uploaded = try await flow.inFlight {
+          try await BackgroundWork.run("photo-upload") {
+            try await BlobUploader(api: api).upload(data, creatorId: creatorId, kind: .photo, contentType: "image/jpeg", fileExtension: "jpg")
+          }
+        }
+        flow.cropUpload = CropUpload(box: box, url: uploaded.url)
+        url = uploaded.url
+      }
       let api = app.api
-      let res = try await flow.inFlight { try await api.detect(artworkId: photo.id, box: box) }
+      let res = try await flow.inFlight { try await api.artworkFromPhoto(imageUrl: url, product: product, framed: true) }
       guard flow.finishJob(pending) else { return }
-      flow.recordDetect(res, box: box)
-      leave(to: photo.id, flow: flow)
+      flow.recordPhoto(res, box: box)
+      guard res.artwork.cleanedUrl != nil else {
+        nothingFound(flow, message: nil)
+        return
+      }
+      leave(to: res.artwork.id, flow: flow)
+    } catch let none as NoDrawingFound {
+      // The row stays as an unused draft (no delete call); back to the frame with the advice.
+      flow.finishJob(pending)
+      _ = none
+      nothingFound(flow, message: nil)
     } catch {
       await failed(error, job: pending, flow: flow)
     }
+  }
+
+  /// Nothing in the crop: back to Adjust the area, which says to move or grow the frame.
+  private func nothingFound(_ flow: CreateFlow, message: String?) {
+    flow.areaError = message ?? String(localized: "We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again.")
+    if flow === app.flow, app.createPath.last == .makingCutout(job) { app.createPath.removeLast() }
   }
 
   /// A kept change: SAM finds its pieces and the largest becomes the cut-out; its pieces stay with
@@ -150,8 +188,7 @@ struct MakingCutoutView: View {
       flow.finishJob(pending)
     }
     if isDetect, case APIError.server(422, "no_drawing_found", _) = error {
-      flow.areaError = CleanupResult.errorMessage(for: error)
-      if flow === app.flow, app.createPath.last == .makingCutout(job) { app.createPath.removeLast() }
+      nothingFound(flow, message: CleanupResult.errorMessage(for: error))
       return
     }
     // A change's cutout shows the server's reason (T131); the frame's own 422 line is for `detect`.
@@ -161,20 +198,22 @@ struct MakingCutoutView: View {
   /// The cut already made on the server (after a lost answer, or back in the app): applied once.
   @discardableResult
   private func recover(_ flow: CreateFlow) async -> Bool {
-    guard let pending = flow.pendingJob, case .cut(let id, _, _) = pending.kind,
-          case .cut(let detail)? = await CreateFlow.reconcile(pending, api: app.api),
-          flow.finishJob(pending) else { return false }
-    error = nil
-    switch job {
-    case .detect(let box):
-      guard id == flow.photoArtwork?.id else { return false }
-      flow.recordDetect(DetectResponse(artwork: detail.artwork, candidates: detail.candidates, imageSize: detail.imageSize), box: box)
-      leave(to: id, flow: flow)
-    case .change(let changeId):
-      guard id == changeId else { return false }
+    guard let pending = flow.pendingJob else { return false }
+    switch (job, pending.kind) {
+    case (.area(let box), .photo(let jobBox)) where box == jobBox:
+      guard case .photo(let detail)? = await CreateFlow.reconcile(pending, api: app.api), flow.finishJob(pending) else { return false }
+      error = nil
+      flow.recordPhoto(PhotoArtworkResponse(artwork: detail.artwork, candidates: detail.candidates, imageSize: detail.imageSize), box: box)
+      if detail.artwork.cleanedUrl == nil { nothingFound(flow, message: nil) } else { leave(to: detail.artwork.id, flow: flow) }
+      return true
+    case (.change(let changeId), .cut(let id, _, _)) where id == changeId:
+      guard case .cut(let detail)? = await CreateFlow.reconcile(pending, api: app.api), flow.finishJob(pending) else { return false }
+      error = nil
       recordChangeCut(id, detail.artwork, candidates: detail.candidates, size: detail.imageSize, flow: flow)
+      return true
+    default:
+      return false
     }
-    return true
   }
 
   private func leave(to artworkId: String, flow: CreateFlow) {

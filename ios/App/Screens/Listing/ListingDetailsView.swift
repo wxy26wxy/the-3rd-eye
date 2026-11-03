@@ -93,8 +93,8 @@ struct ListingDetailsView: View {
               Task { await approve(via: "tap", acceptPrintWarning: true) }
             }
           } else {
-            PillButton("Re-do the cutout", hint: "Goes back to the frame on your photo", kind: .secondary, showsArrow: false) {
-              Task { await redoArea() }
+            PillButton("Re-do the cutout", hint: "Goes back to frame your photo again", kind: .secondary, showsArrow: false) {
+              redoArea()
             }
           }
         }
@@ -334,15 +334,10 @@ struct ListingDetailsView: View {
     return ApproveListingResponse(product: res.product, listing: listing, storyVideoNeeded: needsVideo)
   }
 
-  /// "Re-do the cutout" after a resolution refusal (review I1): back to Adjust the area, so the frame
-  /// can take more of the photo; the draft product is kept.
-  private func redoArea() async {
-    do {
-      try await app.backToArea()
-    } catch {
-      if APIError.isCancellation(error) { return }
-      self.error = error.localizedDescription
-    }
+  /// "Re-do the cutout" after a resolution refusal (round 4): back to Adjust the area on the local
+  /// photo while it is in this creation, else Your cutout with "Take a new photo".
+  private func redoArea() {
+    app.backToArea()
   }
 
   /// "Redo" while the listing is written: the run stops, the creator goes back to Your cutout with

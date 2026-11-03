@@ -86,8 +86,10 @@ struct CameraView: View {
   private func use(_ image: UIImage) {
     // A new photo: whatever came from the last one (drawings, changes, cut-out) goes.
     app.flow.discardPhoto()
-    app.flow.photo = ImageTools.normalized(image)
+    // Up to 4096 px (web parity): the crop of a small frame keeps enough pixels to print.
+    app.flow.photo = ImageTools.normalized(image, maxPixels: 4096)
     app.flow.photoSource = source
-    app.replaceTop(with: .findingDrawings)
+    // Round 4: the frame is set on the local photo; nothing is uploaded yet.
+    app.replaceTop(with: .adjustArea)
   }
 }

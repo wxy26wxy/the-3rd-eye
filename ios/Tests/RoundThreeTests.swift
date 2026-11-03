@@ -260,41 +260,39 @@ final class RoundThreeTests: XCTestCase {
     let flow = CreateFlow()
     flow.setPhoto(artwork: Artwork(id: "p1"), candidates: [], imageSize: ImageSize(w: 100, h: 100))
     let box: [Double] = [0, 0, 100, 100]
-    XCTAssertFalse(MakingCutoutView.isDone(.detect(box), in: flow))
-    flow.recordDetect(DetectResponse(artwork: Artwork(id: "p1", cleanedUrl: "c"), candidates: [], imageSize: nil), box: box)
-    XCTAssertTrue(MakingCutoutView.isDone(.detect(box), in: flow))
-    XCTAssertFalse(MakingCutoutView.isDone(.detect([0, 0, 50, 50]), in: flow), "a new frame is a new job")
+    XCTAssertFalse(MakingCutoutView.isDone(.area(box), in: flow))
+    flow.recordPhoto(PhotoArtworkResponse(artwork: Artwork(id: "p1", cleanedUrl: "c"), candidates: [], imageSize: nil), box: box)
+    XCTAssertTrue(MakingCutoutView.isDone(.area(box), in: flow))
+    XCTAssertFalse(MakingCutoutView.isDone(.area([0, 0, 50, 50]), in: flow), "a new frame is a new job")
     XCTAssertFalse(MakingCutoutView.isDone(.change("ch1"), in: flow))
     flow.changeCuts["ch1"] = Cut(artwork: Artwork(id: "ch1", cleanedUrl: "x"), candidates: [], imageSize: nil, selected: [], box: nil)
     XCTAssertTrue(MakingCutoutView.isDone(.change("ch1"), in: flow))
-    XCTAssertEqual(MakingCutoutView.target(of: .detect(box), in: flow), "p1")
+    XCTAssertEqual(MakingCutoutView.target(of: .area(box), in: flow), "p1")
   }
 
   /// Review I1: "Re-do the cutout" after a resolution refusal goes back to the frame.
-  func testResolutionRedoGoesBackToTheFrame() async throws {
+  func testResolutionRedoGoesBackToTheFrame() {
     let stub = StubTransport(body: "{}")
     let app = AppState(api: APIClient(baseURL: base, transport: stub, token: nil))
+    app.flow.photo = UIGraphicsImageRenderer(size: CGSize(width: 10, height: 10)).image { _ in }
     app.flow.artwork = Artwork(id: "p1", cleanedUrl: "c")
     app.createPath = [.chooseMethod, .camera(.library), .adjustArea, .yourCutout("p1"), .changeIt, .listingDetails]
-    try await app.backToArea()
+    app.backToArea()
     XCTAssertTrue(stub.requests.isEmpty, "no call: the frame is in the path")
     XCTAssertEqual(app.createPath.last, .adjustArea)
     XCTAssertEqual(app.createPath.count, 3)
   }
 
-  func testResolutionRedoOnASavedDesignOpensItsFrame() async throws {
-    BackgroundWork.host = RecordingBackgroundHost()
-    let detail = #"{"artwork":{"id":"d2","cleanedUrl":"https://x/d2.png"},"candidates":[{"id":"c1","bbox":[0,0,10,10]}],"imageSize":{"w":1200,"h":1600},"originalUrl":"https://x/o.png"}"#
-    let stub = StubTransport(body: detail)
+  /// Round 4: without the local photo (a draft from My designs) the way back is Your cutout on the
+  /// stored crop, in the Create tab, with "Take a new photo".
+  func testResolutionRedoOnASavedDesignOpensItsCutout() {
+    let stub = StubTransport(body: "{}")
     let app = AppState(api: APIClient(baseURL: base, transport: stub, token: "t0k"))
     app.continueFrom(artwork: Artwork(id: "d2", cleanedUrl: "https://x/d2.png"), productType: .sticker)
-    try await app.backToArea()
-    XCTAssertEqual(stub.requests.last?.url?.path, "/api/v1/artworks/d2")
-    XCTAssertEqual(app.selectedTab, .designs)
-    XCTAssertEqual(app.designsPath, [.detail("d2"), .adjustArea])
-    XCTAssertEqual(app.designFlow.cutoutArtwork?.id, "d2")
-    XCTAssertEqual(app.designFlow.imageSize, ImageSize(w: 1200, h: 1600))
-    XCTAssertEqual(app.designFlow.productType, .sticker)
+    app.backToArea()
+    XCTAssertTrue(stub.requests.isEmpty)
+    XCTAssertEqual(app.createPath, [.yourCutout("d2")])
+    XCTAssertEqual(app.flow.cut(for: "d2")?.artwork.id, "d2")
   }
 
   func testRecoveredProductIsOfThatArtworkAndType() {

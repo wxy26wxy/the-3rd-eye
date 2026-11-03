@@ -23,16 +23,18 @@ final class CanonicalFlowTests: XCTestCase {
 
   // MARK: Route table
 
-  func testUseThisAreaDetectsFirstThenOnlyWhenTheFrameChanges() {
-    let flow = photoFlow()
+  func testUseThisAreaCutsTheCropFirstThenOnlyWhenTheFrameChanges() {
+    let flow = CreateFlow()
     let area = AreaFrame.whole(size)
-    XCTAssertEqual(flow.routeAfterArea(box: area.box), .makingCutout(.detect(area.box)), "first time: always detect")
-    flow.recordDetect(DetectResponse(artwork: Artwork(id: "p1", cleanedUrl: "https://x/cut1.png"), candidates: [one, two], imageSize: size), box: area.box)
+    XCTAssertNil(flow.routeAfterArea(box: area.box), "no local photo")
+    flow.photo = UIGraphicsImageRenderer(size: CGSize(width: 12, height: 16)).image { _ in }
+    XCTAssertEqual(flow.routeAfterArea(box: area.box), .makingCutout(.area(area.box)), "first time: crop and cut")
+    flow.recordPhoto(PhotoArtworkResponse(artwork: Artwork(id: "p1", cleanedUrl: "https://x/cut1.png"), candidates: [one, two], imageSize: size), box: area.box)
     XCTAssertEqual(flow.pieceCutFrom, "cand-1")
-    XCTAssertEqual(flow.pieceBox, area.box)
-    XCTAssertEqual(flow.routeAfterArea(box: area.box), .yourCutout("p1"), "same frame: no second cut")
+    XCTAssertEqual(flow.cropBox, area.box)
+    XCTAssertEqual(flow.routeAfterArea(box: area.box), .yourCutout("p1"), "same frame: no second upload")
     let smaller = area.shrunk(in: size)
-    XCTAssertEqual(flow.routeAfterArea(box: smaller.box), .makingCutout(.detect(smaller.box)), "a new frame detects again")
+    XCTAssertEqual(flow.routeAfterArea(box: smaller.box), .makingCutout(.area(smaller.box)), "a new frame is a new crop")
   }
 
   func testYourCutoutGoesToChangeItFirstAndToTheProductAfterAChange() {
@@ -70,12 +72,13 @@ final class CanonicalFlowTests: XCTestCase {
 
   // MARK: Cut-outs
 
-  func testCutOfThePhotoUsesTheFrameAndTheChangeUsesItsOwnPieces() {
+  /// Round 4: the crop is the whole picture, so the photo's cut has no box of its own.
+  func testCutOfTheCropIsTheWholePictureAndTheChangeUsesItsOwnPieces() {
     let flow = photoFlow()
-    flow.recordCut(of: "p1", Artwork(id: "p1", cleanedUrl: "u"), request: CleanupRequest(candidateIds: ["cand-1"], box: [84, 138, 516, 714], clipToBox: true))
+    flow.recordCut(of: "p1", Artwork(id: "p1", cleanedUrl: "u"), request: CleanupRequest(candidateIds: ["cand-1"], box: [0, 0, 1200, 1600], clipToBox: true))
     let piece = flow.cut(for: "p1")
     XCTAssertEqual(piece?.selected, ["cand-1"])
-    XCTAssertEqual(piece?.box, [84, 138, 516, 714])
+    XCTAssertNil(piece?.box)
     XCTAssertEqual(piece?.imageSize, size)
     XCTAssertNil(flow.cut(for: "ch9"))
   }

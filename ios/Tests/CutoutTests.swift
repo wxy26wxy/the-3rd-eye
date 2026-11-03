@@ -143,13 +143,13 @@ final class CutoutTests: XCTestCase {
     flow.changeInstruction = "Make it red"
     flow.resetCutout(artwork: Artwork(id: "ch1"), candidates: [one, two], imageSize: size)
     flow.selectedCandidateIds = ["c1"]
-    flow.pieceBox = [0, 0, 10, 10]
+    flow.cropBox = [0, 0, 10, 10]
     flow.discardPhoto()
     XCTAssertNil(flow.photo)
     XCTAssertNil(flow.photoArtwork)
     XCTAssertTrue(flow.photoCandidates.isEmpty)
     XCTAssertNil(flow.pieceArtwork)
-    XCTAssertNil(flow.pieceBox)
+    XCTAssertNil(flow.cropBox)
     XCTAssertNil(flow.changedArtwork)
     XCTAssertEqual(flow.changeInstruction, "")
     XCTAssertNil(flow.cutoutArtwork)

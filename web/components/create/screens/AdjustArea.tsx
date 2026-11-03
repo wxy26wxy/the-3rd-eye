@@ -1,13 +1,13 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
-import { api, ApiError } from "../api";
+import { ApiError } from "../api";
 import { frameSize, initialFrame } from "../area";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { usableSize, type Box, type ImageSize } from "../cutout";
 import { describeError, type ScreenError } from "../errors";
-import { adjustBack, busyWhile, cutArea } from "../flow";
+import { adjustBack, cutArea } from "../flow";
 import { getDraft, useCreate } from "../store";
 import { useOriginal } from "../useOriginal";
 import { AdjustAreaView } from "./AdjustAreaView";
@@ -28,9 +28,10 @@ export function areaError(err: unknown): ScreenError {
 }
 
 /**
- * /create/adjust (R2): Adjust the area, between Choose a pattern and Change it. The frame starts on
+ * /create/adjust (R2): Adjust the area, between Choose a pattern and Your cutout. The frame starts on
  * the picked piece's bbox grown by 8 % (the whole photo when no drawing was found); "Use this area"
- * cuts it out (`POST /artworks/{id}/cleanup {candidateIds:[piece], box}`) and goes on to Change it.
+ * goes on to Making your cutout, which cuts it out (`POST /artworks/{id}/cleanup {candidateIds:[piece],
+ * box, clipToBox: true}`, T130), then Your cutout.
  */
 export function AdjustArea() {
   const { ready, draft } = useCreate();
@@ -54,41 +55,22 @@ function AreaFlow() {
   // Coming back to the same piece shows the frame it was cut with; Reset always goes to the piece's bbox.
   const returning = draft.pieceArtworkId === area.artworkId && draft.pieceCandidateId === area.candidateId ? draft.pieceBox ?? null : null;
   const [edited, setEdited] = useState<Box | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<ScreenError | null>(null);
   const [announce, setAnnounce] = useState("");
-  const errorRef = useRef<HTMLDivElement>(null);
-  const live = useRef(true);
-  useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
   const initial = imageSize ? initialFrame(candidate?.bbox, imageSize) : null;
   const box = edited ?? returning ?? initial;
 
   function say(text: string) { setAnnounce((prev) => (prev === text ? `${text} ` : text)); }
-  function commit(next: Box) { if (imageSize) say(sizeText(next, imageSize)); setError(null); }
+  function commit(next: Box) { if (imageSize) say(sizeText(next, imageSize)); }
   function reset() {
-    if (!initial || !imageSize || busy) return;
+    if (!initial || !imageSize) return;
     setEdited(initial);
-    setError(null);
     say(`${a.resetDone}. ${sizeText(initial, imageSize)}`);
   }
 
-  async function use() {
-    if (!box || busy) return;
-    setError(null);
-    // Cleared after navigating too: this route stays mounted, and Back must find Use this area enabled.
-    await busyWhile(setBusy, true, false, async () => {
-      try {
-        await cutArea({
-          api, getDraft,
-          update: (patch) => { if (live.current) update(patch); },
-          router: { push: (h) => { if (live.current) router.push(h); }, replace: (h) => { if (live.current) router.replace(h); } },
-        }, box);
-      } catch (err) {
-        if (!live.current) return;
-        setError(areaError(err));
-        requestAnimationFrame(() => errorRef.current?.focus());
-      }
-    });
+  /** "Use this area": on to Making your cutout, which sends the cleanup (T130); errors show there. */
+  function use() {
+    if (!box) return;
+    cutArea({ getDraft, update, router }, box);
   }
 
   return (
@@ -99,10 +81,10 @@ function AreaFlow() {
       back={adjustBack(draft)}
       retake={retake}
       none={!area.candidateId}
-      busy={busy}
+      busy={false}
       photo={imageSize && originalUrl && box ? (
         <AreaFrame
-          src={originalUrl} image={imageSize} box={box} disabled={busy}
+          src={originalUrl} image={imageSize} box={box} disabled={false}
           label={a.frameLabel} describedBy={`${sizeId} ${hintId}`}
           onChange={setEdited} onCommit={commit} onLimit={(k) => say(k === "small" ? a.tooSmall : a.atEdge)} onImageError={onImageError}
         />
@@ -110,9 +92,8 @@ function AreaFlow() {
       photoState={detail.state === "loading" ? "loading" : "missing"}
       announce={announce}
       canUse={!!box}
-      error={error}
-      errorRef={errorRef}
-      on={{ use: () => void use(), reset }}
+      error={null}
+      on={{ use, reset }}
     />
   );
 }

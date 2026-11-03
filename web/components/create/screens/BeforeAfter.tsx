@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { m } from "@/components/messages";
 import { useReadAloud } from "../art";
 import { HydratingScreen, MissingState } from "../CreateScreen";
+import { takeChange } from "../flow";
 import { backToOriginal, currentChange, useCreate } from "../store";
 import { BeforeAfterView } from "./BeforeAfterView";
 
@@ -10,7 +11,7 @@ import { BeforeAfterView } from "./BeforeAfterView";
  * Before and after (R2): before = the art the change was made from (the picked piece's cut-out, or the
  * previous change's picture), after = the edited picture. "Back to my original" switches the draft to
  * that parent (no API call; the child stays an unused draft), "Change it again" edits the child,
- * "Use this" cuts the child out on the next screen.
+ * "Use this" cuts the child out on the next screen (once per artwork) and shows it on Your cutout.
  */
 export function BeforeAfter() {
   const router = useRouter();
@@ -32,7 +33,7 @@ export function BeforeAfter() {
       playing={playing}
       on={{
         hear: () => toggle(shows),
-        use: () => { update({ cutoutArtworkId: step.artworkId, cutout: draft.cutout?.artworkId === step.artworkId ? draft.cutout : undefined }); router.push("/create/cutout"); },
+        use: () => takeChange({ router, update }, step.artworkId),
         again: () => router.push("/create/change"),
         original: () => { update(backToOriginal(draft)); router.push("/create/change"); },
       }}

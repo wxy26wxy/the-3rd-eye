@@ -460,23 +460,6 @@ export async function listOrdersAdmin(limit = 200): Promise<AdminOrderRow[]> {
   }));
 }
 
-/**
- * The story tag a stranger can open from the shop (T128, read-only): the newest order of a published
- * product by a public example creator who has a story video. Null when there is none.
- */
-export async function getDemoStoryTagToken(): Promise<string | null> {
-  const [row] = await db().select({ token: nfcTokens.token }).from(orders)
-    .innerJoin(nfcTokens, eq(nfcTokens.orderId, orders.id))
-    .innerJoin(products, eq(products.id, orders.productId))
-    .innerJoin(creators, eq(creators.id, orders.creatorId))
-    .where(and(
-      isNull(orders.deletedAt), isNull(nfcTokens.deletedAt), eq(products.status, "published"), isNull(products.deletedAt),
-      isNull(creators.deletedAt), eq(creators.isExample, true), eq(creators.hidden, false), sql`${creators.storyVideoUrl} is not null`,
-    ))
-    .orderBy(desc(orders.createdAt)).limit(1);
-  return row?.token ?? null;
-}
-
 /** What the buyer sees right after Buy: the story-tag token, product title and creator name. */
 export async function getOrderConfirmation(orderId: string): Promise<{ orderId: string; token: string; productTitle: string | null; creatorName: string } | null> {
   const [row] = await db().select({ orderId: orders.id, token: nfcTokens.token, productTitle: listings.title, creatorName: creators.displayName })

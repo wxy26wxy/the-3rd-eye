@@ -2,10 +2,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-let demoToken: string | null = null;
 vi.mock("next/server", () => ({ connection: async () => undefined }));
 vi.mock("@/lib/pipeline/public", () => ({ placeOrder: async () => null, sendReply: async () => null, tap: async () => null }));
-vi.mock("@/lib/db/queries", () => ({ getDemoStoryTagToken: async () => demoToken }));
+// No query may pick a story tag (a real buyer's order): the query module is empty, so any call throws.
+vi.mock("@/lib/db/queries", () => ({}));
 
 const { getDemoStoryTagHref, STORY_TAG_FALLBACK_HREF } = await import("@/lib/db/queries.contract");
 const { HowSteps, STORY_TAG_FALLBACK, StoryTagCta } = await import("@/components/shop/HowSteps");
@@ -17,7 +17,7 @@ const text = (out: string) => out.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'
 
 describe("T128: claims a judge can check", () => {
   it("the hero trust line states the rule, not a payout", () => {
-    expect(m.shop.heroTrust).toBe("Half of every sale goes to the artist.");
+    expect(m.shop.heroTrust).toBe("By default, half of every sale goes to the artist.");
     expect(JSON.stringify(m)).not.toContain("pays the artist directly");
   });
 
@@ -28,15 +28,24 @@ describe("T128: claims a judge can check", () => {
     expect(text(html(createElement(PaysArtistNote, { name: "Maya", type: "tote", split: { creator_bps: 6000, org_bps: 2500, production_bps: 1500 } }))))
       .toContain("60% artist · 25% studio · 15% production");
     expect(splitPercents(null)).toEqual({ artist: 50, studio: 30, production: 20 });
+    // a partial split never mixes with the default (60 + 30 + 20 would be 110 %): the whole default is shown
+    expect(splitPercents({ creator_bps: 6000 })).toEqual({ artist: 50, studio: 30, production: 20 });
     // /how-it-works promises it
     expect(m.how.earn).toContain("The share is shown on every product page.");
   });
 
-  it("See a story tag in action opens a live example story tag, or How it works when there is none", async () => {
-    demoToken = "ABCD2345EFGH";
-    expect(await getDemoStoryTagHref()).toBe("/t/ABCD2345EFGH");
-    demoToken = null;
-    expect(await getDemoStoryTagHref()).toBe("/how-it-works#story-tags");
+  it("See a story tag in action opens the demo tag only when DEMO_STORY_TAG_TOKEN is set, else How it works; no order is queried", async () => {
+    const before = process.env.DEMO_STORY_TAG_TOKEN;
+    try {
+      process.env.DEMO_STORY_TAG_TOKEN = "ABCD2345EFGH";
+      expect(await getDemoStoryTagHref()).toBe("/t/ABCD2345EFGH");
+      delete process.env.DEMO_STORY_TAG_TOKEN;
+      expect(await getDemoStoryTagHref()).toBe("/how-it-works#story-tags");
+      process.env.DEMO_STORY_TAG_TOKEN = "not a token!";
+      expect(await getDemoStoryTagHref()).toBe("/how-it-works#story-tags");
+    } finally {
+      if (before === undefined) delete process.env.DEMO_STORY_TAG_TOKEN; else process.env.DEMO_STORY_TAG_TOKEN = before;
+    }
     expect(STORY_TAG_FALLBACK).toBe(STORY_TAG_FALLBACK_HREF);
     expect(html(createElement(HowSteps, { cta: createElement(StoryTagCta, { href: "/t/ABCD2345EFGH" }) }))).toContain('href="/t/ABCD2345EFGH"');
     expect(html(createElement(HowSteps))).toContain('href="/how-it-works#story-tags"');

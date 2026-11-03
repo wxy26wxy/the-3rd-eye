@@ -131,7 +131,7 @@ Every page now draws with the Sky look (Inter, white page, ink, accent green); s
 - Adjust the area sends `clipToBox: true` (T126), so the cut never extends past the frame. A frame that clips everything away answers 422 `no_drawing_found`, shown as `adjust.notFound` ("Make the frame bigger or move it…").
 
 ## T128 (2026-11-03, mock judge #2 fixes)
-- Home hero: "Half of every sale goes to the artist." (payments are staged; the share is the rule).
+- Home hero: "By default, half of every sale goes to the artist." (payments are staged; the share is the rule; the product page shows each maker's split).
 - Product page: under the pays-the-artist note, the maker's split "50% artist · 30% studio · 20% production" (`product.splitLine`, from `creator.split`; defaults in `lib/split.ts`, also the database default).
-- "See a story tag in action" streams in a live `/t/<token>`: the newest order of a published product by a public example creator with a story video (`queries.getDemoStoryTagToken`, read-only). Fallback: `/how-it-works#story-tags`.
+- "See a story tag in action" opens `/t/<DEMO_STORY_TAG_TOKEN>` when that server-side env var is set, else `/how-it-works#story-tags` (fix round 1: no query picks a real buyer's order). To turn it on, the product owner places a staged demo order as "Demo buyer" on an example creator's product that has a story video, and sets its story-tag token as `DEMO_STORY_TAG_TOKEN` in Vercel.
 - `/accessibility`: captions are described as made automatically with Muse Voice Transcribe on upload (no "every video" claim).

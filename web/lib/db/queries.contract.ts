@@ -231,12 +231,13 @@ export async function getCreatorProfile(slug: string): Promise<CreatorProfile | 
 export const STORY_TAG_FALLBACK_HREF = "/how-it-works#story-tags";
 
 /**
- * "See a story tag in action" on the shop: a live story-tag page (`/t/<token>`) of an example
- * creator with a story video (newest order), else the story-tags section of How it works (T128).
+ * "See a story tag in action" on the shop: the dedicated demo story tag when `DEMO_STORY_TAG_TOKEN`
+ * is set (a staged order the product owner placed as "Demo buyer"; read on the server only, never
+ * a real buyer's tag), else the story-tags section of How it works (T128).
  */
 export async function getDemoStoryTagHref(): Promise<string> {
   await fresh();
-  const token = await q.getDemoStoryTagToken();
+  const token = normalizeToken(process.env.DEMO_STORY_TAG_TOKEN ?? "");
   return token ? `/t/${encodeURIComponent(token)}` : STORY_TAG_FALLBACK_HREF;
 }
 

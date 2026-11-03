@@ -56,9 +56,22 @@ struct ChangingView: View {
     // The description may come only in `description` (docs/api.md): keep it on the artwork.
     if changed.altText?.isEmpty ?? true { changed.altText = res.description?.alt }
     if changed.spokenDescription?.isEmpty ?? true { changed.spokenDescription = res.description?.spoken }
+    // A repeated request (round 3) may answer before the change is described (`alt` / `spoken`
+    // empty): the screen's own words instead.
+    changed = Self.withFallbackCopy(changed)
     flow.addChange(ChangeStep(artwork: changed, base: base, instruction: instruction,
                               differences: res.description?.differences ?? changed.differencesFromPrompt))
     if flow === app.flow, app.createPath.last == .changing { app.replaceTop(with: .beforeAfter) }
+  }
+
+  /// Empty words become none, so Before and after keeps its own labels ("After") and shows no
+  /// description card.
+  static func withFallbackCopy(_ artwork: Artwork) -> Artwork {
+    var art = artwork
+    func blank(_ text: String?) -> Bool { (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    if blank(art.altText) { art.altText = nil }
+    if blank(art.spokenDescription) { art.spokenDescription = nil }
+    return art
   }
 
   /// The change already made on the server (after a lost answer, or back in the app): applied once.

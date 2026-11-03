@@ -274,4 +274,25 @@ final class RoundThreeTests: XCTestCase {
     let none = await CreateFlow.reconcile(PendingJob(kind: .listing(productId: "pr1"), startedAt: started, clientRequestId: "r5"), api: api)
     XCTAssertNil(none, "nothing written yet")
   }
+
+  // MARK: Backend review rulings
+
+  /// A failed detect keeps the old cut (status ready) and only sets `lastError`: not "Didn't work",
+  /// and not a recovered new cut.
+  func testLastErrorIsIgnoredWhileTheRowHasACut() {
+    let row = Artwork(id: "p1", cleanedUrl: "https://x/old.png", status: "ready", lastError: "Nothing was found inside the frame.")
+    XCTAssertEqual(DesignBadge.of(row), .draft)
+    let job = PendingJob(kind: .cut(artworkId: "p1", previousCut: "https://x/old.png", needsCandidates: true), startedAt: started, clientRequestId: "r")
+    XCTAssertFalse(CreateFlow.recoveredCut(ArtworkDetailResponse(artwork: row, candidates: [Candidate(id: "c1", bbox: [0, 0, 1, 1])]), job: job))
+  }
+
+  /// A repeated change answered before it was described: no empty description card; the screen's
+  /// own labels stay.
+  func testChangeWithoutADescriptionUsesOurCopy() {
+    let art = ChangingView.withFallbackCopy(Artwork(id: "ch1", altText: "", spokenDescription: " "))
+    XCTAssertNil(art.altText)
+    XCTAssertNil(art.spokenDescription)
+    XCTAssertNil(art.shownDescription, "no WHAT THE IMAGE SHOWS card")
+    XCTAssertEqual(ChangingView.withFallbackCopy(Artwork(id: "ch1", altText: "A bus")).altText, "A bus")
+  }
 }

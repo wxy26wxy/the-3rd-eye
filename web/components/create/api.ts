@@ -27,6 +27,8 @@ export type Candidate = { id: string; bbox: [number, number, number, number]; sc
 export type ArtworkDetail = { artwork: Artwork; candidates: Candidate[]; imageSize: { w: number; h: number } | null; originalUrl: string | null };
 /** `POST /artworks/{id}/cutout` (T111): the largest piece of the artwork's picture, cut out. `candidates[0]` is that piece. */
 export type CutoutResult = { artwork: Artwork; candidates: Candidate[]; imageSize: { w: number; h: number } };
+/** `POST /artworks/{id}/detect {box}` (round 3): SAM inside the frame; candidates largest first, `candidates[0]` cut out. */
+export type DetectResult = { artwork: Artwork; candidates: Candidate[]; imageSize: { w: number; h: number }; details?: { failedProductIds: string[]; unpublishedProductIds: string[] } };
 /** `POST /artworks/{id}/cleanup`: the saved cut plus products that could not follow it. */
 export type CleanupResult = Artwork & { details?: { failedProductIds: string[]; unpublishedProductIds: string[] } };
 export type Product = {
@@ -34,7 +36,9 @@ export type Product = {
   /** Public bordered die-cut sticker PNG (R1, T121); null for a tote and before it exists. */
   previewUrl: string | null;
 };
-export type ListingDraft = { title: string; description: string; tags: string[]; price_cents: number; print_ok: boolean; notes: string };
+/** Which print check flagged the piece (round 3): resolution blocks, contrast is a warning. */
+export type PrintCheck = "resolution" | "contrast";
+export type ListingDraft = { title: string; description: string; tags: string[]; price_cents: number; print_ok: boolean; print_check?: PrintCheck | null; notes: string };
 export type AgentStep = { step: number; tool?: string; args?: unknown; result?: unknown; text?: string };
 
 export class ApiError extends Error {

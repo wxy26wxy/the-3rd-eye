@@ -20,7 +20,7 @@ export function toArtwork(a: ArtworkRow) {
     id: a.id, creatorId: a.creatorId, source: a.source, transcript: a.transcript, shapedPrompt: a.shapedPrompt,
     originalUrl: a.originalUrl, cleanedUrl: a.cleanedUrl, maskUrl: a.maskUrl, cutPathSvg: a.cutPathSvg,
     altText: a.altText, spokenDescription: a.spokenDescription, differencesFromPrompt: a.differencesFromPrompt,
-    genResponseId: a.genResponseId, parentArtworkId: a.parentArtworkId, changeInstruction: a.changeInstruction ?? null, status: a.status, lastError: a.lastError, createdAt: a.createdAt,
+    genResponseId: a.genResponseId, parentArtworkId: a.parentArtworkId, changeInstruction: a.changeInstruction ?? null, clientRequestId: a.clientRequestId ?? null, status: a.status, lastError: a.lastError, createdAt: a.createdAt,
   };
 }
 
@@ -46,6 +46,28 @@ export function toProduct(p: ProductRow) {
   return {
     id: p.id, artworkId: p.artworkId, creatorId: p.creatorId, type: p.type, mockupUrl: p.mockupUrl, previewUrl: p.previewUrl ?? null,
     printPngUrl: p.printPngUrl, printSvgUrl: p.printSvgUrl, priceCents: p.priceCents, status: p.status,
+    clientRequestId: p.clientRequestId ?? null,
+  };
+}
+
+type StoredPrintCheck = { print_ok?: boolean; check?: "resolution" | "contrast" | null; notes?: string; resolution?: { ok?: boolean } } | null;
+
+/** Which print check is flagged on a stored check (T134): `check` when recorded, else derived from an older row. */
+export function printIssueOf(pc: unknown): "resolution" | "contrast" | null {
+  const c = pc as StoredPrintCheck;
+  if (!c) return null;
+  if (c.check !== undefined) return c.check ?? null;
+  if (c.print_ok === true) return null;
+  return c.resolution?.ok === false ? "resolution" : "contrast";
+}
+
+/** `ListingDraft` of a stored listing (T134 `GET /listings/{id}`): the pending re-run copy when there is one, else the row. */
+export function toListingDraft(l: ListingRow) {
+  const src = l.draftCopy ?? { title: l.title, description: l.description ?? "", tags: l.tags, priceSuggestionCents: l.priceSuggestionCents ?? 0, printCheck: l.printCheck };
+  const pc = src.printCheck as StoredPrintCheck;
+  return {
+    title: src.title, description: src.description ?? "", tags: src.tags ?? [], price_cents: src.priceSuggestionCents ?? 0,
+    print_ok: pc?.print_ok === true, print_check: printIssueOf(pc), notes: pc?.notes ?? "",
   };
 }
 

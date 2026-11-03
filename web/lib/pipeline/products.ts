@@ -3,7 +3,9 @@ import "server-only";
 import sharp from "sharp";
 import { ai } from "@/lib/ai/registry";
 import type { AgentStep, ListingDraft, Moderation, Trace } from "@/lib/ai/types";
-import { checkResolution, measureContrast, printCheckFrom, type ContrastCheck, type ResolutionCheck } from "@/lib/products/checks";
+import {
+  checkResolution, measureContrast, measurePrintCheck, printCheckFrom, type ContrastCheck, type PrintCheck, type PrintIssue, type ResolutionCheck,
+} from "@/lib/products/checks";
 import { productSpec, type ProductKind } from "@/lib/products/registry";
 import {
   getArtwork, getCreatorById, getListing, getProduct, insertProduct, setListingDraftCopy, setListingPrintCheck, updateProduct, upsertListing,
@@ -12,6 +14,7 @@ import {
 import { creatorPath, storage } from "@/lib/storage";
 import { ApiError } from "@/lib/http";
 import { ensureDpi } from "@/lib/image/sticker";
+import { existingProduct, insertOnce } from "@/lib/pipeline/idempotency";
 
 /**
  * Builds and stores a product's print PNG (+ die-cut SVG), mockup and, for a sticker, the public
@@ -37,13 +40,21 @@ async function buildProductFiles(artwork: ArtworkRow, type: ProductKind, task: s
   };
 }
 
-export async function createProduct(artwork: ArtworkRow, type: ProductKind, task = "T010"): Promise<ProductRow> {
+export async function createProduct(artwork: ArtworkRow, type: ProductKind, task = "T010", clientRequestId?: string | null): Promise<ProductRow> {
+  return (await createProductOnce(artwork, type, task, clientRequestId)).row;
+}
+
+/** `createProduct` with the T134 idempotency key: a concurrent call that inserted first wins (`repeated`). */
+export async function createProductOnce(
+  artwork: ArtworkRow, type: ProductKind, task = "T010", clientRequestId?: string | null,
+): Promise<{ row: ProductRow; repeated: boolean }> {
   const files = await buildProductFiles(artwork, type, task);
   const mid = Math.round((files.spec.priceRange.min + files.spec.priceRange.max) / 2 / 50) * 50;
-  return insertProduct({
+  const key = clientRequestId ?? null;
+  return insertOnce(key, () => insertProduct({
     artworkId: artwork.id, creatorId: artwork.creatorId, type, mockupUrl: files.mockupUrl, previewUrl: files.previewUrl,
-    printPngUrl: files.printPngUrl, printSvgUrl: files.printSvgUrl, priceCents: mid, status: "draft", createdByTask: task,
-  });
+    printPngUrl: files.printPngUrl, printSvgUrl: files.printSvgUrl, priceCents: mid, status: "draft", createdByTask: task, clientRequestId: key,
+  }), () => existingProduct(artwork.creatorId, key!, artwork.id, type));
 }
 
 export type RebuildResult = { product: ProductRow; printOk: boolean; unpublished: boolean };
@@ -51,9 +62,9 @@ export type RebuildResult = { product: ProductRow; printOk: boolean; unpublished
 /**
  * After the artwork was cut out again: rebuilds the product's print file(s) and mockup from the
  * new cleaned PNG so the shop image, print file, preview and mockup agree, then re-runs the print check
- * (resolution of the new print file, contrast of the new art) into `listing.printCheck`. A
- * published product whose check now fails goes back to draft (approve re-checks before it can be
- * published again). Id, price and listing copy are unchanged.
+ * (both measured on the new cleaned PNG, T134) into `listing.printCheck`. A published product whose
+ * resolution now fails goes back to draft (approve re-checks before it can be published again); a
+ * contrast warning leaves it published. Id, price and listing copy are unchanged.
  */
 export async function rebuildProductFiles(productId: string, task = "T080"): Promise<RebuildResult> {
   const product = await getProduct(productId);
@@ -61,12 +72,8 @@ export async function rebuildProductFiles(productId: string, task = "T080"): Pro
   const artwork = await getArtwork(product.artworkId);
   if (!artwork?.cleanedUrl) throw new Error("Product has no artwork");
   const files = await buildProductFiles(artwork, product.type, task);
-  const meta = await sharp(files.printPng).metadata();
-  const check = printCheckFrom(
-    checkResolution({ productType: product.type, width: meta.width ?? 0, height: meta.height ?? 0 }),
-    await measureContrast(files.cleanedPng),
-  );
-  const unpublished = product.status === "published" && !check.print_ok;
+  const check = await measurePrintCheck(product.type, files.cleanedPng);
+  const unpublished = product.status === "published" && !check.resolution.ok;
   if (unpublished) console.warn(`[products] ${product.id} moved back to draft after a re-cut: ${check.notes}`);
   const updated = await updateProduct(product.id, {
     mockupUrl: files.mockupUrl, previewUrl: files.previewUrl, printPngUrl: files.printPngUrl, printSvgUrl: files.printSvgUrl, ...(unpublished ? { status: "draft" as const } : {}),
@@ -100,9 +107,9 @@ function toolResult<T extends { ok: boolean }>(trace: Step[], tool: string): T |
 }
 
 /**
- * Runs the listing agent, then decides the publish gate on the server: `print_ok` comes from the
- * resolution and contrast tool results (computed here when the model skipped them, measured on
- * the product's print file) and moderation runs on the FINAL title and description. On a
+ * Runs the listing agent, then decides the publish gate on the server: `print_ok` / `print_check`
+ * come from the resolution and contrast tool results (computed here when the model skipped them,
+ * both measured on the artwork's cleaned PNG since T134) and moderation runs on the FINAL title and description. On a
  * published product the new copy is stored as a pending draft; the live listing changes only
  * through approve.
  */
@@ -112,8 +119,8 @@ export async function runListingAgent(product: ProductRow, artwork: ArtworkRow, 
   const imageUrl = artwork.cleanedUrl ?? product.mockupUrl;
   if (!imageUrl) throw new Error("Product has no image yet");
   const imagePng = await storage().read(imageUrl);
-  const printPng = product.printPngUrl ? await storage().read(product.printPngUrl) : imagePng;
-  const meta = await sharp(printPng).metadata();
+  // Resolution is judged on the cleaned art allowing one ×2 (T134), not on the already upscaled print file.
+  const meta = await sharp(imagePng).metadata();
   const width = meta.width ?? 0, height = meta.height ?? 0;
   const registry = await ai();
   const traceCtx = { stage: "listing", artworkId: artwork.id, listingId: product.id, task };
@@ -124,10 +131,12 @@ export async function runListingAgent(product: ProductRow, artwork: ArtworkRow, 
   }, { trace: traceCtx });
 
   const resolution = toolResult<ResolutionCheck>(trace, "check_resolution") ?? checkResolution({ productType: product.type, width, height });
-  const contrast = toolResult<ContrastCheck>(trace, "check_contrast") ?? await measureContrast(imagePng);
+  const toolContrast = toolResult<ContrastCheck>(trace, "check_contrast");
+  // Only a result of the current (colour) measure counts; anything else is measured again.
+  const contrast = toolContrast && typeof toolContrast.lightnessSpread === "number" ? toolContrast : await measureContrast(imagePng);
   const printCheck = printCheckFrom(resolution, contrast);
   const moderation = await moderateFinal(trace, proposed, registry.listingAgent, { ...traceCtx, stage: "moderate" });
-  const listing: ListingDraft = { ...proposed, print_ok: printCheck.print_ok, notes: [printCheck.notes, proposed.notes].filter(Boolean).join(" ").trim() };
+  const listing: ListingDraft = { ...proposed, print_ok: printCheck.print_ok, print_check: printCheck.check, notes: [printCheck.notes, proposed.notes].filter(Boolean).join(" ").trim() };
   const fields = {
     title: listing.title, description: listing.description, tags: listing.tags, priceSuggestionCents: listing.price_cents,
     printCheck: { ...printCheck, notes: listing.notes }, moderation, agentTrace: trace,
@@ -169,14 +178,35 @@ async function moderateFinal(
   return agent.moderate({ title: final.title, description: final.description, tags: final.tags }, { trace: modTrace });
 }
 
+/** A stored print check measured under the current rules (T134), or null for an older one. */
+function currentCheck(pc: unknown): PrintCheck | null {
+  const c = pc as Partial<PrintCheck> | null;
+  return c?.version === 2 && c.resolution && c.contrast ? (c as PrintCheck) : null;
+}
+
+/** The print check of the product's current cut, measured now (for listings saved before T134). */
+async function remeasure(product: ProductRow): Promise<PrintCheck | null> {
+  const artwork = await getArtwork(product.artworkId);
+  if (!artwork?.cleanedUrl) return null;
+  return measurePrintCheck(product.type, await storage().read(artwork.cleanedUrl));
+}
+
+const printBlock = (check: PrintIssue, notes: string | undefined) => new ApiError(409, "print_check_failed",
+  notes || (check === "resolution"
+    ? "This cutout is too small to print sharply at this size. Re-do the cutout or use a bigger photo."
+    : "This design may look faint when printed."),
+  { check });
+
 /**
- * Publishes a product. Blocks with 409 when the print check failed (`print_check_failed`) or the
- * listing text fails moderation (`moderation_failed`). Edited text is moderated again, so edits
- * cannot bypass the check; a listing with no moderation result is moderated before publishing.
+ * Publishes a product. Blocks with 409 `print_check_failed` (with `check`) when the resolution check
+ * failed (always) or the contrast check warned and `acceptPrintWarning` is not set, and with
+ * `moderation_failed` when the listing text fails moderation. Edited text is moderated again, so
+ * edits cannot bypass the check; a listing with no moderation result is moderated before publishing.
+ * A print check saved under the pre-T134 rules is measured again first.
  */
 export async function approveListing(
   product: ProductRow,
-  input: { approvedVia: "voice" | "tap"; edits?: { title?: string; description?: string; priceCents?: number } },
+  input: { approvedVia: "voice" | "tap"; edits?: { title?: string; description?: string; priceCents?: number }; acceptPrintWarning?: boolean },
   task = "T010",
 ): Promise<{ product: ProductRow; listing: ListingRow; storyVideoNeeded: boolean }> {
   if (product.status === "archived") throw new ApiError(409, "product_archived", "This product was removed with its design");
@@ -193,10 +223,15 @@ export async function approveListing(
     ? { ...stored, title: pending.title, description: pending.description, tags: pending.tags, priceSuggestionCents: pending.priceSuggestionCents,
       printCheck: pending.printCheck, moderation: pending.moderation, agentTrace: pending.agentTrace }
     : stored;
-  const printCheck = existing.printCheck as { print_ok?: boolean; notes?: string } | null;
-  if (printCheck?.print_ok !== true) {
-    throw new ApiError(409, "print_check_failed", printCheck?.notes || "This artwork will not print well at this size. Try a larger or clearer picture.");
+  let printCheck = currentCheck(existing.printCheck);
+  if (!printCheck) {
+    printCheck = await remeasure(product);
+    if (!printCheck) throw printBlock("resolution", undefined);
+    await setListingPrintCheck(product.id, printCheck);
   }
+  if (printCheck.check === "resolution" || !printCheck.resolution.ok) throw printBlock("resolution", printCheck.resolution.message);
+  if (printCheck.check === "contrast" && input.acceptPrintWarning !== true) throw printBlock("contrast", printCheck.contrast.message);
+  if (printCheck.check === "contrast") printCheck = { ...printCheck, acceptedWarning: true };
   const title = input.edits?.title?.trim() || existing.title;
   const description = input.edits?.description?.trim() ?? existing.description ?? "";
   let moderation = existing.moderation as { ok?: boolean; reason?: string } | null;
@@ -217,7 +252,7 @@ export async function approveListing(
   const price = input.edits?.priceCents
     ?? (product.status === "published" ? product.priceCents : existing.priceSuggestionCents ?? product.priceCents);
   const listing = await upsertListing({
-    ...existing, productId: product.id, title, description, moderation, draftCopy: null,
+    ...existing, productId: product.id, title, description, moderation, printCheck, draftCopy: null,
     approvedAt: new Date(), approvedVia: input.approvedVia, createdByTask: stored.createdByTask ?? task,
   });
   const updated = await updateProduct(product.id, { status: "published", priceCents: Math.max(100, Math.round(price)) });

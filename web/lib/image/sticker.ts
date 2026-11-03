@@ -10,7 +10,7 @@ import sharp from "sharp";
 import { Potrace } from "potrace";
 import type { Mask } from "@/lib/ai/types";
 import {
-  alphaToMask, bboxOf, cropMask, dilate, erode, fillHoles, maskFromAlpha, maskSharp, maskToGrey, padMask,
+  alphaToMask, bboxOf, cropMask, dilate, erode, fillHoles, maskFromAlpha, maskSharp, maskToGrey, padMask, softEdge,
   type AlphaMask, type BBox,
 } from "@/lib/image/mask";
 
@@ -20,6 +20,8 @@ export const BLEED_MM = 1.5;
 /** Closing radius on the cut mask: gaps between cut lines narrower than about this are filled (die-cut safety). */
 export const CUT_CLOSE_MM = 1;
 export const MIN_SHORT_SIDE = 900;
+/** Blur (px at 300 dpi) of the white border's outer edge: a soft alpha instead of a 0/255 step (T134). */
+export const BORDER_EDGE_SIGMA = 1;
 
 export const mmToPx = (mm: number, dpi = PRINT_DPI) => Math.round((mm / 25.4) * dpi);
 
@@ -137,11 +139,14 @@ export async function composeSticker(artPng: Buffer, opts: { borderMm?: number; 
   const bleed = await dilate(cut, bleedPx);
   const { width, height } = cut;
 
+  // White layers with a soft alpha (T134): the binary bleed / cut blurred by about 1 px, so the border's
+  // outer edge is anti-aliased and centred on the cut line (the die line itself stays the binary cut).
+  const [bleedAlpha, cutAlpha] = await Promise.all([softEdge(bleed, BORDER_EDGE_SIGMA), softEdge(cut, BORDER_EDGE_SIGMA)]);
   const white = Buffer.alloc(width * height * 4);
   const whiteCut = Buffer.alloc(width * height * 4);
   for (let i = 0; i < width * height; i++) {
-    if (bleed.data[i]) white.writeUInt32BE(0xffffffff, i * 4);
-    if (cut.data[i]) whiteCut.writeUInt32BE(0xffffffff, i * 4);
+    white.writeUInt32BE((0xffffff00 | bleedAlpha[i]) >>> 0, i * 4);
+    whiteCut.writeUInt32BE((0xffffff00 | cutAlpha[i]) >>> 0, i * 4);
   }
   const artPadded = await sharp(art).ensureAlpha()
     .extend({ top: pad, bottom: pad, left: pad, right: pad, background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();

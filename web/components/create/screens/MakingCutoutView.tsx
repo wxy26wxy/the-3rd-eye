@@ -9,8 +9,9 @@ const c = m.create.cutout;
 
 /**
  * Making your cutout (board `2038:4369`): no logo or Back while busy, the title and copy, the
- * creating-cutout animation (R7, the same as Making your sticker; first frame under reduced motion),
- * "Cutting out your art…", and the dimmed Use this in the bar. On failure: the error card with Try
+ * animation, "Cutting out your art…", and the dimmed Use this in the bar. The animation: the
+ * searching magnifier for the photo's `detect` (round 3 ruling 3: it moved here from the upload
+ * step), the creating-cutout video for a change result (R7; first frame under reduced motion). On failure: the error card with Try
  * again, and Back to the art in the bar.
  */
 export function MakingCutoutView({ changed, error, back, onRetry }: {
@@ -26,8 +27,11 @@ export function MakingCutoutView({ changed, error, back, onRetry }: {
         ? <Button block variant="secondary" arrow={false} href={back}>{m.create.drawing.back}</Button>
         : <Button block disabled aria-busy="true">{m.create.select.use}</Button>}
     >
-      <StickerLoading />
-      {error ? <ErrorNotice error={error} onRetry={onRetry} /> : <Loading inline label={m.create.select.applying} />}
+      {error ? (
+        <>{changed ? <StickerLoading /> : null}<ErrorNotice error={error} onRetry={onRetry} /></>
+      ) : changed ? (
+        <><StickerLoading /><Loading inline label={m.create.select.applying} /></>
+      ) : <Loading variant="sky" label={m.create.select.applying} />}
     </CreateScreen>
   );
 }

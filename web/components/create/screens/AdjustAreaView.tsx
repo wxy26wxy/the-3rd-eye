@@ -17,8 +17,6 @@ export type AdjustAreaViewProps = {
   sizeText: string;
   back: string;
   retake: string;
-  /** No drawing was found on the photo: the frame starts at the whole photo. */
-  none: boolean;
   /** "Use this area" is cutting the piece out. */
   busy: boolean;
   /** The photo with the frame (AreaFrame), when the photo and its size are known. */
@@ -33,8 +31,9 @@ export type AdjustAreaViewProps = {
 };
 
 /**
- * Adjust the area (R2; boards "Adjust the area · Web · Sky"): title and copy, the photo on the green
- * photo card with the frame around the picked piece, the keyboard hint, then Use this area / Reset in
+ * Adjust the area (round 3; boards "Adjust the area · Web · Sky"): title and copy, the stored photo on
+ * the green photo card with the frame (the whole photo at first), the keyboard hint, the advice card
+ * when nothing was found in the frame, then Use this area / Reset in
  * the pinned bar. While the cut is made, Back and the frame are locked and only Use this area shows
  * (dimmed).
  */
@@ -48,7 +47,7 @@ export function AdjustAreaView({ on, errorRef, ...p }: AdjustAreaViewProps) {
     </>
   );
   return (
-    <CreateScreen back={p.busy ? undefined : p.back} title={a.title} lead={p.none ? a.copyNone : a.copy} footer={footer}>
+    <CreateScreen back={p.busy ? undefined : p.back} title={a.title} lead={a.copy} footer={footer}>
       <p className="visually-hidden" role="status" aria-live="polite">{p.announce}</p>
       {p.photo !== null ? (
         <div className={[styles.photoCard, p.busy ? styles.photoCardBusy : ""].filter(Boolean).join(" ")}>{p.photo}</div>

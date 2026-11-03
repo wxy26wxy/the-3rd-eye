@@ -340,9 +340,23 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - `docs/api.md`: "Creator flow (round 2b)" lists the calls per step for web and iOS; the Create summary follows the new order. `docs/handoffs/backend.md` T129 entry.
 - Verify: `pnpm test`, `pnpm lint`, `pnpm build`, `bash scripts/check_clean.sh`.
 
+## T135 web · Feedback round 3 creator flow (2026-11-03)
+- Photo → Adjust the area on the whole photo (`POST /artworks {detect:false}`, "Getting your photo ready…") → Making your cutout sends `detect {box}` (every new frame; the searching magnifier moved here) → Your cutout (marks keep `cleanup`; a candidate strip only for two pieces or more). Nothing found inside the frame returns to Adjust the area with the move-or-grow advice. Choose a pattern removed; `/create/pattern` and `/create/select` redirect to `/create/adjust`.
+- The AI product photo first for stickers: shop tiles, the hero phone card, gallery slide 1 (the bordered preview is slide 2, contained), Ready and Listing.
+- Listing: the product picture on top while drafting, the drafting card over the text fields only, a secondary Redo (drops the run by nonce, back to Your cutout, the draft product kept). Print check by `check`: contrast → Use anyway (`acceptPrintWarning: true`) / Re-do the cutout; resolution → Re-do the cutout on Adjust the area. Review fix round 1: the strip is `aria-pressed` buttons (no re-cut on arrow keys), the detect 422 advice takes focus.
+- `clientRequestId` on `change` (the nonce) and `products` (one per Use this, reused by Try again).
+- Verify (from the repo root): `pnpm test` (432 passed, 2 skipped after the review fix round), `pnpm lint`, `pnpm build`, `bash scripts/check_clean.sh`; Lighthouse mobile accessibility 100 on `/` and `/p/<sticker id>` (`pnpm dev`).
+- Unfinished: Lighthouse on `/create/adjust` needs a creator sign-in (the page redirects to `/create/code`), not run; the live run as the Test Artist is the PM's after T134 merges.
+
 
 ## T132 docs · Round 2b flow docs (2026-11-03)
 - `docs/api.md`: "Creator flow (round 2b)" is the single description of the flow; step 5 fixed ("Looks good as is" is on Change it and goes to Making product; Your cutout "Use this" goes to Change it); the T111 "Looks good as is" and `cutout` lines marked superseded; iOS Story video Skip not sending `dismissStoryDraft` noted (known, minor).
 - `docs/accessibility.md`: Your cutout scripts for both platforms with the tools back (Add area / Remove area, Apply cutout, marks with delete, iOS "Add the area around your art" action, web Marks list); the flow order in every script; stated gap: no keyboard Remove-area mark on the web. Labels checked against `web/messages/en.json` and `Localizable.xcstrings`.
 - `docs/demo_script.md`: beats in the canonical order (a Remove-area tap on the first cutout, change by voice, cutout again, sticker; tote shows the AI tote photo). `docs/design/screens.md`: "Round 2b — to mirror in Figma" section with board ids. README step 2, `docs/submission.md` flow sentence, `docs/deployments.md` v0.8.2 entry.
 - Verify: `bash scripts/check_clean.sh` ok on each commit. Not done: scripts not run on a device; tag v0.8.2 and the deploys are the product owner's.
+
+## T134 backend · Feedback round 3: detect inside the frame, print warning, smooth edges, idempotency (2026-11-03)
+- `POST /artworks {detect:false}`, new `POST /artworks/{id}/detect {box}`, `GET /listings/{productId}`, `clientRequestId` on `change` / `products` (migration 0006, not applied: the user applies it before deploy), `approve {acceptPrintWarning}` with `check` on the 409, colour contrast warning + cleaned-PNG resolution gate, smooth cutout edges and soft sticker border.
+- Mock (`ios/scripts/mock_api.py`): detect, detect:false, clientRequestId repeats (counts stay 1), GET listings, NOPRINT (contrast) and NORES (resolution) modes.
+- `docs/api.md` "Creator flow (round 3)" (round 2b marked superseded), handoff, ADR, `docs/deployments.md` note.
+- Verify: `pnpm test` (from `web/`), `pnpm lint`, `pnpm build`, `bash scripts/check_clean.sh`; reviewer: `vitest run test/edge-smoothing.test.ts test/print-warning.test.ts` and one live `detect` after migration 0006.

@@ -13,7 +13,7 @@ import {
   buildObjectPrompt, decodeMaskToRaster, decodeMaskToSVGPath, parseImageStream, recordsOfKind,
   type SegmentationMaskRecord,
 } from "@meta-sam/parser";
-import type { CandidateSearch, ImageRef, Mask, Segment, SegmentHint, Segmenter, Trace } from "../types";
+import type { CandidateSearch, FindCandidatesOpts, ImageRef, Mask, Segment, SegmentHint, Segmenter, Trace } from "../types";
 import { traced } from "../trace";
 import { CALL_TIMEOUT_MS, MODELS, metaClient } from "./client";
 import { callSignal } from "@/lib/deadline";
@@ -60,7 +60,7 @@ const bboxContains = (a: BBox, b: BBox) => a[0] <= b[0] && a[1] <= b[1] && a[2] 
  * the frame, its box contains another result's box AND it scores lower than that result: the
  * sheet of paper or the table around a drawing; a confident close-up of a toy is kept), caps at `max`.
  */
-export function dedupeSegmentsInfo(segs: Segment[], opts: { max?: number; iouMax?: number; maxCoverage?: number } = {}): CandidateSearch {
+export function dedupeSegmentsInfo(segs: Segment[], opts: { max?: number; iouMax?: number; maxCoverage?: number; dropContainers?: boolean } = {}): CandidateSearch {
   const max = opts.max ?? MAX_CANDIDATES, iouMax = opts.iouMax ?? DEDUPE_IOU, maxCoverage = opts.maxCoverage ?? MAX_FRAME_COVERAGE;
   const sized = segs.map((s) => ({ s, a: area(s.mask) }))
     .filter(({ s, a }) => a > 0 && a <= s.mask.width * s.mask.height * maxCoverage)
@@ -72,7 +72,7 @@ export function dedupeSegmentsInfo(segs: Segment[], opts: { max?: number; iouMax
   const frame = (k: (typeof kept)[number]) => k.s.mask.width * k.s.mask.height;
   const isContainer = (k: (typeof kept)[number]) =>
     k.a > frame(k) * MAX_CONTAINER_COVERAGE && kept.some((o) => o !== k && o.s.score > k.s.score && bboxContains(k.s.bbox, o.s.bbox));
-  const rest = kept.filter((k) => !isContainer(k));
+  const rest = opts.dropContainers === false ? kept : kept.filter((k) => !isContainer(k));
   return { segments: rest.slice(0, max).map((k) => k.s), droppedContainer: rest.length < kept.length };
 }
 
@@ -110,21 +110,46 @@ export async function* untilCompleted(source: AsyncIterable<StreamEvent>): Async
   }
 }
 
-/** Places a SAM raster (H×W covering `bounds`) into a full-frame mask, scaling nearest-neighbour. */
-export function placeRaster(rec: SegmentationMaskRecord, frameW: number, frameH: number): Mask {
-  const raster = decodeMaskToRaster(rec.mask);
-  const { width: rw, height: rh } = rec.mask;
-  const { left, top, right, bottom } = rec.bounds;
+export type RasterBounds = { left: number; top: number; right: number; bottom: number };
+
+/** Blur of a coarse SAM raster after its bilinear upsampling, in raster steps (σ = this × step; T134 fix round). */
+export const RASTER_EDGE_SIGMA = 0.5;
+
+/**
+ * Places a SAM raster (rh×rw covering `bounds`) into a full-frame mask. When the raster is coarser
+ * than its bounds (one raster pixel spans `step` > 1 frame pixels) it is sampled bilinearly as grey,
+ * blurred by RASTER_EDGE_SIGMA × step and thresholded at 127, so its blocks become the smooth outline
+ * they approximate instead of terraces (T134, ruling 4). A raster at its bounds' resolution is copied as is.
+ */
+export async function placeRasterData(raster: Uint8Array, rw: number, rh: number, bounds: RasterBounds, frameW: number, frameH: number): Promise<Mask> {
+  const { left, top, right, bottom } = bounds;
   const bw = Math.max(1, right - left), bh = Math.max(1, bottom - top);
   const out = emptyMask(frameW, frameH);
+  const step = Math.max(bw / rw, bh / rh);
+  let grid: Uint8Array;
+  if (rw === bw && rh === bh) {
+    grid = raster;
+  } else {
+    const grey = Buffer.alloc(rw * rh);
+    for (let i = 0; i < grey.length; i++) grey[i] = raster[i] ? 255 : 0;
+    let img = sharp(grey, { raw: { width: rw, height: rh, channels: 1 } }).resize(bw, bh, { kernel: "linear", fit: "fill" });
+    const up = await img.raw().toBuffer({ resolveWithObject: true });
+    img = sharp(up.data, { raw: { width: up.info.width, height: up.info.height, channels: up.info.channels } });
+    if (step > 1.05) img = img.blur(Math.max(0.3, RASTER_EDGE_SIGMA * step));
+    const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
+    grid = new Uint8Array(bw * bh);
+    for (let i = 0; i < grid.length; i++) grid[i] = data[i * info.channels] > 127 ? 1 : 0;
+  }
+  const gw = rw === bw && rh === bh ? rw : bw;
   for (let y = Math.max(0, top); y < Math.min(frameH, bottom); y++) {
-    const ry = Math.min(rh - 1, Math.floor(((y - top) * rh) / bh));
-    for (let x = Math.max(0, left); x < Math.min(frameW, right); x++) {
-      const rx = Math.min(rw - 1, Math.floor(((x - left) * rw) / bw));
-      out.data[y * frameW + x] = raster[ry * rw + rx];
-    }
+    for (let x = Math.max(0, left); x < Math.min(frameW, right); x++) out.data[y * frameW + x] = grid[(y - top) * gw + (x - left)];
   }
   return out;
+}
+
+/** Places a SAM mask record into a full-frame mask (see placeRasterData). */
+export async function placeRaster(rec: SegmentationMaskRecord, frameW: number, frameH: number): Promise<Mask> {
+  return placeRasterData(decodeMaskToRaster(rec.mask), rec.mask.width, rec.mask.height, rec.bounds, frameW, frameH);
 }
 
 /** Shifts and scales the numbers of a polygonal M/L/Z path. */
@@ -137,9 +162,10 @@ export function transformPath(d: string, dx: number, dy: number, sx = 1, sy = 1)
   });
 }
 
+/** Request-size mask → original size: linear kernel, thresholded at 127 (T134: no nearest-neighbour blocks). */
 async function scaleMask(mask: Mask, width: number, height: number): Promise<Mask> {
   if (mask.width === width && mask.height === height) return mask;
-  const png = await maskSharp(mask).resize(width, height, { kernel: "nearest", fit: "fill" }).png().toBuffer();
+  const png = await maskSharp(mask).resize(width, height, { kernel: "linear", fit: "fill" }).png().toBuffer();
   return maskFromPng(png);
 }
 
@@ -171,7 +197,7 @@ export class MetaSegmenter implements Segmenter {
       for (const m of recordsOfKind(result.records, "mask")) latest.set(m.identity, m);
       const segs: Segment[] = [];
       for (const rec of latest.values()) {
-        const small = placeRaster(rec, prep.sentW, prep.sentH);
+        const small = await placeRaster(rec, prep.sentW, prep.sentH);
         const mask = await scaleMask(small, prep.width, prep.height);
         const bbox = bboxOf(mask);
         if (!bbox) continue;
@@ -203,7 +229,7 @@ export class MetaSegmenter implements Segmenter {
     return segs.length ? segs : this.fallback(prep);
   }
 
-  async findCandidates(image: ImageRef, opts: { trace: Trace; max?: number }): Promise<CandidateSearch> {
+  async findCandidates(image: ImageRef, opts: FindCandidatesOpts): Promise<CandidateSearch> {
     const prep = await this.prepare(image);
     const runs = await Promise.allSettled(SAM_PHRASES.map((p) => this.run(prep, p, opts.trace)));
     const all: Segment[] = [];
@@ -212,8 +238,9 @@ export class MetaSegmenter implements Segmenter {
       else console.warn(`[sam] findCandidates "${SAM_PHRASES[i]}" failed:`, r.reason instanceof Error ? r.reason.message : r.reason);
     });
     const confident = all.filter((s) => s.score >= MIN_CANDIDATE_SCORE);
-    const found = dedupeSegmentsInfo(confident.length ? confident : all, { max: opts.max });
-    return found.segments.length ? found : dedupeSegmentsInfo(await this.fallback(prep), { max: opts.max });
+    const rules = { max: opts.max, maxCoverage: opts.maxCoverage, dropContainers: opts.dropContainers };
+    const found = dedupeSegmentsInfo(confident.length ? confident : all, rules);
+    return found.segments.length ? found : dedupeSegmentsInfo(await this.fallback(prep), rules);
   }
 
   async segment(image: ImageRef, hint: SegmentHint, opts: { trace: Trace }): Promise<Segment | null> {

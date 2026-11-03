@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  STORY_REDO_RETURN, storyVideoDone, adjustBack, adjustWholePhoto, afterPhoto, applyMarks, areaRequest, busyWhile, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
-  changeItCut, cutoutVisit, leaveChanging, makingCutoutBack, pickPiece, runAreaCut, runChange, runChangeCut, skipChange, submitChange, takeChange, takeCutout, yourCutoutBack, type FlowDeps,
+  STORY_REDO_RETURN, storyVideoDone, canRedoListing, canRedoCutout, redoCutout, redoListing, redoTarget, toMaking, adjustBack, afterPhoto, applyMarks, areaNotFound, busyWhile, pickRequest, showsPieces, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
+  changeItCut, cutoutVisit, leaveChanging, makingCutoutBack, runAreaCut, runChange, runChangeCut, skipChange, submitChange, takeChange, takeCutout, yourCutoutBack, type FlowDeps,
 } from "@/components/create/flow";
 import { marksRequest } from "@/components/create/cutout";
 import { dragFrame, initialFrame, keyFrame, moveFrame, resizeFrame, frameSize } from "@/components/create/area";
 import { ApiError } from "@/components/create/api";
-import { areaError } from "@/components/create/screens/AdjustArea";
+import { areaError, isNotFound } from "@/components/create/screens/AdjustArea";
 import { m } from "@/components/messages";
 import { addChange, backToOriginal, currentArtworkId, cutoutOf, once, productToMake, type ChangeStep, type CutoutState, type Draft } from "@/components/create/store";
 
@@ -36,76 +36,54 @@ const artwork = (over: Record<string, unknown> = {}) => ({
 });
 const pieceCut: CutoutState = { artworkId: "p1", candidates, imageSize: { w: 100, h: 100 }, selectedIds: ["c1"], cleanedUrl: "/piece.png", altText: "A fern", box: [1, 2, 30, 40], points: [] };
 const piece: Draft = {
-  product: "sticker", method: "photo", photoArtworkId: "p1", candidates, imageSize: { w: 100, h: 100 }, area: { artworkId: "p1", candidateId: "c1" },
-  pieceArtworkId: "p1", pieceCandidateId: "c1", pieceUrl: "/piece.png", pieceAlt: "A fern", pieceBox: [1, 2, 30, 40], cutoutArtworkId: "p1", cutouts: { p1: pieceCut },
+  product: "sticker", method: "photo", photoArtworkId: "p1", candidates, imageSize: { w: 100, h: 100 }, area: { artworkId: "p1" },
+  pieceArtworkId: "p1", pieceUrl: "/piece.png", pieceAlt: "A fern", pieceBox: [1, 2, 30, 40], cutoutArtworkId: "p1", cutouts: { p1: pieceCut },
 };
 const change = (id: string, parentId: string): ChangeStep => ({ artworkId: id, parentId, instruction: `do ${id}`, previewUrl: `/${id}.png`, alt: `alt ${id}`, spoken: null, differences: "" });
 const changeAnswer = { artwork: { ...artwork({ id: "k2", parentArtworkId: "k1" }), previewUrl: "/k2.png" }, description: { alt: "A fern, bigger", spoken: "A big fern.", differences: "" } };
 
-describe("Photo routing (T113)", () => {
-  it("one piece the server already cut → Adjust the area on that piece (R2, always); earlier changes are dropped", () => {
-    const h = harness({ ...piece, changes: [change("k1", "p1")], changedArtworkId: "k1" });
-    afterPhoto(h.deps, { artwork: artwork({ id: "p9", cleanedUrl: "/p9.png" }), candidates: [candidates[0]], imageSize: { w: 50, h: 60 } });
+const detectAnswer = (over: Record<string, unknown> = {}) => ({
+  artwork: artwork({ cleanedUrl: "/c2-cut.png", altText: "A flower", status: "ready" }), candidates: [candidates[1], candidates[0]],
+  imageSize: { w: 100, h: 100 }, details: { failedProductIds: [], unpublishedProductIds: [] }, ...over,
+});
+
+describe("Photo routing (round 3)", () => {
+  it("the photo always goes to Adjust the area on the whole photo, no piece yet; earlier changes are dropped", () => {
+    const h = harness({ ...piece, changes: [change("k1", "p1")], changedArtworkId: "k1", areaNotFound: true });
+    afterPhoto(h.deps, { artwork: artwork({ id: "p9" }), candidates: [], imageSize: { w: 50, h: 60 } });
     expect(h.calls.at(-1)).toBe("push /create/adjust");
-    expect(h.draft).toMatchObject({ photoArtworkId: "p9", area: { artworkId: "p9", candidateId: "c1" }, imageSize: { w: 50, h: 60 } });
-    expect(h.draft.area?.fromPattern).toBeUndefined();
-    // the piece comes from Use this area, not from the server's cut
+    expect(h.draft).toMatchObject({ photoArtworkId: "p9", area: { artworkId: "p9" }, candidates: [], imageSize: { w: 50, h: 60 } });
+    expect(h.draft.area).toEqual({ artworkId: "p9" });
     expect(h.draft.pieceArtworkId).toBeUndefined();
-    // never showed Choose a pattern: Back goes to the photo screen
+    expect(h.draft.cutouts).toBeUndefined();
+    expect(h.draft.areaNotFound).toBeUndefined();
     expect(adjustBack(h.draft)).toBe("/create/photo?mode=camera");
+    expect(adjustBack({ ...h.draft, method: "upload" })).toBe("/create/photo?mode=upload");
     expect(h.draft.changes).toBeUndefined();
     expect(h.draft.changedArtworkId).toBeUndefined();
   });
 
-  it("several pieces (no cut yet) → Choose a pattern, no piece picked", () => {
-    const h = harness(piece);
-    afterPhoto(h.deps, { artwork: artwork({ id: "p9" }), candidates });
-    expect(h.calls.at(-1)).toBe("push /create/pattern");
-    expect(h.draft.pieceArtworkId).toBeUndefined();
-    expect(h.draft.candidates).toHaveLength(2);
-  });
-
-  it("zero pieces, Draw a box → Adjust the area on that photo, no piece (the frame starts at the whole photo)", () => {
-    const h = harness({ ...piece, area: { artworkId: "p1", candidateId: "c1" } });
-    adjustWholePhoto(h.deps, "p9");
-    expect(h.calls.at(-1)).toBe("push /create/adjust");
-    expect(h.draft).toMatchObject({ photoArtworkId: "p9", candidates: [], area: { artworkId: "p9" } });
-    expect(h.draft.area?.candidateId).toBeUndefined();
-    expect(h.draft.pieceArtworkId).toBeUndefined();
-    expect(adjustBack(h.draft)).toBe("/create/photo?mode=camera");
-  });
-
-  it("a new photo forgets the earlier area", () => {
-    const h = harness({ ...piece, area: { artworkId: "p1", candidateId: "c1" } });
-    afterPhoto(h.deps, { artwork: artwork({ id: "p9" }), candidates });
-    expect(h.draft.area).toBeUndefined();
+  it("the frame starts at the whole photo", () => {
+    expect(initialFrame(undefined, { w: 400, h: 300 })).toEqual([0, 0, 400, 300]);
   });
 });
 
-describe("Choose a pattern → Adjust the area (R2)", () => {
-  it("Use this opens Adjust the area on the picked piece, with no call", () => {
-    const h = harness({ ...piece, pieceArtworkId: undefined, pieceUrl: undefined });
-    pickPiece(h.deps, "p1", "c2");
-    expect(h.api).not.toHaveBeenCalled();
-    expect(h.draft.area).toEqual({ artworkId: "p1", candidateId: "c2", fromPattern: true });
-    expect(h.calls.at(-1)).toBe("push /create/adjust");
-    expect(adjustBack(h.draft)).toBe("/create/pattern");
-  });
-
-  it("Use this area → Making your cutout runs POST cleanup {candidateIds:[piece], box, clipToBox}; then Your cutout (T130)", async () => {
-    const h = harness({ ...piece, area: { artworkId: "p1", candidateId: "c2" }, changes: [change("k1", "p1")], changedArtworkId: "k1" },
-      { "/cleanup": { ...artwork({ cleanedUrl: "/c2-cut.png", altText: "A flower" }), details: { failedProductIds: [], unpublishedProductIds: [] } } });
+describe("Adjust the area → detect inside the frame (round 3)", () => {
+  it("Use this area → Making your cutout runs POST detect {box}; the largest piece is the cut and the pieces found go on Your cutout", async () => {
+    const h = harness({ ...piece, candidates: [], cutouts: undefined, pieceArtworkId: undefined, area: { artworkId: "p1" }, changes: [change("k1", "p1")], changedArtworkId: "k1" },
+      { "/detect": detectAnswer() });
     cutArea(h.deps, [8, 9, 22, 21]);
     // no call on Adjust the area: on to /create/cutout, which shows Making your cutout for this frame
     expect(h.api).not.toHaveBeenCalled();
     expect(h.calls.at(-1)).toBe("push /create/cutout");
     expect(cutoutVisit(h.draft)).toBe("area");
     expect(h.draft.changedArtworkId).toBeUndefined();
-    expect(h.draft.pieceArtworkId).toBeUndefined();
     await runAreaCut(h.deps, h.draft.pendingArea!);
-    expect(h.calls.find((c) => c.startsWith("api"))).toBe('api artworks/p1/cleanup {"candidateIds":["c2"],"box":[8,9,22,21],"clipToBox":true}');
-    expect(h.draft).toMatchObject({ pieceArtworkId: "p1", pieceCandidateId: "c2", pieceBox: [8, 9, 22, 21], pieceUrl: "/c2-cut.png", pieceAlt: "A flower", cutoutArtworkId: "p1" });
-    expect(cutoutOf(h.draft, "p1")).toMatchObject({ selectedIds: ["c2"], cleanedUrl: "/c2-cut.png", box: [8, 9, 22, 21], points: [] });
+    expect(h.calls.filter((c) => c.startsWith("api"))).toEqual(['api artworks/p1/detect {"box":[8,9,22,21]}']);
+    expect(h.draft).toMatchObject({ pieceArtworkId: "p1", pieceBox: [8, 9, 22, 21], pieceUrl: "/c2-cut.png", pieceAlt: "A flower", cutoutArtworkId: "p1" });
+    expect(h.draft.candidates?.map((c) => c.id)).toEqual(["c2", "c1"]);
+    expect(cutoutOf(h.draft, "p1")).toMatchObject({ selectedIds: ["c2"], cleanedUrl: "/c2-cut.png", box: [8, 9, 22, 21], points: [], imageSize: { w: 100, h: 100 } });
+    expect(cutoutOf(h.draft, "p1")?.candidates.map((c) => c.id)).toEqual(["c2", "c1"]);
     expect(h.draft.pendingArea).toBeUndefined();
     expect(cutoutVisit(h.draft)).toBe("cut");
     expect(h.draft.cutoutNotice).toBeUndefined();
@@ -119,8 +97,16 @@ describe("Choose a pattern → Adjust the area (R2)", () => {
     expect(currentArtworkId(h.draft)).toBe("p1");
   });
 
+  it("a re-framed area after the cut sends detect again (cleanup is only for marks)", async () => {
+    const h = harness({ ...piece }, { "/detect": detectAnswer() });
+    cutArea(h.deps, [5, 5, 25, 25]);
+    await runAreaCut(h.deps, h.draft.pendingArea!);
+    expect(h.calls.filter((c) => c.startsWith("api"))).toEqual(['api artworks/p1/detect {"box":[5,5,25,25]}']);
+    expect(h.calls.some((c) => c.includes("/cleanup"))).toBe(false);
+  });
+
   it("a result for a frame that was replaced meanwhile (Back, a new frame) is dropped", async () => {
-    const h = harness({ ...piece, area: { artworkId: "p1", candidateId: "c2" } }, { "/cleanup": artwork({ cleanedUrl: "/old.png" }) });
+    const h = harness({ ...piece, pieceUrl: undefined, area: { artworkId: "p1" } }, { "/detect": detectAnswer({ artwork: artwork({ cleanedUrl: "/old.png" }) }) });
     cutArea(h.deps, [8, 9, 22, 21]);
     const first = h.draft.pendingArea!;
     cutArea(h.deps, [5, 5, 25, 25]);
@@ -130,17 +116,25 @@ describe("Choose a pattern → Adjust the area (R2)", () => {
     expect(h.draft.pendingArea?.box).toEqual([5, 5, 25, 25]);
   });
 
-  it("no drawing found: only the box is sent", async () => {
-    expect(areaRequest({}, [0, 0, 100, 80])).toEqual({ box: [0, 0, 100, 80], clipToBox: true });
-    const h = harness({ ...piece, candidates: [], pieceArtworkId: undefined, cutouts: undefined, area: { artworkId: "p9" } }, { "/cleanup": artwork({ id: "p9", cleanedUrl: "/p9.png" }) });
-    cutArea(h.deps, [0, 0, 100, 80]);
-    await runAreaCut(h.deps, h.draft.pendingArea!);
-    expect(h.calls.find((c) => c.startsWith("api"))).toBe('api artworks/p9/cleanup {"box":[0,0,100,80],"clipToBox":true}');
-    expect(h.draft).toMatchObject({ pieceArtworkId: "p9", pieceUrl: "/p9.png", cutoutArtworkId: "p9" });
-    expect(h.draft.pieceCandidateId).toBeUndefined();
+  it("nothing found inside the frame (422 no_drawing_found): back to Adjust the area with the move-or-grow advice; nothing is cut; the next frame clears it", () => {
+    const h = harness({ ...piece, cutouts: undefined, pieceArtworkId: undefined, pieceUrl: undefined, area: { artworkId: "p1" } });
+    cutArea(h.deps, [0, 0, 10, 10]);
+    const job = h.draft.pendingArea!;
+    areaNotFound(h.deps, job);
+    expect(h.calls.at(-1)).toBe("replace /create/adjust");
+    expect(h.draft.areaNotFound).toBe(true);
+    expect(h.draft.pendingArea).toBeUndefined();
+    expect(cutoutOf(h.draft, "p1")).toBeNull();
+    // a stale job does nothing
+    cutArea(h.deps, [0, 0, 50, 50]);
+    expect(h.draft.areaNotFound).toBeUndefined();
+    areaNotFound(h.deps, job);
+    expect(h.draft.pendingArea).toBeDefined();
+    expect(isNotFound(new ApiError(422, "no_drawing_found", "Nothing"))).toBe(true);
+    expect(isNotFound(new ApiError(504, "deadline_exceeded", "late"))).toBe(false);
   });
 
-  it("the same piece and frame again → no call, and Your cutout opens on the piece, not on an earlier change (review M5)", () => {
+  it("the same frame again → no call, and Your cutout opens on the piece, not on an earlier change (review M5)", () => {
     const h = harness({ ...piece, pieceBox: [1, 2, 3, 4], changes: [change("k1", "p1")], changedArtworkId: "k1", cutoutArtworkId: "k1" });
     cutArea(h.deps, [1, 2, 3, 4]);
     expect(h.api).not.toHaveBeenCalled();
@@ -154,9 +148,22 @@ describe("Choose a pattern → Adjust the area (R2)", () => {
     expect(cutoutVisit(h.draft)).toBe("area");
   });
 
-  it("a frame with no drawing in it (or one that clips everything away, T126 422): the advice to move or grow the frame (not Retake)", () => {
+  it("a frame with no drawing in it: the advice to move or grow the frame (not Retake)", () => {
     expect(areaError(new ApiError(422, "no_drawing_found", "Nothing found"))).toEqual({ message: m.create.adjust.notFound, action: "none" });
     expect(areaError(new ApiError(504, "deadline_exceeded", "late")).action).toBe("retry");
+  });
+});
+
+describe("Your cutout candidate strip (round 3)", () => {
+  it("shows only for two pieces or more; picking another sends cleanup {candidateIds:[picked], box: the frame, clipToBox} with no marks", async () => {
+    expect(showsPieces({ candidates })).toBe(true);
+    expect(showsPieces({ candidates: [candidates[0]] })).toBe(false);
+    expect(showsPieces({ candidates: [] })).toBe(false);
+    const h = harness({ ...piece }, { "/cleanup": { ...artwork({ cleanedUrl: "/c2.png" }), details: { failedProductIds: [], unpublishedProductIds: [] } } });
+    const out = await applyMarks(h.deps, { ...pieceCut, points: [{ x: 1, y: 1, label: "positive" }], selectedIds: ["c2"] }, pickRequest("c2", pieceCut.box!));
+    expect(h.calls.find((c) => c.startsWith("api"))).toBe('api artworks/p1/cleanup {"candidateIds":["c2"],"box":[1,2,30,40],"clipToBox":true}');
+    expect(out.cut).toMatchObject({ selectedIds: ["c2"], cleanedUrl: "/c2.png", points: [] });
+    expect(h.draft.pieceUrl).toBe("/c2.png");
   });
 });
 
@@ -363,8 +370,8 @@ describe("T117: kept-mounted routes (cacheComponents) never re-send or come back
     const sent = () => h.calls.filter((c) => c.startsWith("api") && c.includes("/change"));
     await once(`change:${second}:0`, () => runChange(h.deps, changeRequest(h.draft)!));
     expect(sent()).toEqual([
-      'api artworks/p1/change {"instruction":"make it blue"}',
-      'api artworks/k1/change {"instruction":"make the stem red"}',
+      `api artworks/p1/change {"instruction":"make it blue","clientRequestId":"${first}"}`,
+      `api artworks/k1/change {"instruction":"make the stem red","clientRequestId":"${second}"}`,
     ]);
   });
 
@@ -390,11 +397,11 @@ describe("T117: kept-mounted routes (cacheComponents) never re-send or come back
 
   it("busy flags (Adjust the area busy, Photo phase) are clear after a navigation and after a failure", async () => {
     const seen: (string | boolean | null)[] = [];
-    const h = harness({ ...piece, area: { artworkId: "p1", candidateId: "c2" } }, { "/cleanup": artwork({ cleanedUrl: "/c2.png" }) });
+    const h = harness({ ...piece, area: { artworkId: "p1" } }, { "/detect": detectAnswer() });
     let busy = false;
     cutArea(h.deps, [1, 1, 9, 9]);
     await busyWhile((v: boolean) => { busy = v; seen.push(v); }, true, false, () => runAreaCut(h.deps, h.draft.pendingArea!));
-    expect(h.calls.at(-1)).toBe("update pendingArea,pieceArtworkId,pieceCandidateId,pieceBox,pieceUrl,pieceAlt,pieceSpoken,cutouts,cutoutArtworkId,cutoutNotice");
+    expect(h.calls.at(-1)).toBe("update pendingArea,candidates,imageSize,pieceArtworkId,pieceBox,pieceUrl,pieceAlt,pieceSpoken,cutouts,cutoutArtworkId,cutoutNotice");
     expect(busy).toBe(false);
     let work: string | null = null;
     await busyWhile<string | null>((v) => { work = v; seen.push(v); }, "use", null, async () => { throw new Error("cut failed"); }).catch(() => {});
@@ -405,7 +412,7 @@ describe("T117: kept-mounted routes (cacheComponents) never re-send or come back
 
 describe("T118 / T130: Back from Change it", () => {
   it("goes to Your cutout even with a change on screen, and leaves the change chain intact", () => {
-    const d: Draft = { ...piece, area: { artworkId: "p1", candidateId: "c1" }, ...addChange(piece, change("k1", "p1")) };
+    const d: Draft = { ...piece, area: { artworkId: "p1" }, ...addChange(piece, change("k1", "p1")) };
     d.changes = [...(d.changes ?? []), change("k2", "k1")];
     d.changedArtworkId = "k2";
     const before = JSON.stringify(d);
@@ -442,8 +449,8 @@ describe("T133: review minors", () => {
     expect(changeItCut(k2)).toBe("p1");
   });
 
-  it("a double tap on Use this area sends one cleanup", async () => {
-    const h = harness({ ...piece, area: { artworkId: "p1", candidateId: "c2" } }, { "/cleanup": artwork({ cleanedUrl: "/c2.png" }) });
+  it("a double tap on Use this area sends one detect", async () => {
+    const h = harness({ ...piece, area: { artworkId: "p1" } }, { "/detect": detectAnswer() });
     cutArea(h.deps, [8, 9, 22, 21]);
     const job = h.draft.pendingArea!;
     cutArea(h.deps, [8, 9, 22, 21]);
@@ -465,5 +472,97 @@ describe("Story video return (R6)", () => {
     expect(storyVideoDone(false)).toBe("/create/live");
     expect(storyVideoDone(true)).toBe("/create/product");
     expect(STORY_REDO_RETURN).toBe("/create/product");
+  });
+});
+
+describe("Round 3 ruling 6: clientRequestId on change and products", () => {
+  it("the change carries its nonce as clientRequestId, and Try again sends the same one", async () => {
+    const h = harness({ ...piece }, { "/change": new ApiError(504, "deadline_exceeded", "late") });
+    submitChange(h.deps, "make it blue", "make it blue");
+    const nonce = h.draft.changeNonce as string;
+    expect(nonce).toMatch(/^[0-9a-f-]{36}$/);
+    const req = changeRequest(h.draft)!;
+    expect(req.clientRequestId).toBe(nonce);
+    await expect(runChange(h.deps, req)).rejects.toThrow();
+    await expect(runChange(h.deps, changeRequest(h.draft)!)).rejects.toThrow();
+    const bodies = h.calls.filter((c) => c.includes("/change")).map((c) => JSON.parse(c.slice(c.indexOf("{"))));
+    expect(bodies).toEqual([
+      { instruction: "make it blue", transcript: "make it blue", clientRequestId: nonce },
+      { instruction: "make it blue", transcript: "make it blue", clientRequestId: nonce },
+    ]);
+  });
+
+  it("each Use this mints a new products clientRequestId; the store sends it", async () => {
+    const h = harness({ ...piece });
+    toMaking(h.deps, "p1");
+    const first = h.draft.productRequestId;
+    expect(first).toMatch(/^[0-9a-f-]{36}$/);
+    toMaking(h.deps, "p1");
+    expect(h.draft.productRequestId).not.toBe(first);
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ id: "pr1", artworkId: "p1", type: "sticker" }), { status: 201 }));
+    vi.stubGlobal("fetch", fetch);
+    try {
+      const { makeProduct } = await import("@/components/create/store");
+      await makeProduct("p1", "sticker", 7, null, "req-1");
+      const init = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1];
+      expect(JSON.parse(init.body as string)).toEqual({ artworkId: "p1", type: "sticker", clientRequestId: "req-1" });
+    } finally { vi.unstubAllGlobals(); }
+  });
+});
+
+describe("Round 3 ruling 5: Redo while the listing drafts", () => {
+  const product = { id: "pr1", artworkId: "p1", creatorId: "me", type: "sticker" as const, mockupUrl: "/m.png", printPngUrl: null, printSvgUrl: null, priceCents: 500, status: "draft", previewUrl: "/pv.png" };
+  it("drops the run, opens Your cutout of the product's artwork and keeps the draft product (Use this reuses it, no second POST)", () => {
+    const h = harness({ ...piece, artworkId: "p1", productRecord: product, productCut: "/piece.png", listingRun: "run-1", productRequestId: "req-1" });
+    expect(canRedoListing(h.draft)).toBe(true);
+    redoListing(h.deps);
+    expect(h.draft.listingRun).toBeUndefined();
+    expect(h.draft.cutoutArtworkId).toBe("p1");
+    expect(h.draft.productRecord).toEqual(product);
+    expect(h.calls.at(-1)).toBe("push /create/cutout");
+    expect(cutoutVisit(h.draft)).toBe("cut");
+    // back on Your cutout of a change result: Use this → Making, which reuses the product
+    expect(productToMake(h.draft)).toBe("reuse");
+    expect(h.api).not.toHaveBeenCalled();
+  });
+
+  it("no cut of the product's artwork in the draft: Redo falls back to Adjust the area on the photo (review m1); nothing to go to → no Redo", () => {
+    const h = harness({ productRecord: product, photoArtworkId: "p9", product: "sticker", listingRun: "run-1", areaNotFound: true });
+    expect(canRedoListing(h.draft)).toBe(true);
+    redoListing(h.deps);
+    expect(h.calls.at(-1)).toBe("push /create/adjust");
+    expect(h.draft.area).toEqual({ artworkId: "p9" });
+    expect(h.draft.areaNotFound).toBeUndefined();
+    expect(h.draft.listingRun).toBeUndefined();
+    expect(h.draft.productRecord).toEqual(product);
+    expect(canRedoListing({ productRecord: product })).toBe(false);
+    expect(canRedoListing({})).toBe(false);
+  });
+});
+
+describe("Round 3 review I3: Re-do the cutout after a print check", () => {
+  const product = { id: "pr1", artworkId: "p1", creatorId: "me", type: "sticker" as const, mockupUrl: "/m.png", printPngUrl: null, printSvgUrl: null, priceCents: 500, status: "draft", previewUrl: "/pv.png" };
+  const listed: Draft = { ...piece, artworkId: "p1", productRecord: product, listingRun: "run-1", listing: { title: "Fern", description: "", tags: [], price_cents: 500, print_ok: false, print_check: "resolution", notes: "" } };
+  it("resolution (marks cannot fix it) → Adjust the area on the photo, where the frame can grow or Retake gives a bigger photo", () => {
+    const h = harness(listed);
+    expect(canRedoCutout(h.draft, "resolution")).toBe(true);
+    redoCutout(h.deps, "resolution");
+    expect(h.calls.at(-1)).toBe("push /create/adjust");
+    expect(h.draft.area).toEqual({ artworkId: "p1" });
+    expect(h.draft.listingRun).toBeUndefined();
+    expect(h.api).not.toHaveBeenCalled();
+  });
+  it("contrast → Your cutout of the product's artwork", () => {
+    const h = harness(listed);
+    redoCutout(h.deps, "contrast");
+    expect(h.calls.at(-1)).toBe("push /create/cutout");
+    expect(h.draft.cutoutArtworkId).toBe("p1");
+  });
+  it("each falls back to the other screen (review m2); neither → no action", () => {
+    expect(redoTarget({ productRecord: product, photoArtworkId: "p9" }, "cutout")).toBe("adjust");
+    expect(redoTarget({ ...listed, photoArtworkId: undefined }, "adjust")).toBe("cutout");
+    expect(redoTarget({ productRecord: product }, "adjust")).toBeNull();
+    expect(canRedoCutout({ productRecord: product }, "resolution")).toBe(false);
+    expect(canRedoCutout({ ...listed, photoArtworkId: undefined }, "resolution")).toBe(true);
   });
 });

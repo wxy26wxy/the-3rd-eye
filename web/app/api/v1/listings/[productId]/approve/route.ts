@@ -14,6 +14,8 @@ const Body = z.object({
     description: z.string().trim().max(2000).optional(),
     priceCents: z.number().int().min(100).max(100_000).optional(),
   }).optional(),
+  /** T134: publish despite a contrast warning (a resolution failure still blocks). */
+  acceptPrintWarning: z.boolean().optional(),
 });
 
 export const POST = route<{ params: Promise<{ productId: string }> }>(async (req, { params }) => {

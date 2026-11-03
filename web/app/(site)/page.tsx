@@ -5,6 +5,7 @@ import { Collection, CollectionFallback } from "@/components/shop/Collection";
 import { Hero, HeroChip } from "@/components/shop/Hero";
 import { HowSteps, PhonePreview, STORY_TAG_FALLBACK, StoryTagCta } from "@/components/shop/HowSteps";
 import { MakersHeader, MeetMakers } from "@/components/shop/MeetArtist";
+import { tilePicture } from "@/components/site/ProductCard";
 import { Container } from "@/components/ui/Layout";
 import styles from "@/components/shop/Shop.module.css";
 
@@ -21,7 +22,7 @@ async function FeaturedPreview() {
       name={c?.displayName ?? null}
       studio={c?.studioName ?? null}
       bio={c?.storyText ?? c?.bioShort ?? null}
-      product={first ? { title: first.title, imageUrl: (first.type === "sticker" ? first.previewUrl ?? first.artworkUrl : first.mockupUrl ?? first.artworkUrl) ?? first.mockupUrl, type: first.type } : null}
+      product={first ? { title: first.title, imageUrl: tilePicture(first).src, type: first.type } : null}
     />
   );
 }

@@ -43,6 +43,11 @@ export function adjustBack(d: Draft): string {
   return d.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
 }
 
+/** "Take a new photo" on Adjust the area: the photo step for the draft's method (the same place Back goes). */
+export function takeNewPhoto(d: Draft): string {
+  return adjustBack(d);
+}
+
 /**
  * "Use this area" (round 3): on to /create/cutout, where Making your cutout sends `POST
  * /artworks/{id}/detect {box}` (`runAreaCut`; a re-framed area always detects again). The same

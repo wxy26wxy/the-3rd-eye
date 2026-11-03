@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  STORY_REDO_RETURN, storyVideoDone, canRedoListing, canRedoCutout, redoCutout, redoListing, redoTarget, toMaking, adjustBack, afterPhoto, applyMarks, areaNotFound, busyWhile, pickRequest, showsPieces, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
+  STORY_REDO_RETURN, storyVideoDone, canRedoListing, canRedoCutout, redoCutout, redoListing, redoTarget, toMaking, adjustBack, takeNewPhoto, afterPhoto, applyMarks, areaNotFound, busyWhile, pickRequest, showsPieces, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
   changeItCut, cutoutVisit, leaveChanging, makingCutoutBack, runAreaCut, runChange, runChangeCut, skipChange, submitChange, takeChange, takeCutout, yourCutoutBack, type FlowDeps,
 } from "@/components/create/flow";
 import { marksRequest } from "@/components/create/cutout";
@@ -59,6 +59,8 @@ describe("Photo routing (round 3)", () => {
     expect(h.draft.areaNotFound).toBeUndefined();
     expect(adjustBack(h.draft)).toBe("/create/photo?mode=camera");
     expect(adjustBack({ ...h.draft, method: "upload" })).toBe("/create/photo?mode=upload");
+    expect(takeNewPhoto(h.draft)).toBe("/create/photo?mode=camera");
+    expect(takeNewPhoto({ ...h.draft, method: "upload" })).toBe("/create/photo?mode=upload");
     expect(h.draft.changes).toBeUndefined();
     expect(h.draft.changedArtworkId).toBeUndefined();
   });

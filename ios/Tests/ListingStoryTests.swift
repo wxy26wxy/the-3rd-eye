@@ -117,38 +117,37 @@ final class ListingStoryTests: XCTestCase {
   }
 }
 
-/// Round 3: every photo goes to Adjust the area on the whole photo; `detect` cuts inside the frame.
+/// Round 4: every photo goes to Adjust the area on the whole local photo; the crop is cut on the server.
 @MainActor
 final class AdjustAreaRouteTests: XCTestCase {
   private let size = ImageSize(w: 1200, h: 1600)
   private let one = Candidate(id: "c1", bbox: [100, 160, 500, 693])
   private let two = Candidate(id: "c2", bbox: [660, 896, 1060, 1429])
 
-  func testFrameStartsOnTheWholePhotoAndDetectsTheFirstTime() {
+  func testFrameStartsOnTheWholeLocalPhoto() {
     let flow = CreateFlow()
-    flow.setPhoto(artwork: Artwork(id: "p1"), candidates: [], imageSize: size)
-    let whole = AreaFrame.initial(piece: nil, image: size)
-    XCTAssertEqual(whole.box, [0, 0, 1200, 1600])
-    XCTAssertEqual(flow.routeAfterArea(box: whole.box), .makingCutout(.detect(whole.box)))
+    flow.photo = UIGraphicsImageRenderer(size: CGSize(width: 120, height: 160), format: { let f = UIGraphicsImageRendererFormat(); f.scale = 1; return f }()).image { _ in }
+    XCTAssertEqual(flow.localPhotoSize, ImageSize(w: 120, h: 160))
+    let whole = AreaFrame.initial(piece: nil, image: flow.localPhotoSize!)
+    XCTAssertEqual(whole.box, [0, 0, 120, 160])
+    XCTAssertEqual(flow.routeAfterArea(box: whole.box), .makingCutout(.area(whole.box)))
     XCTAssertNil(flow.pieceArtwork)
   }
 
-  func testDetectAnswerBecomesThePieceAndTheSameFrameIsNotSentAgain() {
+  func testCropAnswerBecomesThePieceAndDropsTheChanges() {
     let flow = CreateFlow()
-    flow.setPhoto(artwork: Artwork(id: "p1", altText: "Photo"), candidates: [], imageSize: size)
-    let box: [Double] = [50, 100, 1100, 1500]
-    flow.addChange(ChangeStep(artwork: Artwork(id: "ch1"), base: Artwork(id: "p1"), instruction: "x"))
-    flow.recordDetect(DetectResponse(artwork: Artwork(id: "p1", cleanedUrl: "https://x/d1.png"), candidates: [two, one], imageSize: size), box: box)
+    flow.photo = UIGraphicsImageRenderer(size: CGSize(width: 10, height: 10)).image { _ in }
+    let box: [Double] = [5, 10, 110, 150]
+    flow.addChange(ChangeStep(artwork: Artwork(id: "ch1"), base: Artwork(id: "p0"), instruction: "x"))
+    flow.recordPhoto(PhotoArtworkResponse(artwork: Artwork(id: "p2", cleanedUrl: "https://x/d1.png"), candidates: [two, one], imageSize: size), box: box)
+    XCTAssertEqual(flow.photoArtwork?.id, "p2", "a new row for the crop")
     XCTAssertEqual(flow.photoCandidates.map(\.id), ["c2", "c1"])
     XCTAssertEqual(flow.pieceCutFrom, "c2", "the largest, first, is the one cut")
-    XCTAssertEqual(flow.pieceBox, box)
-    XCTAssertEqual(flow.pieceArtwork?.altText, "Photo")
     XCTAssertTrue(flow.changes.isEmpty, "a new piece drops the changes")
-    XCTAssertEqual(flow.cut(for: "p1")?.box, box)
-    XCTAssertEqual(flow.cut(for: "p1")?.selected, ["c2"])
-    XCTAssertEqual(flow.routeAfterArea(box: box), .yourCutout("p1"), "same frame: no second detect")
-    let moved: [Double] = [0, 0, 600, 800]
-    XCTAssertEqual(flow.routeAfterArea(box: moved), .makingCutout(.detect(moved)), "a re-framed area detects again")
+    XCTAssertNil(flow.cut(for: "p2")?.box, "the box is the whole crop")
+    XCTAssertEqual(flow.cut(for: "p2")?.imageSize, size, "marks in the stored crop's pixels")
+    XCTAssertEqual(flow.cut(for: "p2")?.selected, ["c2"])
+    XCTAssertEqual(flow.routeAfterArea(box: box), .yourCutout("p2"))
   }
 
   /// The strip shows only for several drawings; picking one sends it with the frame.
@@ -170,12 +169,5 @@ final class AdjustAreaRouteTests: XCTestCase {
     flow.recordCut(of: "ch1", Artwork(id: "ch1", cleanedUrl: "b"), request: CleanupRequest(candidateIds: ["c2"], box: [0, 0, 1200, 1600], clipToBox: true))
     XCTAssertEqual(flow.changeCuts["ch1"]?.selected, ["c2"])
     XCTAssertEqual(flow.changeCuts["ch1"]?.artwork.cleanedUrl, "b")
-  }
-
-  func testDetectOnlyOnThePhotoRow() {
-    XCTAssertTrue(AdjustAreaView.isPhotoRow(Artwork(id: "d1", source: "photo")))
-    XCTAssertTrue(AdjustAreaView.isPhotoRow(Artwork(id: "d1")))
-    XCTAssertFalse(AdjustAreaView.isPhotoRow(Artwork(id: "ch1", source: "photo", parentArtworkId: "p1", changeInstruction: "x")))
-    XCTAssertFalse(AdjustAreaView.isPhotoRow(Artwork(id: "d2", source: "text2image")))
   }
 }

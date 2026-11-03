@@ -6,16 +6,21 @@ import SwiftUI
 /// edges" shows that picture with the marks), "Clear marks"; pinned "Use this", "Apply cutout"
 /// (cuts again with the marks and shows it) and "Start over" (back to Choose method).
 ///
-/// Shown twice in a creation: after Adjust the area for the photo's piece ("Use this" → Change it),
-/// and after a kept change for its cut-out ("Use this" → Making your sticker). Apply cutout sends
-/// `cleanup {candidateIds: [the piece], points, box, clipToBox: true}` on that artwork; the box is
-/// the frame on the photo, the whole picture after a change (`CutoutRequest.marks`). Coordinates are
-/// pixels of that picture. Taps on the picture: on a mark's dot it deletes that mark, anywhere else
-/// it adds one.
+/// Shown after Adjust the area for the crop's piece, and from "Fix the cutout" (Change it, Before
+/// and after) or Listing "Redo" for the art on screen; "Use this" goes to Change it (back to the one
+/// it was opened from), which shows the product photo, rebuilt by the `cleanup` (its `products`). Apply cutout sends
+/// `cleanup {candidateIds: [the piece], points, box, clipToBox: true}` on that artwork; round 4: the
+/// picture is the stored crop (or the change), so the box is always the whole picture and no frame
+/// is drawn. Coordinates are pixels of that picture (`imageSize`). Taps on the picture: on a mark's
+/// dot it deletes that mark, anywhere else it adds one.
 ///
-/// Round 3: when `detect` (or a change's `cutout`) found several drawings, a strip of them sits under
+/// Round 3: when the crop (or a change's `cutout`) has several drawings, a strip of them sits under
 /// the picture; picking another sends `cleanup {candidateIds: [it], box, clipToBox: true}`. One
 /// drawing: no strip.
+///
+/// "Re-do the cutout" on a saved design opens it in My designs (`origin: .designs`, the design
+/// flow): marks on the stored crop, "Use this" goes back to the design, "Take a new photo" starts a
+/// new creation (the server has no uncropped photo to frame again).
 ///
 /// VoiceOver: the picture offers "Add the area around your art"; each mark is a button that deletes
 /// it; the strip is a list of buttons ("Piece n", selected trait).
@@ -47,8 +52,12 @@ struct YourCutoutView: View {
 
   private enum Work { case apply, use, pick }
 
+  /// The Create flow, or "Re-do the cutout" on a saved design (`AppState.designFlow`).
+  enum Origin { case create, designs }
+
   /// The artwork whose cut-out this is (the photo, or a change).
   let artworkId: String
+  var origin: Origin = .create
 
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
@@ -65,15 +74,21 @@ struct YourCutoutView: View {
   @State private var originalURL: URL?
   @State private var loadedSize: ImageSize?
 
-  private var flow: CreateFlow { app.flow }
+  private var isRedo: Bool { origin == .designs }
+  private var flow: CreateFlow { isRedo ? app.designFlow : app.flow }
   private var cut: Cut? { flow.cut(for: artworkId) }
   private var isPhoto: Bool { artworkId == flow.photoArtwork?.id }
+  /// The cut exists (a saved design that was never cut shows the picture for marks first).
+  private var hasCut: Bool { cut?.artwork.cleanedUrl != nil }
+  /// No local photo to frame again (a saved design, or a draft continued from My designs): the
+  /// way back is a new photo.
+  private var offersNewPhoto: Bool { isRedo || app.flow.photo == nil }
 
   var body: some View {
-    FlowScreen(title: "Your cutout", subtitle: subtitle, step: (3, 3), showsBack: work == nil) {
+    FlowScreen(title: "Your cutout", subtitle: subtitle, step: isRedo ? nil : (3, 3), showsBack: work == nil) {
       VStack(spacing: Theme.Space.l) {
         if let cut {
-          if showingCutout {
+          if showingCutout && hasCut {
             cutoutImage(cut.artwork)
             Text("Your cutout is ready. Here it is.")
               .themeFont(.body)
@@ -99,20 +114,27 @@ struct YourCutoutView: View {
         if let error { ErrorCard(message: error) }
       }
     } actions: {
-      PillButton(work == .use ? "Cutting out your art…" : "Use this", hint: isPhoto ? "Goes on to change it or keep it as it is" : "Uses this cutout and makes your product") {
+      PillButton(work == .use ? "Cutting out your art…" : "Use this", hint: isRedo ? "Saves this cutout and goes back to your design" : "Goes on to change it or keep it as it is") {
         start(.use) { await useThis() }
       }
-      .disabled(cut == nil || work != nil)
+      .disabled(!hasCut || work != nil)
       PillButton(work == .apply ? "Cutting out your art…" : "Apply cutout", hint: "Cuts it out again with your marks and shows it",
                  kind: .secondary, showsArrow: false) {
         start(.apply) { await apply() }
       }
       .disabled(currentRequest == nil || points == appliedPoints || work != nil)
-      PillButton("Start over", hint: "Starts again from the choice of photo", kind: .secondary, showsArrow: false) {
-        flow.discardPhoto()
-        app.createPath = [.chooseMethod]
+      if offersNewPhoto {
+        PillButton("Take a new photo", hint: "Starts again with another photo", kind: .secondary, showsArrow: false) {
+          takeNewPhoto()
+        }
+        .disabled(work != nil)
+      } else {
+        PillButton("Start over", hint: "Starts again from the choice of photo", kind: .secondary, showsArrow: false) {
+          flow.discardPhoto()
+          app.createPath = [.chooseMethod]
+        }
+        .disabled(work != nil)
       }
-      .disabled(work != nil)
       SlowWorkHint(active: work != nil)
     }
     .task { await loadPictureIfNeeded() }
@@ -132,9 +154,6 @@ struct YourCutoutView: View {
     if let size = cut?.imageSize, size.isUsable { return size }
     return loadedSize
   }
-
-  /// The photo on this device, when the cut-out is the photo's piece.
-  private var localPhoto: UIImage? { isPhoto ? flow.photo : nil }
 
   private var currentRequest: CleanupRequest? {
     guard var cut else { return nil }
@@ -223,7 +242,7 @@ struct YourCutoutView: View {
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
       HStack(spacing: Theme.Space.xl) {
-        if showingCutout {
+        if showingCutout && hasCut {
           textAction("Fix the edges", hint: "Shows the picture so you can add marks") { showingCutout = false }
         }
         if !points.isEmpty {
@@ -337,9 +356,6 @@ struct YourCutoutView: View {
           let frame = CutoutGeometry.fitRect(image: size, in: geo.size)
           ZStack {
             gestureLayer(frame: frame, size: size)
-            if let box = cut.box, let rect = CutoutGeometry.viewRect(box: box, shownIn: frame, image: size) {
-              boxOutline(rect: rect)
-            }
             ForEach(Array(points.enumerated()), id: \.offset) { index, point in
               mark(point, index: index)
                 .position(CutoutGeometry.viewPoint(x: point.x, y: point.y, shownIn: frame, image: size))
@@ -356,12 +372,9 @@ struct YourCutoutView: View {
       .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(colors.accent))
   }
 
-  @ViewBuilder private var photoImage: some View {
-    if let photo = localPhoto {
-      Image(uiImage: photo).resizable().scaledToFit()
-    } else {
-      RemoteImage(url: originalURL, altText: String(localized: "Your photo"))
-    }
+  /// The stored picture (round 4: the crop, never the whole local photo), from `GET /artworks/{id}`.
+  private var photoImage: some View {
+    RemoteImage(url: originalURL, altText: String(localized: "Your photo"))
   }
 
   /// The only layer that takes touches on the picture (marks take none). A tap on a mark's dot
@@ -389,16 +402,6 @@ struct YourCutoutView: View {
   /// on purpose, so a new mark can go right next to one (Clear marks and the VoiceOver action on
   /// each mark are the other ways to delete).
   private static let markDot = Theme.Space.xxl
-
-  /// The box the marks are sent with (the Adjust the area frame), drawn dashed; not touchable.
-  private func boxOutline(rect: CGRect) -> some View {
-    Rectangle()
-      .stroke(colors.primary, style: StrokeStyle(lineWidth: Theme.Border.card, dash: [Theme.Space.m, Theme.Space.xs]))
-      .frame(width: rect.width, height: rect.height)
-      .position(x: rect.midX, y: rect.midY)
-      .allowsHitTesting(false)
-      .accessibilityHidden(true)
-  }
 
   /// A + or − mark. Touches go to the gesture layer (a tap on the dot deletes it); VoiceOver and
   /// Switch Control get a button with a 48 pt frame whose action deletes it.
@@ -466,13 +469,14 @@ struct YourCutoutView: View {
     }
   }
 
-  /// The picture the marks go on: the local photo, else the stored picture (`GET /artworks/{id}`,
-  /// presigned), whose size also comes from there when the cut has none.
+  /// The picture the marks go on: the stored picture (`GET /artworks/{id}`, presigned; cached by its
+  /// path), whose size also comes from there when the cut has none.
   private func loadPictureIfNeeded() async {
-    guard cut != nil, localPhoto == nil || imageSize == nil else { return }
+    guard cut != nil, originalURL == nil else { return }
     do {
       let detail = try await app.api.artworkDetail(id: artworkId)
       if let size = detail.imageSize, size.isUsable { loadedSize = size }
+      if isPhoto, let size = detail.imageSize, size.isUsable, flow.photoImageSize?.isUsable != true { flow.photoImageSize = size }
       if !isPhoto, flow.changeCuts[artworkId]?.candidates.isEmpty == true, !detail.candidates.isEmpty {
         flow.changeCuts[artworkId]?.candidates = detail.candidates
         flow.changeCuts[artworkId]?.selected = [detail.candidates[0].id]
@@ -503,7 +507,14 @@ struct YourCutoutView: View {
       if cut.spokenDescription?.isEmpty ?? true { cut.spokenDescription = flow.cut(for: artworkId)?.artwork.spokenDescription }
       if picked, isPhoto { flow.resetChange() }
       flow.recordCut(of: artworkId, cut, request: picked ? request : nil)
+      // Ruling 2 (T143): the products rebuilt from the new cut come with the answer.
+      flow.applyRebuilt(result.products, for: cut)
+      if flow.artwork?.id == artworkId { flow.artwork = cut }
       flow.cutoutNotice = result.productNotice
+      if isRedo {
+        flow.cutoutArtwork = cut
+        app.designs.replace(cut)
+      }
       if picked { points = [] }
       appliedPoints = sent
       showingCutout = true
@@ -514,13 +525,35 @@ struct YourCutoutView: View {
     }
   }
 
-  /// "Use this": marks not applied yet are applied first; then on (only while this screen is on top).
+  /// "Use this": marks not applied yet are applied first; then on (only while this screen is on
+  /// top). A saved design goes back to its detail, which shows the new cut.
   private func useThis() async {
     if points != appliedPoints, currentRequest != nil {
       await apply()
       guard error == nil else { return }
     }
+    if isRedo {
+      guard app.designsPath.last == .yourCutout(artworkId) else { return }
+      app.designsPath.removeLast()
+      Task { await app.designs.load(force: true) }
+      return
+    }
     guard app.createPath.last == .yourCutout(artworkId), let next = flow.routeAfterCutout(of: artworkId) else { return }
+    // Opened from Change it or Before and after ("Fix the cutout"): back to that Change it.
+    if let index = app.createPath.lastIndex(of: .changeIt) {
+      app.designs.markStale()
+      app.createPath = Array(app.createPath.prefix(through: index))
+      return
+    }
     app.push(next)
+  }
+
+  /// "Take a new photo": a new creation of the same product, from the choice of photo.
+  private func takeNewPhoto() {
+    let type = flow.productType ?? app.flow.productType ?? .sticker
+    if isRedo, app.designsPath.last == .yourCutout(artworkId) { app.designsPath.removeLast() }
+    app.startNewCreation()
+    app.flow.productType = type
+    app.createPath = [.chooseMethod]
   }
 }

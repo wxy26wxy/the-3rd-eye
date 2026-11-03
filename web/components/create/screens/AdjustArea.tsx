@@ -2,13 +2,13 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
-import { ApiError } from "../api";
+import { api, ApiError } from "../api";
 import { frameSize, initialFrame } from "../area";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { CropError } from "../crop";
 import { usableSize, type Box, type ImageSize } from "../cutout";
 import { describeError, revealError, type ScreenError } from "../errors";
-import { adjustBack, areaFrame, cutArea, hasLocalPhoto, photoGone, sameNotFound, takeNewPhoto } from "../flow";
+import { adjustBack, areaFrame, cutArea, discardNotFoundRow, hasLocalPhoto, photoGone, sameNotFound, takeNewPhoto } from "../flow";
 import { photoUrl } from "../localPhoto";
 import { getDraft, useCreate } from "../store";
 import { AdjustAreaView } from "./AdjustAreaView";
@@ -101,7 +101,7 @@ function AreaFlow() {
   /** "Use this area": on to Making your cutout, which crops, uploads and creates the row; errors show there. */
   function use() {
     if (!box) return;
-    if (!cutArea({ getDraft, update, router }, box)) revealError(errorRef.current);
+    if (!cutArea({ api, getDraft, update, router }, box)) revealError(errorRef.current);
   }
 
   return (
@@ -111,6 +111,7 @@ function AreaFlow() {
       sizeText={box && imageSize ? sizeText(box, imageSize) : ""}
       back={adjustBack(draft)}
       retake={retake}
+      onRetake={() => discardNotFoundRow({ api, getDraft, update })}
       busy={false}
       photo={imageSize && src && box && !failed ? (
         <AreaFrame

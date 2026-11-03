@@ -6,6 +6,8 @@ import SwiftUI
 struct ArtPreview: View {
   let label: LocalizedStringKey
   var art: Artwork?
+  /// The picture to show instead of the art's own (round 4 ruling 2: the product photo).
+  var url: URL?
   /// Shown when the art has no picture of its own yet (the whole photo, before any cut-out).
   var photo: UIImage?
   var height: CGFloat = ThemeEffects.artPreviewHeight
@@ -43,7 +45,7 @@ struct ArtPreview: View {
   }
 
   @ViewBuilder private var picture: some View {
-    if let url = art?.displayURL {
+    if let url = url ?? art?.displayURL {
       RemoteImage(url: url, altText: nil)
     } else if let photo {
       Image(uiImage: photo).resizable().scaledToFit()

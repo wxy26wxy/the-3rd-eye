@@ -5,6 +5,11 @@ struct The3rdEyeApp: App {
   @State private var app = AppState()
   @Environment(\.scenePhase) private var scenePhase
 
+  init() {
+    // Ruling 3 (T144): room for the product photos before the first picture loads.
+    ImageLoader.configureURLCache()
+  }
+
   var body: some Scene {
     WindowGroup {
       RootView()

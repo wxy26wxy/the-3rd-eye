@@ -404,13 +404,10 @@ struct PhotoArtworkRequest: Encodable {
   let source: String
   let imageUrl: String
   let product: ProductType
-  /// Round 3: `false` stores the photo without looking for drawings (`detect` runs on the frame).
+  /// Round 3: `false` stores the photo without looking for drawings (not used by the app since round 4).
   var detect: Bool?
-}
-
-/// `POST /artworks/{id}/detect` body: the Adjust the area frame, `[x0, y0, x1, y1]` in `ImageSize` pixels.
-struct DetectRequest: Encodable, Equatable, Hashable {
-  let box: [Double]
+  /// Round 4 (T143): the picture is the creator's crop; the largest drawing in it is cut out.
+  var framed: Bool?
 }
 
 struct PhotoArtworkResponse: Decodable { let artwork: Artwork; let candidates: [Candidate]; var imageSize: ImageSize? }
@@ -421,25 +418,33 @@ struct CleanupResult: Decodable, Equatable {
   let artwork: Artwork
   var failedProductIds: [String] = []
   var unpublishedProductIds: [String] = []
+  /// Round 4 (T143): the row's live products after the rebuild (new `mockupUrl`), so Change it can
+  /// show the rebuilt product photo without a list call. Empty from older servers.
+  var products: [ArtworkProduct] = []
 
   private struct Details: Decodable {
     var failedProductIds: [String]?
     var unpublishedProductIds: [String]?
   }
-  private enum Keys: String, CodingKey { case details }
+  private enum Keys: String, CodingKey { case details, products }
 
-  init(artwork: Artwork, failedProductIds: [String] = [], unpublishedProductIds: [String] = []) {
+  init(artwork: Artwork, failedProductIds: [String] = [], unpublishedProductIds: [String] = [], products: [ArtworkProduct] = []) {
     self.artwork = artwork
     self.failedProductIds = failedProductIds
     self.unpublishedProductIds = unpublishedProductIds
+    self.products = products
   }
 
   init(from decoder: Decoder) throws {
-    artwork = try Artwork(from: decoder)
+    var art = try Artwork(from: decoder)
     let c = try decoder.container(keyedBy: Keys.self)
     let details = try? c.decodeIfPresent(Details.self, forKey: .details)
     failedProductIds = details?.failedProductIds ?? []
     unpublishedProductIds = details?.unpublishedProductIds ?? []
+    products = ((try? c.decodeIfPresent([ArtworkProduct].self, forKey: .products)) ?? nil) ?? []
+    // The products are the answer's own field, not the artwork's list summary.
+    art.products = nil
+    artwork = art
   }
 }
 
@@ -474,13 +479,16 @@ struct CutoutResponse: Decodable {
   let artwork: Artwork
   var candidates: [Candidate] = []
   var imageSize: ImageSize?
+  /// Round 4 (T143): the row's live products (none for a fresh change result).
+  var products: [ArtworkProduct] = []
 
-  private enum Keys: String, CodingKey { case artwork, candidates, imageSize }
+  private enum Keys: String, CodingKey { case artwork, candidates, imageSize, products }
 
-  init(artwork: Artwork, candidates: [Candidate] = [], imageSize: ImageSize? = nil) {
+  init(artwork: Artwork, candidates: [Candidate] = [], imageSize: ImageSize? = nil, products: [ArtworkProduct] = []) {
     self.artwork = artwork
     self.candidates = candidates
     self.imageSize = imageSize
+    self.products = products
   }
 
   init(from decoder: Decoder) throws {
@@ -488,43 +496,7 @@ struct CutoutResponse: Decodable {
     artwork = try c.decode(Artwork.self, forKey: .artwork)
     candidates = try c.decodeIfPresent([Candidate].self, forKey: .candidates) ?? []
     imageSize = try c.decodeIfPresent(ImageSize.self, forKey: .imageSize)
-  }
-}
-/// `POST /artworks/{id}/detect` answer (round 3): the photo row with the cut of the largest drawing
-/// found inside the frame, the drawings (largest first, photo pixels) and the photo's size, plus the
-/// products rebuilt from the row (`details`, as after a `cleanup`).
-struct DetectResponse: Decodable {
-  let artwork: Artwork
-  var candidates: [Candidate] = []
-  var imageSize: ImageSize?
-  var failedProductIds: [String] = []
-  var unpublishedProductIds: [String] = []
-
-  private struct Details: Decodable {
-    var failedProductIds: [String]?
-    var unpublishedProductIds: [String]?
-  }
-  private enum Keys: String, CodingKey { case artwork, candidates, imageSize, details }
-
-  init(artwork: Artwork, candidates: [Candidate] = [], imageSize: ImageSize? = nil) {
-    self.artwork = artwork
-    self.candidates = candidates
-    self.imageSize = imageSize
-  }
-
-  init(from decoder: Decoder) throws {
-    let c = try decoder.container(keyedBy: Keys.self)
-    artwork = try c.decode(Artwork.self, forKey: .artwork)
-    candidates = try c.decodeIfPresent([Candidate].self, forKey: .candidates) ?? []
-    imageSize = try c.decodeIfPresent(ImageSize.self, forKey: .imageSize)
-    let details = try? c.decodeIfPresent(Details.self, forKey: .details)
-    failedProductIds = details?.failedProductIds ?? []
-    unpublishedProductIds = details?.unpublishedProductIds ?? []
-  }
-
-  /// The same answer as a `cleanup` result (for its product notice).
-  var cleanupResult: CleanupResult {
-    CleanupResult(artwork: artwork, failedProductIds: failedProductIds, unpublishedProductIds: unpublishedProductIds)
+    products = ((try? c.decodeIfPresent([ArtworkProduct].self, forKey: .products)) ?? nil) ?? []
   }
 }
 struct ArtworksResponse: Decodable { let artworks: [Artwork] }

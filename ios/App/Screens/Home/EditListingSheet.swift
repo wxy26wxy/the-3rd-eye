@@ -86,10 +86,11 @@ struct EditListingSheet: View {
       app.designs.listingSaved(productId: product.id, title: res.listing.title ?? name, status: res.product.status,
                                priceCents: res.product.priceCents ?? cents, description: res.listing.description ?? edits.description)
       UIAccessibility.post(notification: .announcement, argument: String(localized: "Listing saved"))
+      Task { await app.designs.load(force: true) }
       dismiss()
     } catch {
       if APIError.isCancellation(error) { return }
-      if case APIError.server(409, "product_archived", _) = error { Task { await app.designs.load() } }
+      if case APIError.server(409, "product_archived", _) = error { Task { await app.designs.load(force: true) } }
       canUseAnyway = (error as? PrintCheckFailed)?.canUseAnyway == true
       fail(APIError.approveMessage(for: error))
     }

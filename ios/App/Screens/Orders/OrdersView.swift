@@ -46,7 +46,7 @@ struct OrderRow: View {
       HStack(spacing: Theme.Space.m) {
         // The thumbnail gives its width to the words at accessibility sizes.
         if !dynamicTypeSize.isAccessibilitySize {
-          RemoteImage(url: order.mockupUrl.flatMap(URL.init(string:)), altText: order.productTitle)
+          RemoteImage(url: order.mockupUrl.flatMap(URL.init(string:)), altText: order.productTitle, maxPixel: ImageLoader.tilePixels)
             .padding(Theme.Space.xs)
             .frame(width: Theme.Size.cta, height: Theme.Size.cta)
             .background(RoundedRectangle(cornerRadius: ThemeEffects.thumbRadius, style: .continuous).fill(colors.surfaceAlt))

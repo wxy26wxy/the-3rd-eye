@@ -77,7 +77,7 @@ final class DesignsTests: XCTestCase {
     app.continueFrom(artwork: design, productType: .sticker)
 
     XCTAssertEqual(app.selectedTab, .create)
-    XCTAssertEqual(app.createPath, [.listingDetails])
+    XCTAssertEqual(app.createPath, [.changeIt], "no sticker draft: Change it makes it (ruling 2)")
     XCTAssertTrue(app.designsPath.isEmpty, "My designs shows the grid when the creator comes back")
     XCTAssertFalse(app.flow === old, "a new creation")
     XCTAssertEqual(app.flow.artwork?.id, "d1")
@@ -172,7 +172,7 @@ final class DesignsTests: XCTestCase {
     let stub = StubTransport(body: #"{"artworks":[{"id":"d1","products":[]}]}"#)
     let app = AppState(api: APIClient(baseURL: base, transport: stub, token: "t"))
     await app.designs.load()
-    app.designsPath = [.detail("d1"), .adjustArea]
+    app.designsPath = [.detail("d1"), .yourCutout("d1")]
     app.signOut()
     XCTAssertTrue(app.designs.artworks.isEmpty)
     XCTAssertTrue(app.designsPath.isEmpty)
@@ -234,7 +234,7 @@ final class DesignsTests: XCTestCase {
     app.createPath = [.listingDetails, .youreLive]
     XCTAssertFalse(app.hasCreationInProgress, "a design already live is done")
     XCTAssertNil(app.requestContinue(artwork: design, productType: .sticker))
-    XCTAssertEqual(app.createPath, [.listingDetails], "went straight on")
+    XCTAssertEqual(app.createPath, [.changeIt], "went straight on (Change it makes the sticker)")
   }
 
   func testEmptiedDescriptionIsSentAsEmpty() throws {

@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
 import { upload } from "@vercel/blob/client";
-import { api, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid } from "../api";
+import { api, ApiError, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid } from "../api";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { cropToFrame } from "../crop";
 import {
@@ -80,7 +80,7 @@ function MakingArea({ job }: { job: NonNullable<Draft["pendingArea"]> }) {
     // The draft is updated even after a navigation away; only a result for this frame counts.
     once(`area:${job.nonce}:${attempt}`, () => runAreaCut({ ...flowDeps, upload }, job)).catch((err) => {
       if (err instanceof PhotoGoneError) { if (getDraft().pendingArea?.nonce === job.nonce) photoGone({ router, update: updateDraft }, getDraft()); return; }
-      if (isNotFound(err)) { areaNotFound({ ...flowDeps, router }, job); return; }
+      if (isNotFound(err)) { areaNotFound({ ...flowDeps, router }, job, err instanceof ApiError ? err.artworkId : null); return; }
       if (live) setError(areaError(err));
     });
     return () => { live = false; };

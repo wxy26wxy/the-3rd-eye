@@ -78,6 +78,9 @@ describe("pnpm replace-art: box crop maths", () => {
     expect([big.width, big.height, big.upscale]).toEqual([2000, 1900, 1]);
     const huge = await preparePicture(await picture(5000, 2500));
     expect([huge.width, huge.height]).toEqual([4096, 2048]);
+    // a long, narrow picture is upscaled ×2 and capped again after the upscale
+    const narrow = await preparePicture(await picture(800, 3000));
+    expect([narrow.width, narrow.height]).toEqual([1092, 4096]);
   });
 });
 
@@ -196,6 +199,25 @@ describe("pnpm replace-art: the run (pipeline mocked)", () => {
     await expect(replaceArt(deps, base)).rejects.toThrow("print_check_failed");
     expect(lines).toContain("print check: resolution: too small");
     expect(deps.archiveArtwork).not.toHaveBeenCalled();
+  });
+
+  it("a hidden creator is refused before any upload", async () => {
+    const { deps } = pipelineDeps({ findCreator: vi.fn(async () => ({ id: "c1", hidden: true })) });
+    await expect(replaceArt(deps, base)).rejects.toThrow(/is hidden/);
+    expect(deps.uploadPhoto).not.toHaveBeenCalled();
+  });
+
+  it("an archive failing partway after publishing names the products still live and fails the run", async () => {
+    const { deps, lines } = pipelineDeps({
+      listCreatorProducts: vi.fn(async () => [
+        { id: "p-old1", type: "sticker", status: "published", artworkId: "a1" },
+        { id: "p-old2", type: "sticker", status: "published", artworkId: "a2" },
+      ]),
+      listArtworkProducts: vi.fn(async (artworkId: string) => [{ id: artworkId === "a1" ? "p-old1" : "p-old2", type: "sticker", status: "published", artworkId }]),
+      archiveArtwork: vi.fn(async (artworkId: string) => { if (artworkId === "a2") throw new Error("db down"); }),
+    });
+    await expect(replaceArt(deps, base)).rejects.toThrow(/archive incomplete: db down/);
+    expect(lines).toContain("published p-new; archive incomplete; still live: p-old2 — archive them by hand, do not re-run");
   });
 
   it("an unknown slug stops before any upload", async () => {

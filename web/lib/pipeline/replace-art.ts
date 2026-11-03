@@ -105,7 +105,9 @@ export async function preparePicture(raw: Buffer, box?: FractionBox): Promise<{ 
   const flat = await sharp(raw).rotate().flatten({ background: "#ffffff" })
     .resize(MAX_SIDE, MAX_SIDE, { fit: "inside", withoutEnlargement: true }).png().toBuffer();
   const before = await sharp(flat).metadata();
-  const up = await ensureDpi(flat, SOURCE_MIN_SHORT_SIDE);
+  // The cap applies after the upscale too (a long, narrow picture can pass MAX_SIDE when its short side is doubled).
+  const up = await sharp(await ensureDpi(flat, SOURCE_MIN_SHORT_SIDE))
+    .resize(MAX_SIDE, MAX_SIDE, { fit: "inside", withoutEnlargement: true }).png().toBuffer();
   const meta = await sharp(up).metadata();
   const W = meta.width ?? 0, H = meta.height ?? 0;
   const upscale = before.width ? Math.round((W / before.width) * 100) / 100 : 1;
@@ -125,7 +127,8 @@ export type ReplaceArtDeps = {
   previewCut(png: Buffer, phrases?: readonly string[]): Promise<{ cleaned: Buffer; pieces: number }>;
   /** Dry run: writes a local file (`name` is `<slug>-<type>-crop.png` / `-cut.png`); returns where. */
   writeLocal(name: string, png: Buffer): Promise<string>;
-  findCreator(slug: string): Promise<Row | null>;
+  /** The creator by slug (`hidden`: the admin flag; a hidden creator is refused). */
+  findCreator(slug: string): Promise<(Row & { hidden?: boolean | null }) | null>;
   /** Stores the picture as the creator's public photo upload; returns the URL `createFromImage` reads. */
   uploadPhoto(creatorId: string, png: Buffer): Promise<string>;
   createFromImage(creatorId: string, input: { source: "photo"; imageUrl: string; product: ProductType; framed: true; phrases?: readonly string[] }): Promise<{ artwork: Row & { cleanedUrl?: string | null } }>;
@@ -166,19 +169,30 @@ export async function archivePrevious(
   const old = (await deps.listCreatorProducts(creatorId)).filter((p) => p.type === type && p.status === "published" && p.id !== keepId);
   const archived: string[] = [];
   const doneArtworks = new Set<string>();
-  for (const p of old) {
-    if (doneArtworks.has(p.artworkId)) continue;
-    const siblings = await deps.listArtworkProducts(p.artworkId);
-    if (siblings.every((s) => s.type === type)) {
-      await deps.archiveArtwork(p.artworkId);
-      doneArtworks.add(p.artworkId);
-      archived.push(...old.filter((o) => o.artworkId === p.artworkId).map((o) => o.id));
-    } else {
-      await deps.archiveProduct(p.id);
-      archived.push(p.id);
+  try {
+    for (const p of old) {
+      if (doneArtworks.has(p.artworkId)) continue;
+      const siblings = await deps.listArtworkProducts(p.artworkId);
+      if (siblings.every((s) => s.type === type)) {
+        await deps.archiveArtwork(p.artworkId);
+        doneArtworks.add(p.artworkId);
+        archived.push(...old.filter((o) => o.artworkId === p.artworkId).map((o) => o.id));
+      } else {
+        await deps.archiveProduct(p.id);
+        archived.push(p.id);
+      }
     }
+  } catch (e) {
+    throw new ArchiveIncomplete(old.map((o) => o.id).filter((id) => !archived.includes(id)), e);
   }
   return archived;
+}
+
+/** `archivePrevious` stopped partway: `stillLive` are the old published products not archived yet. */
+export class ArchiveIncomplete extends Error {
+  constructor(readonly stillLive: string[], cause: unknown) {
+    super(`archive incomplete: ${cause instanceof Error ? cause.message : String(cause)}`);
+  }
 }
 
 export async function replaceArt(deps: ReplaceArtDeps, args: ReplaceArtArgs): Promise<ReplaceArtResult> {
@@ -200,6 +214,7 @@ export async function replaceArt(deps: ReplaceArtDeps, args: ReplaceArtArgs): Pr
   }
   const creator = await deps.findCreator(args.slug);
   if (!creator) throw new Error(`no creator with slug ${args.slug}`);
+  if (creator.hidden) throw new Error(`creator ${args.slug} is hidden; unhide them in /admin first`);
   const imageUrl = await deps.uploadPhoto(creator.id, pic.png);
   const { artwork } = await deps.createFromImage(creator.id, { source: "photo", imageUrl, product: args.type, framed: true, ...(phrases ? { phrases } : {}) });
   if (!artwork.cleanedUrl) throw new Error(`artwork ${artwork.id}: no cutout was made`);
@@ -217,7 +232,16 @@ export async function replaceArt(deps: ReplaceArtDeps, args: ReplaceArtArgs): Pr
   }
   const printCheck = describePrintCheck(published.listing.printCheck as PrintCheckLike);
   deps.log(`print check: ${printCheck}`);
-  const archived = args.keepOld ? [] : await archivePrevious(deps, creator.id, args.type, product.id);
+  let archived: string[] = [];
+  if (!args.keepOld) {
+    try {
+      archived = await archivePrevious(deps, creator.id, args.type, product.id);
+    } catch (e) {
+      const stillLive = e instanceof ArchiveIncomplete ? e.stillLive : ["(unknown: check the creator's products in /admin)"];
+      deps.log(`published ${product.id}; archive incomplete; still live: ${stillLive.join(", ")} — archive them by hand, do not re-run`);
+      throw e;
+    }
+  }
   deps.log(args.keepOld ? "previous products kept (--keep-old)" : `archived previous ${args.type}s: ${archived.length ? archived.join(", ") : "none"}`);
   const shopUrl = `${SHOP_BASE}/p/${product.id}`;
   deps.log(`shop: ${shopUrl}`);

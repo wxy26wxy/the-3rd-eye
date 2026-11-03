@@ -13,6 +13,7 @@ import type { aiCalls, artworks, creators } from "./schema";
 import * as q from "./queries";
 import { placeOrder, sendReply, tap } from "@/lib/pipeline/public";
 import { isNfcToken, normalizeNfcToken } from "@/lib/ids";
+import { featuredSlug, findFeatured, leadWithFeatured } from "@/lib/creators/featured";
 
 type CreatorRow = InferSelectModel<typeof creators>;
 type ArtworkRow = InferSelectModel<typeof artworks>;
@@ -196,27 +197,33 @@ export async function listPublicCreators(): Promise<CreatorSummary[]> {
 }
 
 /**
- * The creator featured in the shop's MEET THE ARTIST block: the most recent creator with a
- * story video; until anyone has one, the most recent creator with a published product.
+ * The creator featured on the shop (hero chip, phone preview): `FEATURED_CREATOR_SLUG` (default
+ * "june-park", T147) when that creator is public; otherwise the most recent creator with a story
+ * video; until anyone has one, the most recent creator with a published product; else the first
+ * public creator.
  */
 export async function getFeaturedCreator(): Promise<PublicCreator | null> {
   await fresh();
   const all = await q.listCreators();
+  const featured = findFeatured(all, featuredSlug());
+  if (featured) return toPublicCreator(featured);
   const withVideo = all.filter((c) => c.storyVideoUrl).sort((a, b) => +b.createdAt - +a.createdAt)[0];
   if (withVideo) return toPublicCreator(withVideo);
   const [latest] = await q.listPublishedProducts({ limit: 1 });
-  return latest ? toPublicCreator(latest.creator) : null;
+  if (latest) return toPublicCreator(latest.creator);
+  return all[0] ? toPublicCreator(all[0]) : null;
 }
 
 /**
- * MEET THE MAKERS on the shop (v3, 2018:1937): up to `limit` public creators, those with a story video
- * first, then real before example creators, newest first (the order `listCreators` already returns).
+ * MEET THE MAKERS on the shop (v3, 2018:1937): up to `limit` public creators, the featured creator
+ * (`FEATURED_CREATOR_SLUG`, T147) first, then those with a story video, then real before example
+ * creators, newest first (the order `listCreators` already returns).
  */
 export async function listMakers(limit = 3): Promise<PublicCreator[]> {
   await fresh();
   const all = await q.listCreators();
   const ranked = [...all.filter((c) => c.storyVideoUrl), ...all.filter((c) => !c.storyVideoUrl)];
-  return ranked.slice(0, limit).map(toPublicCreator);
+  return leadWithFeatured(ranked, featuredSlug()).slice(0, limit).map(toPublicCreator);
 }
 
 export async function getCreatorProfile(slug: string): Promise<CreatorProfile | null> {

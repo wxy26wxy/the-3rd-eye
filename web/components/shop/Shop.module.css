@@ -251,7 +251,8 @@
   color: var(--text);
   text-decoration: none;
 }
-.poster:hover .posterLabel { text-decoration: underline; }
+.poster:hover .posterPhoto { object-fit: cover; }
+.posterLabel { text-decoration: underline; }
 .tone_soft { background: var(--color-accent-soft); }
 .tone_accent { background: var(--accent); }
 .tone_alt { background: var(--surface-alt); }

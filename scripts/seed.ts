@@ -9,6 +9,9 @@
  * Repair (T050): a published product without a print file, or whose print check did not pass,
  * gets its print file built and the listing agent re-run; if it still cannot be approved it is
  * archived and regenerated below.
+ * Portraits (T147): a creator with scripts/seed-assets/avatars/<slug>.jpg gets it (480 px centre crop,
+ * public storage) only while its avatar_url is null, so a re-run never replaces a photo set with
+ * `pnpm avatar`. Leo has none.
  * Run from the repo root:
  *   pnpm --filter web exec dotenv -e .env.local -- tsx --conditions=react-server ../scripts/seed.ts
  */
@@ -89,6 +92,9 @@ async function main() {
   const { createFromText, createFromImage } = await import("@/lib/pipeline/artworks");
   const { createProduct, ensurePrintFile, runListingAgent, approveListing } = await import("@/lib/pipeline/products");
   const { storage, creatorPath } = await import("@/lib/storage");
+  const { seedAvatar } = await import("@/lib/pipeline/avatar");
+  const { readFile } = await import("node:fs/promises");
+  const avatarsDir = path.resolve(process.cwd().endsWith("/web") ? ".." : ".", "scripts/seed-assets/avatars");
   const registry = await ai();
   console.log(`seed: ${ONLINE ? "online (real models)" : "offline (fixtures)"}, task ${TASK}`);
 
@@ -98,6 +104,12 @@ async function main() {
       bioShort: c.bioShort, storyText: c.storyText, mentionDisability: c.mentionDisability,
       isExample: true, createdByTask: TASK,
     });
+    const avatar = await seedAvatar({
+      readFile: (slug) => readFile(path.join(avatarsDir, `${slug}.jpg`)).catch(() => null),
+      put: async (id, jpeg) => (await storage().putPublic(creatorPath(id, "avatar", "jpg"), jpeg, "image/jpeg")).url,
+      setIfMissing: q.setCreatorAvatarIfMissing,
+    }, creator);
+    if (avatar === "set") console.log(`  ${c.slug}: portrait set`);
     let existing = (await q.listProductsByCreator(creator.id)).filter((p) => p.status === "published");
     // Repair (T050): every published product needs a print file and a passing print check from the server's tools.
     for (const p of existing) {

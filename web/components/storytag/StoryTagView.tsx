@@ -4,6 +4,7 @@ import { sendReply, tap } from "@/app/t/[token]/actions";
 import { ProductCard } from "@/components/site/ProductCard";
 import { ReadAloud } from "@/components/site/ReadAloud";
 import { ShareButton } from "@/components/site/ShareButton";
+import { Avatar } from "@/components/site/Avatar";
 import { StoryVideo } from "@/components/site/StoryVideo";
 import { Display } from "@/components/ui/Display";
 import { Chip, Eyebrow } from "@/components/ui/Text";
@@ -15,7 +16,8 @@ import { Thread } from "./Thread";
 import styles from "./StoryTag.module.css";
 
 /**
- * Story tag · Sky (board 2024:2428). Order: STORY TAG → name · studio → h1 → video (captions) →
+ * Story tag · Sky (board 2024:2428). Order: STORY TAG → name · studio → h1 (with the maker's portrait
+ * beside it when there is one; decorative, T147) → video (captions) →
  * Read aloud (secondary) → Follow, Share → grey sheet: thank-you card → Your notes → Send a note
  * (the one primary) → About me → More from studio.
  */
@@ -29,7 +31,12 @@ export function StoryTagView({ view }: { view: StoryTagData }) {
       <div className={styles.top}>
         <Eyebrow tone="muted">{m.tag.eyebrow}</Eyebrow>
         <p className={styles.who}>{fmt(m.common.nameStudio, { name: c.displayName, studio })}</p>
-        <Display as="h1" size="xl">{fmt(m.tag.hi, { name: c.displayName })}</Display>
+        {c.avatarUrl ? (
+          <div className={styles.hiRow}>
+            <Avatar name={c.displayName} src={c.avatarUrl} size="l" />
+            <Display as="h1" size="xl">{fmt(m.tag.hi, { name: c.displayName })}</Display>
+          </div>
+        ) : <Display as="h1" size="xl">{fmt(m.tag.hi, { name: c.displayName })}</Display>}
         {c.isExample ? <div><Chip tone="cream">{m.common.example}</Chip></div> : null}
         <StoryVideo creator={c} tagToken={view.token} className={styles.video} />
         <ReadAloud block text={fmt(m.tag.readAloudText, { name: c.displayName, bio })} label={m.common.readAloud} stopLabel={m.common.stopReading} unsupportedLabel={m.common.speechUnsupported} />

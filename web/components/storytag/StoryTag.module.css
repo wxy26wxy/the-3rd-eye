@@ -1,6 +1,7 @@
 /* Story tag · Sky (2024:2428): phone-width column, centred at 640 px on wide screens (ruling 6). */
 .main { flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 40rem; margin-inline: auto; }
 .top { display: grid; gap: var(--space-l); padding: var(--space-block) var(--space-page); }
+.hiRow { display: flex; align-items: center; gap: var(--space-m); }
 .who { font-size: var(--type-body-size); line-height: var(--type-body-lh); color: var(--color-ink-soft); }
 .top .video { aspect-ratio: 342 / 440; max-height: 80vh; border-radius: var(--radius-card); }
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); }

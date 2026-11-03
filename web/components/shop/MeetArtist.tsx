@@ -35,15 +35,18 @@ export async function MeetMakers() {
 }
 
 /**
- * Maker card (4010:4412): story poster (initials, "WATCH STORY", play circle), name, studio (no method chip until a creator field backs it; the board's chips are sample data).
+ * Maker card (4010:4412): story poster (portrait or initials, "WATCH STORY", play circle), name, studio (no method chip until a creator field backs it; the board's chips are sample data).
  * The poster is the link to the maker's page, where the story video plays with captions; its name starts
- * with the visible "Watch story" and adds the maker ("Watch story, Leo"). The initials avatar is decorative.
+ * with the visible "Watch story" and adds the maker ("Watch story, Leo"). The portrait (T147, `alt=""`) or the initials are decorative.
  */
-export function MakerCard({ creator: c, tone = "soft" }: { creator: Pick<PublicCreator, "slug" | "displayName" | "studioName" | "isExample">; tone?: (typeof POSTER_TONES)[number] }) {
+export function MakerCard({ creator: c, tone = "soft" }: { creator: Pick<PublicCreator, "slug" | "displayName" | "studioName" | "isExample"> & Partial<Pick<PublicCreator, "avatarUrl">>; tone?: (typeof POSTER_TONES)[number] }) {
   return (
     <article className={styles.maker}>
       <Link href={`/c/${c.slug}`} className={[styles.poster, styles[`tone_${tone}`]].join(" ")}>
-        <span className={styles.posterAvatar} aria-hidden="true">{initials(c.displayName)}</span>
+        {c.avatarUrl
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={c.avatarUrl} alt="" className={[styles.posterAvatar, styles.posterPhoto].join(" ")} />
+          : <span className={styles.posterAvatar} aria-hidden="true">{initials(c.displayName)}</span>}
         <span className={styles.posterLabel}>{m.shop.watchStory}<span className="visually-hidden">{fmt(m.shop.watchStoryName, { name: c.displayName })}</span></span>
         <span className={styles.playCircle} aria-hidden="true"><PlayIcon size="1.25rem" /></span>
       </Link>

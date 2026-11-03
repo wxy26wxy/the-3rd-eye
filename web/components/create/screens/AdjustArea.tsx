@@ -53,7 +53,12 @@ export function AdjustArea() {
 function PhotoGone() {
   const router = useRouter();
   const { update } = useCreate();
-  useEffect(() => { photoGone({ router, update }, getDraft()); }, [router, update]);
+  // Checked again when the effect runs: the kept-mounted route (cacheComponents) re-runs this effect
+  // when it is shown again, possibly before it re-renders with a newly picked photo.
+  useEffect(() => {
+    const d = getDraft();
+    if (d.area && !hasLocalPhoto(d)) photoGone({ router, update }, d);
+  }, [router, update]);
   return <HydratingScreen title={a.title} />;
 }
 

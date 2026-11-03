@@ -6,8 +6,9 @@ Build the app against it: xcodebuild ... API_BASE_URL=http://localhost:3999
 Delays (T145): MOCK_DELAY_MS (environment, default 150) is how long the calls that used to sleep 2 s
 take (framed photo, detect, change, listing run, text2image); e.g. MOCK_DELAY_MS=2000 brings back the
 old pace for a demo. The windows a test needs stay fixed and apply only in their modes: SLOW... 4 s
-(framed photo, cleanup, products), LOSTCHANGE... 2 s (the change), a code holding SLOWRUN 2 s (the
-listing run). The UI tests pass nothing: the default is fast.
+(framed photo, cleanup, products), LOSTCHANGE... 4 s (the change), a code holding SLOWRUN 2 s (the
+listing run), NONE.../NOCUT... 2 s (the framed photo's 422). The UI tests pass nothing: the default
+is fast.
 Sessions (T145): parallel UI test runners share one mock. A sign-in code ending in -S<digits> opens
 that session (its own modes, counts, last bodies and designs) and answers the token c-test.mock.<digits>,
 which keeps later calls in it; the path prefix /s/<digits>/ does the same for /__mock/... reads and
@@ -63,7 +64,7 @@ NOPRINT...: run gives print_ok false + print_check "contrast", approve answers 4
 check "contrast", and 200 with acceptPrintWarning: true. NORES...: check "resolution", 409 even with the flag.
 Recovery (T136): GET /artworks also lists the change rows ch<n> made since sign-in (as the server lists
 children); sign-in LOSTCHANGE... makes the first change store its row and then drop the connection without
-an answer after 2 s (the app sees a transport error and recovers the row from GET /artworks; the drop is
+an answer after 4 s (the app sees a transport error and recovers the row from GET /artworks; the drop is
 counted at /__mock/count/change-dropped).
 /__mock/count/change-posts counts every change POST, repeats with the same clientRequestId included.
 Round 4 (T143): POST /artworks {source: photo, framed: true} (the uploaded crop) answers like detect on p1
@@ -100,8 +101,12 @@ try:
 except ValueError:
     sys.exit("mock_api: MOCK_DELAY_MS must be a whole number of milliseconds")
 SLOW_DELAY_S = 4.0        # SLOW...: framed photo, cleanup, products (tab switch, background, making state)
-LOSTCHANGE_DELAY_S = 2.0  # LOSTCHANGE...: the change is in flight while the app goes to the background
+LOSTCHANGE_DELAY_S = 4.0  # LOSTCHANGE...: the change is in flight while the app goes to the background
 SLOWRUN_DELAY_S = 2.0     # ...SLOWRUN... in the code: the listing run (the drafting card, Redo while drafting)
+# NONE.../NOCUT...: the framed photo's 422 keeps the old 2 s. An answer that comes back while Making your
+# cutout is still sliding in loses the "move or grow the frame" advice on Adjust the area (an app race
+# found in T145, reported; the real detection takes seconds).
+NOTHING_FOUND_DELAY_S = 2.0
 
 
 def pause(seconds=None):
@@ -390,7 +395,8 @@ def create_artwork(body):
         if body.get("framed") is True:
             # Round 4 (T143): the upload is the creator's crop; detection on the whole crop, the largest cut.
             answer = detect("p1", {"box": [0, 0, IMAGE_SIZE["w"], IMAGE_SIZE["h"]]}, counted=False,
-                            delay=SLOW_DELAY_S if MODE["slow"] else None)
+                            delay=SLOW_DELAY_S if MODE["slow"] else
+                            NOTHING_FOUND_DELAY_S if MODE["none"] or MODE["fail"] else None)
             # T145: the answer is on its way (the tab-switch test waits for it instead of a fixed sleep).
             count("framed-answers")
             return 201, answer

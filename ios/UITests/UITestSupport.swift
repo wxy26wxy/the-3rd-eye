@@ -71,9 +71,14 @@ extension XCTestCase {
 
   /// Taps the header's sign-out button (identifier `sign-out`) on My designs.
   func openSignOutDialog(_ app: XCUIApplication) {
-    app.tabBars.buttons["My designs"].tap()
     let button = app.buttons.matching(identifier: "sign-out").firstMatch
-    XCTAssertTrue(button.waitToAppear(timeout: 5))
+    // A tap that lands while the app is still settling (just back from the background) can be lost:
+    // tap the tab again rather than wait longer (T145).
+    for _ in 0..<3 where !button.exists {
+      app.tabBars.buttons["My designs"].tap()
+      if button.waitToAppear(timeout: 3) { break }
+    }
+    XCTAssertTrue(button.exists, "the sign-out button on My designs")
     button.tap()
   }
 

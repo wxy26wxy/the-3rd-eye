@@ -232,7 +232,7 @@ final class ChangeItUITests: XCTestCase {
     cutPiece(app)
     typeChange(app, "Make the sky purple")
     tap(app, "Make the change")
-    // The mock takes 2 s to answer: leave the app right away, and come back once it dropped the answer.
+    // The mock takes 4 s to answer: leave the app right away, and come back once it dropped the answer.
     XCUIDevice.shared.press(.home)
     try waitForCount("change-dropped")
     app.activate()

@@ -39,7 +39,7 @@ Dev-mode login codes for `POST /api/v1/auth/code` (case-insensitive): random 10-
 
 | Slug | Name · Studio | Login code | Products |
 |---|---|---|---|
-| `leo` | Leo · Sunrise Art Studio | see web/.creator-codes.local | bus sticker (canvas flow), bus tote |
+| `leo` | Leo · Sunrise Art Studio (hidden since 2026-11-03 for the submission; demo uses June's sticker) | see web/.creator-codes.local | bus sticker (canvas flow), bus tote |
 | `maya-ortiz` | Maya Ortiz · Riverbend Creative Arts | see web/.creator-codes.local | cat sticker, lighthouse sticker (voice flow) |
 | `june-park` | June Park · Open Door Art Collective | see web/.creator-codes.local | cactus sticker, birds tote (voice flow) |
 

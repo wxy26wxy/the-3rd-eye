@@ -18,7 +18,7 @@ Entry 1 (scrim hero card) is superseded by entry 2: the hero is copy on `color/p
 | `shop.ctaHow` | How story tags work | How story tags work (unchanged) |
 | `shop.heroPays` **new** | — | Every purchase pays the artist directly. |
 | `shop.heroChipTitle` **new** | — | Tap the tag |
-| `shop.heroChipMeta` **new** | — | Meet {name} · {duration} (board: "Meet Leo · 0:30") |
+| `shop.heroChipMeta` **new** | — | Meet {name} · {duration} (board: "Meet Leo · 0:30"; design history: since round 5 Leo is hidden and the chip features June Park, `FEATURED_CREATOR_SLUG`) |
 | `shop.heroBurst` | Tap to meet the artist! | removed (no burst on the board) |
 | `shop.metaTitle`, `shop.metaDescription` | (unchanged) | unchanged (not on a board) |
 

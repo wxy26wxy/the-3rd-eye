@@ -20,5 +20,9 @@ export const POST = route<{ params: Promise<{ id: string }> }>(async (req, { par
   if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
   const out = await runPipeline(() => cutoutArtwork(artwork));
   const products = await listArtworkProductSummaries(artwork.id);
-  return json({ artwork: toArtwork(out.artwork), candidates: toCandidates(out.artwork), imageSize: out.imageSize, products: products.map(toArtworkProduct) });
+  return json({
+    artwork: toArtwork(out.artwork), candidates: toCandidates(out.artwork), imageSize: out.imageSize,
+    details: { failedProductIds: out.failedProductIds, unpublishedProductIds: out.unpublishedProductIds },
+    products: products.map(toArtworkProduct),
+  });
 });

@@ -24,7 +24,7 @@ vi.mock("@/lib/pipeline/artworks", async (orig) => ({
   assertChangeResult: (await orig<typeof import("@/lib/pipeline/artworks")>()).assertChangeResult,
   cutoutArtwork: async (a: { id: string }) => ({
     artwork: { ...a, cleanedUrl: "https://x/cut2.png", status: "ready", candidates: [{ id: "k1", bbox: [0, 0, 9, 9], score: 0.9, thumbUrl: "t1", maskUrl: "secret" }] },
-    candidates: [], imageSize: { w: 1024, h: 1024 },
+    candidates: [], imageSize: { w: 1024, h: 1024 }, failedProductIds: ["prX"], unpublishedProductIds: [],
   }),
   createFromImage: async (_c: string, input: { framed?: boolean }, task: string) => {
     calls.image.push(input);
@@ -87,6 +87,7 @@ describe("POST /artworks/{id}/cutout carries the row's products (T143)", () => {
     const res = await cutout(req(`artworks/${CH}/cutout`), { params: Promise.resolve({ id: CH }) });
     expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.details).toEqual({ failedProductIds: ["prX"], unpublishedProductIds: [] }); // as on cleanup
     expect(body.products).toEqual([{ id: "prC", type: "tote", status: "draft", priceCents: 2200, title: null, description: null, mockupUrl: "https://x/m3.png", previewUrl: null }]);
     expect(JSON.stringify(body)).not.toContain("secret");
   });

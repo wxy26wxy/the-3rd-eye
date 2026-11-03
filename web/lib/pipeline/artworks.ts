@@ -401,7 +401,7 @@ export function assertChangeResult(artwork: Pick<ArtworkRow, "id" | "changeInstr
  * as the row's candidates largest first (replacing earlier ones), and the largest is cut out like a
  * picked candidate. "Your cutout" then adjusts it with cleanupArtwork.
  */
-export async function cutoutArtwork(artwork: ArtworkRow, task = "T111"): Promise<{ artwork: ArtworkRow; candidates: SamCandidate[]; imageSize: ImageSize }> {
+export async function cutoutArtwork(artwork: ArtworkRow, task = "T111"): Promise<RecutResult & { candidates: SamCandidate[]; imageSize: ImageSize }> {
   assertChangeResult(artwork);
   if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
   trackArtwork(artwork.id);
@@ -412,13 +412,13 @@ export async function cutoutArtwork(artwork: ArtworkRow, task = "T111"): Promise
   const largestFirst = [...segments].sort((a, b) => area(b.mask) - area(a.mask));
   const candidates = await storeCandidates(artwork.creatorId, png, imageSize, largestFirst);
   const st = (artwork.shapingTrace as Record<string, unknown> | null) ?? {};
-  let row = await updateArtwork(artwork.id, { candidates, shapingTrace: { ...st, imageSize } });
+  const row = await updateArtwork(artwork.id, { candidates, shapingTrace: { ...st, imageSize } });
   if (candidates.length === 0) {
     await updateArtwork(artwork.id, { lastError: "no_drawing_found" });
     throw new ApiError(422, "no_drawing_found", "We could not find the art in the changed picture. Try another change, or go back to your original.", { artworkId: artwork.id });
   }
-  row = (await cleanupArtwork(row, { candidateIds: [candidates[0].id] }, task)).artwork;
-  return { artwork: row, candidates, imageSize };
+  const cut = await cleanupArtwork(row, { candidateIds: [candidates[0].id] }, task);
+  return { ...cut, candidates, imageSize };
 }
 
 /** Pixel size of the stored original: recorded at upload (`shapingTrace.imageSize`), else read from the file. */

@@ -159,6 +159,14 @@ describe("createFromImage detect:false", () => {
     await expect(createFromImage("c1", { source: "photo", imageUrl: "creators/c1/photo/u.jpg", product: "sticker" })).rejects.toMatchObject({ code: "no_drawing_found" });
     expect(state.findCalls).toEqual([{ w: 1200, h: 1000 }]);
   });
+
+  it("the default path keeps the whole-photo rules: no maxCoverage / dropContainers override (T143)", async () => {
+    files.set("upload.png", await sharp({ create: { width: 1200, height: 1000, channels: 3, background: "#ffffff" } }).png().toBuffer());
+    await createFromImage("c1", { source: "photo", imageUrl: "creators/c1/photo/u.jpg", product: "sticker" }).catch(() => undefined);
+    expect(state.findOpts).toHaveLength(1);
+    expect(state.findOpts[0]).not.toHaveProperty("maxCoverage");
+    expect(state.findOpts[0]).not.toHaveProperty("dropContainers");
+  });
 });
 
 describe("createFromImage framed (T143, round 4: the upload is the creator's crop)", () => {
@@ -178,6 +186,18 @@ describe("createFromImage framed (T143, round 4: the upload is the creator's cro
     expect(row.status).toBe("ready");
     expect(row.cleanedUrl).toBeTruthy();
     expect(out.details).toEqual({ failedProductIds: [], unpublishedProductIds: [] });
+  });
+
+  it("an EXIF-rotated upload is detected upright: imageSize and the frame are the rotated picture's", async () => {
+    // Stored 1200×900 landscape with orientation 6 (rotate 90° clockwise): the upright picture is 900×1200.
+    files.set("upload.png", await sharp({ create: { width: 1200, height: 900, channels: 3, background: "#ffffff" } }).withMetadata({ orientation: 6 }).jpeg().toBuffer());
+    state.crop = [seg(rect(900, 1200, 100, 100, 800, 1100), [100, 100, 800, 1100])];
+    const out = await createFromImage("c1", { source: "photo", imageUrl: "creators/c1/photo/u.jpg", product: "sticker", framed: true });
+    expect(out.imageSize).toEqual({ w: 900, h: 1200 });
+    expect(state.findCalls).toEqual([{ w: 900, h: 1200 }]);
+    expect(out.candidates.map((c) => c.bbox)).toEqual([[100, 100, 800, 1100]]);
+    const stored = await maskFromPng(files.get(out.candidates[0].maskUrl)!);
+    expect([stored.width, stored.height]).toEqual([900, 1200]);
   });
 
   it("nothing found → 422 no_drawing_found with the new row's artworkId", async () => {

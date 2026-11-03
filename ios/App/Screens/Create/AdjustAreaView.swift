@@ -40,9 +40,17 @@ struct AdjustAreaView: View {
         reset()
       }
       .disabled(area == nil || area == startArea)
-      PillButton("Take a new photo", hint: "Goes back to take or pick another photo", kind: .secondary, showsArrow: false) {
-        takeNewPhoto()
+      // Review M1: a text link, so the pinned bar leaves room for the photo at large text sizes.
+      Button { takeNewPhoto() } label: {
+        Text("Take a new photo")
+          .themeFont(.body)
+          .underline()
+          .foregroundStyle(colors.text)
+          .frame(minWidth: Theme.Size.minTarget, minHeight: Theme.Size.minTarget)
+          .contentShape(Rectangle())
       }
+      .buttonStyle(.plain)
+      .accessibilityHint(Text("Goes back to take or pick another photo"))
     }
     .onAppear {
       if area == nil { area = lastArea ?? startArea }
@@ -226,8 +234,15 @@ struct AdjustAreaView: View {
   /// this frame on this photo is already cut.
   private func useThisArea() {
     guard let area, app.createPath.last == .adjustArea else { return }
-    error = nil
     flow.areaBox = area.box
+    if flow.emptyBox == area.box {
+      // Review M5: this frame's crop had nothing in it; say so again instead of sending it again.
+      let advice = String(localized: "We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again.")
+      error = advice
+      UIAccessibility.post(notification: .announcement, argument: advice)
+      return
+    }
+    error = nil
     if let next = flow.routeAfterArea(box: area.box) { app.push(next) }
   }
 

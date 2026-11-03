@@ -37,14 +37,59 @@ final class RoundFourTests: XCTestCase {
     XCTAssertNil(ImageTools.crop(image(width: 100, height: 80), to: [1, 2, 3]))
   }
 
-  /// A photo whose pixels are stored sideways (EXIF orientation) is turned upright first, so the
-  /// frame means what the creator saw.
+  /// Review M3: the raw pixels are painted in four coloured quadrants; whatever the EXIF
+  /// orientation, the crop of the upright top-left corner has the colour shown there.
   func testCropAppliesTheOrientationFirst() throws {
-    let sideways = image(width: 300, height: 200, orientation: .right)
+    // Raw (as stored): top-left red, top-right green, bottom-left blue, bottom-right yellow.
+    let expected: [(UIImage.Orientation, String)] = [
+      (.up, "red"), (.right, "blue"), (.left, "green"), (.down, "yellow"), (.upMirrored, "green"),
+    ]
+    for (orientation, colour) in expected {
+      let photo = quadrants(orientation: orientation)
+      let crop = try XCTUnwrap(ImageTools.crop(photo, to: [0, 0, 20, 20]), "\(orientation.rawValue)")
+      XCTAssertEqual(crop.cgImage?.width, 20)
+      XCTAssertEqual(name(of: try XCTUnwrap(crop.cgImage), x: 10, y: 10), colour, "orientation \(orientation.rawValue)")
+    }
+    let sideways = quadrants(orientation: .right)
     XCTAssertEqual(sideways.size, CGSize(width: 200, height: 300), "shown upright")
     let crop = try XCTUnwrap(ImageTools.crop(sideways, to: [0, 0, 200, 150]))
     XCTAssertEqual(crop.cgImage?.width, 200)
     XCTAssertEqual(crop.cgImage?.height, 150)
+  }
+
+  private func quadrants(orientation: UIImage.Orientation) -> UIImage {
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    let drawn = UIGraphicsImageRenderer(size: CGSize(width: 300, height: 200), format: format).image { context in
+      let quarters: [(UIColor, CGRect)] = [
+        (.red, CGRect(x: 0, y: 0, width: 150, height: 100)), (.green, CGRect(x: 150, y: 0, width: 150, height: 100)),
+        (.blue, CGRect(x: 0, y: 100, width: 150, height: 100)), (.yellow, CGRect(x: 150, y: 100, width: 150, height: 100)),
+      ]
+      for (colour, rect) in quarters {
+        colour.setFill()
+        context.fill(rect)
+      }
+    }
+    return UIImage(cgImage: drawn.cgImage!, scale: 1, orientation: orientation)
+  }
+
+  /// The colour name of one pixel (red, green, blue or yellow).
+  private func name(of image: CGImage, x: Int, y: Int) -> String {
+    var pixel = [UInt8](repeating: 0, count: 4)
+    let space = CGColorSpaceCreateDeviceRGB()
+    pixel.withUnsafeMutableBytes { buffer in
+      let context = CGContext(data: buffer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4, space: space,
+                              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+      context.draw(image, in: CGRect(x: -x, y: -(image.height - 1 - y), width: image.width, height: image.height))
+    }
+    let (r, g, b) = (pixel[0] > 128, pixel[1] > 128, pixel[2] > 128)
+    switch (r, g, b) {
+    case (true, false, false): return "red"
+    case (false, true, false): return "green"
+    case (false, false, true): return "blue"
+    case (true, true, false): return "yellow"
+    default: return "other(\(pixel))"
+    }
   }
 
   // MARK: The framed upload
@@ -87,10 +132,51 @@ final class RoundFourTests: XCTestCase {
       Artwork(id: "old", source: "photo", createdAt: "2026-11-03T09:00:00.000Z"),
       Artwork(id: "known", source: "photo", createdAt: "2026-11-03T10:00:10.000Z"),
       Artwork(id: "change", source: "photo", parentArtworkId: "p1", changeInstruction: "x", createdAt: "2026-11-03T10:00:20.000Z"),
-      Artwork(id: "new", source: "photo", createdAt: "2026-11-03T10:00:15.000Z"),
+      Artwork(id: "new", source: "photo", cleanedUrl: "c", createdAt: "2026-11-03T10:00:15.000Z"),
     ]
     XCTAssertEqual(CreateFlow.recoveredPhoto(in: rows, job: job)?.id, "new")
     XCTAssertNil(CreateFlow.recoveredPhoto(in: Array(rows.prefix(3)), job: job), "nothing new")
+  }
+
+  /// Review I1: a row stored but still being cut (no cut, no `lastError`) is not the answer yet;
+  /// a row whose crop had nothing in it (`lastError: no_drawing_found`) or with its cut is.
+  func testRecoveredPhotoWaitsForARowStillBeingCut() {
+    let job = PendingJob(kind: .photo(box: [0, 0, 10, 10]), startedAt: started, clientRequestId: "r1")
+    let cutting = Artwork(id: "p9", source: "photo", createdAt: "2026-11-03T10:00:15.000Z")
+    XCTAssertNil(CreateFlow.recoveredPhoto(in: [cutting], job: job), "still being cut: look again later")
+    XCTAssertEqual(CreateFlow.newestPhotoRow(in: [cutting], job: job)?.id, "p9")
+    XCTAssertTrue(CreateFlow.isBeingCut(cutting))
+    var empty = cutting
+    empty.lastError = CreateFlow.noDrawingFound
+    XCTAssertEqual(CreateFlow.recoveredPhoto(in: [empty], job: job)?.lastError, "no_drawing_found", "the 422 row is an answer")
+    var cut = cutting
+    cut.cleanedUrl = "c"
+    XCTAssertEqual(CreateFlow.recoveredPhoto(in: [cut], job: job)?.id, "p9")
+  }
+
+  /// Review M5: a frame whose crop had nothing in it is not sent again; another frame is.
+  func testAnEmptyFrameIsNotSentAgain() {
+    let flow = CreateFlow()
+    flow.photo = UIGraphicsImageRenderer(size: CGSize(width: 10, height: 10)).image { _ in }
+    flow.emptyBox = [0, 0, 10, 10]
+    XCTAssertNil(flow.routeAfterArea(box: [0, 0, 10, 10]))
+    XCTAssertEqual(flow.routeAfterArea(box: [0, 0, 5, 5]), .makingCutout(.area([0, 0, 5, 5])))
+    flow.discardPhoto()
+    XCTAssertNil(flow.emptyBox)
+  }
+
+  /// Review M7: a product made in a creation makes My designs fetch its list on its next appearance.
+  func testAProductMadeMakesMyDesignsStale() async {
+    let list = #"{"artworks":[{"id":"d1","cleanedUrl":"c","products":[]}]}"#
+    let app = AppState(api: APIClient(baseURL: base, transport: StubTransport(body: list), token: "t"))
+    await app.designs.load()
+    XCTAssertNotNil(app.designs.fetchedAt)
+    app.flow.useProduct(Product(id: "pr1", artworkId: "p1", type: .sticker), madeFrom: Artwork(id: "p1", cleanedUrl: "c"))
+    XCTAssertNil(app.designs.fetchedAt)
+    await app.designs.load()
+    app.startNewCreation()
+    app.flow.useProduct(Product(id: "pr2", artworkId: "p2", type: .sticker), madeFrom: Artwork(id: "p2", cleanedUrl: "c"))
+    XCTAssertNil(app.designs.fetchedAt, "a new creation's flow is watched too")
   }
 
   func testAPhotoJobKeepsItsIdForTheSameFrameOnly() {

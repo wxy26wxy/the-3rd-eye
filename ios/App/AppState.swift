@@ -69,7 +69,9 @@ final class AppState {
   var pendingCode: String?
   var selectedTab: HomeTab = .create
   var createPath: [CreateRoute] = []
-  var flow = CreateFlow()
+  var flow = CreateFlow() {
+    didSet { watchProducts(of: flow) }
+  }
   var designsPath: [DesignRoute] = []
   /// Re-do the cutout from My designs works on its own flow, so a creation in progress in the
   /// Create tab is left alone.
@@ -88,6 +90,13 @@ final class AppState {
     api.onUnauthorized = { [weak self] in
       Task { @MainActor in self?.sessionDidExpire() }
     }
+    watchProducts(of: flow)
+  }
+
+  /// A product made (or rebuilt) in a creation: My designs fetches its list again on its next
+  /// appearance (review M7), not up to 30 s later.
+  private func watchProducts(of flow: CreateFlow) {
+    flow.onProductMade = { [weak self] in self?.designs.markStale() }
   }
 
   var split: Split { creator?.split ?? .default }
@@ -272,6 +281,8 @@ final class CreateFlow {
   var cropUpload: CropUpload?
   /// Nothing was found in the crop: Adjust the area shows this when it comes back on screen.
   var areaError: String?
+  /// The frame whose crop had nothing in it (review M5): the same frame again sends nothing.
+  var emptyBox: [Double]?
   /// The long call in flight (round 3 ruling 6) and how often the app came back while it ran.
   private(set) var pendingJob: PendingJob?
   private(set) var resumeCount = 0
@@ -418,7 +429,7 @@ final class CreateFlow {
   /// goes straight to Your cutout; any other frame is cropped, uploaded and cut on Making your
   /// cutout (a new row each time).
   func routeAfterArea(box: [Double]) -> CreateRoute? {
-    guard photo != nil else { return nil }
+    guard photo != nil, box != emptyBox else { return nil }
     if let photoId = photoArtwork?.id, cropBox == box, pieceArtwork?.cleanedUrl != nil { return .yourCutout(photoId) }
     return .makingCutout(.area(box))
   }
@@ -488,6 +499,7 @@ final class CreateFlow {
     pieceCutFrom = nil
     cropBox = nil
     areaBox = nil
+    emptyBox = nil
     cropUpload = nil
     resetChange()
     resetCutout(artwork: nil, candidates: [], imageSize: nil)
@@ -518,7 +530,11 @@ final class CreateFlow {
     products[artwork.id] = product
     productCuts[artwork.id] = artwork.cleanedUrl
     if self.artwork?.id == artwork.id { self.product = product }
+    onProductMade?()
   }
+
+  /// Called after every `useProduct` (AppState: My designs is stale).
+  @ObservationIgnored var onProductMade: (() -> Void)?
 
   /// A `cleanup` (or `cutout`) answer's `products` (T143): the product made from `artwork` follows
   /// its rebuilt pictures and the new cut; a draft of this type the creation did not know yet (a
@@ -719,7 +735,18 @@ final class CreateFlow {
 
   /// The crop's row made by a photo job whose answer was lost: a photo row (not a change) created
   /// after the job started, not known then, the newest. Its cut may be missing (nothing found).
+  ///
+  /// Review I1: the server stores the row before it looks for drawings (10–25 s), so a row with no
+  /// cut and no `lastError` is still being cut: not an answer yet (nil; the job stays pending and
+  /// is looked for again on Try again or the next return to the app). `lastError` set means it is
+  /// done (`no_drawing_found`: nothing in the crop).
   static func recoveredPhoto(in artworks: [Artwork], job: PendingJob) -> Artwork? {
+    guard let newest = newestPhotoRow(in: artworks, job: job), !isBeingCut(newest) else { return nil }
+    return newest
+  }
+
+  /// The newest photo row created after the photo job started that was not known then, done or not.
+  static func newestPhotoRow(in artworks: [Artwork], job: PendingJob) -> Artwork? {
     guard case .photo = job.kind else { return nil }
     let since = job.startedAt.addingTimeInterval(-clockSlack)
     return artworks
@@ -728,6 +755,12 @@ final class CreateFlow {
       .filter { $0.1 >= since }
       .max { $0.1 < $1.1 }?.0
   }
+
+  /// A photo row the server is still cutting: no cut-out and no `lastError` yet.
+  static func isBeingCut(_ row: Artwork) -> Bool { row.cleanedUrl == nil && row.lastError == nil }
+
+  /// `lastError` of a photo row whose crop had nothing to cut (T143).
+  static let noDrawingFound = "no_drawing_found"
 
   /// A product of the job's artwork and type made by this job: not one known when it started (a
   /// draft before a published one; not archived; the list is newest first). Only a second check

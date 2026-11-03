@@ -136,6 +136,12 @@ final class CutoutUITests: XCTestCase {
     XCTAssertTrue(app.buttons["Use this area"].isEnabled, "it can be tried again")
     XCTAssertEqual(try count("artworks-posts"), 1)
     XCTAssertEqual(try count("detect"), 0)
+    // Review M5: the same frame again sends nothing; the advice stays.
+    tap(app, "Use this area")
+    XCTAssertTrue(element(app, containing: "We couldn't find a drawing in that area.").waitForExistence(timeout: 5))
+    XCTAssertTrue(app.otherElements["adjust-area"].exists)
+    XCTAssertEqual(try count("artworks-posts"), 1, "no second POST for the same frame")
+    XCTAssertEqual(try count("blob-put"), 1)
   }
 
   /// Switching tabs while the cut runs does not lose it: Your cutout follows, the crop sent once.

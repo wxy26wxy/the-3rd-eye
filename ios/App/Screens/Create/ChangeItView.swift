@@ -54,9 +54,13 @@ struct ChangeItView: View {
       guard !makingRunning, product == nil, makeError == nil else { return }
       makingRunning = true
       let flow = app.flow
+      let started = productKey
       // Its own task: leaving the tab does not cancel the call (the server makes the product anyway).
       await Task { @MainActor in await makeProduct(flow) }.value
       makingRunning = false
+      // Review M4: the art on screen changed while the call ran (its run was dropped by the guard
+      // above): run again for the new cut instead of staying in the making state.
+      if productKey != started, product == nil, makeError == nil, flow.currentCut != nil { makeAttempt += 1 }
     }
     .onChange(of: app.flow.resumeCount) { _, _ in
       let flow = app.flow

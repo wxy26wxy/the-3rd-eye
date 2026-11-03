@@ -80,9 +80,19 @@ struct MakingCutoutView: View {
   /// the crop uploaded (once per frame: Try again reuses it), then `POST /artworks {framed: true}`:
   /// a new row whose largest drawing is cut out. The changes made from an earlier crop go.
   private func cutArea(_ box: [Double], flow: CreateFlow) async {
+    let retry = flow.pendingJob?.kind == .photo(box: box)
     guard let photo = flow.photo, let product = flow.productType, let pending = pending(flow) else {
       error = String(localized: "The photo is missing. Go back and take it again.")
       return
+    }
+    // Try again after a lost answer (review I1): the row the lost call made may still be being cut;
+    // never post the crop a second time while it is.
+    if retry, let rows = try? await app.api.myArtworks(), let row = CreateFlow.newestPhotoRow(in: rows, job: pending) {
+      if CreateFlow.isBeingCut(row) {
+        error = String(localized: "Still cutting out your art. Try again in a few seconds.")
+        return
+      }
+      if await recover(flow) { return }
     }
     do {
       let url: String
@@ -126,6 +136,7 @@ struct MakingCutoutView: View {
 
   /// Nothing in the crop: back to Adjust the area, which says to move or grow the frame.
   private func nothingFound(_ flow: CreateFlow, message: String?) {
+    if case .area(let box) = job { flow.emptyBox = box }
     flow.areaError = message ?? String(localized: "We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again.")
     if flow === app.flow, app.createPath.last == .makingCutout(job) { app.createPath.removeLast() }
   }
@@ -155,7 +166,13 @@ struct MakingCutoutView: View {
       guard case .photo(let detail)? = await CreateFlow.reconcile(pending, api: app.api), flow.finishJob(pending) else { return false }
       error = nil
       flow.recordPhoto(PhotoArtworkResponse(artwork: detail.artwork, candidates: detail.candidates, imageSize: detail.imageSize), box: box)
-      if detail.artwork.cleanedUrl == nil { nothingFound(flow, message: nil) } else { leave(to: detail.artwork.id, flow: flow) }
+      if detail.artwork.cleanedUrl != nil {
+        leave(to: detail.artwork.id, flow: flow)
+      } else if detail.artwork.lastError == CreateFlow.noDrawingFound {
+        nothingFound(flow, message: nil)
+      } else {
+        error = detail.artwork.lastError ?? String(localized: "The photo is missing. Go back and take it again.")
+      }
       return true
     default:
       return false

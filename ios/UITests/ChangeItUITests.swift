@@ -122,6 +122,30 @@ final class ChangeItUITests: XCTestCase {
     XCTAssertEqual(try count("products"), 1)
   }
 
+  /// Review M4: Back while the sticker is made → Your cutout → a mark, Apply cutout → Use this:
+  /// Change it shows the product of the new cut (it does not stay in the making state).
+  func testBackDuringMakingThenARecutShowsTheProduct() throws {
+    let app = launchPhotoFlow(code: "SLOW-CODE")
+    XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 20))
+    tap(app, "Use this area")
+    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 15))
+    tap(app, "Use this")
+    XCTAssertTrue(app.descendants(matching: .any)["change-making"].waitForExistence(timeout: 5), "making")
+    app.buttons["Back"].firstMatch.tap()
+    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 5), "back on Your cutout")
+    tap(app, "Fix the edges")
+    let photo = app.otherElements["cutout-photo"]
+    XCTAssertTrue(photo.waitForExistence(timeout: 10))
+    app.swipeDown()
+    photo.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.3)).tap()
+    tap(app, "Apply cutout")
+    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 20))
+    tap(app, "Use this")
+    XCTAssertTrue(productPhoto(app).waitForExistence(timeout: 25), "the product photo, not the making state forever")
+    waitUntilEnabled(app.buttons["Looks good as is"])
+    XCTAssertEqual(try count("products"), 1, "the draft is reused")
+  }
+
   /// Ruling 2: the app goes to the background while Changing makes the product (mock SLOW…); back in
   /// the app the call still waiting is not sent again: Before and after, two products in all.
   func testBackgroundDuringTheProductStepMakesNoSecondProduct() throws {

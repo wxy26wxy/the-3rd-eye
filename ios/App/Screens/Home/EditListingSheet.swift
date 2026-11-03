@@ -23,6 +23,8 @@ struct EditListingSheet: View {
   @State private var priceText: String
   @State private var saving = false
   @State private var error: String?
+  /// The last save was refused for faint colours (a warning): "Use anyway" saves with it accepted.
+  @State private var canUseAnyway = false
 
   init(product: ArtworkProduct) {
     self.product = product
@@ -50,6 +52,12 @@ struct EditListingSheet: View {
           Task { await save() }
         }
         .disabled(saving)
+        if canUseAnyway {
+          PillButton("Use anyway", hint: "Lists it even though the colors may look faint when printed", kind: .secondary, showsArrow: false) {
+            Task { await save(acceptPrintWarning: true) }
+          }
+          .disabled(saving)
+        }
         SlowWorkHint(active: saving)
         PillButton("Cancel", hint: "Keeps the listing as it is", kind: .secondary, showsArrow: false) { dismiss() }
           .disabled(saving)
@@ -60,7 +68,7 @@ struct EditListingSheet: View {
     .interactiveDismissDisabled(saving)
   }
 
-  private func save() async {
+  private func save(acceptPrintWarning: Bool = false) async {
     let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
     let words = description.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !name.isEmpty else { return fail(String(localized: "Add a name first.")) }
@@ -70,10 +78,11 @@ struct EditListingSheet: View {
     }
     saving = true
     error = nil
+    canUseAnyway = false
     defer { saving = false }
     do {
       let edits = ListingEdits(title: name, description: Self.descriptionEdit(words, saved: product.description), priceCents: cents)
-      let res = try await app.api.approveListing(productId: product.id, via: "tap", edits: edits)
+      let res = try await app.api.approveListing(productId: product.id, via: "tap", edits: edits, acceptPrintWarning: acceptPrintWarning)
       app.designs.listingSaved(productId: product.id, title: res.listing.title ?? name, status: res.product.status,
                                priceCents: res.product.priceCents ?? cents, description: res.listing.description ?? edits.description)
       UIAccessibility.post(notification: .announcement, argument: String(localized: "Listing saved"))
@@ -81,6 +90,7 @@ struct EditListingSheet: View {
     } catch {
       if APIError.isCancellation(error) { return }
       if case APIError.server(409, "product_archived", _) = error { Task { await app.designs.load() } }
+      canUseAnyway = (error as? PrintCheckFailed)?.canUseAnyway == true
       fail(APIError.approveMessage(for: error))
     }
   }

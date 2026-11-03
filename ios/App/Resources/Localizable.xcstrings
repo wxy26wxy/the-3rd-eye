@@ -299,6 +299,9 @@
     "Goes back to the art before this change" : {
 
     },
+    "Goes back to your cutout" : {
+
+    },
     "Goes on to change it or keep it as it is" : {
 
     },
@@ -406,6 +409,9 @@
 
     },
     "Listing saved" : {
+
+    },
+    "Lists it even though the colors may look faint when printed" : {
 
     },
     "Loading order" : {
@@ -612,6 +618,12 @@
     "Price in dollars" : {
 
     },
+    "Print check: might print blurry" : {
+
+    },
+    "Print check: the colors may look faint" : {
+
+    },
     "Puts it in the shop" : {
 
     },
@@ -646,6 +658,9 @@
 
     },
     "Records your voice" : {
+
+    },
+    "Redo" : {
 
     },
     "Remove area" : {
@@ -787,6 +802,9 @@
     "Snap your drawing" : {
 
     },
+    "Some colors in your art are close together, so it may look faint when printed. You can use it anyway or re-do the cutout." : {
+
+    },
     "Some words in the name or description can't go in the shop. Change them and try again." : {
 
     },
@@ -834,6 +852,9 @@
 
     },
     "Stops recording and writes down what you said" : {
+
+    },
+    "Stops writing the listing and goes back to your cutout" : {
 
     },
     "Story saved" : {
@@ -914,6 +935,9 @@
     "This one didn't work. Re-do the cutout, or delete it." : {
 
     },
+    "This picture is too small to print sharply. Re-do the cutout with more of the photo, or use a bigger photo." : {
+
+    },
     "This picture won't print well yet. Re-do the cutout in My designs, or try a bigger, clearer photo." : {
 
     },
@@ -948,6 +972,9 @@
 
     },
     "Uploading…" : {
+
+    },
+    "Use anyway" : {
 
     },
     "Use this" : {

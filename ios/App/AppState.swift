@@ -192,6 +192,21 @@ final class AppState {
     selectedTab = .create
   }
 
+  /// Listing details › "Redo" (round 3 ruling 5): back to Your cutout of the product's art, the
+  /// draft product kept (Use this again reuses it). From a saved design (no Your cutout in the
+  /// path) Your cutout opens on the design's cut-out.
+  func backToCutout() {
+    guard let art = flow.artwork else { return }
+    if let index = createPath.lastIndex(of: .yourCutout(art.id)) {
+      createPath = Array(createPath.prefix(through: index))
+      return
+    }
+    if flow.cut(for: art.id) == nil {
+      flow.changeCuts[art.id] = Cut(artwork: art, candidates: [], imageSize: nil, selected: [], box: nil)
+    }
+    createPath = [.yourCutout(art.id)]
+  }
+
   // MARK: Persistence
 
   private static let prefsKey = "accessPrefs"

@@ -124,6 +124,12 @@ final class APIClient: @unchecked Sendable {
 
   private struct Empty: Encodable {}
 
+  /// A long call the creator may leave the app during: iOS is asked for time to finish it
+  /// (`BackgroundWork`, round 3 ruling 6).
+  private func long<T>(_ name: String, _ operation: () async throws -> T) async throws -> T {
+    try await BackgroundWork.run(name, operation)
+  }
+
   // MARK: Auth
 
   @discardableResult
@@ -141,16 +147,26 @@ final class APIClient: @unchecked Sendable {
 
   // MARK: Create
 
-  /// A photo without a drawing answers `422 no_drawing_found` with the stored row's `artworkId`
-  /// (docs/api.md "Creator flow (round 2b)" step 1): thrown as `NoDrawingFound`, so the app can go on
-  /// to Adjust the area on the whole photo.
-  func artworkFromPhoto(imageUrl: String, product: ProductType, source: String = "photo") async throws -> PhotoArtworkResponse {
-    let body = try Self.encoder.encode(PhotoArtworkRequest(source: source, imageUrl: imageUrl, product: product))
-    return try await send(request("POST", "artworks", body: body, timeout: Self.longTimeout)) { status, data in
-      guard status == 422, let envelope = try? Self.decoder.decode(NoDrawingEnvelope.self, from: data),
-            envelope.error.code == "no_drawing_found", let id = envelope.error.artworkId, !id.isEmpty else { return nil }
-      return NoDrawingFound(artworkId: id, message: envelope.error.message)
+  /// Round 3 (docs/api.md "Creator flow (round 3)" step 1): the photo is stored without looking for
+  /// drawings (`detect: false`), so Adjust the area opens on the whole photo and `detect` looks inside
+  /// the frame. A server that still looks (or `detect: true`) may answer `422 no_drawing_found` with
+  /// the stored row's `artworkId`: thrown as `NoDrawingFound`, so the app still opens the photo.
+  func artworkFromPhoto(imageUrl: String, product: ProductType, source: String = "photo", detect: Bool? = false) async throws -> PhotoArtworkResponse {
+    let body = try Self.encoder.encode(PhotoArtworkRequest(source: source, imageUrl: imageUrl, product: product, detect: detect))
+    return try await long("artworks") {
+      try await send(request("POST", "artworks", body: body, timeout: Self.longTimeout)) { status, data in
+        guard status == 422, let envelope = try? Self.decoder.decode(NoDrawingEnvelope.self, from: data),
+              envelope.error.code == "no_drawing_found", let id = envelope.error.artworkId, !id.isEmpty else { return nil }
+        return NoDrawingFound(artworkId: id, message: envelope.error.message)
+      }
     }
+  }
+
+  /// Round 3 step 2: SAM looks for drawings inside the frame (`box`, pixels of `imageSize`) on the
+  /// photo row; the largest is cut out with the frame as a clip. Nothing found → `422
+  /// no_drawing_found`; a change result → `409 not_a_photo`.
+  func detect(artworkId: String, box: [Double]) async throws -> DetectResponse {
+    try await long("detect") { try await post("artworks/\(artworkId)/detect", DetectRequest(box: box), timeout: Self.longTimeout) }
   }
 
   func selectCandidate(artworkId: String, candidateId: String) async throws -> Artwork {
@@ -160,7 +176,7 @@ final class APIClient: @unchecked Sendable {
   /// Cut-out from a union of candidates and/or points and a box (docs/api.md, clarification 2).
   /// Allows 300 s: products already made from the artwork are rebuilt in the same request.
   func cleanup(artworkId: String, _ body: CleanupRequest) async throws -> CleanupResult {
-    try await post("artworks/\(artworkId)/cleanup", body, timeout: Self.longTimeout)
+    try await long("cleanup") { try await post("artworks/\(artworkId)/cleanup", body, timeout: Self.longTimeout) }
   }
 
   /// One artwork with its candidates, `imageSize` and a short-lived `originalUrl`.
@@ -169,14 +185,17 @@ final class APIClient: @unchecked Sendable {
   }
 
   /// "Change it": Muse Image edits the picture with the instruction; the answer is a new child
-  /// artwork (the original stays as it was) with a description of the result.
-  func change(artworkId: String, instruction: String, transcript: String?) async throws -> ChangeResponse {
-    try await post("artworks/\(artworkId)/change", ChangeRequest(instruction: instruction, transcript: transcript), timeout: Self.longTimeout)
+  /// artwork (the original stays as it was) with a description of the result. `clientRequestId`
+  /// (round 3): the same id again answers the row already made, so a retry makes no second change.
+  func change(artworkId: String, instruction: String, transcript: String?, clientRequestId: String? = nil) async throws -> ChangeResponse {
+    let body = ChangeRequest(instruction: instruction, transcript: transcript, clientRequestId: clientRequestId)
+    return try await long("change") { try await post("artworks/\(artworkId)/change", body, timeout: Self.longTimeout) }
   }
 
   /// Cuts out a changed picture: SAM finds its pieces and the largest one becomes the cut-out.
   func cutout(artworkId: String) async throws -> CutoutResponse {
-    try await send(request("POST", "artworks/\(artworkId)/cutout", body: try Self.encoder.encode(Empty()), timeout: Self.longTimeout))
+    let req = request("POST", "artworks/\(artworkId)/cutout", body: try Self.encoder.encode(Empty()), timeout: Self.longTimeout)
+    return try await long("cutout") { try await send(req) }
   }
 
   func myArtworks() async throws -> [Artwork] {
@@ -192,16 +211,34 @@ final class APIClient: @unchecked Sendable {
 
   // MARK: Products and listings
 
-  func createProduct(artworkId: String, type: ProductType) async throws -> Product {
-    try await post("products", CreateProductRequest(artworkId: artworkId, type: type), timeout: Self.longTimeout)
+  /// `clientRequestId` (round 3): the same id again answers the product already made.
+  func createProduct(artworkId: String, type: ProductType, clientRequestId: String? = nil) async throws -> Product {
+    let body = CreateProductRequest(artworkId: artworkId, type: type, clientRequestId: clientRequestId)
+    return try await long("products") { try await post("products", body, timeout: Self.longTimeout) }
   }
 
   func runListingAgent(productId: String) async throws -> ListingRunResponse {
-    try await send(request("POST", "listings/\(productId)/run", body: try Self.encoder.encode(Empty()), timeout: Self.longTimeout))
+    let req = request("POST", "listings/\(productId)/run", body: try Self.encoder.encode(Empty()), timeout: Self.longTimeout)
+    return try await long("listing-run") { try await send(req) }
   }
 
-  func approveListing(productId: String, via: String, edits: ListingEdits?) async throws -> ApproveListingResponse {
-    try await post("listings/\(productId)/approve", ApproveListingRequest(approvedVia: via, edits: edits), timeout: Self.longTimeout)
+  /// Round 3: the product with its saved listing and the agent's last draft (recovery).
+  func listing(productId: String) async throws -> ListingDetailResponse {
+    try await get("listings/\(productId)")
+  }
+
+  /// A refused print check is thrown as `PrintCheckFailed` (round 3 ruling 2: which check refused).
+  /// `acceptPrintWarning`: the creator chose "Use anyway" on a contrast warning.
+  func approveListing(productId: String, via: String, edits: ListingEdits?, acceptPrintWarning: Bool = false) async throws -> ApproveListingResponse {
+    let body = try Self.encoder.encode(ApproveListingRequest(approvedVia: via, edits: edits, acceptPrintWarning: acceptPrintWarning ? true : nil))
+    let req = request("POST", "listings/\(productId)/approve", body: body, timeout: Self.longTimeout)
+    return try await long("approve") {
+      try await send(req) { status, data in
+        guard status == 409, let envelope = try? Self.decoder.decode(APIErrorEnvelope.self, from: data),
+              envelope.error.code == "print_check_failed" else { return nil }
+        return PrintCheckFailed(check: envelope.error.check.flatMap(PrintCheck.init(rawValue:)), message: envelope.error.message)
+      }
+    }
   }
 
   // MARK: Story
@@ -212,7 +249,8 @@ final class APIClient: @unchecked Sendable {
   }
 
   func saveStoryVideo(pathname: String, audioPathname: String?, mentionDisability: Bool) async throws -> Creator {
-    try await post("creators/me/story-video", StoryVideoRequest(videoUrl: pathname, audioUrl: audioPathname, mentionDisability: mentionDisability), timeout: Self.longTimeout)
+    let body = StoryVideoRequest(videoUrl: pathname, audioUrl: audioPathname, mentionDisability: mentionDisability)
+    return try await long("story-video") { try await post("creators/me/story-video", body, timeout: Self.longTimeout) }
   }
 
   // MARK: Orders and messages

@@ -1,0 +1,179 @@
+import UIKit
+import XCTest
+@testable import The3rdEye
+
+/// Records the background-task scopes opened and closed.
+@MainActor
+final class RecordingBackgroundHost: BackgroundTaskHost {
+  private(set) var begun: [String] = []
+  private(set) var ended: [UIBackgroundTaskIdentifier] = []
+  private(set) var expirations: [() -> Void] = []
+  private var next = 1
+
+  func begin(name: String, expiration: @escaping () -> Void) -> UIBackgroundTaskIdentifier {
+    begun.append(name)
+    expirations.append(expiration)
+    defer { next += 1 }
+    return UIBackgroundTaskIdentifier(rawValue: next)
+  }
+
+  func end(_ identifier: UIBackgroundTaskIdentifier) { ended.append(identifier) }
+}
+
+private struct Boom: Error {}
+
+/// Round 3 (T136): background-safe calls, print check messages, the listing's Redo.
+@MainActor
+final class RoundThreeTests: XCTestCase {
+  private let base = URL(string: "http://localhost:3000/api/v1")!
+  private var savedHost: BackgroundTaskHost?
+
+  override func setUp() async throws {
+    savedHost = BackgroundWork.host
+  }
+
+  override func tearDown() async throws {
+    BackgroundWork.host = savedHost
+  }
+
+  // MARK: Background scope (ruling 6)
+
+  func testScopeBeginsAndEndsAroundTheCall() async throws {
+    let host = RecordingBackgroundHost()
+    let value = try await BackgroundWork.run("change", host: host) { () async throws -> Int in
+      XCTAssertEqual(host.begun, ["change"], "open while the call runs")
+      XCTAssertTrue(host.ended.isEmpty)
+      return 7
+    }
+    XCTAssertEqual(value, 7)
+    XCTAssertEqual(host.ended, [UIBackgroundTaskIdentifier(rawValue: 1)])
+  }
+
+  func testScopeEndsWhenTheCallThrows() async {
+    let host = RecordingBackgroundHost()
+    do {
+      _ = try await BackgroundWork.run("products", host: host) { () async throws -> Int in throw Boom() }
+      XCTFail("the error goes on to the caller")
+    } catch {
+      XCTAssertTrue(error is Boom)
+    }
+    XCTAssertEqual(host.begun, ["products"])
+    XCTAssertEqual(host.ended.count, 1)
+  }
+
+  func testTimeRunningOutEndsTheScopeOnce() async throws {
+    let host = RecordingBackgroundHost()
+    _ = try await BackgroundWork.run("detect", host: host) { () async throws -> Int in
+      host.expirations.first?()
+      XCTAssertEqual(host.ended.count, 1, "ended when iOS says the time is up")
+      return 1
+    }
+    XCTAssertEqual(host.ended.count, 1, "not ended a second time when the call returns")
+  }
+
+  func testLongCallsOpenAScope() async throws {
+    let host = RecordingBackgroundHost()
+    BackgroundWork.host = host
+    let stub = StubTransport(status: 201, body: Fixtures.change)
+    let api = APIClient(baseURL: base, transport: stub, token: "t0k")
+    _ = try await api.change(artworkId: "p1", instruction: "Purple", transcript: nil, clientRequestId: "req-1")
+    stub.status = 500
+    stub.body = #"{"error":{"code":"internal","message":"nope"}}"#
+    _ = try? await api.createProduct(artworkId: "p1", type: .sticker, clientRequestId: "req-2")
+    XCTAssertEqual(host.begun, ["change", "products"])
+    XCTAssertEqual(host.ended.count, 2, "closed on the error too")
+    _ = try? await api.myArtworks()
+    XCTAssertEqual(host.begun.count, 2, "short calls open none")
+  }
+
+  // MARK: Idempotency ids
+
+  func testChangeAndProductsSendTheirRequestId() async throws {
+    BackgroundWork.host = RecordingBackgroundHost()
+    let stub = StubTransport(status: 201, body: Fixtures.change)
+    let api = APIClient(baseURL: base, transport: stub, token: "t0k")
+    _ = try await api.change(artworkId: "p1", instruction: "Purple", transcript: nil, clientRequestId: "req-1")
+    let change = try JSONSerialization.jsonObject(with: stub.requests[0].httpBody!) as? [String: Any]
+    XCTAssertEqual(change?["clientRequestId"] as? String, "req-1")
+    stub.body = #"{"id":"pr1","artworkId":"p1","type":"sticker","clientRequestId":"req-2"}"#
+    let product = try await api.createProduct(artworkId: "p1", type: .sticker, clientRequestId: "req-2")
+    let sent = try JSONSerialization.jsonObject(with: stub.requests[1].httpBody!) as? [String: Any]
+    XCTAssertEqual(sent?["clientRequestId"] as? String, "req-2")
+    XCTAssertEqual(product.clientRequestId, "req-2")
+  }
+
+  // MARK: Print check (ruling 2)
+
+  func testApproveRefusalSaysWhichCheckRefused() async throws {
+    BackgroundWork.host = RecordingBackgroundHost()
+    let stub = StubTransport(status: 409, body: #"{"error":{"code":"print_check_failed","message":"contrast 12","check":"contrast"}}"#)
+    let api = APIClient(baseURL: base, transport: stub, token: "t0k")
+    do {
+      _ = try await api.approveListing(productId: "pr1", via: "tap", edits: nil)
+      XCTFail("refused")
+    } catch let refused as PrintCheckFailed {
+      XCTAssertEqual(refused.check, .contrast)
+      XCTAssertTrue(refused.canUseAnyway)
+      XCTAssertTrue(APIError.approveMessage(for: refused).contains("faint"))
+    }
+    let first = try JSONSerialization.jsonObject(with: stub.requests[0].httpBody!) as? [String: Any]
+    XCTAssertNil(first?["acceptPrintWarning"], "not sent unless accepted")
+
+    stub.body = #"{"error":{"code":"print_check_failed","message":"too small","check":"resolution"}}"#
+    do {
+      _ = try await api.approveListing(productId: "pr1", via: "tap", edits: nil, acceptPrintWarning: true)
+      XCTFail("refused")
+    } catch let refused as PrintCheckFailed {
+      XCTAssertEqual(refused.check, .resolution)
+      XCTAssertFalse(refused.canUseAnyway, "a resolution failure cannot be accepted")
+      XCTAssertTrue(APIError.approveMessage(for: refused).contains("too small to print sharply"))
+    }
+    let second = try JSONSerialization.jsonObject(with: stub.requests[1].httpBody!) as? [String: Any]
+    XCTAssertEqual(second?["acceptPrintWarning"] as? Bool, true)
+  }
+
+  func testOlderPrintRefusalKeepsTheGeneralMessage() {
+    let old = APIError.server(status: 409, code: "print_check_failed", message: "contrast")
+    XCTAssertTrue(APIError.approveMessage(for: old).contains("won't print well"))
+    XCTAssertTrue(APIError.approveMessage(for: PrintCheckFailed(check: nil, message: "x")).contains("won't print well"))
+  }
+
+  func testRunResultCarriesThePrintCheckLine() throws {
+    let json = #"{"title":"Frog","price_cents":500,"print_ok":false,"print_check":"contrast"}"#
+    let draft = try JSONDecoder().decode(ListingDraft.self, from: Data(json.utf8))
+    XCTAssertEqual(draft.printCheck, .contrast)
+    XCTAssertEqual(ListingDetailsView.printLine(draft.printCheck), "Print check: the colors may look faint")
+    XCTAssertEqual(ListingDetailsView.printLine(.resolution), "Print check: might print blurry")
+    XCTAssertNil(ListingDetailsView.printLine(nil))
+    let older = try JSONDecoder().decode(ListingDraft.self, from: Data(#"{"title":"Frog","print_check":"glow"}"#.utf8))
+    XCTAssertNil(older.printCheck, "an unknown check is not shown")
+  }
+
+  // MARK: Redo (ruling 5)
+
+  func testRedoGoesBackToTheCutoutOfTheProductsArtKeepingTheDraft() {
+    let app = AppState(api: APIClient(baseURL: base, transport: StubTransport(body: "{}"), token: nil))
+    let flow = app.flow
+    flow.setPhoto(artwork: Artwork(id: "p1"), candidates: [], imageSize: ImageSize(w: 100, h: 100))
+    let cut = Artwork(id: "p1", cleanedUrl: "https://x/cut.png")
+    flow.recordCut(of: "p1", cut, request: CleanupRequest(box: [0, 0, 100, 100], clipToBox: true))
+    flow.artwork = cut
+    flow.useProduct(Product(id: "pr1", artworkId: "p1", type: .sticker), madeFrom: cut)
+    app.createPath = [.chooseMethod, .camera(.camera), .adjustArea, .yourCutout("p1"), .changeIt, .listingDetails]
+    app.backToCutout()
+    XCTAssertEqual(app.createPath.last, .yourCutout("p1"))
+    XCTAssertEqual(app.createPath.count, 4)
+    XCTAssertEqual(flow.productPlan(for: cut, type: .sticker), .reuse(Product(id: "pr1", artworkId: "p1", type: .sticker)),
+                   "Use this again reuses the draft")
+  }
+
+  func testRedoFromASavedDesignOpensItsCutout() {
+    let app = AppState(api: APIClient(baseURL: base, transport: StubTransport(body: "{}"), token: nil))
+    let design = Artwork(id: "d1", cleanedUrl: "https://x/d1.png")
+    app.continueFrom(artwork: design, productType: .sticker)
+    app.backToCutout()
+    XCTAssertEqual(app.createPath, [.yourCutout("d1")])
+    XCTAssertEqual(app.flow.cut(for: "d1")?.artwork.id, "d1")
+    XCTAssertEqual(app.flow.routeAfterCutout(of: "d1"), .makingProduct)
+  }
+}

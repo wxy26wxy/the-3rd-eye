@@ -29,15 +29,19 @@ final class ListingStoryTests: XCTestCase {
 
   private let art = Artwork(id: "a1", cleanedUrl: "https://x/cut.png", previewUrl: "https://x/edit.png")
 
-  func testStickerShowsItsBorderedPreviewNeverTheMockup() {
+  /// Round 3 ruling 1: a sticker shows its AI product photo (the mockup), like a tote bag.
+  func testStickerShowsItsAIPhotoThenThePreviewThenTheCut() {
     let product = Product(id: "p1", type: .sticker, mockupUrl: "https://x/mock.png", previewUrl: "https://x/preview.png")
-    XCTAssertEqual(ProductPicture.url(type: .sticker, product: product, artwork: art)?.absoluteString, "https://x/preview.png")
-    let older = Product(id: "p1", type: .sticker, mockupUrl: "https://x/mock.png")
-    XCTAssertEqual(ProductPicture.url(type: .sticker, product: older, artwork: art)?.absoluteString, "https://x/cut.png",
-                   "no preview yet: the cut-out, not the mockup")
+    XCTAssertEqual(ProductPicture.url(type: .sticker, product: product, artwork: art)?.absoluteString, "https://x/mock.png")
+    let noMockup = Product(id: "p1", type: .sticker, mockupUrl: "", previewUrl: "https://x/preview.png")
+    XCTAssertEqual(ProductPicture.url(type: .sticker, product: noMockup, artwork: art)?.absoluteString, "https://x/preview.png",
+                   "no mockup yet: the bordered preview")
+    let bare = Product(id: "p1", type: .sticker)
+    XCTAssertEqual(ProductPicture.url(type: .sticker, product: bare, artwork: art)?.absoluteString, "https://x/cut.png",
+                   "no picture yet: the cut-out")
+    XCTAssertEqual(ProductPicture.url(type: .sticker, product: nil, artwork: art)?.absoluteString, "https://x/cut.png")
   }
 
-  /// T131 (user ruling): a tote bag shows its AI mockup again; without one, the art.
   func testToteShowsItsMockup() {
     let tote = Product(id: "p2", type: .tote, mockupUrl: "https://x/mock.png", previewUrl: nil)
     XCTAssertEqual(ProductPicture.url(type: .tote, product: tote, artwork: art)?.absoluteString, "https://x/mock.png")
@@ -46,16 +50,19 @@ final class ListingStoryTests: XCTestCase {
     XCTAssertEqual(ProductPicture.url(type: .tote, product: early, artwork: art)?.absoluteString, "https://x/cut.png", "no mockup yet: the art")
   }
 
-  func testDesignTilePrefersTheShopStickersPreview() {
+  func testDesignTilePrefersTheShopStickersAIPhoto() {
     var design = Artwork(id: "d1", cleanedUrl: "https://x/cut.png")
     XCTAssertEqual(design.creatorPictureURL?.absoluteString, "https://x/cut.png")
     design.products = [
       ArtworkProduct(id: "t", type: .tote, status: "published", mockupUrl: "https://x/tote-mock.png"),
-      ArtworkProduct(id: "s1", type: .sticker, status: "draft", previewUrl: "https://x/draft.png"),
-      ArtworkProduct(id: "s2", type: .sticker, status: "published", previewUrl: "https://x/live.png"),
-      ArtworkProduct(id: "s3", type: .sticker, status: "archived", previewUrl: "https://x/old.png"),
+      ArtworkProduct(id: "s1", type: .sticker, status: "draft", mockupUrl: "https://x/draft-mock.png", previewUrl: "https://x/draft.png"),
+      ArtworkProduct(id: "s2", type: .sticker, status: "published", mockupUrl: "https://x/live-mock.png", previewUrl: "https://x/live.png"),
+      ArtworkProduct(id: "s3", type: .sticker, status: "archived", mockupUrl: "https://x/old-mock.png", previewUrl: "https://x/old.png"),
     ]
-    XCTAssertEqual(design.creatorPictureURL?.absoluteString, "https://x/live.png")
+    XCTAssertEqual(design.creatorPictureURL?.absoluteString, "https://x/live-mock.png", "the shop sticker's AI photo")
+    design.products = [ArtworkProduct(id: "s1", type: .sticker, status: "draft", mockupUrl: "https://x/draft-mock.png"),
+                       ArtworkProduct(id: "s2", type: .sticker, status: "published", previewUrl: "https://x/live.png")]
+    XCTAssertEqual(design.creatorPictureURL?.absoluteString, "https://x/live.png", "the shop sticker first, its preview without a mockup")
     design.products = [ArtworkProduct(id: "t", type: .tote, status: "published", mockupUrl: "https://x/tote-mock.png")]
     XCTAssertEqual(design.creatorPictureURL?.absoluteString, "https://x/tote-mock.png", "a tote alone: its mockup (T131)")
     design.products = [ArtworkProduct(id: "t1", type: .tote, status: "draft", mockupUrl: "https://x/draft-tote.png"),

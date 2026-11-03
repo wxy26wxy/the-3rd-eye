@@ -154,6 +154,8 @@ struct Artwork: Codable, Identifiable, Equatable, Hashable {
   var previewUrl: String?
   /// Set when a pipeline step failed (docs/api.md, T010 clarification 10).
   var lastError: String?
+  /// The id the app sent with `change` (round 3, idempotency); null for other rows and older servers.
+  var clientRequestId: String?
   /// Only on `GET /artworks` items (`ArtworkListItem`): its products, newest first.
   var products: [ArtworkProduct]?
 
@@ -162,15 +164,17 @@ struct Artwork: Codable, Identifiable, Equatable, Hashable {
     [previewUrl, cleanedUrl].compactMap { $0 }.first.flatMap(URL.init(string:))
   }
 
-  /// My designs tile and Design detail: the bordered sticker preview of its sticker (the one in the
-  /// shop first, T122 R1), else its tote bag's mockup (the one in the shop first, T131), else the art.
+  /// My designs tile and Design detail (round 3 ruling 1): its sticker's AI product photo
+  /// (`mockupUrl`; the bordered preview when there is no mockup), the one in the shop first, else its
+  /// tote bag's mockup (the one in the shop first), else the art.
   var creatorPictureURL: URL? {
     let live = (products ?? []).filter { !$0.isArchived }
     func pick(_ type: ProductType, _ url: (ArtworkProduct) -> String?) -> URL? {
       let found = live.filter { $0.type == type && !(url($0) ?? "").isEmpty }
       return ((found.first(where: \.isPublished) ?? found.first).flatMap(url)).flatMap(URL.init(string:))
     }
-    return pick(.sticker, \.previewUrl) ?? pick(.tote, \.mockupUrl) ?? displayURL
+    let stickerPicture: (ArtworkProduct) -> String? = { [$0.mockupUrl, $0.previewUrl].compactMap { $0 }.first { !$0.isEmpty } }
+    return pick(.sticker, stickerPicture) ?? pick(.tote, \.mockupUrl) ?? displayURL
   }
 
   /// What the picture shows, for the "WHAT THE IMAGE SHOWS" card: the spoken description when
@@ -255,6 +259,14 @@ struct Product: Codable, Identifiable, Equatable, Hashable {
   var printSvgUrl: String?
   var priceCents: Int?
   var status: String?
+  /// The id the app sent with `POST /products` (round 3, idempotency).
+  var clientRequestId: String?
+}
+
+/// Which print check flagged a listing (round 3 ruling 2): `resolution` blocks approval, `contrast`
+/// is a warning the creator can accept ("Use anyway").
+enum PrintCheck: String, Codable, Equatable {
+  case resolution, contrast
 }
 
 struct ListingDraft: Codable, Equatable {
@@ -263,12 +275,37 @@ struct ListingDraft: Codable, Equatable {
   var tags: [String]?
   var priceCents: Int?
   var printOk: Bool?
+  /// Null when nothing is flagged (absent on older servers); an unknown value decodes as nil.
+  var printCheck: PrintCheck?
   var notes: String?
+
+  init(title: String, description: String? = nil, tags: [String]? = nil, priceCents: Int? = nil,
+       printOk: Bool? = nil, printCheck: PrintCheck? = nil, notes: String? = nil) {
+    self.title = title
+    self.description = description
+    self.tags = tags
+    self.priceCents = priceCents
+    self.printOk = printOk
+    self.printCheck = printCheck
+    self.notes = notes
+  }
+
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    title = try c.decode(String.self, forKey: .title)
+    description = try c.decodeIfPresent(String.self, forKey: .description)
+    tags = try c.decodeIfPresent([String].self, forKey: .tags)
+    priceCents = try c.decodeIfPresent(Int.self, forKey: .priceCents)
+    printOk = try c.decodeIfPresent(Bool.self, forKey: .printOk)
+    printCheck = (try? c.decodeIfPresent(String.self, forKey: .printCheck)).flatMap { $0 }.flatMap(PrintCheck.init(rawValue:))
+    notes = try c.decodeIfPresent(String.self, forKey: .notes)
+  }
 
   enum CodingKeys: String, CodingKey {
     case title, description, tags, notes
     case priceCents = "price_cents"
     case printOk = "print_ok"
+    case printCheck = "print_check"
   }
 }
 
@@ -367,6 +404,13 @@ struct PhotoArtworkRequest: Encodable {
   let source: String
   let imageUrl: String
   let product: ProductType
+  /// Round 3: `false` stores the photo without looking for drawings (`detect` runs on the frame).
+  var detect: Bool?
+}
+
+/// `POST /artworks/{id}/detect` body: the Adjust the area frame, `[x0, y0, x1, y1]` in `ImageSize` pixels.
+struct DetectRequest: Encodable, Equatable, Hashable {
+  let box: [Double]
 }
 
 struct PhotoArtworkResponse: Decodable { let artwork: Artwork; let candidates: [Candidate]; var imageSize: ImageSize? }
@@ -406,6 +450,8 @@ struct SelectCandidateRequest: Encodable { let candidateId: String }
 struct ChangeRequest: Encodable {
   let instruction: String
   var transcript: String?
+  /// One id per attempt ("Try again" after a lost answer sends it again; the server answers the same row).
+  var clientRequestId: String?
 }
 
 /// `POST /artworks/{id}/change` answer: the changed picture is a new child artwork
@@ -444,9 +490,59 @@ struct CutoutResponse: Decodable {
     imageSize = try c.decodeIfPresent(ImageSize.self, forKey: .imageSize)
   }
 }
+/// `POST /artworks/{id}/detect` answer (round 3): the photo row with the cut of the largest drawing
+/// found inside the frame, the drawings (largest first, photo pixels) and the photo's size, plus the
+/// products rebuilt from the row (`details`, as after a `cleanup`).
+struct DetectResponse: Decodable {
+  let artwork: Artwork
+  var candidates: [Candidate] = []
+  var imageSize: ImageSize?
+  var failedProductIds: [String] = []
+  var unpublishedProductIds: [String] = []
+
+  private struct Details: Decodable {
+    var failedProductIds: [String]?
+    var unpublishedProductIds: [String]?
+  }
+  private enum Keys: String, CodingKey { case artwork, candidates, imageSize, details }
+
+  init(artwork: Artwork, candidates: [Candidate] = [], imageSize: ImageSize? = nil) {
+    self.artwork = artwork
+    self.candidates = candidates
+    self.imageSize = imageSize
+  }
+
+  init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: Keys.self)
+    artwork = try c.decode(Artwork.self, forKey: .artwork)
+    candidates = try c.decodeIfPresent([Candidate].self, forKey: .candidates) ?? []
+    imageSize = try c.decodeIfPresent(ImageSize.self, forKey: .imageSize)
+    let details = try? c.decodeIfPresent(Details.self, forKey: .details)
+    failedProductIds = details?.failedProductIds ?? []
+    unpublishedProductIds = details?.unpublishedProductIds ?? []
+  }
+
+  /// The same answer as a `cleanup` result (for its product notice).
+  var cleanupResult: CleanupResult {
+    CleanupResult(artwork: artwork, failedProductIds: failedProductIds, unpublishedProductIds: unpublishedProductIds)
+  }
+}
 struct ArtworksResponse: Decodable { let artworks: [Artwork] }
 
-struct CreateProductRequest: Encodable { let artworkId: String; let type: ProductType }
+struct CreateProductRequest: Encodable {
+  let artworkId: String
+  let type: ProductType
+  /// One id per attempt, as for `change`.
+  var clientRequestId: String?
+}
+
+/// `GET /listings/{productId}` (round 3): the product, its saved listing and the last draft the
+/// listing agent wrote; both null before the agent first ran.
+struct ListingDetailResponse: Decodable {
+  let product: Product
+  var listing: Listing?
+  var draft: ListingDraft?
+}
 
 struct ListingRunResponse: Decodable { let listing: ListingDraft; var trace: [AgentStep]? }
 
@@ -460,6 +556,8 @@ struct ApproveListingRequest: Encodable {
   /// "voice" | "tap"
   let approvedVia: String
   var edits: ListingEdits?
+  /// Round 3: the creator chose "Use anyway" on a contrast warning (a resolution failure still refuses).
+  var acceptPrintWarning: Bool?
 }
 
 struct ApproveListingResponse: Decodable {
@@ -507,7 +605,12 @@ struct MessagesResponse: Decodable { let messages: [Message] }
 struct SendMessageRequest: Encodable { let body: String }
 
 struct APIErrorEnvelope: Decodable {
-  struct Body: Decodable { let code: String; let message: String }
+  struct Body: Decodable {
+    let code: String
+    let message: String
+    /// `print_check_failed` (round 3): which check refused, `resolution` or `contrast`.
+    var check: String?
+  }
   let error: Body
 }
 

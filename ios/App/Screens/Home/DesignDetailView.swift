@@ -165,7 +165,7 @@ struct DesignDetailView: View {
   }
 
   private func redoButton(_ artwork: Artwork, kind: PillButtonStyle.Kind) -> some View {
-    PillButton(openingRedo ? "Opening your photo…" : "Re-do the cutout", hint: "Frame your art again and cut it out",
+    PillButton(openingRedo ? "Opening your photo…" : "Re-do the cutout", hint: "Fix the edges of your cutout",
                kind: kind, showsArrow: kind == .primary) {
       Task { await openRedo(artwork) }
     }
@@ -225,7 +225,8 @@ struct DesignDetailView: View {
     artwork.liveProducts.contains { $0.type == type && !$0.isPublished }
   }
 
-  /// Loads the original and its pieces into the My designs flow, then opens Adjust the area.
+  /// Loads the stored picture's pieces into the My designs flow, then opens Your cutout on it
+  /// (round 4: marks on the stored crop; no re-frame, the server has no uncropped photo).
   private func openRedo(_ artwork: Artwork) async {
     openingRedo = true
     error = nil
@@ -238,14 +239,15 @@ struct DesignDetailView: View {
       }
       let flow = CreateFlow()
       flow.artwork = detail.artwork
-      // A single piece starts selected, so "Use this" without changes cuts nothing.
       flow.resetCutout(artwork: detail.artwork, candidates: detail.candidates, imageSize: size)
+      flow.changeCuts[artwork.id] = Cut(artwork: detail.artwork, candidates: detail.candidates, imageSize: size,
+                                        selected: detail.candidates.first.map { [$0.id] } ?? [], box: nil)
       flow.productType = artwork.liveProducts.first?.type
       app.designFlow = flow
-      if app.designsPath.last == .detail(artworkId) { app.designsPath.append(.adjustArea) }
+      if app.designsPath.last == .detail(artworkId) { app.designsPath.append(.yourCutout(artwork.id)) }
     } catch {
       if APIError.isCancellation(error) { return }
-      if case APIError.server(404, _, _) = error { Task { await app.designs.load() } }
+      if case APIError.server(404, _, _) = error { Task { await app.designs.load(force: true) } }
       self.error = error.localizedDescription
     }
   }

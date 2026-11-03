@@ -36,6 +36,7 @@ final class ListingStoryUITests: XCTestCase {
     let keep = app.buttons["Looks good as is"]
     XCTAssertTrue(keep.waitForExistence(timeout: 20))
     for _ in 0..<3 where !keep.isHittable { app.swipeUp() }
+    waitUntilEnabled(keep)
     keep.tap()
 
     let drafting = app.descendants(matching: .any)["listing-drafting"]
@@ -56,8 +57,9 @@ final class ListingStoryUITests: XCTestCase {
     XCTAssertFalse(app.buttons["Redo"].exists, "Redo only while drafting")
   }
 
-  /// Round 3 ruling 5: Redo while the listing is written goes back to Your cutout; going on again
-  /// reuses the draft product (no second POST /products) and writes the listing again.
+  /// Round 3 ruling 5: Redo while the listing is written goes back to Your cutout; "Use this" there
+  /// returns to Change it (round 4) with the draft product (no second POST /products), and the
+  /// listing is written again.
   func testRedoWhileDraftingGoesBackToTheCutout() throws {
     let app = launch(code: "ONE-CODE")
     goToListing(app)
@@ -67,9 +69,11 @@ final class ListingStoryUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 10), "back on Your cutout")
     XCTAssertFalse(app.textFields["Name"].exists)
     app.buttons["Use this"].tap()
+    XCTAssertTrue(productPhoto(app).waitForExistence(timeout: 10), "Change it with the product photo")
     let keep = app.buttons["Looks good as is"]
     XCTAssertTrue(keep.waitForExistence(timeout: 20))
     for _ in 0..<3 where !keep.isHittable { app.swipeUp() }
+    waitUntilEnabled(keep)
     keep.tap()
     XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 30), "the listing is written again")
     XCTAssertEqual(try count("products"), 1, "the draft product is reused")
@@ -87,7 +91,8 @@ final class ListingStoryUITests: XCTestCase {
     XCTAssertEqual(line.label, "Print check: the colors may look faint")
   }
 
-  /// Sticker → upload → Adjust the area → Your cutout → Change it → Looks good as is → Listing details.
+  /// Sticker → upload → Adjust the area → Your cutout → Change it (the product made) → Looks good as
+  /// is → Listing details.
   private func goToListing(_ app: XCUIApplication) {
     let sticker = app.buttons["Sticker, Die-cut, waterproof"]
     XCTAssertTrue(sticker.waitForExistence(timeout: 10))
@@ -103,6 +108,7 @@ final class ListingStoryUITests: XCTestCase {
     let keep = app.buttons["Looks good as is"]
     XCTAssertTrue(keep.waitForExistence(timeout: 20))
     for _ in 0..<3 where !keep.isHittable { app.swipeUp() }
+    waitUntilEnabled(keep)
     keep.tap()
   }
 
@@ -118,6 +124,12 @@ final class ListingStoryUITests: XCTestCase {
     XCTAssertTrue(make.waitForExistence(timeout: 10))
     for _ in 0..<3 where !make.isHittable { app.swipeUp() }
     make.tap()
+    // Ruling 2: no tote yet, so Change it makes it first.
+    XCTAssertTrue(productPhoto(app).waitForExistence(timeout: 15), "Change it with the tote bag photo")
+    let keep = app.buttons["Looks good as is"]
+    for _ in 0..<3 where !keep.isHittable { app.swipeUp() }
+    waitUntilEnabled(keep)
+    keep.tap()
     let drafting = app.descendants(matching: .any)["listing-drafting"]
     XCTAssertTrue(drafting.waitForExistence(timeout: 30), "the drafting card, without a tap on Improve with AI")
     let name = app.textFields["Name"]

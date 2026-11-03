@@ -98,17 +98,41 @@ final class DesignsStore {
     artworks.filter { !($0.parentArtworkId != nil && $0.cleanedUrl == nil) }
   }
 
-  func load() async {
+  /// A list fetched less than this long ago is kept as it is (Ruling 3, T144).
+  static let freshness: TimeInterval = 30
+  /// When the list was last fetched; nil = stale (never fetched, or something changed it).
+  private(set) var fetchedAt: Date?
+  /// The clock (tests move it).
+  var now: () -> Date = Date.init
+
+  /// `GET /artworks`, quietly (Ruling 3, T144): the list on screen stays while it loads, a list
+  /// fetched in the last 30 s is not fetched again unless `force` (pull to refresh, Edit listing
+  /// saved) or `markStale()` (a creation step, a delete), and only the rows that changed are
+  /// replaced, so unchanged tiles keep their pictures.
+  func load(force: Bool = false) async {
+    if !force, loaded, let fetchedAt, now().timeIntervalSince(fetchedAt) < Self.freshness { return }
     loading = true
     defer { loading = false }
     do {
-      artworks = Self.shown(try await api.myArtworks())
+      let fresh = Self.shown(try await api.myArtworks())
+      let merged = Self.merged(old: artworks, new: fresh)
+      if merged != artworks { artworks = merged }
+      fetchedAt = now()
       loaded = true
       error = nil
     } catch {
       if APIError.isCancellation(error) { return }
       self.error = error.localizedDescription
     }
+  }
+
+  /// The next `load()` fetches again (something on the server changed: a creation step, a delete).
+  func markStale() { fetchedAt = nil }
+
+  /// The new list, keeping each unchanged row as the same value (rows are `Equatable`).
+  static func merged(old: [Artwork], new: [Artwork]) -> [Artwork] {
+    let kept = Dictionary(old.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    return new.map { row in kept[row.id] == row ? kept[row.id]! : row }
   }
 
   /// `DELETE /artworks/{id}`, then the tile goes away (the server keeps it out of later lists).
@@ -120,6 +144,7 @@ final class DesignsStore {
       // Already deleted.
     }
     artworks.removeAll { $0.id == id }
+    markStale()
   }
 
   /// A new cut-out from Re-do the cutout: keeps the products the list already knows.
@@ -145,6 +170,7 @@ final class DesignsStore {
   func reset() {
     artworks = []
     loaded = false
+    fetchedAt = nil
     error = nil
   }
 }

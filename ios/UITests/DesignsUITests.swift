@@ -46,8 +46,16 @@ final class DesignsUITests: XCTestCase {
     XCTAssertTrue(confirm.waitForExistence(timeout: 5), "asks first")
     XCTAssertTrue(try lastBody("products").isEmpty, "nothing made before the confirmation")
     confirm.tap()
-    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 15), "Listing details")
+    // Ruling 2: no sticker draft, so Change it makes the sticker and shows its photo.
+    XCTAssertTrue(productPhoto(app).waitForExistence(timeout: 15), "Change it with the new sticker")
     XCTAssertEqual(try lastBody("products")["type"] as? String, "sticker")
+    XCTAssertEqual(try lastBody("products")["artworkId"] as? String, "d1")
+    let keep = app.buttons["Looks good as is"]
+    for _ in 0..<3 where !keep.isHittable { app.swipeUp() }
+    waitUntilEnabled(keep)
+    keep.tap()
+    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 15), "Listing details")
+    XCTAssertEqual(try count("products"), 1)
   }
 
   /// "Edit listing" on a draft goes through Listing details (the normal way to publish).
@@ -136,21 +144,27 @@ final class DesignsUITests: XCTestCase {
     XCTAssertEqual(edits["description"] as? String, "A blue bird singing on a branch.")
   }
 
-  /// Re-do the cutout opens Adjust the area on the saved photo (T122); "Use this area" sends `detect`
-  /// with the frame (round 3) and comes back.
+  /// Round 4: Re-do the cutout opens Your cutout on the stored crop (no Adjust the area, no
+  /// `detect`) with "Take a new photo"; marks + Apply cutout send `cleanup` on the design with the
+  /// whole picture as the box; "Use this" comes back to the design.
   func testRedoCutoutReturnsToTheDesign() throws {
     let app = openDesigns()
     open(app, "Red flower, Didn't work")
     tap(app, "Re-do the cutout")
-    XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 10), "Adjust the area shows the saved photo")
-    XCTAssertFalse(app.buttons["Start over"].exists, "a redo has no Start over")
-    XCTAssertFalse(app.buttons["Reset"].isEnabled, "the frame is where it started")
-    tap(app, "Use this area")
+    let photo = app.otherElements["cutout-photo"]
+    XCTAssertTrue(photo.waitForExistence(timeout: 10), "Your cutout shows the stored picture for marks")
+    XCTAssertFalse(app.otherElements["adjust-area"].exists, "no re-frame")
+    XCTAssertTrue(app.buttons["Take a new photo"].exists)
+    XCTAssertFalse(app.buttons["Start over"].exists)
+    photo.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.3)).tap()
+    tap(app, "Apply cutout")
+    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 15))
+    let body = try lastBody("cleanup")
+    XCTAssertEqual(try lastBody("cleanup-target")["artworkId"] as? String, "d3")
+    XCTAssertEqual(body["box"] as? [Double], [0, 0, 1200, 1600], "the whole stored picture")
+    XCTAssertEqual(try count("detect"), 0)
+    tap(app, "Use this")
     XCTAssertTrue(app.buttons["Re-do the cutout"].waitForExistence(timeout: 10), "back on the design")
-    let body = try lastBody("detect")
-    XCTAssertEqual(body["artworkId"] as? String, "d3")
-    XCTAssertEqual((body["box"] as? [Double])?.count, 4, "the frame is sent as the box")
-    XCTAssertEqual(try count("cleanup"), 0, "detect, not cleanup, on a photo")
     XCTAssertTrue(app.buttons["Make a sticker"].waitForExistence(timeout: 5), "the new cutout can be made into products")
   }
 
@@ -280,14 +294,33 @@ final class DesignsUITests: XCTestCase {
     XCTAssertTrue(text(app, containing: "too small to print sharply").waitForExistence(timeout: 10))
     XCTAssertFalse(app.buttons["Use anyway"].exists, "a resolution failure cannot be accepted")
     XCTAssertTrue(app.buttons["Approve and list it"].exists, "still on Listing details")
-    // Review I1: Re-do the cutout opens the frame on the design's photo (My designs tab).
+    // Round 4: no local photo for a saved design, so Your cutout on the stored crop with "Take a new photo".
     tap(app, "Re-do the cutout")
-    XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 10), "Adjust the area on the design")
-    tap(app, "Use this area")
-    XCTAssertTrue(app.buttons["Re-do the cutout"].waitForExistence(timeout: 15), "back on the design")
+    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 10), "Your cutout of the design")
+    XCTAssertTrue(app.buttons["Take a new photo"].exists)
+    XCTAssertFalse(app.otherElements["adjust-area"].exists)
   }
 
   // MARK: Helpers
+
+  /// Ruling 3 (T144): back from a design the tiles show at once (pictures from the memory cache,
+  /// no spinner) and the list is not fetched again within 30 s.
+  func testBackFromADesignShowsTheTilesAtOnce() throws {
+    let app = openDesigns()
+    let bird = app.buttons["Blue bird on a branch, In the shop"]
+    XCTAssertTrue(bird.waitForExistence(timeout: 10))
+    let loading = app.descendants(matching: .any).matching(identifier: "tile-loading")
+    let settled = expectation(for: NSPredicate(format: "count == 0"), evaluatedWith: loading)
+    wait(for: [settled], timeout: 10)
+    let fetched = try count("artworks")
+    XCTAssertGreaterThanOrEqual(fetched, 1)
+    open(app, "Blue bird on a branch, In the shop")
+    XCTAssertTrue(app.buttons["See it in the shop"].waitForExistence(timeout: 5))
+    app.buttons["Back"].firstMatch.tap()
+    XCTAssertTrue(bird.waitForExistence(timeout: 5))
+    XCTAssertEqual(loading.count, 0, "every tile drew its picture from the cache")
+    XCTAssertEqual(try count("artworks"), fetched, "the list was not fetched again")
+  }
 
   private func openDesigns(code: String = "TEST-CODE") -> XCUIApplication {
     let app = XCUIApplication()

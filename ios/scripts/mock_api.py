@@ -531,6 +531,9 @@ def create_product(body):
         raise MockError(409, "artwork_not_ready", "Pick and clean up the artwork first")
     count("products")
     count(f"products/{artwork_id}")
+    if MODE["slow"]:
+        # T141: SLOW... also makes products take 4 s (the app goes to the background meanwhile).
+        time.sleep(4)
     if artwork_id in {d["id"] for d in DESIGNS["list"]} and not find_design(artwork_id)["cleanedUrl"]:
         raise MockError(409, "artwork_not_ready", "Pick and clean up the artwork first")
     # Round 4 (T143): a change result's product has its own id, so the parent's and the child's coexist.
@@ -663,6 +666,26 @@ def blob_put(_body, query=""):
     return {"url": f"{BASE}/img.png", "downloadUrl": f"{BASE}/img.png", "pathname": pathname, "contentType": "image/jpeg"}
 
 
+def jpeg_size(data):
+    """(width, height) from a JPEG's first SOF marker, else (None, None) (T141: the crop's size)."""
+    if data[:2] != b"\xff\xd8":
+        return None, None
+    i = 2
+    while i + 9 < len(data):
+        if data[i] != 0xFF:
+            i += 1
+            continue
+        marker = data[i + 1]
+        if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+            i += 2
+            continue
+        length = int.from_bytes(data[i + 2:i + 4], "big")
+        if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
+            return int.from_bytes(data[i + 7:i + 9], "big"), int.from_bytes(data[i + 5:i + 7], "big")
+        i += 2 + length
+    return None, None
+
+
 def sign_in(body):
     # A code starting with MULTI signs in with simpleMode off, so the app asks for 3 pictures.
     multi = str(body.get("code", "")).upper().startswith("MULTI")
@@ -765,6 +788,11 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 return self._send(404, {"error": {"code": "not_found", "message": "no sample video"}})
         if method == "PUT" and path == "/blob/":
+            # T141: uploads at /__mock/count/blob-put (one crop per "Use this area"); the last
+            # upload's size and, for a JPEG, its pixel size at /__mock/last/blob-put.
+            count("blob-put")
+            w, h = jpeg_size(raw)
+            LAST["blob-put"] = {"bytes": len(raw), "width": w, "height": h}
             return self._send(200, blob_put(None, query))
         if method == "GET" and path.startswith("/__mock/count/"):
             # The name may hold a slash: /__mock/count/products/<artworkId> (T143).

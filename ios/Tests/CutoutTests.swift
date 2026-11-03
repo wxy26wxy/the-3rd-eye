@@ -143,13 +143,13 @@ final class CutoutTests: XCTestCase {
     flow.changeInstruction = "Make it red"
     flow.resetCutout(artwork: Artwork(id: "ch1"), candidates: [one, two], imageSize: size)
     flow.selectedCandidateIds = ["c1"]
-    flow.pieceBox = [0, 0, 10, 10]
+    flow.cropBox = [0, 0, 10, 10]
     flow.discardPhoto()
     XCTAssertNil(flow.photo)
     XCTAssertNil(flow.photoArtwork)
     XCTAssertTrue(flow.photoCandidates.isEmpty)
     XCTAssertNil(flow.pieceArtwork)
-    XCTAssertNil(flow.pieceBox)
+    XCTAssertNil(flow.cropBox)
     XCTAssertNil(flow.changedArtwork)
     XCTAssertEqual(flow.changeInstruction, "")
     XCTAssertNil(flow.cutoutArtwork)
@@ -215,7 +215,8 @@ final class CutoutTests: XCTestCase {
     XCTAssertEqual(flow.productPlan(for: Artwork(id: "p1", cleanedUrl: "cut-1"), type: .sticker), .create)
     flow.discardPhoto()
     XCTAssertNil(flow.product)
-    XCTAssertNil(flow.productCut)
+    XCTAssertTrue(flow.products.isEmpty)
+    XCTAssertTrue(flow.productCuts.isEmpty)
   }
 
   /// A refreshed draft takes the rebuilt mockup and price from `GET /artworks`; missing → unchanged.

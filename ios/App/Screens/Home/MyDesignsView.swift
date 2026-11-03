@@ -36,7 +36,7 @@ struct MyDesignsView: View {
         .padding(.top, Theme.Space.section)
         .accessibilityElement(children: .combine)
       } else if let error = store.error, store.artworks.isEmpty {
-        ErrorCard(message: error) { Task { await store.load() } }
+        ErrorCard(message: error) { Task { await store.load(force: true) } }
       } else if store.artworks.isEmpty {
         SkyCard(pose: .front)
         Text("No designs yet. Make one in Create.").themeFont(.bodyL).foregroundStyle(colors.text)
@@ -54,7 +54,7 @@ struct MyDesignsView: View {
       }
     }
     .task { await store.load() }
-    .refreshable { await store.load() }
+    .refreshable { await store.load(force: true) }
     .continueConfirmation($pending, app: app)
     .deleteDesignConfirmation(item: $deleting) { artwork in
       do {
@@ -75,6 +75,8 @@ private struct DesignTile: View {
   let makeSticker: (() -> Void)?
   let delete: () -> Void
   @Environment(\.themeColors) private var colors
+  /// The picture is still loading (UI tests read it as the `tile-loading` identifier).
+  @State private var loading = false
 
   var body: some View {
     let badge = DesignBadge.of(artwork)
@@ -83,7 +85,7 @@ private struct DesignTile: View {
     // Figma `Design tile`: white card, the picture on a grey square, the badge under it.
     let shape = RoundedRectangle(cornerRadius: Theme.Radius.m + 4, style: .continuous)
     VStack(spacing: Theme.Space.s) {
-      DesignPicture(artwork: artwork, badge: badge)
+      DesignPicture(artwork: artwork, badge: badge, maxPixel: ImageLoader.tilePixels)
         .padding(Theme.Space.s)
         .frame(maxWidth: .infinity)
         .aspectRatio(1, contentMode: .fit)
@@ -107,6 +109,8 @@ private struct DesignTile: View {
     .accessibilityLabel(Text(verbatim: "\(artwork.altText ?? String(localized: "Design")), \(badge.text)"))
     .accessibilityHint(Text("Opens the design. More actions are in the actions list."))
     .accessibilityAddTraits(.isButton)
+    .accessibilityIdentifier(loading ? "tile-loading" : "design-tile")
+    .onPreferenceChange(RemoteImageLoadingKey.self) { loading = $0 }
     .accessibilityAction(.default, open)
     .accessibilityActions {
       if let makeSticker { Button("Make a sticker", action: makeSticker) }
@@ -120,11 +124,13 @@ private struct DesignTile: View {
 struct DesignPicture: View {
   let artwork: Artwork
   let badge: DesignBadge
+  /// Tiles decode a downsampled copy; Design detail the whole picture.
+  var maxPixel: Int?
   @Environment(\.themeColors) private var colors
 
   var body: some View {
     if let url = artwork.creatorPictureURL {
-      RemoteImage(url: url, altText: artwork.altText)
+      RemoteImage(url: url, altText: artwork.altText, maxPixel: maxPixel)
     } else {
       ZStack {
         RoundedRectangle(cornerRadius: Theme.Radius.m).fill(colors.surfaceAlt)

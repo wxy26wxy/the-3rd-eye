@@ -44,6 +44,17 @@ extension XCTestCase {
     return app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Sign out", "sign-out")).firstMatch
   }
 
+  /// Waits until `element` is enabled (Change it's buttons wait while the product is made).
+  func waitUntilEnabled(_ element: XCUIElement, timeout: TimeInterval = 20) {
+    let enabled = expectation(for: NSPredicate(format: "exists == true AND isEnabled == true"), evaluatedWith: element)
+    wait(for: [enabled], timeout: timeout)
+  }
+
+  /// Change it's product photo (round 4 ruling 2), once it is made.
+  func productPhoto(_ app: XCUIApplication) -> XCUIElement {
+    app.descendants(matching: .any)["change-product-photo"]
+  }
+
   /// The last body the app sent to a mock route (`GET /__mock/last/<route>`); empty when none.
   func lastBody(_ route: String) throws -> [String: Any] {
     let url = mockAPIURL.appendingPathComponent("__mock/last/\(route)")

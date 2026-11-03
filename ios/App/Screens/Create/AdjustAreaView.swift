@@ -1,95 +1,83 @@
 import SwiftUI
 
-/// "Adjust the area" (round 3: right after the photo; also "Re-do the cutout" on a saved design): the
-/// stored photo on the green card with the frame over the whole photo (a saved design starts on its
-/// piece's `bbox` grown by 8 %). The four corners (44 pt handles) and the four edges drag; a drag
-/// inside the frame moves it. "Use this area" goes on to Making your cutout, which looks for the
-/// drawing inside the frame and cuts it out (`detect {box}`), then Your cutout; nothing found comes
-/// back here with "move or grow the frame". A saved design is cut here (`detect` on a photo, `cleanup`
-/// on a changed picture) and goes back to the design. "Reset" puts the frame back where it started.
+/// "Adjust the area" (round 4, T141): the local photo on the green card with the frame over the
+/// whole photo (or the last frame, coming back). Nothing is sent from here: the frame is in pixels
+/// of the local photo. The four corners (44 pt handles) and the four edges drag; a drag inside the
+/// frame moves it. "Use this area" goes on to Making your cutout, which crops the photo to the
+/// frame, uploads only the crop and cuts out the drawing in it; nothing found comes back here with
+/// "move or grow the frame". "Reset" puts the frame back over the whole photo; "Take a new photo"
+/// goes back to the camera or the library.
 ///
-/// Coordinates: the frame is kept in pixels of the stored original and drawn with the same
-/// view ↔ image mapping as the other photo screens (`CutoutGeometry.fitRect` / `viewRect`).
+/// Coordinates: the frame is drawn with the same view ↔ image mapping as the other photo screens
+/// (`CutoutGeometry.fitRect` / `viewRect`).
 ///
 /// VoiceOver: the photo and frame are one element, "Area frame", whose value is its size; the
 /// actions grow, shrink and move it by 10 % of the photo and each says the new size (or that it is
 /// at the edge / the smallest size). Copy: docs/design/copy-v4.md.
 struct AdjustAreaView: View {
-  /// The Create flow, or "Re-do the cutout" on a saved design (`AppState.designFlow`).
-  enum Origin { case create, designs }
-
-  var origin: Origin = .create
-
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
   @State private var area: AreaFrame?
   @State private var drag: (start: AreaFrame, handle: AreaFrame.Handle, at: CGPoint)?
-  @State private var working = false
   @State private var error: String?
-  @State private var originalURL: URL?
 
   var body: some View {
-    FlowScreen(title: "Adjust the area", subtitle: subtitle, step: isRedo ? nil : (2, 3), showsBack: !working) {
+    FlowScreen(title: "Adjust the area", subtitle: subtitle, step: (2, 3)) {
       VStack(spacing: Theme.Space.l) {
         if let size = imageSize {
           photoArea(size: size)
-        } else if error == nil {
-          ProgressView().tint(colors.text).frame(minHeight: Theme.Size.record)
+        } else {
+          ErrorCard(message: String(localized: "The photo is missing. Go back and take it again."))
         }
         if let error { ErrorCard(message: error) }
       }
     } actions: {
-      PillButton(working ? "Cutting out your art…" : "Use this area", hint: "Cuts out what is inside the frame") {
-        Task { await useThisArea() }
+      PillButton("Use this area", hint: "Cuts out what is inside the frame") {
+        useThisArea()
       }
-      .disabled(working || area == nil || artwork == nil)
-      PillButton("Reset", hint: "Puts the frame back around your drawing", kind: .secondary, showsArrow: false) {
+      .disabled(area == nil)
+      PillButton("Reset", hint: "Puts the frame back around the whole photo", kind: .secondary, showsArrow: false) {
         reset()
       }
-      .disabled(working || area == nil || area == startArea)
-      SlowWorkHint(active: working)
+      .disabled(area == nil || area == startArea)
+      // Review M1: a text link, so the pinned bar leaves room for the photo at large text sizes.
+      Button { takeNewPhoto() } label: {
+        Text("Take a new photo")
+          .themeFont(.body)
+          .underline()
+          .foregroundStyle(colors.text)
+          .frame(minWidth: Theme.Size.minTarget, minHeight: Theme.Size.minTarget)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityHint(Text("Goes back to take or pick another photo"))
     }
-    .navigationBarBackButtonHidden(working)
-    .task { await loadPictureIfNeeded() }
     .onAppear {
-      if area == nil { area = startArea }
-      // Back from Making your cutout: nothing was found in the frame.
-      if !isRedo, let message = flow.areaError {
+      if area == nil { area = lastArea ?? startArea }
+      // Back from Making your cutout: nothing was found in the crop.
+      if let message = flow.areaError {
         flow.areaError = nil
         error = message
         UIAccessibility.post(notification: .announcement, argument: message)
       }
     }
-    .onChange(of: imageSize) { _, _ in if area == nil { area = startArea } }
   }
 
   // MARK: State
 
-  private var isRedo: Bool { origin == .designs }
+  private var flow: CreateFlow { app.flow }
 
-  private var flow: CreateFlow { isRedo ? app.designFlow : app.flow }
+  /// Pixels of the local photo (the frame's coordinate space).
+  private var imageSize: ImageSize? { flow.localPhotoSize }
 
-  /// The artwork the cut is made on: the photo (Create), or the saved design.
-  private var artwork: Artwork? { isRedo ? flow.cutoutArtwork : flow.photoArtwork }
+  /// The whole photo.
+  private var startArea: AreaFrame? { imageSize.map { AreaFrame.initial(piece: nil, image: $0) } }
 
-  /// The drawing the frame starts on: a saved design's piece (the one picked before, else the first);
-  /// none for a new photo (the frame covers the whole photo, round 3).
-  private var piece: Candidate? {
-    guard isRedo else { return nil }
-    return flow.candidates.first { flow.selectedCandidateIds.contains($0.id) } ?? flow.candidates.first
+  /// The frame last used on this photo (Back from Your cutout, a resolution refusal).
+  private var lastArea: AreaFrame? {
+    guard let box = flow.areaBox, box.count == 4 else { return nil }
+    return AreaFrame(box: box)
   }
-
-  private var localPhoto: UIImage? { isRedo ? nil : flow.photo }
-
-  /// The server's size; for the local photo it falls back to the photo's pixels.
-  private var imageSize: ImageSize? {
-    if let size = isRedo ? flow.imageSize : flow.photoImageSize, size.isUsable { return size }
-    guard let photo = localPhoto else { return nil }
-    let size = ImageSize(w: photo.size.width * photo.scale, h: photo.size.height * photo.scale)
-    return size.isUsable ? size : nil
-  }
-
-  private var startArea: AreaFrame? { imageSize.map { AreaFrame.initial(piece: piece, image: $0) } }
 
   private var subtitle: LocalizedStringKey { "Drag the corners so the frame covers your drawing." }
 
@@ -137,7 +125,6 @@ struct AdjustAreaView: View {
                 ended: { finishDrag(size: size) }
               )
             }
-            .disabled(working)
           }
         }
         .padding(-CGFloat(AreaFrame.handleReach))
@@ -162,10 +149,8 @@ struct AdjustAreaView: View {
   }
 
   @ViewBuilder private var photoImage: some View {
-    if let photo = localPhoto {
+    if let photo = flow.photo {
       Image(uiImage: photo).resizable().scaledToFit()
-    } else {
-      RemoteImage(url: originalURL, altText: String(localized: "Your photo"))
     }
   }
 
@@ -229,7 +214,7 @@ struct AdjustAreaView: View {
 
   /// A VoiceOver action: change the frame and say its new size.
   private func apply(shrinking: Bool = false, _ change: (AreaFrame) -> AreaFrame) {
-    guard !working, let current = area, let size = imageSize else { return }
+    guard let current = area, let size = imageSize else { return }
     let next = change(current)
     area = next
     error = nil
@@ -243,75 +228,29 @@ struct AdjustAreaView: View {
     UIAccessibility.post(notification: .announcement, argument: String(localized: "Frame reset"))
   }
 
-  // MARK: Requests
+  // MARK: Actions
 
-  /// Without the local photo or a usable size, the stored original (`GET /artworks/{id}`, presigned)
-  /// and its drawings.
-  private func loadPictureIfNeeded() async {
-    let flow = flow
-    guard let artwork, localPhoto == nil || imageSize == nil else { return }
-    do {
-      let detail = try await app.api.artworkDetail(id: artwork.id)
-      if let size = detail.imageSize, size.isUsable {
-        if isRedo { flow.imageSize = size } else { flow.photoImageSize = size }
-      }
-      if isRedo, flow.candidates.isEmpty { flow.candidates = detail.candidates }
-      originalURL = detail.originalUrl.flatMap(URL.init(string:))
-      if area == nil { area = startArea }
-    } catch {
-      if APIError.isCancellation(error) { return }
-      if imageSize == nil { self.error = error.localizedDescription }
-    }
-  }
-
-  /// "Use this area": on to Making your cutout, which sends `detect` with the frame (round 3); the
-  /// frame already cut (Back from Your cutout, then Use this area again) goes straight to Your
-  /// cutout. On a saved design the cut is made here (`detect` on the photo row, `cleanup` with the
-  /// piece on a changed picture, which `detect` refuses with `409 not_a_photo`) and the screen goes
-  /// back to it; the result is written to the flow the request started with, even if the tab changed.
-  private func useThisArea() async {
-    let flow = flow
-    guard artwork != nil, let area else { return }
-    error = nil
-    guard isRedo else {
-      if app.createPath.last == .adjustArea, let next = flow.routeAfterArea(box: area.box) { app.push(next) }
+  /// "Use this area": on to Making your cutout (crop, upload, cut), or straight to Your cutout when
+  /// this frame on this photo is already cut.
+  private func useThisArea() {
+    guard let area, app.createPath.last == .adjustArea else { return }
+    flow.areaBox = area.box
+    if flow.emptyBox == area.box {
+      // Review M5: this frame's crop had nothing in it; say so again instead of sending it again.
+      let advice = String(localized: "We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again.")
+      error = advice
+      UIAccessibility.post(notification: .announcement, argument: advice)
       return
     }
-    guard let artwork else { return }
-    working = true
-    defer { working = false }
-    do {
-      let result: CleanupResult
-      if Self.isPhotoRow(artwork) {
-        do {
-          let found = try await app.api.detect(artworkId: artwork.id, box: area.box)
-          flow.candidates = found.candidates
-          flow.selectedCandidateIds = found.candidates.first.map { [$0.id] } ?? []
-          if let size = found.imageSize, size.isUsable { flow.imageSize = size }
-          result = found.cleanupResult
-        } catch APIError.server(409, "not_a_photo", _) {
-          result = try await app.api.cleanup(artworkId: artwork.id, CutoutRequest.make(piece: piece, area: area))
-        }
-      } else {
-        result = try await app.api.cleanup(artworkId: artwork.id, CutoutRequest.make(piece: piece, area: area))
-      }
-      if flow.cutoutArtwork == nil { flow.cutoutArtwork = artwork }
-      flow.recordCut(result)
-      if let cut = flow.cutoutArtwork { app.designs.replace(cut) }
-      guard app.designsPath.last == .adjustArea else { return }
-      app.designsPath.removeLast()
-      Task { await app.designs.load() }
-    } catch {
-      if let message = CleanupResult.errorMessage(for: error) { self.error = message }
-    }
+    error = nil
+    if let next = flow.routeAfterArea(box: area.box) { app.push(next) }
   }
-}
 
-extension AdjustAreaView {
-  /// `detect` works on the photo row only (round 3): not on a changed picture or a drawn idea.
-  static func isPhotoRow(_ artwork: Artwork) -> Bool {
-    artwork.parentArtworkId == nil && (artwork.changeInstruction ?? "").isEmpty
-      && (artwork.source == nil || artwork.source == "photo" || artwork.source == "canvas")
+  /// "Take a new photo": the photo and everything made from it go; the camera or library again.
+  private func takeNewPhoto() {
+    let source = flow.photoSource
+    flow.discardPhoto()
+    app.createPath = [.chooseMethod, .camera(source)]
   }
 }
 

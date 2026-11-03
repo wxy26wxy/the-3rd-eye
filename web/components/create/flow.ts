@@ -92,10 +92,15 @@ export function sameNotFound(d: Draft, box: Box): boolean {
  * (a change made before is dropped: it was made from the old cut). Returns false when nothing was
  * started (no photo, or the frame that just found nothing).
  */
-export function cutArea({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, box: Box): boolean {
+export function cutArea({ api, router, update, getDraft }: Pick<FlowDeps, "api" | "router" | "update" | "getDraft">, box: Box): boolean {
   const d = getDraft();
   const area = d.area;
   if (!area) return false;
+  // A row that answered 422 is deleted on the next "Use this area", whether or not the frame changed.
+  if (d.areaNotFound?.artworkId) {
+    void dropRow({ api, getDraft }, d.areaNotFound.artworkId);
+    update({ areaNotFound: { ...d.areaNotFound, artworkId: undefined } });
+  }
   if (sameNotFound(d, box)) return false;
   const framed = { ...area, frame: [...box] as Box };
   // A second tap while the same crop is on its way: no second upload, the same Making screen.
@@ -109,9 +114,40 @@ export function cutArea({ router, update, getDraft }: Pick<FlowDeps, "router" | 
     router.push("/create/cutout");
     return true;
   }
-  update({ ...NEW_PIECE, area: framed, areaNotFound: undefined, pendingArea: { photoKey: area.photoKey, box: [...box] as Box, nonce: newNonce() } });
+  // A re-frame supersedes the earlier photo row (kept through a pending or 422 job in between).
+  const replaces = d.pendingArea?.replaces ?? getDraft().areaNotFound?.replaces ?? d.pieceArtworkId;
+  update({ ...NEW_PIECE, area: framed, areaNotFound: undefined, pendingArea: { photoKey: area.photoKey, box: [...box] as Box, nonce: newNonce(), ...(replaces ? { replaces } : {}) } });
   router.push("/create/cutout");
   return true;
+}
+
+/** A row with a published product in the shop is never deleted (the draft's knowledge; unknown = no product). */
+export function hasPublishedProduct(d: Draft, artworkId: string): boolean {
+  if (madeFor(d, artworkId)?.status === "published") return true;
+  return d.productRecord?.artworkId === artworkId && d.productRecord.status === "published";
+}
+
+/**
+ * Soft-deletes a superseded or failed photo row (`DELETE /artworks/{id}` through the BFF). A failure
+ * is logged and ignored: it never blocks the flow. Skipped for a row with a published product.
+ */
+export async function dropRow({ api, getDraft }: Pick<FlowDeps, "api" | "getDraft">, artworkId: string): Promise<void> {
+  if (hasPublishedProduct(getDraft(), artworkId)) return;
+  try {
+    await api(`artworks/${artworkId}`, { method: "DELETE" });
+  } catch (err) {
+    console.warn("Could not delete the earlier upload", err);
+  }
+}
+
+/** "Take a new photo": the row that answered 422 is deleted (the click only; the link navigates). */
+export function discardNotFoundRow({ api, update, getDraft }: Pick<FlowDeps, "api" | "update" | "getDraft">): void {
+  const nf = getDraft().areaNotFound;
+  if (!nf || (!nf.artworkId && !nf.replaces)) return;
+  // The 422 row, and the earlier piece row the re-frame began from: neither is wanted any more.
+  if (nf.artworkId) void dropRow({ api, getDraft }, nf.artworkId);
+  if (nf.replaces) void dropRow({ api, getDraft }, nf.replaces);
+  update({ areaNotFound: { ...nf, artworkId: undefined, replaces: undefined } });
 }
 
 /** Crops `file` to `box` and uploads the crop (Blob client upload); answers the uploaded URL. */
@@ -143,7 +179,7 @@ export async function runAreaCut({ api, update, getDraft, upload }: Pick<FlowDep
   const imageUrl = await upload(file, job.box);
   if (stale()) return;
   const res = await api<PhotoResult>("artworks", { json: { source: "photo", imageUrl, product, framed: true } });
-  if (stale()) return;
+  if (stale()) { void dropRow({ api, getDraft }, res.artwork.id); return; }
   const size = usableSize(res.imageSize) ? res.imageSize : null;
   const box = wholeImageBox(size);
   let art: Pick<Artwork, "cleanedUrl" | "altText" | "spokenDescription"> = res.artwork;
@@ -153,12 +189,14 @@ export async function runAreaCut({ api, update, getDraft, upload }: Pick<FlowDep
   const first = pieces[0]?.id;
   if (!art.cleanedUrl && first && box) {
     const cut = await api<CleanupResult>(`artworks/${res.artwork.id}/cleanup`, { json: pickRequest(first, box) });
-    if (stale()) return;
+    if (stale()) { void dropRow({ api, getDraft }, res.artwork.id); return; }
     art = cut;
     details = cut.details;
   }
   const d = getDraft();
   const id = res.artwork.id;
+  // The new row exists: only now is the superseded photo row deleted (a failed upload keeps it).
+  if (job.replaces && job.replaces !== id) void dropRow({ api, getDraft }, job.replaces);
   const cut: CutoutState = {
     artworkId: id, candidates: pieces, imageSize: size,
     selectedIds: first ? [first] : [], cleanedUrl: art.cleanedUrl, altText: art.altText, box, points: [],
@@ -181,9 +219,13 @@ export class PhotoGoneError extends Error {
  * The crop has no drawing in it (`422 no_drawing_found`): back to Adjust the area, which says to
  * move or grow the frame (only for the frame still waiting). The row the server made stays a draft.
  */
-export function areaNotFound({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, job: NonNullable<Draft["pendingArea"]>): void {
-  if (getDraft().pendingArea?.nonce !== job.nonce) return;
-  update({ pendingArea: undefined, areaNotFound: { photoKey: job.photoKey, box: [...job.box] as Box } });
+export function areaNotFound({ api, router, update, getDraft }: Pick<FlowDeps, "api" | "router" | "update" | "getDraft">, job: NonNullable<Draft["pendingArea"]>, artworkId?: string | null): void {
+  if (getDraft().pendingArea?.nonce !== job.nonce) {
+    // A second subscriber of the same job (Strict Mode, a kept-mounted remount) finds it already handled.
+    if (artworkId && getDraft().areaNotFound?.artworkId !== artworkId) void dropRow({ api, getDraft }, artworkId);
+    return;
+  }
+  update({ pendingArea: undefined, areaNotFound: { photoKey: job.photoKey, box: [...job.box] as Box, ...(artworkId ? { artworkId } : {}), ...(job.replaces ? { replaces: job.replaces } : {}) } });
   router.replace("/create/adjust");
 }
 

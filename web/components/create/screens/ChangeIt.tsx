@@ -1,19 +1,22 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { m } from "@/components/messages";
-import { transcribe } from "../api";
+import { fmt, m } from "@/components/messages";
+import { api, transcribe } from "../api";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { describeError, type ScreenError } from "../errors";
-import { artOnScreen, changeItBack, changeItCut, skipChange, submitChange } from "../flow";
-import { currentArtworkId, getDraft, useCreate } from "../store";
+import { artOnScreen, changeItBack, changeItCut, changeItProduct, fixCutout, productPicture, runProduct, skipChange, submitChange } from "../flow";
+import { currentArtworkId, cutoutOf, getDraft, once, updateDraft, useCreate } from "../store";
 import { useRecorder } from "../useRecorder";
 import { ChangeItView, type ChangePhase } from "./ChangeItView";
 
 /**
  * Change it (R2): say or type what to change on the art on screen (the picked piece, or the last
- * change after "Change it again"). "Make the change" goes to Changing your art, which calls
- * `POST /artworks/{id}/change`; "Looks good as is" goes to the cutout of the art on screen.
+ * change after "Change it again"). Round 4 ruling 2: it shows that art's sticker / tote bag; when it
+ * is not made yet (or a re-cut rebuilt it), the making state runs `POST /products` here (the
+ * Making screen is gone) and both buttons wait. "Make the change" goes to Changing your art
+ * (change → cutout → products); "Looks good as is" goes to Ready on that product with no call;
+ * "Fix the cutout" opens Your cutout of the art on screen.
  */
 export function ChangeIt() {
   const { ready, draft } = useCreate();
@@ -92,6 +95,30 @@ function ChangeFlow() {
     focusOn("field");
   }
   const deps = { router, update, getDraft };
+
+  // The making state: the product for the art on screen, made (or its rebuilt photo read) here. The
+  // call is shared by key, so a remount (Strict Mode, the kept-mounted route shown again) joins the
+  // one in flight instead of sending a second POST (the key leaves out the request id, which
+  // runProduct may mint mid-call); Try again resends the same clientRequestId.
+  const product = changeItProduct(draft);
+  const target = product.artworkId;
+  const plan = product.plan;
+  const cut = cutoutOf(draft, target)?.cleanedUrl ?? null;
+  const [productError, setProductError] = useState<ScreenError | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (!target || plan === "ready") return;
+    let on = true;
+    once(`product:${target}:${plan}:${cut}:${attempt}`, () => runProduct({ api, getDraft, update: updateDraft }, target))
+      .catch((err) => { if (on) setProductError(describeError(err)); });
+    return () => { on = false; };
+  }, [target, plan, cut, attempt]);
+  const tote = draft.product === "tote";
+  const making = plan === "ready" ? null : {
+    status: tote ? m.create.result.makingTote : m.create.result.makingSticker,
+    hint: tote ? m.create.result.beingMadeTote : m.create.result.beingMadeSticker,
+    error: productError,
+  };
   function skip() {
     if (phase === "listening") void recorder.stop();
     skipChange(deps);
@@ -100,12 +127,15 @@ function ChangeFlow() {
   const micOff = recorder.status === "denied" ? m.create.speak.micDenied : recorder.status === "unsupported" ? m.create.speak.micUnsupported : null;
   const back = changeItBack(draft);
   const art = artOnScreen(draft);
+  const photo = productPicture(draft, target);
   return (
     <ChangeItView
       back={back}
       phase={phase}
       micOff={micOff}
-      art={{ src: art.src, alt: art.alt ?? m.create.select.cutoutAlt }}
+      art={{ src: photo.src, alt: fmt(m.create.result.productAlt, { product: tote ? m.common.tote.toLowerCase() : m.common.sticker.toLowerCase() }) }}
+      making={making}
+      canFix={!!backCut && backCut === target}
       shows={art.shows}
       instruction={instruction}
       seconds={recorder.seconds}
@@ -121,6 +151,8 @@ function ChangeFlow() {
         skip,
         retry: () => { setError(null); setPhase("idle"); void record(); },
         tryDifferent: () => { setError(null); setInstruction(""); setHeard(null); setPhase("idle"); focusOn("field"); },
+        fix: () => { if (phase === "listening") void recorder.stop(); fixCutout(deps, "/create/change"); },
+        retryProduct: () => { setProductError(null); setAttempt((a) => a + 1); },
       }}
     />
   );

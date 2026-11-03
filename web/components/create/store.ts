@@ -22,7 +22,16 @@ export type ChangeStep = {
   alt: string | null;
   spoken: string | null;
   differences: string;
+  /** The "Make the change" nonce that made it (its `clientRequestId`): Try again on Changing skips a change already made. */
+  requestId?: string;
 };
+
+/**
+ * A product made in this draft for an artwork (round 4 ruling 2: made before Change it and after
+ * every change), with the cut-out (`cleanedUrl`) its pictures were made from; another cut on the
+ * artwork means the server rebuilt them.
+ */
+export type MadeProduct = Product & { cut: string | null };
 
 /** The artwork whose cut-out "Your cutout" shows, with its SAM pieces. */
 export type CutoutState = {
@@ -89,15 +98,21 @@ export type Draft = {
   cutouts?: Record<string, CutoutState>;
   /** Product trouble reported by the last cleanup, shown on Ready. */
   cutoutNotice?: string;
-  /** The artwork the product was made from. */
+  /** The artwork the product on Ready / Listing was made from. */
   artworkId?: string;
-  /** `clientRequestId` of the `POST /products` for the current "Use this" (Try again reuses it). */
-  productRequestId?: string;
+  /** Products made in this draft, by artwork (the draft's type); Change it and Before and after show their photos. */
+  made?: Record<string, MadeProduct>;
+  /**
+   * The `POST /products` Change it's making state sends for `artworkId`: `requestId` is its
+   * `clientRequestId`, minted per "Use this" (and per change), reused by Try again and remounts.
+   */
+  productJob?: { artworkId: string; requestId: string };
+  /** Where Your cutout's Back returns after "Fix the cutout" (Change it or Before and after). */
+  cutoutReturn?: string;
   /** Nonce of the listing agent run on screen; a result for another one (Redo) is dropped. */
   listingRun?: string;
+  /** The product Ready and Listing work on (set by "Looks good as is"). */
   productRecord?: Product;
-  /** The cut-out (`cleanedUrl`) `productRecord`'s files were made from; another one means the server rebuilt them. */
-  productCut?: string | null;
   listing?: ListingDraft;
   trace?: AgentStep[];
   listingTitle?: string;
@@ -195,39 +210,36 @@ export function once<T>(key: string, run: () => Promise<T>): Promise<T> {
   return p;
 }
 
-/**
- * POST /products for the chosen artwork and remember it (`attempt` makes a retry a new request; the
- * same `clientRequestId` on a retry returns the row the server already made).
- */
-export async function makeProduct(artworkId: string, type: ProductType, attempt = 0, cut: string | null = null, clientRequestId?: string): Promise<Product> {
-  const json = clientRequestId ? { artworkId, type, clientRequestId } : { artworkId, type };
-  const product = await once(`product:${artworkId}:${type}:${attempt}`, () => api<Product>("products", { json }));
-  updateDraft({ productRecord: product, productCut: cut, artworkId, listing: undefined, trace: undefined });
-  return product;
+/** The product made in this draft for `artworkId` (of the draft's type), when there is one. */
+export function madeFor(d: Draft, artworkId: string | undefined): MadeProduct | null {
+  const p = artworkId ? d.made?.[artworkId] : undefined;
+  return p && p.type === d.product ? p : null;
 }
 
 /**
- * Making your sticker / tote bag for `d.artworkId` (consistency item 6): "make" a new product, or
- * "reuse" the draft product already made for the same artwork and type (browser back + Use this
- * never posts a second product); "refresh" reuses it but its files were rebuilt by a later cut
- * (Apply cutout), so its pictures are read again.
+ * What Change it needs for `artworkId` before it shows the product photo (round 4 ruling 2):
+ * "ready" (made, pictures of the current cut), "make" (`POST /products`), or "refresh" (made, but a
+ * later cut rebuilt it and the new pictures are not in the draft yet: `GET /artworks`).
  */
-export function productToMake(d: Draft): "make" | "reuse" | "refresh" {
-  const p = d.productRecord;
-  if (!d.artworkId || !d.product || !p || p.artworkId !== d.artworkId || p.type !== d.product) return "make";
-  const cut = d.cutouts?.[d.artworkId]?.cleanedUrl ?? null;
-  return cut && d.productCut !== undefined && d.productCut !== cut ? "refresh" : "reuse";
+export function productPlan(d: Draft, artworkId: string | undefined): "ready" | "make" | "refresh" {
+  const p = madeFor(d, artworkId);
+  if (!p) return "make";
+  const cut = cutoutOf(d, artworkId)?.cleanedUrl ?? null;
+  return cut && p.cut !== cut ? "refresh" : "ready";
 }
 
 /**
- * The product's pictures again after a rebuild (`GET /artworks` carries each product's `mockupUrl` /
- * `previewUrl`). The rebuild made the old listing's print check stale, so the listing is dropped and
- * Get it ready for the shop drafts it again.
+ * Records a made or rebuilt product. When it is the product on Ready / Listing, that record follows
+ * and its listing is dropped (the rebuild made the print check stale; the listing is drafted again).
  */
-export async function refreshProduct(p: Product, cut: string | null): Promise<void> {
-  const res = await api<{ artworks: { id: string; products: { id: string; mockupUrl: string | null; previewUrl: string | null }[] }[] }>("artworks");
-  const fresh = res.artworks.find((a) => a.id === p.artworkId)?.products.find((x) => x.id === p.id);
-  updateDraft({ productRecord: fresh ? { ...p, mockupUrl: fresh.mockupUrl, previewUrl: fresh.previewUrl } : p, productCut: cut, listing: undefined, trace: undefined, listingRun: undefined });
+export function recordProduct(d: Draft, artworkId: string, p: MadeProduct): Partial<Draft> {
+  const { cut: _cut, ...product } = p;
+  void _cut;
+  const onListing = d.productRecord?.id === p.id;
+  return {
+    made: { ...(d.made ?? {}), [artworkId]: p },
+    ...(onListing ? { productRecord: product, listing: undefined, trace: undefined, listingRun: undefined } : {}),
+  };
 }
 
 /** The change on screen, when there is one. */

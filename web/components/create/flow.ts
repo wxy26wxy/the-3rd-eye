@@ -5,11 +5,14 @@
  * making the product), kept out of the screens so they can be tested with a mocked `api` and router.
  */
 import { m } from "@/components/messages";
-import { uuid, type Artwork, type Candidate, type ChangeResult, type CleanupResult, type CutoutResult } from "./api";
+import { uuid, type Artwork, type ArtworkProduct, type Candidate, type ChangeResult, type CleanupResult, type CutoutResult, type Product } from "./api";
 import { sameBox } from "./area";
 import { productNotice, usableSize, wholeImageBox, type Box, type CleanupRequest, type ImageSize } from "./cutout";
 import { getPhoto, hasPhoto } from "./localPhoto";
-import { addChange, currentArtworkId, currentChange, cutoutOf, withCutout, type ChangeStep, type CutoutState, type Draft } from "./store";
+import {
+  addChange, currentArtworkId, currentChange, cutoutOf, madeFor, pictureOf, productPlan, recordProduct, withCutout,
+  type ChangeStep, type CutoutState, type Draft, type MadeProduct,
+} from "./store";
 
 export type FlowRouter = { push: (href: string) => void; replace: (href: string) => void };
 export type FlowApi = <T>(path: string, init?: { method?: string; json?: unknown }) => Promise<T>;
@@ -197,7 +200,23 @@ export function showsPieces(cut: Pick<CutoutState, "candidates">): boolean {
   return cut.candidates.length >= 2;
 }
 
-/** Making your cutout for a change result: `POST /artworks/{id}/cutout` (once per artwork); the box for later marks is the whole picture. */
+/**
+ * The rebuilt products a `cleanup` / `cutout` answer carries (T143): the draft's product of that
+ * artwork takes the new pictures (and the cut they were made from), so Change it swaps the photo
+ * without a list call. Without it in the answer the product stays on the old cut ("refresh").
+ */
+export function withProducts(d: Draft, artworkId: string, products: readonly ArtworkProduct[] | undefined, cut: string | null): Partial<Draft> {
+  const mine = madeFor(d, artworkId);
+  const fresh = products?.find((p) => (mine ? p.id === mine.id : p.type === d.product && p.status !== "archived"));
+  if (!fresh) return {};
+  const base: MadeProduct = mine ?? {
+    id: fresh.id, artworkId, creatorId: "", type: fresh.type, mockupUrl: null, printPngUrl: null, printSvgUrl: null,
+    priceCents: fresh.priceCents, status: fresh.status, previewUrl: null, cut,
+  };
+  return recordProduct(d, artworkId, { ...base, mockupUrl: fresh.mockupUrl, previewUrl: fresh.previewUrl, status: fresh.status, priceCents: fresh.priceCents, cut });
+}
+
+/** `POST /artworks/{id}/cutout` on a change result (once per artwork); the box for later marks is the whole picture. */
 export async function runChangeCut({ api, update, getDraft }: Pick<FlowDeps, "api" | "update" | "getDraft">, artworkId: string): Promise<void> {
   const res = await api<CutoutResult>(`artworks/${artworkId}/cutout`, { method: "POST", json: {} });
   const first = res.candidates[0]?.id;
@@ -205,35 +224,37 @@ export async function runChangeCut({ api, update, getDraft }: Pick<FlowDeps, "ap
     artworkId, candidates: res.candidates, imageSize: res.imageSize, selectedIds: first ? [first] : [],
     cleanedUrl: res.artwork.cleanedUrl, altText: res.artwork.altText, box: wholeImageBox(res.imageSize), points: [],
   };
-  update({ ...withCutout(getDraft(), cut), cutoutNotice: undefined });
+  const d = getDraft();
+  update({ ...withCutout(d, cut), ...withProducts(d, artworkId, res.products, res.artwork.cleanedUrl), cutoutNotice: undefined });
 }
 
-/** What /create/cutout shows for the draft: Your cutout, Making your cutout (the area cut or a change result's cutout), or nothing to show. */
-export function cutoutVisit(d: Draft): "cut" | "area" | "change" | "missing" {
+/** What /create/cutout shows for the draft: Your cutout, Making your cutout (the crop of the frame), or nothing to show. */
+export function cutoutVisit(d: Draft): "cut" | "area" | "missing" {
   const target = d.cutoutArtworkId;
   if (!target) return d.pendingArea ? "area" : "missing";
-  if (cutoutOf(d, target)) return "cut";
-  return d.changes?.some((c) => c.artworkId === target) ? "change" : "missing";
+  return cutoutOf(d, target) ? "cut" : "missing";
 }
 
-/** Where Making your cutout's Back goes after a failure: Adjust the area for the area cut, Before and after for a change. */
-export function makingCutoutBack(kind: "area" | "change"): string {
-  return kind === "area" ? "/create/adjust" : "/create/compare";
+/** Where Making your cutout's Back goes after a failure: Adjust the area. */
+export function makingCutoutBack(): string {
+  return "/create/adjust";
 }
 
 // ---- Your cutout
 
-/** True when Your cutout shows a change result (not the piece cut on Adjust the area). */
+/** True when Your cutout shows a change result (not the piece cut from the frame). */
 export function cutIsChange(d: Draft, artworkId: string): boolean {
   return artworkId !== d.pieceArtworkId;
 }
 
 /**
- * Back from Your cutout: Before and after for a change result; for the piece, Adjust the area on the
- * local photo (the last frame), or the photo step when the photo is no longer on the device.
+ * Back from Your cutout: where "Fix the cutout" came from (Change it, Before and after); else Change
+ * it for a change result, and for the piece Adjust the area on the local photo (the last frame), or
+ * the photo step when the photo is no longer on the device.
  */
 export function yourCutoutBack(d: Draft, artworkId: string): string {
-  if (cutIsChange(d, artworkId)) return "/create/compare";
+  if (d.cutoutReturn) return d.cutoutReturn;
+  if (cutIsChange(d, artworkId)) return "/create/change";
   return hasLocalPhoto(d) ? "/create/adjust" : photoStep(d);
 }
 
@@ -247,9 +268,10 @@ export function cutoutNewPhoto(d: Draft, artworkId: string): string | null {
 }
 
 /**
- * Apply cutout (T130): `cleanup {candidateIds?, box, points, clipToBox: true}` on the artwork on
+ * Apply cutout: `cleanup {candidateIds?, box: [0,0,w,h], points, clipToBox: true}` on the artwork on
  * screen (the piece, or the change result); the saved cut replaces the one on Your cutout (and the
- * piece's picture on Change it, for the piece).
+ * piece's picture, for the piece). The server rebuilds the row's products; the answer's `products`
+ * (T143) give the draft's product its new photo.
  */
 export async function applyMarks({ api, update, getDraft }: Pick<FlowDeps, "api" | "update" | "getDraft">, cut: CutoutState, req: CleanupRequest): Promise<{ cut: CutoutState; notice: string | null }> {
   const art = await api<CleanupResult>(`artworks/${cut.artworkId}/cleanup`, { json: req });
@@ -257,35 +279,75 @@ export async function applyMarks({ api, update, getDraft }: Pick<FlowDeps, "api"
   const next: CutoutState = { ...cut, cleanedUrl: art.cleanedUrl, altText: art.altText, points: (req.points ?? []).map((p) => ({ ...p })) };
   const notice = productNotice(art.details, NOTICE_COPY);
   const piece = cut.artworkId === d.pieceArtworkId ? { pieceUrl: art.cleanedUrl, pieceAlt: art.altText, pieceSpoken: art.spokenDescription } : {};
-  update({ ...withCutout(d, next), ...piece, cutoutNotice: notice ?? undefined });
+  update({ ...withCutout(d, next), ...withProducts(d, cut.artworkId, art.products, art.cleanedUrl), ...piece, cutoutNotice: notice ?? undefined });
   return { cut: next, notice };
 }
 
 /**
- * "Use this" on Your cutout: the piece goes on to Change it (on the piece, not on an earlier
- * change); a change result goes on to Making your sticker / tote bag.
+ * A `POST /products` for `artworkId` when Change it will need one (round 4 ruling 2): a new
+ * `clientRequestId` per call of this (each "Use this", each change); nothing when the product is
+ * there already (the reuse rule: no second `POST /products`).
  */
-export function takeCutout({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, artworkId: string): void {
-  if (!cutIsChange(getDraft(), artworkId)) {
-    update({ changedArtworkId: undefined, cutoutArtworkId: artworkId });
-    router.push("/create/change");
-    return;
-  }
-  toMaking({ router, update }, artworkId);
+function productJobFor(d: Draft, artworkId: string): Partial<Draft> {
+  return productPlan(d, artworkId) === "make" ? { productJob: { artworkId, requestId: uuid() } } : {};
 }
 
 /**
- * On to Making your sticker / tote bag for `artworkId`. The draft product is kept: Making reuses
- * it for the same artwork and type (consistency item 6, `productToMake`). Each "Use this" mints the
- * `clientRequestId` its `POST /products` carries (round 3 ruling 6); Try again reuses it, so a retry
- * after a lost answer gets the same row back.
+ * "Use this" on Your cutout (round 4 ruling 2): Change it on that art at once (the piece, or a
+ * change result after "Fix the cutout" / a redo), in the making state while its sticker / tote bag
+ * is made (or its rebuilt photo read); no Making screen.
  */
-export function toMaking({ router, update }: Pick<FlowDeps, "router" | "update">, artworkId: string): void {
-  update({ artworkId, productRequestId: uuid() });
-  router.push("/create/making");
+export function takeCutout({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, artworkId: string): void {
+  const d = getDraft();
+  const change = cutIsChange(d, artworkId) && d.changes?.some((c) => c.artworkId === artworkId);
+  update({ changedArtworkId: change ? artworkId : undefined, cutoutArtworkId: artworkId, cutoutReturn: undefined, ...productJobFor(d, artworkId) });
+  router.push("/create/change");
+}
+
+/** "Fix the cutout" on Change it / Before and after: Your cutout of the art on screen; its Back returns to `from`. */
+export function fixCutout({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, from: "/create/change" | "/create/compare"): void {
+  const target = currentArtworkId(getDraft());
+  if (!target || !cutoutOf(getDraft(), target)) return;
+  update({ cutoutArtworkId: target, cutoutReturn: from });
+  router.push("/create/cutout");
 }
 
 // ---- Change it
+
+/** The product Change it shows for the art on screen, and what it still needs (`productPlan`). */
+export function changeItProduct(d: Draft): { artworkId: string | undefined; plan: "ready" | "make" | "refresh"; product: MadeProduct | null } {
+  const artworkId = currentArtworkId(d);
+  return { artworkId, plan: productPlan(d, artworkId), product: madeFor(d, artworkId) };
+}
+
+/**
+ * Change it's making state: `POST /products {artworkId, type, clientRequestId}` for the art on
+ * screen ("make"), or its rebuilt pictures again from `GET /artworks` ("refresh"); nothing when it
+ * is ready. The `clientRequestId` is the draft's `productJob` for that artwork (minted here when
+ * missing), so Try again and a remount send the same one and get the same row back.
+ */
+export async function runProduct({ api, update, getDraft }: Pick<FlowDeps, "api" | "update" | "getDraft">, artworkId: string): Promise<void> {
+  const d = getDraft();
+  const type = d.product;
+  const plan = productPlan(d, artworkId);
+  if (plan === "ready" || !type) return;
+  const cut = cutoutOf(d, artworkId)?.cleanedUrl ?? null;
+  if (plan === "refresh") {
+    const p = madeFor(d, artworkId) as MadeProduct;
+    const res = await api<{ artworks: { id: string; products: ArtworkProduct[] }[] }>("artworks");
+    const fresh = res.artworks.find((a) => a.id === artworkId)?.products.find((x) => x.id === p.id);
+    // Marked as of this cut either way, so a product whose rebuild failed keeps its old photo instead of asking again.
+    update(recordProduct(getDraft(), artworkId, { ...p, ...(fresh ? { mockupUrl: fresh.mockupUrl, previewUrl: fresh.previewUrl, status: fresh.status } : {}), cut }));
+    return;
+  }
+  let job = d.productJob;
+  if (!job || job.artworkId !== artworkId) {
+    job = { artworkId, requestId: uuid() };
+    update({ productJob: job });
+  }
+  const product = await api<Product>("products", { json: { artworkId, type, clientRequestId: job.requestId } });
+  update(recordProduct(getDraft(), artworkId, { ...product, cut }));
+}
 
 /** "Make the change": the request (and what the mic heard, when it was not retyped) for Changing your art. */
 export function submitChange({ router, update }: Pick<FlowDeps, "router" | "update">, text: string, heard: string | null): boolean {
@@ -343,23 +405,26 @@ export function changeItCut(d: Draft): string | null {
 }
 
 /**
- * "Looks good as is" (T130): the cut was already reviewed on Your cutout, so straight on to Making
- * your sticker / tote bag. Only a change on screen that was never cut (Back to my original onto an
- * earlier change) is cut first.
+ * "Looks good as is" (round 4 ruling 2): the product on screen is the one to list, so Ready (then
+ * Listing) on it with no call. Its listing is kept when it is the same product as before (a redo),
+ * else dropped. Nothing while the product is still being made (the button waits).
  */
-export function skipChange({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">): void {
+export function skipChange({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">): boolean {
   const d = getDraft();
-  const target = currentArtworkId(d);
-  if (!target) return;
-  if (target === d.pieceArtworkId || cutoutOf(d, target)?.cleanedUrl) { toMaking({ router, update }, target); return; }
-  update({ cutoutArtworkId: target });
-  router.push("/create/cutout");
+  const { artworkId, plan, product } = changeItProduct(d);
+  if (!artworkId || plan !== "ready" || !product) return false;
+  const { cut: _cut, ...record } = product;
+  void _cut;
+  const same = d.productRecord?.id === record.id;
+  update({ productRecord: record, artworkId, ...(same ? {} : { listing: undefined, trace: undefined, listingRun: undefined }) });
+  router.push("/create/ready");
+  return true;
 }
 
-/** Before and after's "Use this": the change result's cut-out (made once per artwork) on Your cutout. */
+/** Before and after's "Use this" and "Change it again": Change it on the change result (its product is made, so its photo shows at once). */
 export function takeChange({ router, update }: Pick<FlowDeps, "router" | "update">, artworkId: string): void {
-  update({ cutoutArtworkId: artworkId });
-  router.push("/create/cutout");
+  update({ changedArtworkId: artworkId, cutoutArtworkId: artworkId, cutoutReturn: undefined });
+  router.push("/create/change");
 }
 
 // ---- Changing your art
@@ -383,24 +448,48 @@ export function changeRequest(d: Draft): ChangeRequest | null {
   return { base, instruction: d.changeInstruction, transcript: d.changeTranscript, ...(d.changeNonce ? { clientRequestId: d.changeNonce } : {}) };
 }
 
+/** The three steps of Changing your art, each with its own status line. */
+export type ChangeStage = "change" | "cutout" | "product";
+
 /**
- * `POST /artworks/{base}/change`, then the child goes on screen and Before and after opens. Try again
- * sends the same `clientRequestId`, so a change the server already made comes back instead of a second one.
+ * Changing your art (round 4 ruling 2): `POST /artworks/{base}/change` → `POST
+ * /artworks/{child}/cutout` → `POST /products {artworkId: child, type, clientRequestId}`, then the
+ * child goes on screen and Before and after opens. Try again resumes at the step that failed: a
+ * change this request already made (by its `clientRequestId`), a cut already made and a product
+ * already made are not asked for again; the change and the product resend their `clientRequestId`.
+ * The child goes on screen only when all three are done, so "Back to my art" after a failure
+ * returns to the art the change was made from.
  */
-export async function runChange({ api, router, update, getDraft }: FlowDeps, req: ChangeRequest): Promise<ChangeStep> {
-  const { artwork, description } = await api<ChangeResult>(`artworks/${req.base}/change`, {
-    json: {
-      instruction: req.instruction,
-      ...(req.transcript ? { transcript: req.transcript } : {}),
-      ...(req.clientRequestId ? { clientRequestId: req.clientRequestId } : {}),
-    },
-  });
-  const step: ChangeStep = {
-    artworkId: artwork.id, parentId: req.base, instruction: req.instruction, transcript: req.transcript,
-    previewUrl: artwork.previewUrl, alt: description.alt || artwork.altText, spoken: description.spoken || artwork.spokenDescription,
-    differences: description.differences ?? "",
-  };
-  update({ ...addChange(getDraft(), step), changeInstruction: undefined, changeTranscript: undefined });
+export async function runChange({ api, router, update, getDraft }: FlowDeps, req: ChangeRequest, onStage: (s: ChangeStage) => void = () => {}): Promise<ChangeStep> {
+  let step = req.clientRequestId ? getDraft().changes?.find((c) => c.requestId === req.clientRequestId) : undefined;
+  if (!step) {
+    onStage("change");
+    const { artwork, description } = await api<ChangeResult>(`artworks/${req.base}/change`, {
+      json: {
+        instruction: req.instruction,
+        ...(req.transcript ? { transcript: req.transcript } : {}),
+        ...(req.clientRequestId ? { clientRequestId: req.clientRequestId } : {}),
+      },
+    });
+    step = {
+      artworkId: artwork.id, parentId: req.base, instruction: req.instruction, transcript: req.transcript,
+      previewUrl: artwork.previewUrl, alt: description.alt || artwork.altText, spoken: description.spoken || artwork.spokenDescription,
+      differences: description.differences ?? "", ...(req.clientRequestId ? { requestId: req.clientRequestId } : {}),
+    };
+    const d = getDraft();
+    const done = step;
+    update({ changes: [...(d.changes ?? []).filter((c) => c.artworkId !== done.artworkId), done], ...productJobFor(d, done.artworkId) });
+  }
+  const child = step.artworkId;
+  if (!cutoutOf(getDraft(), child)?.cleanedUrl) {
+    onStage("cutout");
+    await runChangeCut({ api, update, getDraft }, child);
+  }
+  if (productPlan(getDraft(), child) !== "ready") {
+    onStage("product");
+    await runProduct({ api, update, getDraft }, child);
+  }
+  update({ ...addChange(getDraft(), step), cutoutArtworkId: child, changeInstruction: undefined, changeTranscript: undefined });
   router.replace("/create/compare");
   return step;
 }
@@ -411,12 +500,17 @@ export function leaveChanging({ router, update }: Pick<FlowDeps, "router" | "upd
   update({ changeInstruction: undefined, changeTranscript: undefined });
 }
 
-/** The art on screen on Change it / Changing: the change, else the picked piece. */
+/** The art on screen on Change it / Changing: the change, else the picked piece (what it shows, for the description card). */
 export function artOnScreen(d: Draft): { src: string | null; alt: string | null; shows: string | null } {
   const step = currentChange(d);
   return step
     ? { src: step.previewUrl, alt: step.alt, shows: step.spoken ?? step.alt }
     : { src: d.pieceUrl ?? null, alt: d.pieceAlt ?? null, shows: d.pieceSpoken ?? d.pieceAlt ?? null };
+}
+
+/** The picture of `artworkId`'s product (the AI product photo first), else its cut. */
+export function productPicture(d: Draft, artworkId: string | undefined): { src: string | null; kind: "photo" | "sticker" | "art" } {
+  return pictureOf(madeFor(d, artworkId), cutoutOf(d, artworkId));
 }
 
 // ---- Get it ready for the shop
@@ -439,7 +533,7 @@ export function redoTarget(d: Draft, prefer: RedoTarget): RedoTarget | null {
 function goRedo({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, target: RedoTarget, patch: Partial<Draft>): void {
   const d = getDraft();
   if (target === "cutout" && d.productRecord) {
-    update({ ...patch, pendingArea: undefined, cutoutArtworkId: d.productRecord.artworkId });
+    update({ ...patch, pendingArea: undefined, cutoutReturn: undefined, cutoutArtworkId: d.productRecord.artworkId });
     router.push("/create/cutout");
   } else if (hasLocalPhoto(d)) {
     update({ ...patch, pendingArea: undefined, areaNotFound: undefined });
@@ -451,7 +545,7 @@ function goRedo({ router, update, getDraft }: Pick<FlowDeps, "router" | "update"
  * "Redo" while the listing drafts (round 3 ruling 5): the run is dropped by its nonce (the server
  * finishes it and the answer is ignored; `listings/run` upserts), and Your cutout of the product's
  * artwork opens (Adjust the area on the photo when that cut is not in the draft). The draft product
- * is kept, so Use this reuses it (no second `POST /products`).
+ * is kept, so Use this returns to Change it with it (no second `POST /products`).
  */
 export function redoListing(deps: Pick<FlowDeps, "router" | "update" | "getDraft">): void {
   const target = redoTarget(deps.getDraft(), "cutout");
@@ -468,9 +562,9 @@ export function canRedoListing(d: Draft): boolean {
  * (`resolution`, the only hard block, which marks cannot fix) goes to Adjust the area on the local
  * photo, where the frame can grow or "Take a new photo" gives a bigger one (round 4: without the
  * local photo, Your cutout with "Take a new photo"); a contrast warning goes to Your cutout.
- * The listing stays until the product is rebuilt: a re-cut makes Making refresh the product, which
- * drops the old listing and its print check (`refreshProduct`). Clearing it here would start a new
- * agent run on the Listing screen that is still showing.
+ * The listing stays until the product is rebuilt: a re-cut rebuilds the product (`recordProduct`
+ * drops the old listing and its print check). Clearing it here would start a new agent run on the
+ * Listing screen that is still showing.
  */
 export function redoCutout(deps: Pick<FlowDeps, "router" | "update" | "getDraft">, check: "resolution" | "contrast" | null): void {
   const target = redoTarget(deps.getDraft(), check === "resolution" ? "adjust" : "cutout");

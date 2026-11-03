@@ -13,7 +13,7 @@ import {
 import { describeError, type ScreenError } from "../errors";
 import {
   applyMarks, areaNotFound, cutIsChange, cutoutNewPhoto, cutoutVisit, makingCutoutBack, photoGone, PhotoGoneError, pickRequest, runAreaCut,
-  runChangeCut, showsPieces, takeCutout, yourCutoutBack, type CropUpload,
+  showsPieces, takeCutout, yourCutoutBack, type CropUpload,
 } from "../flow";
 import { cutoutOf, getCreator, getDraft, once, resetDraft, updateDraft, useCreate, useCreator, type CutoutState, type Draft } from "../store";
 import { useOriginal } from "../useOriginal";
@@ -35,10 +35,10 @@ function cleanupError(err: unknown, sent: CleanupRequest | null): ScreenError {
 }
 
 /**
- * /create/cutout. Making your cutout runs the cut the draft is waiting for: the crop of the frame
- * from Adjust the area (round 4: crop on the device → upload → `POST /artworks`), or a change
- * result's `POST /artworks/{id}/cutout` (once per artwork). Then Your cutout: the cut, with Add area
- * / Remove area marks (in pixels of the crop) and Apply cutout on "Fix the edges".
+ * /create/cutout. Making your cutout runs the crop the draft is waiting for (round 4: crop on the
+ * device → upload → `POST /artworks {framed: true}`; a change result is cut on Changing). Then Your
+ * cutout: the cut, with Add area / Remove area marks (in pixels of the working picture) and Apply
+ * cutout on "Fix the edges"; "Use this" goes to Change it.
  */
 export function Cutout() {
   const { ready, draft } = useCreate();
@@ -47,7 +47,6 @@ export function Cutout() {
   const target = draft.cutoutArtworkId as string;
   if (visit === "cut") return <YourCutoutFlow key={target} cutout={cutoutOf(draft, target) as CutoutState} />;
   if (visit === "area") return <MakingArea key={draft.pendingArea?.nonce} job={draft.pendingArea as NonNullable<Draft["pendingArea"]>} />;
-  if (visit === "change") return <MakingChangeCut key={target} artworkId={target} />;
   return <MissingState />;
 }
 
@@ -90,27 +89,7 @@ function MakingArea({ job }: { job: NonNullable<Draft["pendingArea"]> }) {
     <MakingCutoutView
       changed={false}
       error={error}
-      back={makingCutoutBack("area")}
-      onRetry={() => { setError(null); setAttempt((a) => a + 1); }}
-    />
-  );
-}
-
-/** Making your cutout for a change result (`cutout`, SAM picks the largest piece). */
-function MakingChangeCut({ artworkId }: { artworkId: string }) {
-  const [error, setError] = useState<ScreenError | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    let live = true;
-    // Nothing found on the changed picture shows the API's reason; Back returns to Before and after.
-    once(`cutout:${artworkId}:${attempt}`, () => runChangeCut(flowDeps, artworkId)).catch((err) => { if (live) setError(describeError(err)); });
-    return () => { live = false; };
-  }, [artworkId, attempt]);
-  return (
-    <MakingCutoutView
-      changed
-      error={error}
-      back={makingCutoutBack("change")}
+      back={makingCutoutBack()}
       onRetry={() => { setError(null); setAttempt((a) => a + 1); }}
     />
   );

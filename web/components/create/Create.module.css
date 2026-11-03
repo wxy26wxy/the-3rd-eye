@@ -397,3 +397,13 @@
 
 /* Mascot picture cards (R7): Take a photo / Upload a picture and You're live. */
 .mascotPicture { display: block; width: 100%; height: auto; border-radius: var(--radius-card); }
+
+/* Round 4 ruling 2: Change it and Before and after show the product photo, faded in once it is made. */
+.productPhoto { padding: 0; }
+.productPhoto .artPreviewImg { width: 100%; height: 100%; aspect-ratio: auto; }
+.productPhoto img { animation: productFadeIn var(--motion-slow) var(--motion-easing) both; }
+@keyframes productFadeIn { from { opacity: 0; } to { opacity: 1; } }
+/* The making state: the creating animation in the picture's place, the status line under it. */
+.productMaking { display: grid; gap: var(--space-s); }
+.productMaking .stickerLoading { aspect-ratio: 342 / 240; }
+.waitHint { margin: 0; font-size: var(--type-body-size); line-height: var(--type-body-lh); color: var(--color-ink-soft); text-align: center; }

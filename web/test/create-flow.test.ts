@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  STORY_REDO_RETURN, storyVideoDone, canRedoListing, canRedoCutout, redoCutout, redoListing, redoTarget, toMaking, adjustBack, takeNewPhoto, afterPhoto, applyMarks, areaNotFound, busyWhile, pickRequest, showsPieces, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
+  STORY_REDO_RETURN, storyVideoDone, canRedoListing, canRedoCutout, redoCutout, redoListing, redoTarget, adjustBack, takeNewPhoto, afterPhoto, applyMarks, areaNotFound, busyWhile, pickRequest, showsPieces, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
   changeItCut, cutoutVisit, leaveChanging, makingCutoutBack, runAreaCut, runChange, runChangeCut, skipChange, submitChange, takeChange, takeCutout, yourCutoutBack, type FlowDeps,
   areaFrame, cutoutNewPhoto, hasLocalPhoto, largestFirst, photoGone, PhotoGoneError, sameNotFound,
+  changeItProduct, fixCutout, productPicture, runProduct,
 } from "@/components/create/flow";
+import { stageLine } from "@/components/create/screens/Changing";
 import { CropError } from "@/components/create/crop";
 import { putPhoto } from "@/components/create/localPhoto";
 import { marksRequest } from "@/components/create/cutout";
@@ -11,7 +13,7 @@ import { dragFrame, initialFrame, keyFrame, moveFrame, resizeFrame, frameSize } 
 import { ApiError } from "@/components/create/api";
 import { areaError, isNotFound } from "@/components/create/screens/AdjustArea";
 import { m } from "@/components/messages";
-import { addChange, backToOriginal, currentArtworkId, cutoutOf, once, productToMake, type ChangeStep, type CutoutState, type Draft } from "@/components/create/store";
+import { addChange, backToOriginal, currentArtworkId, cutoutOf, once, productPlan, type ChangeStep, type CutoutState, type Draft } from "@/components/create/store";
 
 /** A draft held in memory, a router that records calls, and an api answering by path. */
 function harness(start: Draft, answers: Record<string, unknown> = {}) {
@@ -49,6 +51,11 @@ const piece: Draft = {
 };
 const change = (id: string, parentId: string): ChangeStep => ({ artworkId: id, parentId, instruction: `do ${id}`, previewUrl: `/${id}.png`, alt: `alt ${id}`, spoken: null, differences: "" });
 const changeAnswer = { artwork: { ...artwork({ id: "k2", parentArtworkId: "k1" }), previewUrl: "/k2.png" }, description: { alt: "A fern, bigger", spoken: "A big fern.", differences: "" } };
+/** The cutout and product answers that finish a change on Changing (round 4: change → cutout → products). */
+const chainRest = (id: string) => ({
+  "/cutout": { artwork: artwork({ id, cleanedUrl: `/${id}-cut.png` }), candidates: [], imageSize: { w: 10, h: 10 } },
+  products: { id: `pr-${id}`, artworkId: id, creatorId: "me", type: "sticker", mockupUrl: `/${id}-photo.png`, printPngUrl: null, printSvgUrl: null, priceCents: 500, status: "draft", previewUrl: null },
+});
 
 /** `POST /artworks {framed: true}` on the crop (T143): candidates largest first, `candidates[0]` cut, `imageSize` = the stored crop. */
 const createAnswer = (over: Record<string, unknown> = {}) => ({
@@ -125,7 +132,7 @@ describe("Adjust the area → crop on the device → POST /artworks (round 4 rul
     expect(yourCutoutBack(h.draft, "p2")).toBe("/create/adjust");
     expect(cutoutNewPhoto(h.draft, "p2")).toBeNull();
     expect(changeItBack(h.draft)).toBe("/create/cutout");
-    expect(makingCutoutBack("area")).toBe("/create/adjust");
+    expect(makingCutoutBack()).toBe("/create/adjust");
   });
 
   it("several pieces and no cut from the server: the largest is cut with cleanup {candidateIds:[largest], box: the whole crop, clipToBox}", async () => {
@@ -284,60 +291,191 @@ describe("Change it (T113)", () => {
     expect(submitChange(h.deps, "   ", null)).toBe(false);
   });
 
-  it("Looks good as is on the piece → Making your sticker (the cut was reviewed on Your cutout; no call, T130)", () => {
-    const h = harness(piece);
-    skipChange(h.deps);
-    expect(h.api).not.toHaveBeenCalled();
-    expect(h.draft.artworkId).toBe("p1");
-    expect(h.calls.at(-1)).toBe("push /create/making");
+});
+
+const prod = (id: string, artworkId: string, over: Record<string, unknown> = {}) => ({
+  id, artworkId, creatorId: "me", type: "sticker" as const, mockupUrl: `/${id}-photo.png`, printPngUrl: null, printSvgUrl: null, priceCents: 500, status: "draft", previewUrl: `/${id}-pv.png`, ...over,
+});
+const listItem = (id: string, over: Record<string, unknown> = {}) => ({ id, type: "sticker" as const, status: "draft", priceCents: 500, title: null, description: null, mockupUrl: `/${id}-photo.png`, previewUrl: `/${id}-pv.png`, ...over });
+
+describe("Round 4 ruling 2: the product is made before Change it", () => {
+  it("Your cutout Use this → Change it at once, in the making state: one POST /products {artworkId, type, clientRequestId}, then the product photo", async () => {
+    const h = harness({ ...piece }, { products: prod("pr1", "p1") });
+    takeCutout(h.deps, "p1");
+    expect(h.calls.at(-1)).toBe("push /create/change");
+    expect(h.calls).not.toContain("push /create/making");
+    expect(changeItProduct(h.draft)).toMatchObject({ artworkId: "p1", plan: "make", product: null });
+    const id = h.draft.productJob?.requestId;
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    // Change it's effect: shared by key, so a remount joins the call in flight (no double POST)
+    const run = () => runProduct(h.deps, "p1");
+    await Promise.all([once("product:p1:make:/piece.png:0", run), once("product:p1:make:/piece.png:0", run)]);
+    expect(h.calls.filter((c) => c.startsWith("api"))).toEqual([`api products {"artworkId":"p1","type":"sticker","clientRequestId":"${id}"}`]);
+    expect(changeItProduct(h.draft).plan).toBe("ready");
+    expect(productPicture(h.draft, "p1")).toEqual({ src: "/pr1-photo.png", kind: "photo" });
+    // nothing more to do once it is made
+    await runProduct(h.deps, "p1");
+    expect(h.api).toHaveBeenCalledTimes(1);
   });
 
-  it("Looks good as is on a change that was cut already → Making; on one never cut (Back to my original onto it) → its cutout first", () => {
+  it("reuse: Back to Your cutout and Use this again → Change it shows the product at once; no second POST", () => {
+    const h = harness({ ...piece, made: { p1: { ...prod("pr1", "p1"), cut: "/piece.png" } } });
+    takeCutout(h.deps, "p1");
+    expect(changeItProduct(h.draft).plan).toBe("ready");
+    expect(h.draft.productJob).toBeUndefined();
+    expect(h.api).not.toHaveBeenCalled();
+    // another type is another product
+    expect(productPlan({ ...h.draft, product: "tote" }, "p1")).toBe("make");
+  });
+
+  it("a failed POST /products: Try again sends the same clientRequestId; each Use this mints a new one", async () => {
+    const h = harness({ ...piece }, { products: new ApiError(504, "deadline_exceeded", "late") });
+    takeCutout(h.deps, "p1");
+    const first = h.draft.productJob!.requestId;
+    await expect(runProduct(h.deps, "p1")).rejects.toThrow();
+    await expect(runProduct(h.deps, "p1")).rejects.toThrow();
+    const ids = h.calls.filter((c) => c.startsWith("api products")).map((c) => JSON.parse(c.slice(c.indexOf("{"))).clientRequestId);
+    expect(ids).toEqual([first, first]);
+    takeCutout(h.deps, "p1");
+    expect(h.draft.productJob!.requestId).not.toBe(first);
+  });
+
+  it("Looks good as is → Ready on that product with no call (its listing kept for the same product); nothing while it is being made", () => {
+    const making = harness({ ...piece });
+    expect(skipChange(making.deps)).toBe(false);
+    expect(making.calls).toEqual([]);
+    const listing = { title: "Fern", description: "", tags: [], price_cents: 500, print_ok: true, notes: "" };
+    const h = harness({ ...piece, made: { p1: { ...prod("pr1", "p1"), cut: "/piece.png" } }, productRecord: prod("pr1", "p1"), listing });
+    expect(skipChange(h.deps)).toBe(true);
+    expect(h.api).not.toHaveBeenCalled();
+    expect(h.calls.at(-1)).toBe("push /create/ready");
+    expect(h.draft).toMatchObject({ artworkId: "p1", productRecord: prod("pr1", "p1"), listing });
+    expect(h.draft.productRecord).not.toHaveProperty("cut");
+    // another product on screen: its own listing is drafted later
+    const g = harness({ ...piece, ...addChange(piece, change("k1", "p1")), cutouts: { p1: pieceCut, k1: { ...pieceCut, artworkId: "k1", cleanedUrl: "/k1.png" } }, made: { p1: { ...prod("pr1", "p1"), cut: "/piece.png" }, k1: { ...prod("pr2", "k1"), cut: "/k1.png" } }, productRecord: prod("pr1", "p1"), listing });
+    skipChange(g.deps);
+    expect(g.draft.productRecord?.id).toBe("pr2");
+    expect(g.draft.artworkId).toBe("k1");
+    expect(g.draft.listing).toBeUndefined();
+  });
+
+  it("Make the change → Changing runs change → cutout → products, in that order, then Before and after compares the two product photos", async () => {
+    const answers = {
+      "/change": { artwork: { ...artwork({ id: "k1", parentArtworkId: "p1" }), previewUrl: "/k1.png" }, description: { alt: "A blue fern", spoken: "A blue fern.", differences: "" } },
+      "/cutout": { artwork: artwork({ id: "k1", cleanedUrl: "/k1-cut.png" }), candidates: [{ ...candidates[0], id: "k1c" }], imageSize: { w: 200, h: 150 }, products: [] },
+      products: prod("pr2", "k1"),
+    };
+    const h = harness({ ...piece, made: { p1: { ...prod("pr1", "p1"), cut: "/piece.png" } } }, answers);
+    submitChange(h.deps, "make it blue", null);
+    const nonce = h.draft.changeNonce!;
+    const stages: string[] = [];
+    await runChange(h.deps, changeRequest(h.draft)!, (st) => stages.push(st));
+    expect(stages).toEqual(["change", "cutout", "product"]);
+    const api = h.calls.filter((c) => c.startsWith("api"));
+    expect(api).toHaveLength(3);
+    expect(api[0]).toBe(`api artworks/p1/change {"instruction":"make it blue","clientRequestId":"${nonce}"}`);
+    expect(api[1]).toBe("api artworks/k1/cutout {}");
+    expect(api[2]).toMatch(/^api products \{"artworkId":"k1","type":"sticker","clientRequestId":"[0-9a-f-]{36}"\}$/);
+    expect(h.calls.at(-1)).toBe("replace /create/compare");
+    expect(h.draft).toMatchObject({ changedArtworkId: "k1", cutoutArtworkId: "k1", changeInstruction: undefined });
+    expect(cutoutOf(h.draft, "k1")).toMatchObject({ cleanedUrl: "/k1-cut.png", box: [0, 0, 200, 150] });
+    // Before and after: the parent's and the child's product photos
+    expect(productPicture(h.draft, "p1").src).toBe("/pr1-photo.png");
+    expect(productPicture(h.draft, "k1").src).toBe("/pr2-photo.png");
+    // Use this / Change it again → Change it on the child, its photo at once; Back to my original → the parent, at once
+    takeChange(h.deps, "k1");
+    expect(h.calls.at(-1)).toBe("push /create/change");
+    expect(changeItProduct(h.draft)).toMatchObject({ artworkId: "k1", plan: "ready" });
+    h.deps.update(backToOriginal(h.draft));
+    expect(changeItProduct(h.draft)).toMatchObject({ artworkId: "p1", plan: "ready" });
+    expect(stageLine("change", false)).toBe("Changing your art…");
+    expect(stageLine("cutout", false)).toBe("Cutting it out…");
+    expect(stageLine("product", false)).toBe("Making your sticker…");
+    expect(stageLine("product", true)).toBe("Making your tote bag…");
+  });
+
+  it("Try again after a failed product step resumes there (no second change or cutout) with the same clientRequestId; Back to my art stays on the parent", async () => {
+    const answers: Record<string, unknown> = {
+      "/change": { artwork: { ...artwork({ id: "k1", parentArtworkId: "p1" }), previewUrl: "/k1.png" }, description: { alt: "blue", spoken: "", differences: "" } },
+      "/cutout": { artwork: artwork({ id: "k1", cleanedUrl: "/k1-cut.png" }), candidates: [], imageSize: { w: 200, h: 150 } },
+      products: new ApiError(502, "model_error", "photo failed"),
+    };
+    const h = harness({ ...piece, made: { p1: { ...prod("pr1", "p1"), cut: "/piece.png" } } }, answers);
+    submitChange(h.deps, "make it blue", null);
+    await expect(runChange(h.deps, changeRequest(h.draft)!)).rejects.toThrow("photo failed");
+    // not on screen yet: Change it (Back to my art) is still on the piece
+    expect(h.draft.changedArtworkId).toBeUndefined();
+    expect(currentArtworkId(h.draft)).toBe("p1");
+    answers.products = prod("pr2", "k1");
+    const stages: string[] = [];
+    await runChange(h.deps, changeRequest(h.draft)!, (st) => stages.push(st));
+    expect(stages).toEqual(["product"]);
+    const api = h.calls.filter((c) => c.startsWith("api"));
+    expect(api.filter((c) => c.includes("/change"))).toHaveLength(1);
+    expect(api.filter((c) => c.includes("/cutout"))).toHaveLength(1);
+    const ids = api.filter((c) => c.startsWith("api products")).map((c) => JSON.parse(c.slice(c.indexOf("{"))).clientRequestId);
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).toBe(ids[1]);
+    expect(h.draft.changedArtworkId).toBe("k1");
+  });
+
+  it("Fix the cutout round trip: Change it → Your cutout (Back returns) → Apply cutout → the cleanup answer's products give the rebuilt photo → Use this → Change it shows it, no POST", async () => {
+    const listing = { title: "Fern", description: "", tags: [], price_cents: 500, print_ok: true, notes: "" };
+    const start: Draft = { ...piece, made: { p1: { ...prod("pr1", "p1"), cut: "/piece.png" } }, productRecord: prod("pr1", "p1"), listing };
+    const h = harness(start, { "/cleanup": { ...artwork({ cleanedUrl: "/piece-2.png" }), details: { failedProductIds: [], unpublishedProductIds: [] }, products: [listItem("pr1", { mockupUrl: "/pr1-photo-v2.png" })] } });
+    fixCutout(h.deps, "/create/change");
+    expect(h.calls.at(-1)).toBe("push /create/cutout");
+    expect(h.draft.cutoutArtworkId).toBe("p1");
+    expect(yourCutoutBack(h.draft, "p1")).toBe("/create/change");
+    await applyMarks(h.deps, pieceCut, marksRequest(["c1"], [0, 0, 100, 100], [{ x: 5, y: 6, label: "positive" }]));
+    expect(h.draft.made?.p1).toMatchObject({ mockupUrl: "/pr1-photo-v2.png", cut: "/piece-2.png" });
+    // the product on the listing follows, and its stale print check is dropped
+    expect(h.draft.productRecord?.mockupUrl).toBe("/pr1-photo-v2.png");
+    expect(h.draft.listing).toBeUndefined();
+    takeCutout(h.deps, "p1");
+    expect(h.calls.at(-1)).toBe("push /create/change");
+    expect(h.draft.cutoutReturn).toBeUndefined();
+    expect(changeItProduct(h.draft).plan).toBe("ready");
+    expect(productPicture(h.draft, "p1").src).toBe("/pr1-photo-v2.png");
+    expect(h.calls.filter((c) => c.startsWith("api products"))).toEqual([]);
+  });
+
+  it("Fix the cutout without products in the answer: Change it stays in the making state and reads the rebuilt photo from GET /artworks", async () => {
+    const h = harness({ ...piece, made: { p1: { ...prod("pr1", "p1"), cut: "/piece.png" } } }, {
+      "/cleanup": artwork({ cleanedUrl: "/piece-2.png" }),
+      artworks: { artworks: [{ id: "p1", products: [listItem("pr1", { mockupUrl: "/pr1-photo-v3.png" })] }] },
+    });
+    await applyMarks(h.deps, pieceCut, marksRequest(["c1"], [0, 0, 100, 100], [{ x: 5, y: 6, label: "positive" }]));
+    takeCutout(h.deps, "p1");
+    expect(changeItProduct(h.draft).plan).toBe("refresh");
+    await runProduct(h.deps, "p1");
+    expect(h.calls.filter((c) => c.startsWith("api")).at(-1)).toBe("api artworks null");
+    expect(changeItProduct(h.draft).plan).toBe("ready");
+    expect(productPicture(h.draft, "p1").src).toBe("/pr1-photo-v3.png");
+  });
+
+  it("Fix the cutout from Before and after opens the change result's cut; Back returns to Before and after", () => {
     const k1Cut: CutoutState = { ...pieceCut, artworkId: "k1", cleanedUrl: "/k1-cut.png" };
     const h = harness({ ...piece, ...addChange(piece, change("k1", "p1")), cutouts: { p1: pieceCut, k1: k1Cut } });
-    skipChange(h.deps);
-    expect(h.draft.artworkId).toBe("k1");
-    expect(h.calls.at(-1)).toBe("push /create/making");
-    const g = harness({ ...piece, ...addChange(piece, change("k1", "p1")) });
-    skipChange(g.deps);
-    expect(g.draft.cutoutArtworkId).toBe("k1");
-    expect(g.calls.at(-1)).toBe("push /create/cutout");
-    expect(cutoutVisit(g.draft)).toBe("change");
+    fixCutout(h.deps, "/create/compare");
+    expect(h.draft.cutoutArtworkId).toBe("k1");
+    expect(cutoutVisit(h.draft)).toBe("cut");
+    expect(yourCutoutBack(h.draft, "k1")).toBe("/create/compare");
+    // Use this → Change it on k1 (still on screen)
+    takeCutout(h.deps, "k1");
+    expect(currentArtworkId(h.draft)).toBe("k1");
+    expect(yourCutoutBack(h.draft, "k1")).toBe("/create/change");
   });
 });
 
-describe("After a change (T130): Before and after → Making your cutout → Your cutout → Making", () => {
-  const cutoutAnswer = { artwork: artwork({ id: "k1", cleanedUrl: "/k1-cut.png", altText: "A blue fern" }), candidates: [{ ...candidates[0], id: "k1c" }], imageSize: { w: 200, h: 150 } };
-
-  it("Use this: `cutout` on the change result once per artwork, the box for marks is the whole picture; Back → Before and after", async () => {
-    const h = harness({ ...piece, ...addChange(piece, change("k1", "p1")) }, { "/cutout": cutoutAnswer });
-    takeChange(h.deps, "k1");
-    expect(h.calls.at(-1)).toBe("push /create/cutout");
-    expect(cutoutVisit(h.draft)).toBe("change");
-    await runChangeCut(h.deps, "k1");
-    expect(h.calls.find((c) => c.startsWith("api"))).toBe("api artworks/k1/cutout {}");
-    expect(cutoutOf(h.draft, "k1")).toMatchObject({ selectedIds: ["k1c"], cleanedUrl: "/k1-cut.png", box: [0, 0, 200, 150], points: [] });
-    expect(cutoutVisit(h.draft)).toBe("cut");
-    expect(yourCutoutBack(h.draft, "k1")).toBe("/create/compare");
-    expect(makingCutoutBack("change")).toBe("/create/compare");
-    // the piece's cut is kept too; a second Use this on k1 is cached (no second cutout)
-    expect(cutoutOf(h.draft, "p1")?.cleanedUrl).toBe("/piece.png");
-    takeChange(h.deps, "k1");
-    expect(cutoutVisit(h.draft)).toBe("cut");
-    // Use this on Your cutout → Making your sticker for the change result
-    takeCutout(h.deps, "k1");
-    expect(h.calls.at(-1)).toBe("push /create/making");
-    expect(h.draft.artworkId).toBe("k1");
-  });
-
-  it("Apply cutout on the change result: cleanup {candidateIds:[candidates[0]], box: whole picture, points, clipToBox}", async () => {
+describe("After a change: Apply cutout on the change result", () => {
+  it("cleanup {candidateIds:[candidates[0]], box: whole picture, points, clipToBox}; the piece is untouched", async () => {
     const k1Cut: CutoutState = { artworkId: "k1", candidates: [{ ...candidates[0], id: "k1c" }], imageSize: { w: 200, h: 150 }, selectedIds: ["k1c"], cleanedUrl: "/k1-cut.png", altText: null, box: [0, 0, 200, 150], points: [] };
     const h = harness({ ...piece, ...addChange(piece, change("k1", "p1")), cutouts: { p1: pieceCut, k1: k1Cut } }, { "/cleanup": artwork({ id: "k1", cleanedUrl: "/k1-cut-2.png" }) });
     const points = [{ x: 10, y: 20, label: "positive" as const }, { x: 50, y: 60, label: "negative" as const }];
     await applyMarks(h.deps, k1Cut, marksRequest(k1Cut.selectedIds, k1Cut.box!, points));
     expect(h.calls[0]).toBe('api artworks/k1/cleanup {"candidateIds":["k1c"],"box":[0,0,200,150],"points":[{"x":10,"y":20,"label":"positive"},{"x":50,"y":60,"label":"negative"}],"clipToBox":true}');
     expect(cutoutOf(h.draft, "k1")).toMatchObject({ cleanedUrl: "/k1-cut-2.png", points });
-    // the piece is untouched
     expect(h.draft.pieceUrl).toBe("/piece.png");
   });
 });
@@ -357,20 +495,6 @@ describe("Your cutout marks (T130)", () => {
     const many = Array.from({ length: 12 }, (_, i) => ({ x: i, y: i, label: "positive" as const }));
     expect(marksRequest(["c1"], [0, 0, 9, 9], many).points).toHaveLength(10);
   });
-
-  it("consistency item 6: Use this again after browser back reuses the draft product (no second POST products)", () => {
-    const product = { id: "pr1", artworkId: "k1", creatorId: "me", type: "sticker" as const, mockupUrl: null, printPngUrl: null, printSvgUrl: null, priceCents: 500, status: "draft", previewUrl: null };
-    const k1Cut: CutoutState = { ...pieceCut, artworkId: "k1", cleanedUrl: "/k1-cut.png" };
-    const h = harness({ ...piece, ...addChange(piece, change("k1", "p1")), cutouts: { p1: pieceCut, k1: k1Cut }, cutoutArtworkId: "k1" });
-    takeCutout(h.deps, "k1");
-    expect(productToMake(h.draft)).toBe("make");
-    // Making your sticker made it; then browser back to Your cutout and Use this again
-    h.deps.update({ productRecord: product, productCut: "/k1-cut.png" });
-    takeCutout(h.deps, "k1");
-    expect(h.draft.productRecord).toEqual(product);
-    expect(productToMake(h.draft)).toBe("reuse");
-    expect(h.api).not.toHaveBeenCalled();
-  });
 });
 
 describe("Changing your art (T113)", () => {
@@ -385,7 +509,7 @@ describe("Changing your art (T113)", () => {
 
   it("Change it again: POST change on the child; the new child goes on screen; Back to my original returns to the first change", async () => {
     const start = { ...piece, ...addChange(piece, change("k1", "p1")), changeInstruction: "Make it bigger" };
-    const h = harness(start, { "/change": changeAnswer });
+    const h = harness(start, { "/change": changeAnswer, ...chainRest("k2") });
     const req = changeRequest(start)!;
     await runChange(h.deps, req);
     expect(h.calls[0]).toBe('api artworks/k1/change {"instruction":"Make it bigger"}');
@@ -421,13 +545,13 @@ describe("Changing your art (T113)", () => {
 
 describe("T117: kept-mounted routes (cacheComponents) never re-send or come back locked", () => {
   it("a second Make the change gets a new nonce and sends the new instruction once, on the child", async () => {
-    const answers: Record<string, unknown> = { "/change": { artwork: { ...artwork({ id: "k1", parentArtworkId: "p1" }), previewUrl: "/k1.png" }, description: { alt: "blue", spoken: "", differences: "" } } };
+    const answers: Record<string, unknown> = { "/change": { artwork: { ...artwork({ id: "k1", parentArtworkId: "p1" }), previewUrl: "/k1.png" }, description: { alt: "blue", spoken: "", differences: "" } }, ...chainRest("k1") };
     const h = harness({ ...piece }, answers);
     submitChange(h.deps, "make it blue", null);
     const first = h.draft.changeNonce;
     await once(`change:${first}:0`, () => runChange(h.deps, changeRequest(h.draft)!));
     // Before and after → Change it again → a new request
-    answers["/change"] = changeAnswer;
+    Object.assign(answers, { "/change": changeAnswer, ...chainRest("k2") });
     submitChange(h.deps, "make the stem red", null);
     const second = h.draft.changeNonce;
     expect(second).not.toBe(first);
@@ -443,13 +567,13 @@ describe("T117: kept-mounted routes (cacheComponents) never re-send or come back
   });
 
   it("a revisit after the request finished goes to compare and does not post again", async () => {
-    const h = harness({ ...piece }, { "/change": changeAnswer });
+    const h = harness({ ...piece }, { "/change": changeAnswer, ...chainRest("k2") });
     submitChange(h.deps, "make it bigger", null);
     const nonce = h.draft.changeNonce;
     expect(changingVisit(h.draft, nonce)).toBe("send");
     await runChange(h.deps, changeRequest(h.draft)!);
     expect(changingVisit(h.draft, nonce)).toBe("compare");
-    expect(h.api).toHaveBeenCalledTimes(1);
+    expect(h.api).toHaveBeenCalledTimes(3);
   });
 
   it("Back to my art keeps the nonce (no remount, I1) and a revisit of the dropped request goes to Change it", () => {
@@ -561,29 +685,12 @@ describe("Round 3 ruling 6: clientRequestId on change and products", () => {
       { instruction: "make it blue", transcript: "make it blue", clientRequestId: nonce },
     ]);
   });
-
-  it("each Use this mints a new products clientRequestId; the store sends it", async () => {
-    const h = harness({ ...piece });
-    toMaking(h.deps, "p1");
-    const first = h.draft.productRequestId;
-    expect(first).toMatch(/^[0-9a-f-]{36}$/);
-    toMaking(h.deps, "p1");
-    expect(h.draft.productRequestId).not.toBe(first);
-    const fetch = vi.fn(async () => new Response(JSON.stringify({ id: "pr1", artworkId: "p1", type: "sticker" }), { status: 201 }));
-    vi.stubGlobal("fetch", fetch);
-    try {
-      const { makeProduct } = await import("@/components/create/store");
-      await makeProduct("p1", "sticker", 7, null, "req-1");
-      const init = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1];
-      expect(JSON.parse(init.body as string)).toEqual({ artworkId: "p1", type: "sticker", clientRequestId: "req-1" });
-    } finally { vi.unstubAllGlobals(); }
-  });
 });
 
 describe("Round 3 ruling 5: Redo while the listing drafts", () => {
   const product = { id: "pr1", artworkId: "p1", creatorId: "me", type: "sticker" as const, mockupUrl: "/m.png", printPngUrl: null, printSvgUrl: null, priceCents: 500, status: "draft", previewUrl: "/pv.png" };
-  it("drops the run, opens Your cutout of the product's artwork and keeps the draft product (Use this reuses it, no second POST)", () => {
-    const h = harness({ ...piece, artworkId: "p1", productRecord: product, productCut: "/piece.png", listingRun: "run-1", productRequestId: "req-1" });
+  it("drops the run, opens Your cutout of the product's artwork and keeps the draft product; Use this returns to Change it with it (round 4: no second POST)", () => {
+    const h = harness({ ...piece, artworkId: "p1", productRecord: product, made: { p1: { ...product, cut: "/piece.png" } }, listingRun: "run-1", productJob: { artworkId: "p1", requestId: "req-1" } });
     expect(canRedoListing(h.draft)).toBe(true);
     redoListing(h.deps);
     expect(h.draft.listingRun).toBeUndefined();
@@ -591,8 +698,10 @@ describe("Round 3 ruling 5: Redo while the listing drafts", () => {
     expect(h.draft.productRecord).toEqual(product);
     expect(h.calls.at(-1)).toBe("push /create/cutout");
     expect(cutoutVisit(h.draft)).toBe("cut");
-    // back on Your cutout of a change result: Use this → Making, which reuses the product
-    expect(productToMake(h.draft)).toBe("reuse");
+    // Use this → Change it, which shows the product at once
+    takeCutout(h.deps, "p1");
+    expect(h.calls.at(-1)).toBe("push /create/change");
+    expect(changeItProduct(h.draft)).toMatchObject({ artworkId: "p1", plan: "ready" });
     expect(h.api).not.toHaveBeenCalled();
   });
 

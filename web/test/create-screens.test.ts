@@ -14,10 +14,9 @@ import { sizeText } from "@/components/create/screens/AdjustArea";
 import { StoryVideoRowView } from "@/components/create/StoryVideoRow";
 import { MascotPicture } from "@/components/create/art";
 import { ListingView, LISTING_FORM, printStatus, type ListingViewProps } from "@/components/create/screens/ListingView";
-import { ChangeItView, CHANGE_FORM, type ChangeItViewProps } from "@/components/create/screens/ChangeItView";
+import { ChangeItView, CHANGE_FORM, WAIT_HINT, type ChangeItViewProps } from "@/components/create/screens/ChangeItView";
 import { BeforeAfterView, type BeforeAfterViewProps } from "@/components/create/screens/BeforeAfterView";
 import { MakingCutoutView } from "@/components/create/screens/MakingCutoutView";
-import { MakingProductView } from "@/components/create/screens/MakingProductView";
 import { Welcome } from "@/components/create/screens/Welcome";
 import { WelcomeAccountView } from "@/components/create/SignOut";
 
@@ -254,6 +253,15 @@ describe("Adjust the area view (R2)", () => {
     expect(Object.keys(m.create.photo)).not.toContain("uploading");
   });
 
+  it("round 4 ruling 1: Adjust the area makes no request: the local photo's object URL, no API call, no upload, no stored original", () => {
+    const src = readFileSync(resolve(__dirname, "../components/create/screens/AdjustArea.tsx"), "utf8");
+    expect(src).toContain("photoUrl(area.photoKey)");
+    expect(src).not.toMatch(/useOriginal|from "\.\.\/api"[^;]*\bapi\b|@vercel\/blob|fetch\(/);
+    expect(src).not.toMatch(/\bapi</);
+    const photo = readFileSync(resolve(__dirname, "../components/create/screens/Photo.tsx"), "utf8");
+    expect(photo).not.toMatch(/@vercel\/blob|\bapi</);
+  });
+
   it("cutting: no Back, the cutting line, only Use this area (dimmed)", () => {
     const out = adjust({ busy: true });
     expect(out).not.toContain('aria-label="Back"');
@@ -448,13 +456,15 @@ function change(over: Partial<ChangeItViewProps> = {}): string {
     back: "/create/cutout",
     phase: "idle",
     micOff: null,
-    art: { src: "/piece.png", alt: "A fern" },
+    art: { src: "/pr1-photo.png", alt: "Your sticker with your art" },
+    making: null,
+    canFix: true,
     shows: "A fern drawn in pen.",
     instruction: "",
     seconds: 0,
     error: null,
     announce: "",
-    on: { instruction: noop, record: noop, stop: noop, typeInstead: noop, submit: noop, skip: noop, retry: noop, tryDifferent: noop },
+    on: { instruction: noop, record: noop, stop: noop, typeInstead: noop, submit: noop, skip: noop, retry: noop, tryDifferent: noop, fix: noop, retryProduct: noop },
     ...over,
   };
   return html(createElement(ChangeItView, props));
@@ -471,8 +481,10 @@ describe("Change it view (T113, boards 2027:3138 / 2026:3067 / 2026:3135 / 2038:
     before(out, s.start, s.done);
     before(out, s.done, r.skip);
     expect(out).toContain(`placeholder="${s.textPlaceholder}"`);
-    // the art is described by the card next to it
-    expect(out).toContain('alt=""');
+    // round 4 ruling 2: the product photo of the art on screen, then Fix the cutout after the card
+    expect(out).toContain('src="/pr1-photo.png"');
+    expect(out).toContain('alt="Your sticker with your art"');
+    before(out, r.skip, r.fixCutout);
     // Make the change submits the field's form and is off while the field is empty
     expect(out).toContain(`id="${CHANGE_FORM}"`);
     expect(out).toMatch(btnDisabled(s.done));
@@ -541,6 +553,33 @@ describe("Change it view (T113, boards 2027:3138 / 2026:3067 / 2026:3135 / 2038:
     expect(out).toContain('role="alert"');
   });
 
+  it("round 4 ruling 2, making state: the creating animation and Making your sticker… in the picture's place; both buttons wait (aria-disabled, focusable, pointing at the hint); no Fix the cutout", () => {
+    const making = { status: r.makingSticker, hint: r.beingMadeSticker, error: null };
+    const out = change({ making, instruction: "Make the book red" });
+    expect(out).toMatch(/<video[^>]*src="\/assets\/sticker-loading\.mp4"/);
+    expect(out).toContain(r.makingSticker);
+    expect(out).not.toContain('src="/pr1-photo.png"');
+    for (const label of [s.done, r.skip]) {
+      expect(out).toMatch(new RegExp(`<button[^>]*aria-disabled="true"[^>]*aria-describedby="${WAIT_HINT}"[^>]*>(?:(?!</button>).)*${label}`));
+    }
+    // still focusable: not the disabled attribute
+    expect(out).not.toMatch(/<button[^>]* disabled=""/);
+    before(out, r.skip, r.beingMadeSticker);
+    expect(out).toContain(`<p id="${WAIT_HINT}"`);
+    expect(out).not.toContain(r.fixCutout);
+    // the photo swap: once made, the product photo and working buttons
+    const done = change({ instruction: "Make the book red" });
+    expect(done).toContain('src="/pr1-photo.png"');
+    expect(done).not.toContain("aria-disabled");
+    expect(done).not.toContain(r.beingMadeSticker);
+    // a failed product call: Try again in the picture's place, the buttons still wait
+    const failed = change({ making: { ...making, error: { message: m.create.errors.timeout, action: "retry" } } });
+    expect(failed).toContain(m.create.errors.retry);
+    expect(failed).toMatch(new RegExp(`<button[^>]*aria-disabled="true"[^>]*>(?:(?!</button>).)*${r.skip}`));
+    // tote copy
+    expect([r.makingSticker, r.makingTote, r.beingMadeSticker, r.beingMadeTote, r.fixCutout]).toEqual(["Making your sticker…", "Making your tote bag…", "Your sticker is being made", "Your tote bag is being made", "Fix the cutout"]);
+  });
+
   it("copy follows the v3 boards", () => {
     expect([r.titleEntry, s.title, s.done, r.skip, r.tryDifferent]).toEqual(["Change your art?", "Change your art", "Make the change", "Looks good as is", "Try a different change"]);
   });
@@ -551,10 +590,12 @@ function compare(over: Partial<BeforeAfterViewProps> = {}): string {
     asked: "Make the book red",
     before: { src: "/before.png", alt: "A monster reading a blue book" },
     after: { src: "/after.png", alt: "A monster reading a red book" },
+    subtitle: r.subtitleSticker,
     shows: "A fuzzy green monster reads a red book.",
     differences: "",
     playing: false,
-    on: { hear: noop, use: noop, again: noop, original: noop },
+    canFix: true,
+    on: { hear: noop, use: noop, again: noop, original: noop, fix: noop },
     ...over,
   };
   return html(createElement(BeforeAfterView, props));
@@ -564,12 +605,16 @@ describe("Before and after view (T113, board 2027:3091)", () => {
   it("YOU ASKED, Before, After, what it shows, Hear; Use this / Change it again / Back to my original", () => {
     const out = compare();
     expect(out).toContain('aria-label="Back"');
-    before(out, r.title, r.youSaid);
+    before(out, r.title, r.subtitleSticker);
+    before(out, r.subtitleSticker, r.youSaid);
     before(out, "Make the book red", r.before);
     before(out, r.before, r.after);
     before(out, r.after, r.shows);
     before(out, r.shows, r.hear);
-    before(out, r.hear, r.use);
+    before(out, r.hear, r.fixCutout);
+    before(out, r.fixCutout, r.use);
+    expect(compare({ canFix: false })).not.toContain(r.fixCutout);
+    expect([r.subtitleSticker, r.subtitleTote]).toEqual(["Your sticker, before and after", "Your tote bag, before and after"]);
     before(out, r.use, r.change);
     before(out, r.change, r.backToPictures);
     expect(out).toContain('alt="A monster reading a blue book"');
@@ -615,28 +660,6 @@ describe("Making your cutout view (T113, board 2038:4369)", () => {
     expect(out).toContain('aria-label="Back"');
     expect(out).toContain(m.create.cutout.makingCopyOriginal);
     expect(out).toContain(m.create.errors.retry);
-  });
-});
-
-describe("Making your sticker / tote bag view (T113, boards 4031:4378 / 4038:4628)", () => {
-  const status = (p: string) => fmt(r.making, { product: p });
-  it("sticker: title, copy, the decorative loading animation, the status line, Use this dimmed; no Back", () => {
-    const out = html(createElement(MakingProductView, { tote: false, status: status("sticker"), error: null, onRetry: noop }));
-    expect(out).not.toContain('aria-label="Back"');
-    before(out, m.create.making.titleSticker, m.create.making.copySticker);
-    expect(out.indexOf(m.create.making.copySticker)).toBeLessThan(out.indexOf("<video"));
-    expect(out.indexOf("<video")).toBeLessThan(out.indexOf("Making your sticker… this can take a minute."));
-    expect(out).toMatch(/<video[^>]*aria-hidden="true"/);
-    expect(out).toMatch(/<video[^>]*src="\/assets\/sticker-loading\.mp4"/);
-    expect(out).toMatch(/<video[^>]*muted/);
-    expect(out).toMatch(btnDisabled(t.use));
-  });
-
-  it("tote: the tote bag title, copy and status", () => {
-    const out = html(createElement(MakingProductView, { tote: true, status: status("tote bag"), error: null, onRetry: noop }));
-    expect(out).toContain("Making your tote bag");
-    expect(out).toContain("Placing your art on the bag and getting it ready to print.");
-    expect(out).toContain("Making your tote bag… this can take a minute.");
   });
 });
 

@@ -417,6 +417,8 @@
     "drawing": {
       "title": "Changing your art",
       "copy": "This takes about a minute. Tag is working on it.",
+      "stepChange": "Changing your art…",
+      "stepCutout": "Cutting it out…",
       "error": "The change did not work this time.",
       "back": "Back to my art"
     },
@@ -429,7 +431,14 @@
       "change": "Change it again",
       "backToPictures": "Back to my original",
       "use": "Use this",
-      "making": "Making your {product}… this can take a minute.",
+      "makingSticker": "Making your sticker…",
+      "makingTote": "Making your tote bag…",
+      "beingMadeSticker": "Your sticker is being made",
+      "beingMadeTote": "Your tote bag is being made",
+      "fixCutout": "Fix the cutout",
+      "subtitleSticker": "Your sticker, before and after",
+      "subtitleTote": "Your tote bag, before and after",
+      "productAlt": "Your {product} with your art",
       "titleEntry": "Change your art?",
       "skip": "Looks good as is",
       "before": "Before",
@@ -587,12 +596,6 @@
       "makingCopyOriginal": "Looking for your drawing in the frame and cutting it out…",
       "copyOriginal": "Here's the cutout of your art.",
       "adjustCopy": "Fix the edges if you need to. Tap the photo to add or remove an area."
-    },
-    "making": {
-      "titleSticker": "Making your sticker",
-      "copySticker": "Adding the white border and getting it ready to print.",
-      "titleTote": "Making your tote bag",
-      "copyTote": "Placing your art on the bag and getting it ready to print."
     }
   },
   "mascot": {

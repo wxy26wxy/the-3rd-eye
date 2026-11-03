@@ -90,3 +90,4 @@
 - TestFlight: the next build of The 3rd Eye (the round 3 iOS app, after 0.5.0 build 3): upload **pending** (product owner, Xcode Organizer).
 - Tag `v0.9`: set on the docs merge commit once production is promoted.
 - Approver: the product owner. Rollback target: v0.8.2's production deployment `dpl_GTaKpasRNth7NhTYnqokNe2wD9Ui` (Vercel instant rollback; migration 0006 is additive, so rolling the web back needs no revert).
+- Production: promoted by the founder on 2026-11-03 (early) as deployment `dpl_6NXxxREdYdsE8W3CKcAEFiuVxofD`, a fresh deploy of main f9687d4 (tag `v0.9`), alias https://the-3rd-eye.vercel.app; smoke OK (`/`, `/artists`, `/how-it-works`, `/create` 200; the `detect` route answers). Rollback: Vercel instant rollback to `dpl_GTaKpasRNth7NhTYnqokNe2wD9Ui` (v0.8.2); migration 0006 is additive, no revert needed.

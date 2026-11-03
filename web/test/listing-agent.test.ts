@@ -22,6 +22,8 @@ describe("listing tool handlers (pure)", () => {
     expect(contrastFromStats({ lightnessSpread: 5, chroma: 40 }).ok).toBe(true);
     const faint = contrastFromStats({ lightnessSpread: 12, chroma: 3 });
     expect(faint).toMatchObject({ ok: false, warning: true });
+    expect(contrastFromStats({ lightnessSpread: 2, chroma: 1, mean: 49.6 }).ok).toBe(true); // dark piece
+    expect(contrastFromStats({ lightnessSpread: 2, chroma: 1, mean: 50.4 }).ok).toBe(false);
   });
 
   it("suggest_price stays in range and scales with complexity", () => {

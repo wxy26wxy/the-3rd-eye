@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const base = { creatorId: "c1", source: "photo", status: "ready", createdAt: new Date(0), cleanedUrl: "https://x/c.png", originalUrl: "o", candidates: [], changeInstruction: null };
-const calls = { detect: [] as unknown[], change: [] as unknown[], products: [] as unknown[], image: [] as unknown[] };
+const calls = { detect: [] as unknown[], change: [] as unknown[], products: [] as unknown[], image: [] as unknown[], repeat: [] as string[] };
 const byKey = { artworks: new Map<string, Record<string, unknown>>(), products: new Map<string, Record<string, unknown>>() };
 const listings = new Map<string, Record<string, unknown>>();
 vi.mock("@/lib/auth", () => ({ requireCreator: () => ({ creatorId: "c1" }) }));
@@ -37,6 +37,11 @@ vi.mock("@/lib/pipeline/artworks", async (orig) => ({
     if (input.clientRequestId) byKey.artworks.set(input.clientRequestId, row);
     return { artwork: row, description: { alt_text: "Purple", spoken: "Purple.", dominant_colors: [], subject: "", differences_from_prompt: "" } };
   },
+  changeRepeat: async (row: { id: string; altText: string | null; spokenDescription: string | null }) => {
+    calls.repeat.push(row.id);
+    const alt = row.altText ?? "Described now";
+    return { artwork: { ...row, altText: alt }, description: { alt_text: alt, spoken: row.spokenDescription ?? "Said now.", dominant_colors: [], subject: "", differences_from_prompt: "" } };
+  },
   createFromImage: async (_c: string, input: unknown) => {
     calls.image.push(input);
     return { artwork: { ...base, id: "a9", cleanedUrl: null, status: "draft" }, candidates: [], imageSize: { w: 1200, h: 900 } };
@@ -65,7 +70,7 @@ const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 const A1 = "00000000-0000-4000-8000-000000000001";
 
 beforeEach(() => {
-  calls.detect = []; calls.change = []; calls.products = []; calls.image = [];
+  calls.detect = []; calls.change = []; calls.products = []; calls.image = []; calls.repeat = [];
   byKey.artworks.clear(); byKey.products.clear(); listings.clear();
 });
 
@@ -122,10 +127,19 @@ describe("clientRequestId", () => {
     expect(b.artwork.id).toBe(a.artwork.id);
     expect(b.description).toEqual({ alt: "Purple", spoken: "Purple.", differences: "" });
     expect(calls.change).toHaveLength(1);
+    expect(calls.repeat).toEqual([a.artwork.id]);
     const other = await change(req("artworks/ch1/change", { instruction: "make it purple", clientRequestId: "n-1" }), ctx("ch1"));
     expect(other.status).toBe(409);
     expect((await other.json()).error.code).toBe("client_request_conflict");
     expect((await change(req("artworks/a1/change", { instruction: "x", clientRequestId: "" }), ctx("a1"))).status).toBe(400);
+  });
+
+  it("change: a repeat whose row has no description yet is described before answering", async () => {
+    byKey.artworks.set("n-2", { ...base, id: "child2", parentArtworkId: "a1", changeInstruction: "purple", cleanedUrl: null, status: "draft", altText: null, spokenDescription: null, differencesFromPrompt: null, clientRequestId: "n-2" });
+    const res = await change(req("artworks/a1/change", { instruction: "purple", clientRequestId: "n-2" }), ctx("a1"));
+    expect(res.status).toBe(200);
+    expect((await res.json()).description).toEqual({ alt: "Described now", spoken: "Said now.", differences: "" });
+    expect(calls.change).toHaveLength(0);
   });
 
   it("products: first 201, a repeat 200 with the same product and no second build; another type → 409", async () => {

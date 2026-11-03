@@ -4,8 +4,8 @@ import { requireCreator } from "@/lib/auth";
 import { json, notFound, parseJson, route } from "@/lib/http";
 import { getArtworkForCreator } from "@/lib/db/queries";
 import { toArtworkVariant } from "@/lib/api/dto";
-import { changeArtwork } from "@/lib/pipeline/artworks";
-import { ClientRequestId, descriptionOf, existingChange } from "@/lib/pipeline/idempotency";
+import { changeArtwork, changeRepeat } from "@/lib/pipeline/artworks";
+import { ClientRequestId, existingChange } from "@/lib/pipeline/idempotency";
 import type { ArtworkRow } from "@/lib/db/queries";
 import type { Description } from "@/lib/ai/types";
 
@@ -30,7 +30,10 @@ export const POST = route<{ params: Promise<{ id: string }> }>(async (req, { par
   if (!parent) notFound("Artwork");
   if (body.clientRequestId) {
     const done = await existingChange(creatorId, body.clientRequestId, parent.id);
-    if (done) return answer(done, descriptionOf(done), 200);
+    if (done) {
+      const again = await runPipeline(() => changeRepeat(done));
+      return answer(again.artwork, again.description, 200);
+    }
   }
   const { artwork, description, repeated } = await runPipeline(() => changeArtwork(parent, body));
   return answer(artwork, description, repeated ? 200 : 201);

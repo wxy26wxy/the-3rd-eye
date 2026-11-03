@@ -25,6 +25,11 @@ describe("measureContrast (colour over opaque pixels)", () => {
     expect(c.warning).toBe(true);
   });
 
+  it("an evenly toned dark piece passes (mean L* ≤ 50); an evenly toned light grey piece warns", async () => {
+    expect((await measureContrast(await svg(400, 400, "", "#202020"))).ok).toBe(true);
+    expect((await measureContrast(await svg(400, 400, "", "#c8c8c8"))).ok).toBe(false);
+  });
+
   it("dark ink line art passes", async () => {
     expect((await measureContrast(await svg(800, 800, `<circle cx="400" cy="400" r="300" fill="none" stroke="#202020" stroke-width="40"/>`))).ok).toBe(true);
   });

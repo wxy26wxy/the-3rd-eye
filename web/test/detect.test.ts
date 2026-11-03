@@ -52,7 +52,7 @@ vi.mock("@/lib/ai/registry", () => ({
 }));
 vi.mock("@/lib/image/ref", () => ({ pngRef: (b: Buffer) => ({ data: b }) }));
 
-import { clipAlpha, createFromImage, detectInBox } from "@/lib/pipeline/artworks";
+import { changeRepeat, clipAlpha, createFromImage, detectInBox } from "@/lib/pipeline/artworks";
 
 const W = 400, H = 300;
 function rect(w: number, h: number, x0: number, y0: number, x1: number, y1: number): Mask {
@@ -175,5 +175,19 @@ describe("clipAlpha (T134: 1 px feather inside the frame)", () => {
     expect(b.alpha[10 * 20 + 4]).toBe(64);
     expect(b.alpha[10 * 20 + 5]).toBe(191);
     expect(b.alpha[10 * 20 + 6]).toBe(255);
+  });
+});
+
+describe("changeRepeat (T134 fix round m1)", () => {
+  it("describes a stored change child that has no description yet, and keeps an existing one", async () => {
+    await photoRow();
+    rows.set("ch1", { id: "ch1", originalUrl: "orig.png", changeInstruction: "purple", altText: null });
+    const out = await changeRepeat({ id: "ch1", originalUrl: "orig.png", changeInstruction: "purple", altText: null } as never);
+    expect(out.description.alt_text).toBe("Art");
+    expect(state.updates.at(-1)).toMatchObject({ altText: "Art", spokenDescription: "Art" });
+    const n = state.updates.length;
+    const kept = await changeRepeat({ id: "ch1", originalUrl: "orig.png", altText: "Before", spokenDescription: "Said.", differencesFromPrompt: null } as never);
+    expect(kept.description).toMatchObject({ alt_text: "Before", spoken: "Said." });
+    expect(state.updates.length).toBe(n);
   });
 });

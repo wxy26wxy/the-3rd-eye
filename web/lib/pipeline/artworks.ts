@@ -349,13 +349,35 @@ export async function changeArtwork(
     shapingTrace: { product, imageSize, previewUrl: preview.url, changedFrom: parent.id }, originalUrl: original.pathname,
     genResponseId: img.responseId || null, parentArtworkId: parent.id, status: "draft", createdByTask: task, clientRequestId: key,
   }), () => existingChange(parent.creatorId, key!, parent.id));
-  if (inserted.repeated) return { artwork: inserted.row, description: descriptionOf(inserted.row), repeated: true };
+  if (inserted.repeated) return { ...(await changeRepeat(inserted.row, task)), repeated: true };
   trackArtwork(id);
   const description = await registry.describer.describe(pngRef(png), { prompt: instruction, trace: traceFor(id, task, "describe") });
   const artwork = await updateArtwork(id, {
     altText: description.alt_text, spokenDescription: description.spoken, differencesFromPrompt: description.differences_from_prompt || null,
   });
   return { artwork, description };
+}
+
+/**
+ * The answer to a repeated `change` (T134 clientRequestId): the stored child and its description.
+ * When the first call has not described it yet (still running, or its describe failed), it is
+ * described now, so a retry gets a description; if that also fails the row is answered with an
+ * empty one (clients fall back to their own copy).
+ */
+export async function changeRepeat(row: ArtworkRow, task = "T134"): Promise<ChangeResult> {
+  if (row.altText != null || !row.originalUrl) return { artwork: row, description: descriptionOf(row) };
+  try {
+    const png = await storage().read(row.originalUrl);
+    const d = await (await ai()).describer.describe(pngRef(png), { prompt: row.changeInstruction ?? undefined, trace: traceFor(row.id, task, "describe") });
+    const artwork = await updateArtwork(row.id, {
+      altText: d.alt_text, spokenDescription: d.spoken, differencesFromPrompt: d.differences_from_prompt || null,
+    });
+    return { artwork, description: d };
+  } catch (err) {
+    if (err instanceof DeadlineError) throw err;
+    console.warn("[artworks] describing a repeated change failed:", err instanceof Error ? err.message : err);
+    return { artwork: row, description: descriptionOf(row) };
+  }
 }
 
 /**

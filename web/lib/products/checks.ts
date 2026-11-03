@@ -3,8 +3,8 @@
  * server runs them itself so the publish gate never depends on what the model claims.
  *
  * Round 3 (T134, ruling 2): resolution is the only hard gate, measured on the artwork's cleaned PNG
- * allowing one further ×2 upscale; contrast is a warning measured on colour (CIE Lab lightness spread
- * and chroma) over the opaque pixels only. `print_ok` is true only when neither is flagged; `check`
+ * allowing one further ×2 upscale; contrast is a warning measured on colour (CIE Lab lightness spread,
+ * chroma, or a dark mean lightness) over the opaque pixels only. `print_ok` is true only when neither is flagged; `check`
  * names the flagged one (resolution first).
  */
 import sharp from "sharp";
@@ -16,6 +16,8 @@ export const RESOLUTION_UPSCALE = 2;
 export const MIN_LIGHTNESS_SPREAD = 30;
 /** …or the colourfulness (chroma C*, p90) reaches this. */
 export const MIN_CHROMA = 25;
+/** …or the art is dark overall (mean L* at most this): a dark piece prints clearly on any product (fix round m5). */
+export const MAX_DARK_MEAN = 50;
 /** Pixels at or above this alpha count as part of the art. */
 const OPAQUE_ALPHA = 128;
 /** Longest side the contrast is measured at (statistics, not detail). */
@@ -45,9 +47,9 @@ export function checkResolution(ctx: { productType: ProductKind; width: number; 
   };
 }
 
-/** Judges contrast from colour statistics: lightness spread (L*, 0–100) or chroma (C*). */
+/** Judges contrast from colour statistics: lightness spread (L*, 0–100), chroma (C*), or a dark mean L* (unrounded). */
 export function contrastFromStats(s: { lightnessSpread: number; chroma: number; stdev?: number; range?: number; mean?: number }): ContrastCheck {
-  const ok = s.lightnessSpread >= MIN_LIGHTNESS_SPREAD || s.chroma >= MIN_CHROMA;
+  const ok = s.lightnessSpread >= MIN_LIGHTNESS_SPREAD || s.chroma >= MIN_CHROMA || (s.mean !== undefined && s.mean <= MAX_DARK_MEAN);
   return {
     ok, warning: true, lightnessSpread: Math.round(s.lightnessSpread), chroma: Math.round(s.chroma),
     stdev: Math.round(s.stdev ?? 0), range: Math.round(s.range ?? 0), mean: Math.round(s.mean ?? 0),

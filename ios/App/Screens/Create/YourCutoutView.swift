@@ -6,8 +6,9 @@ import SwiftUI
 /// edges" shows that picture with the marks), "Clear marks"; pinned "Use this", "Apply cutout"
 /// (cuts again with the marks and shows it) and "Start over" (back to Choose method).
 ///
-/// Shown twice in a creation: after Adjust the area for the crop's piece ("Use this" → Change it),
-/// and after a kept change for its cut-out ("Use this" → Making your sticker). Apply cutout sends
+/// Shown after Adjust the area for the crop's piece, and from "Fix the cutout" (Change it, Before
+/// and after) or Listing "Redo" for the art on screen; "Use this" goes to Change it (back to the one
+/// it was opened from), which shows the product photo, rebuilt by the `cleanup` (its `products`). Apply cutout sends
 /// `cleanup {candidateIds: [the piece], points, box, clipToBox: true}` on that artwork; round 4: the
 /// picture is the stored crop (or the change), so the box is always the whole picture and no frame
 /// is drawn. Coordinates are pixels of that picture (`imageSize`). Taps on the picture: on a mark's
@@ -113,7 +114,7 @@ struct YourCutoutView: View {
         if let error { ErrorCard(message: error) }
       }
     } actions: {
-      PillButton(work == .use ? "Cutting out your art…" : "Use this", hint: isPhoto ? "Goes on to change it or keep it as it is" : "Uses this cutout and makes your product") {
+      PillButton(work == .use ? "Cutting out your art…" : "Use this", hint: isRedo ? "Saves this cutout and goes back to your design" : "Goes on to change it or keep it as it is") {
         start(.use) { await useThis() }
       }
       .disabled(!hasCut || work != nil)
@@ -506,6 +507,9 @@ struct YourCutoutView: View {
       if cut.spokenDescription?.isEmpty ?? true { cut.spokenDescription = flow.cut(for: artworkId)?.artwork.spokenDescription }
       if picked, isPhoto { flow.resetChange() }
       flow.recordCut(of: artworkId, cut, request: picked ? request : nil)
+      // Ruling 2 (T143): the products rebuilt from the new cut come with the answer.
+      flow.applyRebuilt(result.products, for: cut)
+      if flow.artwork?.id == artworkId { flow.artwork = cut }
       flow.cutoutNotice = result.productNotice
       if isRedo {
         flow.cutoutArtwork = cut
@@ -535,6 +539,12 @@ struct YourCutoutView: View {
       return
     }
     guard app.createPath.last == .yourCutout(artworkId), let next = flow.routeAfterCutout(of: artworkId) else { return }
+    // Opened from Change it or Before and after ("Fix the cutout"): back to that Change it.
+    if let index = app.createPath.lastIndex(of: .changeIt) {
+      app.designs.markStale()
+      app.createPath = Array(app.createPath.prefix(through: index))
+      return
+    }
     app.push(next)
   }
 

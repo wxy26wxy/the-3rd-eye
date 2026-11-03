@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// Board "Change it · Before and after" (`2012:344`): "YOU ASKED", the art before and after side by
-/// side, what the new picture shows, then "Use this" (goes on to the cut-out), "Change it again"
-/// (another change, made to this result) and "Back to my original" (one change back, to the art this
-/// change was made from; the chain is kept, no call: the original was never touched).
+/// Board "Change it · Before and after" (`2012:344`): "YOU ASKED", the two product photos side by
+/// side (round 4 ruling 2: the product of the art the change was made from, and the change's own,
+/// made on Changing), what the new picture shows, then "Use this" (Change it on the change, its
+/// photo at once), "Change it again" (Change it on the change, for another change), "Back to my
+/// original" (one change back; the chain is kept, no call) and "Fix the cutout" (Your cutout of the
+/// change, whose "Use this" returns to Change it).
 struct BeforeAfterView: View {
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
@@ -12,15 +14,17 @@ struct BeforeAfterView: View {
   private var flow: CreateFlow { app.flow }
 
   var body: some View {
-    FlowScreen(title: "Here's the change", step: (3, 3)) {
+    FlowScreen(title: "Here's the change", subtitle: isTote ? "Your tote bag, before and after" : "Your sticker, before and after", step: (3, 3)) {
       VStack(spacing: Theme.Space.xxl) {
         if let asked = flow.changeAsked, !asked.isEmpty { InfoCard(eyebrow: "YOU ASKED", text: asked) }
         let layout = dynamicTypeSize.isAccessibilitySize
           ? AnyLayout(VStackLayout(spacing: Theme.Space.m))
           : AnyLayout(HStackLayout(spacing: Theme.Space.m))
         layout {
-          ArtPreview(label: "Before", art: flow.changeBase, photo: flow.photo, height: ThemeEffects.beforeAfterHeight)
-          ArtPreview(label: "After", art: flow.changedArtwork, height: ThemeEffects.beforeAfterHeight)
+          ArtPreview(label: "Before", art: flow.changeBase, url: productURL(of: flow.changeBase), height: ThemeEffects.beforeAfterHeight)
+            .accessibilityIdentifier("before-product")
+          ArtPreview(label: "After", art: flow.changedArtwork, url: productURL(of: flow.changedArtwork), height: ThemeEffects.beforeAfterHeight)
+            .accessibilityIdentifier("after-product")
         }
         if let text = flow.changedArtwork?.shownDescription { DescriptionCard(text: text) }
         if let diff = flow.changeDifferences?.trimmingCharacters(in: .whitespacesAndNewlines), !diff.isEmpty {
@@ -31,8 +35,8 @@ struct BeforeAfterView: View {
         }
       }
     } actions: {
-      PillButton("Use this", hint: "Keeps the change and makes the cutout") {
-        if app.createPath.last == .beforeAfter, let next = flow.routeAfterKeepingChange() { app.push(next) }
+      PillButton("Use this", hint: "Keeps the change") {
+        backToChangeIt()
       }
       .disabled(flow.changedArtwork == nil)
       PillButton("Change it again", hint: "Draws a new version with your change", kind: .secondary, showsArrow: false) {
@@ -48,11 +52,38 @@ struct BeforeAfterView: View {
       }
       .buttonStyle(.plain)
       .accessibilityHint(Text("Goes back to the art before this change"))
+      Button { fixTheCutout() } label: {
+        Text("Fix the cutout")
+          .themeFont(.body)
+          .underline()
+          .foregroundStyle(colors.text)
+          .frame(minWidth: Theme.Size.minTarget, minHeight: Theme.Size.minTarget)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .disabled(flow.changedArtwork.flatMap { flow.cut(for: $0.id) } == nil)
+      .accessibilityHint(Text("Opens the cutout of the change to add or remove areas"))
     }
     .announces(flow.changedArtwork?.shownDescription)
   }
 
-  /// Change it again: back to Change it, which now shows this result as "Your art".
+  private var isTote: Bool { flow.productType == .tote }
+
+  /// The product photo of an art in the chain (the parent's, the change's), else the art itself.
+  private func productURL(of art: Artwork?) -> URL? {
+    guard let art else { return nil }
+    let cut = flow.cutArtwork(art.id) ?? art
+    guard let made = flow.products[art.id] else { return nil }
+    return ProductPicture.url(type: flow.productType, product: made, artwork: cut)
+  }
+
+  /// Fix the cutout: Your cutout of the change on screen.
+  private func fixTheCutout() {
+    guard app.createPath.last == .beforeAfter, let change = flow.changedArtwork, flow.cut(for: change.id) != nil else { return }
+    app.push(.yourCutout(change.id))
+  }
+
+  /// Use this / Change it again: back to Change it, which now shows this result.
   private func backToChangeIt() {
     if app.createPath.last == .beforeAfter { app.createPath.removeLast() }
   }

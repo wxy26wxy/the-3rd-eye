@@ -46,8 +46,16 @@ final class DesignsUITests: XCTestCase {
     XCTAssertTrue(confirm.waitForExistence(timeout: 5), "asks first")
     XCTAssertTrue(try lastBody("products").isEmpty, "nothing made before the confirmation")
     confirm.tap()
-    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 15), "Listing details")
+    // Ruling 2: no sticker draft, so Change it makes the sticker and shows its photo.
+    XCTAssertTrue(productPhoto(app).waitForExistence(timeout: 15), "Change it with the new sticker")
     XCTAssertEqual(try lastBody("products")["type"] as? String, "sticker")
+    XCTAssertEqual(try lastBody("products")["artworkId"] as? String, "d1")
+    let keep = app.buttons["Looks good as is"]
+    for _ in 0..<3 where !keep.isHittable { app.swipeUp() }
+    waitUntilEnabled(keep)
+    keep.tap()
+    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 15), "Listing details")
+    XCTAssertEqual(try count("products"), 1)
   }
 
   /// "Edit listing" on a draft goes through Listing details (the normal way to publish).

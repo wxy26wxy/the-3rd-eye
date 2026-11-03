@@ -91,7 +91,6 @@ private struct CreateDestination: View {
     case .beforeAfter: BeforeAfterView()
     case .makingCutout(let job): MakingCutoutView(job: job)
     case .yourCutout(let id): YourCutoutView(artworkId: id)
-    case .makingProduct: MakingProductView()
     case .listingDetails: ListingDetailsView()
     case .storyVideo: StoryVideoView()
     case .videoSaved: VideoSavedView()

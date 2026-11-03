@@ -58,9 +58,6 @@
     "Added area, mark %lld" : {
 
     },
-    "Adding the white border and getting it ready to print." : {
-
-    },
     "Adds a picture from your library" : {
 
     },
@@ -151,7 +148,7 @@
     "Changing your art" : {
 
     },
-    "Changing your art now. This can take up to a minute." : {
+    "Changing your art…" : {
 
     },
     "Check the name and price, then list it." : {
@@ -190,7 +187,7 @@
     "Cuts out what is inside the frame" : {
 
     },
-    "Cutting out your art. This takes a few seconds." : {
+    "Cutting it out…" : {
 
     },
     "Cutting out your art…" : {
@@ -271,7 +268,13 @@
     "Finish the listing and put it in the shop" : {
 
     },
+    "Fix the cutout" : {
+
+    },
     "Fix the edges" : {
+
+    },
+    "Fix the edges of your cutout" : {
 
     },
     "Frame covers %lld by %lld percent of the photo" : {
@@ -287,19 +290,16 @@
     "Frame reset" : {
 
     },
-    "Frame your art again and cut it out" : {
-
-    },
-    "Getting your photo ready…" : {
-
-    },
     "Go back" : {
 
     },
-    "Goes back to the art before this change" : {
+    "Goes back to frame your photo again" : {
 
     },
-    "Goes back to the frame on your photo" : {
+    "Goes back to take or pick another photo" : {
+
+    },
+    "Goes back to the art before this change" : {
 
     },
     "Goes on to change it or keep it as it is" : {
@@ -369,7 +369,7 @@
     "Keep the name to 80 letters or fewer." : {
 
     },
-    "Keeps the change and makes the cutout" : {
+    "Keeps the change" : {
 
     },
     "Keeps the listing as it is" : {
@@ -453,16 +453,16 @@
     "Making your cutout" : {
 
     },
-    "Making your sticker" : {
-
-    },
     "Making your sticker. This can take up to a minute." : {
 
     },
-    "Making your tote bag" : {
+    "Making your sticker…" : {
 
     },
     "Making your tote bag. This can take up to a minute." : {
+
+    },
+    "Making your tote bag…" : {
 
     },
     "Mark added" : {
@@ -561,6 +561,9 @@
     "Opens the camera for up to 30 seconds" : {
 
     },
+    "Opens the cutout of the change to add or remove areas" : {
+
+    },
     "Opens the design. More actions are in the actions list." : {
 
     },
@@ -574,6 +577,9 @@
 
     },
     "Opens this way of making art" : {
+
+    },
+    "Opens your cutout to add or remove areas" : {
 
     },
     "Opens your photo library" : {
@@ -609,9 +615,6 @@
     "Piece %lld" : {
 
     },
-    "Placing your art on the bag and getting it ready to print." : {
-
-    },
     "Please sign in again with your code." : {
 
     },
@@ -630,7 +633,7 @@
     "Puts it on a tote bag and writes its listing" : {
 
     },
-    "Puts the frame back around your drawing" : {
+    "Puts the frame back around the whole photo" : {
 
     },
     "Re-do the cutout" : {
@@ -691,6 +694,9 @@
 
     },
     "Saves it as the story buyers read" : {
+
+    },
+    "Saves this cutout and goes back to your design" : {
 
     },
     "Saves your changes as your story" : {
@@ -823,6 +829,9 @@
     "Starts again from the choice of photo" : {
 
     },
+    "Starts again with another photo" : {
+
+    },
     "Status: %@" : {
 
     },
@@ -855,6 +864,9 @@
 
     },
     "Story saved" : {
+
+    },
+    "Take a new photo" : {
 
     },
     "Take a photo" : {
@@ -935,9 +947,6 @@
     "This sticker is already in the shop" : {
 
     },
-    "This takes a few seconds…" : {
-
-    },
     "This tote is already in the shop" : {
 
     },
@@ -975,9 +984,6 @@
 
     },
     "Use this story" : {
-
-    },
-    "Uses this cutout and makes your product" : {
 
     },
     "Version %@ (%@), %@" : {
@@ -1155,7 +1161,16 @@
     "Your product" : {
 
     },
+    "Your sticker" : {
+
+    },
+    "Your sticker is being made" : {
+
+    },
     "Your sticker is ready!" : {
+
+    },
+    "Your sticker, before and after" : {
 
     },
     "Your story" : {
@@ -1170,7 +1185,16 @@
     "YOUR THANK-YOU" : {
 
     },
+    "Your tote bag" : {
+
+    },
+    "Your tote bag is being made" : {
+
+    },
     "Your tote bag is ready!" : {
+
+    },
+    "Your tote bag, before and after" : {
 
     },
     "Your video was longer than 30 seconds, so we kept the first 30." : {

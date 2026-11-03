@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// Board "Making your cutout" (`4030:4482`). Two jobs: the frame from Adjust the area (round 4:
-/// the local photo is cropped to the frame, only the crop is uploaded and `POST /artworks {framed:
-/// true}` finds the drawings in it and cuts out the largest, with the searching mascot), or a kept
-/// change is cut out (`POST /artworks/{id}/cutout`, once per
-/// artwork: `CreateFlow.changeCuts`, with the making animation). Your cutout replaces this screen,
+/// Board "Making your cutout" (`4030:4482`): the frame from Adjust the area (round 4: the local
+/// photo is cropped to the frame, only the crop is uploaded and `POST /artworks {framed: true}`
+/// finds the drawings in it and cuts out the largest, with the searching mascot). A change is cut
+/// out on Changing (ruling 2). Your cutout replaces this screen,
 /// so Back skips it. Nothing found in the frame goes back to Adjust the area, which says to move or
 /// grow the frame.
 ///
@@ -18,16 +17,14 @@ struct MakingCutoutView: View {
   @State private var attempt = 0
   @State private var running = false
 
-  private var isDetect: Bool { if case .area = job { return true } else { return false } }
+  /// Nothing in the crop goes back to the frame (the only job since ruling 2).
+  private var isDetect: Bool { true }
 
   var body: some View {
     LoadingScreen(
       title: "Making your cutout",
-      detail: isDetect ? "Looking for your drawing in the frame and cutting it out. This takes a few seconds." : "Cutting out your art. This takes a few seconds.",
-      media: isDetect
-        ? .animation(resource: Tokens.Asset.mascotMagnifier, aspect: ThemeEffects.tallSkyCardAspect)
-        : .animation(resource: Tokens.Asset.stickerLoading, aspect: ThemeEffects.productLoadingAspect,
-                     radius: ThemeEffects.artPreviewRadius, reduced: .firstFrame),
+      detail: "Looking for your drawing in the frame and cutting it out. This takes a few seconds.",
+      media: .animation(resource: Tokens.Asset.mascotMagnifier, aspect: ThemeEffects.tallSkyCardAspect),
       error: error,
       retry: { error = nil; attempt += 1 },
       backLabel: "Back to my art"
@@ -54,22 +51,19 @@ struct MakingCutoutView: View {
   private func run(_ flow: CreateFlow) async {
     switch job {
     case .area(let box): await cutArea(box, flow: flow)
-    case .change(let id): await cutChange(id, flow: flow)
     }
   }
 
-  /// The flow already has this job's cut: the frame's piece, or the change's cut-out.
+  /// The flow already has this job's cut: the frame's piece.
   static func isDone(_ job: CutJob, in flow: CreateFlow) -> Bool {
     switch job {
     case .area(let box): return flow.cropBox == box && flow.pieceArtwork?.cleanedUrl != nil
-    case .change(let id): return flow.changeCuts[id] != nil
     }
   }
 
   static func target(of job: CutJob, in flow: CreateFlow) -> String {
     switch job {
     case .area: return flow.photoArtwork?.id ?? ""
-    case .change(let id): return id
     }
   }
 
@@ -79,8 +73,6 @@ struct MakingCutoutView: View {
       var known = Set(app.designs.artworks.map(\.id))
       if let photo = flow.photoArtwork { known.insert(photo.id) }
       return flow.startJob(.photo(box: box), knownArtworkIds: known)
-    case .change(let id):
-      return flow.startJob(.cut(artworkId: id, previousCut: nil, needsCandidates: false))
     }
   }
 
@@ -138,46 +130,6 @@ struct MakingCutoutView: View {
     if flow === app.flow, app.createPath.last == .makingCutout(job) { app.createPath.removeLast() }
   }
 
-  /// A kept change: SAM finds its pieces and the largest becomes the cut-out; its pieces stay with
-  /// it, so the edge tools send that piece with the marks.
-  private func cutChange(_ id: String, flow: CreateFlow) async {
-    if flow.changeCuts[id] != nil {
-      leave(to: id, flow: flow)
-      return
-    }
-    guard flow.changes.contains(where: { $0.artwork.id == id }), let pending = pending(flow) else {
-      error = String(localized: "Your art is missing. Go back and pick it again.")
-      return
-    }
-    do {
-      let api = app.api
-      let res = try await flow.inFlight { try await api.cutout(artworkId: id) }
-      guard flow.finishJob(pending) else { return }
-      var candidates = res.candidates
-      var size = res.imageSize
-      // The pieces are also on GET /artworks/{id} after the cutout (docs/api.md, round 2b step 9).
-      if candidates.isEmpty || size?.isUsable != true, let detail = try? await app.api.artworkDetail(id: id) {
-        if candidates.isEmpty { candidates = detail.candidates }
-        if size?.isUsable != true { size = detail.imageSize }
-      }
-      recordChangeCut(id, res.artwork, candidates: candidates, size: size, flow: flow)
-    } catch {
-      await failed(error, job: pending, flow: flow)
-    }
-  }
-
-  private func recordChangeCut(_ id: String, _ artwork: Artwork, candidates: [Candidate], size: ImageSize?, flow: CreateFlow) {
-    let art = flow.changes.first(where: { $0.artwork.id == id })?.artwork
-    var cut = artwork
-    if cut.altText?.isEmpty ?? true { cut.altText = art?.altText }
-    if cut.spokenDescription?.isEmpty ?? true { cut.spokenDescription = art?.spokenDescription }
-    // The server cut out the largest piece, `candidates[0]`; the edge tools send it with the marks.
-    flow.changeCuts[id] = Cut(artwork: cut, candidates: candidates, imageSize: size,
-                              selected: candidates.first.map { [$0.id] } ?? [], box: nil)
-    flow.updateChange(cut)
-    leave(to: id, flow: flow)
-  }
-
   /// A failed call: a lost answer is looked for on the server first (kept for Try again otherwise);
   /// nothing in the frame goes back to Adjust the area; anything else is shown here.
   private func failed(_ error: Error, job pending: PendingJob, flow: CreateFlow) async {
@@ -191,8 +143,7 @@ struct MakingCutoutView: View {
       nothingFound(flow, message: CleanupResult.errorMessage(for: error))
       return
     }
-    // A change's cutout shows the server's reason (T131); the frame's own 422 line is for `detect`.
-    self.error = isDetect ? (CleanupResult.errorMessage(for: error) ?? error.localizedDescription) : error.localizedDescription
+    self.error = CleanupResult.errorMessage(for: error) ?? error.localizedDescription
   }
 
   /// The cut already made on the server (after a lost answer, or back in the app): applied once.
@@ -205,11 +156,6 @@ struct MakingCutoutView: View {
       error = nil
       flow.recordPhoto(PhotoArtworkResponse(artwork: detail.artwork, candidates: detail.candidates, imageSize: detail.imageSize), box: box)
       if detail.artwork.cleanedUrl == nil { nothingFound(flow, message: nil) } else { leave(to: detail.artwork.id, flow: flow) }
-      return true
-    case (.change(let changeId), .cut(let id, _, _)) where id == changeId:
-      guard case .cut(let detail)? = await CreateFlow.reconcile(pending, api: app.api), flow.finishJob(pending) else { return false }
-      error = nil
-      recordChangeCut(id, detail.artwork, candidates: detail.candidates, size: detail.imageSize, flow: flow)
       return true
     default:
       return false

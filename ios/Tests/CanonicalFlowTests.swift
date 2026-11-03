@@ -37,37 +37,61 @@ final class CanonicalFlowTests: XCTestCase {
     XCTAssertEqual(flow.routeAfterArea(box: smaller.box), .makingCutout(.area(smaller.box)), "a new frame is a new crop")
   }
 
-  func testYourCutoutGoesToChangeItFirstAndToTheProductAfterAChange() {
+  /// Ruling 2: Your cutout › Use this is Change it, for the piece and for a change's cut-out (the
+  /// change goes on screen); "Looks good as is" needs the product of the cut on screen.
+  func testYourCutoutGoesToChangeItAndLooksGoodNeedsTheProduct() {
     let flow = photoFlow()
+    flow.productType = .sticker
     XCTAssertNil(flow.routeAfterCutout(of: "p1"), "nothing cut yet")
     let piece = Artwork(id: "p1", cleanedUrl: "https://x/cut1.png")
     flow.recordCut(of: "p1", piece, request: CleanupRequest(candidateIds: ["cand-1"], box: [0, 0, 10, 10], clipToBox: true))
     XCTAssertEqual(flow.routeAfterCutout(of: "p1"), .changeIt, "the piece's cut-out: on to Change it")
-    XCTAssertNil(flow.artwork, "the product art is not picked yet")
+    XCTAssertEqual(flow.currentCut, piece)
+    XCTAssertNil(flow.routeAfterLooksGood(), "no product yet: the making state")
+    let sticker = Product(id: "pr-new-sticker", artworkId: "p1", type: .sticker, mockupUrl: "https://x/m.png")
+    flow.useProduct(sticker, madeFrom: piece)
+    XCTAssertEqual(flow.readyProduct(for: piece), sticker)
+    XCTAssertEqual(flow.routeAfterLooksGood(), .listingDetails)
+    XCTAssertEqual(flow.artwork, piece)
+    XCTAssertEqual(flow.product, sticker)
 
     flow.addChange(change("ch1", from: piece))
-    XCTAssertEqual(flow.routeAfterKeepingChange(), .makingCutout(.change("ch1")), "a kept change is cut out")
+    XCTAssertNil(flow.currentCut, "a change without its cut-out has no product art")
     let cut = Artwork(id: "ch1", cleanedUrl: "https://x/ch1-cut.png")
     flow.changeCuts["ch1"] = Cut(artwork: cut, candidates: [one], imageSize: size, selected: ["cand-1"], box: nil)
-    XCTAssertEqual(flow.routeAfterKeepingChange(), .yourCutout("ch1"), "cached: no second cutout")
-    XCTAssertEqual(flow.routeAfterCutout(of: "ch1"), .makingProduct)
-    XCTAssertEqual(flow.artwork?.cleanedUrl, "https://x/ch1-cut.png", "the change's cut-out becomes the product")
+    XCTAssertEqual(flow.currentCut, cut)
+    XCTAssertNil(flow.routeAfterLooksGood(), "the change's product is not made yet")
+    flow.stepBack()
+    XCTAssertEqual(flow.routeAfterCutout(of: "ch1"), .changeIt)
+    XCTAssertEqual(flow.changedArtwork?.id, "ch1", "Fix the cutout of the change: the change is on screen again")
   }
 
-  func testLooksGoodMakesTheProductFromTheReviewedCut() {
+  /// Ruling 2 / T143: a cleanup's `products` swap the product photo; a re-cut without them asks
+  /// for the product again (refresh), never a second one.
+  func testCleanupProductsRebuildTheProductOnScreen() {
     let flow = photoFlow()
-    XCTAssertNil(flow.routeAfterLooksGood())
-    let piece = Artwork(id: "p1", cleanedUrl: "https://x/cut1.png")
+    flow.productType = .sticker
+    let piece = Artwork(id: "p1", cleanedUrl: "cut-1")
     flow.recordCut(of: "p1", piece)
-    XCTAssertEqual(flow.routeAfterLooksGood(), .makingProduct)
-    XCTAssertEqual(flow.artwork?.id, "p1")
+    flow.useProduct(Product(id: "pr1", artworkId: "p1", type: .sticker, mockupUrl: "m-1"), madeFrom: piece)
+    let recut = Artwork(id: "p1", cleanedUrl: "cut-2")
+    flow.recordCut(of: "p1", recut)
+    XCTAssertNil(flow.readyProduct(for: flow.currentCut), "the old photo is for the old cut")
+    XCTAssertEqual(flow.productPlan(for: recut, type: .sticker), .refresh(Product(id: "pr1", artworkId: "p1", type: .sticker, mockupUrl: "m-1")))
+    flow.applyRebuilt([ArtworkProduct(id: "pr1", type: .sticker, status: "draft", mockupUrl: "m-2")], for: recut)
+    XCTAssertEqual(flow.readyProduct(for: recut)?.mockupUrl, "m-2", "the rebuilt photo from the cleanup answer")
+    XCTAssertEqual(flow.productPlan(for: recut, type: .sticker), .reuse(flow.products["p1"]!))
+  }
 
-    // A change shown on Change it (Change it again, or one step back) that was never cut out.
-    flow.addChange(change("ch1", from: piece))
-    XCTAssertEqual(flow.routeAfterLooksGood(), .makingCutout(.change("ch1")))
-    flow.changeCuts["ch1"] = Cut(artwork: Artwork(id: "ch1", cleanedUrl: "https://x/ch1-cut.png"), candidates: [], imageSize: size, selected: [], box: nil)
-    XCTAssertEqual(flow.routeAfterLooksGood(), .makingProduct)
-    XCTAssertEqual(flow.artwork?.cleanedUrl, "https://x/ch1-cut.png")
+  /// A saved design's draft in a cleanup answer becomes the product (no second POST /products).
+  func testRebuiltDraftOfASavedDesignIsAdopted() {
+    let flow = CreateFlow()
+    flow.productType = .tote
+    let cut = Artwork(id: "d2", cleanedUrl: "c")
+    flow.applyRebuilt([ArtworkProduct(id: "pr-s", type: .sticker, status: "draft", mockupUrl: "s"),
+                       ArtworkProduct(id: "pr-t", type: .tote, status: "draft", mockupUrl: "t")], for: cut)
+    XCTAssertEqual(flow.readyProduct(for: cut)?.id, "pr-t")
+    XCTAssertEqual(flow.readyProduct(for: cut)?.mockupUrl, "t")
   }
 
   // MARK: Cut-outs

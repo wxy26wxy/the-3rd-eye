@@ -5,26 +5,27 @@ enum HomeTab: Hashable { case create, designs, orders, messages }
 
 /// Pushed screens of the creator flow (root is PickProductView). Photo first, round 4 order (T141):
 /// camera → Adjust the area (the local photo, no upload) → Making your cutout (the crop uploaded,
-/// `POST /artworks {framed: true}`) → Your cutout → Change it → [Changing your art → Before and
-/// after → Making your cutout → Your cutout] → Making your sticker / tote bag → Listing details.
+/// `POST /artworks {framed: true}`) → Your cutout → Change it (the product made here) → [Changing
+/// your art → Before and after] → Listing details. "Fix the cutout" opens Your cutout of the art on
+/// screen, whose "Use this" returns to Change it.
+/// Round 4 ruling 2: the product is made on Change it (making state) and rebuilt by every change
+/// (Changing = change → cutout → products), so Change it and Before and after show product photos.
 /// "My story video" (T122) also opens from the root.
 enum CreateRoute: Hashable {
   case chooseMethod
   case camera(PhotoSource)
   /// The frame on the local photo (the whole photo at first); "Use this area" goes on to Making your cutout.
   case adjustArea
-  /// Say or type what to change, or keep the art as it is.
+  /// The product photo (made here first: the making state), what to change, or keep it as it is.
   case changeIt
-  /// Loading screen while Muse Image changes the art.
+  /// Loading screen while the art is changed, cut out and made into the product (three lines).
   case changing
-  /// The change next to the art it was made from.
+  /// The two product photos, before and after the change.
   case beforeAfter
-  /// Loading screen while the art is cut out: the crop of the frame (upload + `POST /artworks`), or a kept change (`cutout`).
+  /// Loading screen while the crop of the frame is uploaded and cut (`POST /artworks {framed: true}`).
   case makingCutout(CutJob)
-  /// The cut-out of the artwork with this id (the photo's piece, or a change), with the edge tools.
+  /// The cut-out of the artwork with this id (the crop, or a change), with the edge tools.
   case yourCutout(String)
-  /// Loading screen while the sticker or tote bag is made.
-  case makingProduct
   case listingDetails
   case storyVideo
   case videoSaved
@@ -41,8 +42,6 @@ enum CutJob: Hashable {
   /// is cropped to it on the device, the crop uploaded and `POST /artworks {framed: true}` cuts out
   /// the largest drawing in it.
   case area([Double])
-  /// A kept change (`cutout`, once per artwork; later visits use `CreateFlow.changeCuts`).
-  case change(String)
 }
 
 enum PhotoSource: Hashable { case camera, library }
@@ -183,20 +182,27 @@ final class AppState {
 
   func popToRoot() { createPath = [] }
 
-  /// "Make a sticker / Make a tote" on a saved design: a new creation from that artwork, straight
-  /// to Listing details. A draft product of that type is reused instead of making another one.
+  /// "Make a sticker / Make a tote" on a saved design: a new creation from that artwork. A draft
+  /// product of that type is reused (straight to Listing details); without one, Change it opens in
+  /// the making state (round 4 ruling 2: the product is made there).
   func continueFrom(artwork: Artwork, productType: ProductType) {
     let next = CreateFlow()
-    next.artwork = artwork
+    var art = artwork
+    art.products = nil
+    next.photoArtwork = art
+    next.pieceArtwork = art
+    next.artwork = art
     next.productType = productType
     if let draft = artwork.liveProducts.first(where: { $0.type == productType && !$0.isPublished }) {
-      next.product = Product(id: draft.id, artworkId: artwork.id, type: productType, mockupUrl: draft.mockupUrl,
-                             previewUrl: draft.previewUrl, priceCents: draft.priceCents, status: draft.status)
+      next.useProduct(Product(id: draft.id, artworkId: artwork.id, type: productType, mockupUrl: draft.mockupUrl,
+                              previewUrl: draft.previewUrl, priceCents: draft.priceCents, status: draft.status), madeFrom: art)
       next.productTitle = draft.title
       next.productDescription = draft.description
+      createPath = [.listingDetails]
+    } else {
+      createPath = [.changeIt]
     }
     flow = next
-    createPath = [.listingDetails]
     // Coming back to My designs later shows the grid (with fresh badges), not this detail.
     designsPath = []
     selectedTab = .create
@@ -289,11 +295,17 @@ final class CreateFlow {
   var selectedCandidateIds: [String] = []
   /// Shown after a re-cut (My designs) that could not rebuild an existing product.
   var cutoutNotice: String?
-  /// The artwork the creator accepted ("Use this" on Your cutout).
+  /// The art the listing is for ("Looks good as is": the cut on screen).
   var artwork: Artwork?
+  /// The product of `artwork` (Listing details).
   var product: Product?
-  /// The cut-out (`cleanedUrl`) `product` was made from, so a re-cut is noticed before it is reused.
-  var productCut: String?
+  /// Products made in this creation (of `productType`), per artwork id, and the cut-out
+  /// (`cleanedUrl`) each was made from, so a re-cut is noticed before one is reused (ruling 2).
+  var products: [String: Product] = [:]
+  var productCuts: [String: String] = [:]
+  /// The change Changing is making (round 4 ruling 2): kept out of the chain until its cut-out and
+  /// product exist, so Change it never shows a change without its product.
+  var changeInProgress: ChangeStep?
   /// Listing title of a reused draft product (`continueFrom`), shown in Listing details.
   var productTitle: String?
   /// Listing description of that draft, when the server sent it.
@@ -304,6 +316,24 @@ final class CreateFlow {
 
   /// The art the creator sees now: the change on screen, else the picked drawing.
   var currentArt: Artwork? { changedArtwork ?? pieceArtwork }
+
+  /// The cut-out of the art on screen (what its product is made from): the change's cut-out, else
+  /// the piece. Nil for a change that was never cut out.
+  var currentCut: Artwork? {
+    if let change = changedArtwork { return changeCuts[change.id]?.artwork }
+    return pieceArtwork?.cleanedUrl != nil ? pieceArtwork : nil
+  }
+
+  /// The product of a cut-out that is ready to show (made from that very cut).
+  func readyProduct(for art: Artwork?) -> Product? {
+    guard let art, let made = products[art.id], productCuts[art.id] == art.cleanedUrl else { return nil }
+    return made
+  }
+
+  /// The cut-out known for an artwork id (the piece, a change's cut-out, or the listing's art).
+  func cutArtwork(_ id: String) -> Artwork? {
+    cut(for: id)?.artwork ?? (artwork?.id == id ? artwork : nil)
+  }
 
   private var currentStep: ChangeStep? { changes.first { $0.artwork.id == changedArtworkId } }
 
@@ -393,34 +423,24 @@ final class CreateFlow {
     return .makingCutout(.area(box))
   }
 
-  /// Your cutout › "Use this": the piece goes on to Change it; a change's cut-out is the product's art.
+  /// Your cutout › "Use this" (ruling 2): Change it on that art (the piece, or the change it is the
+  /// cut-out of), which shows its product photo, making it first when there is none for this cut.
   func routeAfterCutout(of artworkId: String) -> CreateRoute? {
-    guard let cut = cut(for: artworkId) else { return nil }
-    if artworkId == photoArtwork?.id { return .changeIt }
-    artwork = cut.artwork
-    return .makingProduct
+    guard let cut = cut(for: artworkId), cut.artwork.cleanedUrl != nil else { return nil }
+    if changes.contains(where: { $0.artwork.id == artworkId }) {
+      changedArtworkId = artworkId
+    } else if artworkId == photoArtwork?.id {
+      changedArtworkId = nil
+    }
+    return .changeIt
   }
 
-  /// Change it › "Looks good as is": the piece's cut-out (reviewed on Your cutout) makes the product;
-  /// a change shown there (Change it again, or one change back) is cut out first unless it already was.
+  /// Change it › "Looks good as is" (ruling 2): the listing for the product on screen; no call.
   func routeAfterLooksGood() -> CreateRoute? {
-    guard let art = currentArt else { return nil }
-    if changedArtwork == nil {
-      guard art.cleanedUrl != nil else { return nil }
-      artwork = art
-      return .makingProduct
-    }
-    if let cut = changeCuts[art.id] {
-      artwork = cut.artwork
-      return .makingProduct
-    }
-    return .makingCutout(.change(art.id))
-  }
-
-  /// Before and after › "Use this": the change's cut-out (made once per artwork), then Your cutout.
-  func routeAfterKeepingChange() -> CreateRoute? {
-    guard let change = changedArtwork else { return nil }
-    return changeCuts[change.id] != nil ? .yourCutout(change.id) : .makingCutout(.change(change.id))
+    guard let art = currentCut, let made = readyProduct(for: art) else { return nil }
+    artwork = art
+    product = made
+    return .listingDetails
   }
 
   /// A new row for the crop: its drawings and the stored crop's size.
@@ -438,6 +458,7 @@ final class CreateFlow {
   /// No changes: the art is the picked piece again, and the changes' cut-outs go.
   func resetChange() {
     pendingJob = nil
+    changeInProgress = nil
     changes = []
     changedArtworkId = nil
     changeCuts = [:]
@@ -472,14 +493,15 @@ final class CreateFlow {
     resetCutout(artwork: nil, candidates: [], imageSize: nil)
     artwork = nil
     product = nil
-    productCut = nil
+    products = [:]
+    productCuts = [:]
   }
 
   // MARK: Product for this cut-out
 
-  /// What Making your sticker does: make the product, reuse the draft it already made for this
-  /// artwork (Back from Listing details, then Use this again), or reuse it after a re-cut, when the
-  /// server has rebuilt its print file and mockup and the client must read them again.
+  /// What Change it's making state does: make the product, reuse the draft it already made for this
+  /// artwork (no call: the photo shows at once), or reuse it after a re-cut, when the server has
+  /// rebuilt its print file and mockup and the client must read them again.
   enum ProductPlan: Equatable {
     case create
     case reuse(Product)
@@ -487,21 +509,94 @@ final class CreateFlow {
   }
 
   func productPlan(for artwork: Artwork, type: ProductType) -> ProductPlan {
-    guard let product, product.artworkId == artwork.id, product.type == type else { return .create }
-    return productCut == artwork.cleanedUrl ? .reuse(product) : .refresh(product)
+    guard let made = products[artwork.id], made.type == nil || made.type == type else { return .create }
+    return productCuts[artwork.id] == artwork.cleanedUrl ? .reuse(made) : .refresh(made)
   }
 
   /// Records the product made (or refreshed) from `artwork`'s current cut-out.
   func useProduct(_ product: Product, madeFrom artwork: Artwork) {
-    self.product = product
-    productCut = artwork.cleanedUrl
+    products[artwork.id] = product
+    productCuts[artwork.id] = artwork.cleanedUrl
+    if self.artwork?.id == artwork.id { self.product = product }
+  }
+
+  /// A `cleanup` (or `cutout`) answer's `products` (T143): the product made from `artwork` follows
+  /// its rebuilt pictures and the new cut; a draft of this type the creation did not know yet (a
+  /// saved design's) is taken as its product, so no second one is made.
+  func applyRebuilt(_ summaries: [ArtworkProduct], for artwork: Artwork) {
+    let live = summaries.filter { !$0.isArchived && ($0.type == nil || $0.type == productType) }
+    let known = products[artwork.id]
+    guard let fresh = known.flatMap({ made in live.first { $0.id == made.id } }) ?? live.first(where: { !$0.isPublished }) else { return }
+    var product = known ?? Product(id: fresh.id, artworkId: artwork.id, type: fresh.type ?? productType)
+    if let mockup = fresh.mockupUrl { product.mockupUrl = mockup }
+    if let preview = fresh.previewUrl { product.previewUrl = preview }
+    if let cents = fresh.priceCents { product.priceCents = cents }
+    if let status = fresh.status { product.status = status }
+    useProduct(product, madeFrom: artwork)
   }
 
   /// Products already known for `artwork` when a product job starts (never that job's answer).
   func knownProductIds(of artwork: Artwork) -> Set<String> {
     var ids = Set((artwork.products ?? []).map(\.id))
     if let product { ids.insert(product.id) }
+    for made in products.values { ids.insert(made.id) }
     return ids
+  }
+
+  /// The product of `art` for this creation (ruling 2): reused, read again after a re-cut, or made
+  /// with `POST /products` (one `clientRequestId` per attempt; a lost answer is asked again with the
+  /// same id). Counted as in flight while the call waits.
+  func makeProduct(for art: Artwork, type: ProductType, api: APIClient) async throws -> Product {
+    switch productPlan(for: art, type: type) {
+    case .reuse(let made):
+      return made
+    case .refresh(let draft):
+      let fresh = CreateFlow.refreshed(draft, in: try await api.myArtworks())
+      useProduct(fresh, madeFrom: art)
+      return fresh
+    case .create:
+      let job = startJob(.product(artworkId: art.id, type: type), knownProductIds: knownProductIds(of: art))
+      do {
+        let made = try await inFlight {
+          try await api.createProduct(artworkId: art.id, type: type, clientRequestId: job.clientRequestId)
+        }
+        if finishJob(job) { useProduct(made, madeFrom: art) }
+        return products[art.id] ?? made
+      } catch {
+        if APIError.isCancellation(error) { throw error }
+        if case APIError.transport = error {
+          if let found = await recoverProduct(api: api) { return found }
+        } else {
+          finishJob(job)
+        }
+        throw error
+      }
+    }
+  }
+
+  /// A product job whose answer was lost (or a return to the app): the product the server made,
+  /// recorded once. Nil when there is none (yet) or a call is still waiting.
+  @discardableResult
+  func recoverProduct(api: APIClient) async -> Product? {
+    guard let job = pendingJob, case .product(let artworkId, _) = job.kind, callsInFlight == 0,
+          let art = cutArtwork(artworkId) ?? (changeInProgress.flatMap { changeCuts[$0.artwork.id]?.artwork }),
+          case .product(let made)? = await CreateFlow.reconcile(job, api: api),
+          finishJob(job) else { return nil }
+    useProduct(made, madeFrom: art)
+    return made
+  }
+
+  /// A change's cut-out (`cutout`, Changing's second step): its pieces stay with it, the largest
+  /// (`candidates[0]`) is the one cut, as the edge tools send it.
+  func recordChangeCut(_ id: String, _ artwork: Artwork, candidates: [Candidate], size: ImageSize?, art: Artwork?) {
+    var cut = artwork
+    cut.products = nil
+    if cut.altText?.isEmpty ?? true { cut.altText = art?.altText }
+    if cut.spokenDescription?.isEmpty ?? true { cut.spokenDescription = art?.spokenDescription }
+    changeCuts[id] = Cut(artwork: cut, candidates: candidates, imageSize: size,
+                         selected: candidates.first.map { [$0.id] } ?? [], box: nil)
+    updateChange(cut)
+    if changeInProgress?.artwork.id == id { changeInProgress?.artwork = cut }
   }
 
   /// The draft with the mockup and price the server has now (`GET /artworks` products), or the

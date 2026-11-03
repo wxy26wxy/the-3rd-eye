@@ -227,8 +227,8 @@ final class CutoutUITests: XCTestCase {
     XCTAssertEqual(body["clipToBox"] as? Bool, true)
     XCTAssertEqual((body["points"] as? [[String: Any]])?.count, 1)
     tap(app, "Use this")
-    XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 30), "Making your sticker, then Listing details")
-    XCTAssertEqual(try lastBody("products")["artworkId"] as? String, "ch1")
+    XCTAssertTrue(productPhoto(app).waitForExistence(timeout: 15), "back on Change it with the change's product photo")
+    XCTAssertEqual(try count("products"), 2, "p1 and ch1, made before; the cleanup rebuilt ch1's")
   }
 
   /// Marks not applied yet are applied by Use this before going on.
@@ -243,18 +243,19 @@ final class CutoutUITests: XCTestCase {
     XCTAssertEqual((try lastBody("cleanup")["points"] as? [[String: Any]])?.count, 1, "the mark was sent")
   }
 
-  /// The cutout of a change answered 422 (mock NOCUTOUT…): Making your cutout shows the reason with
-  /// Try again and Back to my art; back goes to Before and after.
-  func testCutoutFailureOffersTryAgain() {
+  /// The cutout of a change answered 422 (mock NOCUTOUT…): Changing shows the reason with Try again
+  /// and Back to my art; back goes to Change it on the art as it was (the change never joined).
+  func testCutoutFailureOffersTryAgain() throws {
     let app = openPieceCutout(code: "NOCUTOUT-CODE")
     tap(app, "Use this")
+    XCTAssertTrue(productPhoto(app).waitForExistence(timeout: 15))
     typeChange(app)
     tap(app, "Make the change")
-    tap(app, "Use this")
     XCTAssertTrue(element(app, containing: "nothing found in the edited picture").waitForExistence(timeout: 15), "422 shows the server's message")
     XCTAssertTrue(app.buttons["Try again"].exists)
     app.buttons["Back to my art"].tap()
-    XCTAssertTrue(app.staticTexts["Here's the change"].waitForExistence(timeout: 5), "back on Before and after")
+    XCTAssertTrue(productPhoto(app).waitForExistence(timeout: 5), "back on Change it with the sticker as it was")
+    XCTAssertEqual(try count("products"), 1)
   }
 
   /// Start over drops everything and goes back to Choose method (T131); the next photo starts clean.
@@ -336,14 +337,16 @@ final class CutoutUITests: XCTestCase {
     app.otherElements["cutout-photo"]
   }
 
-  /// The piece cut, then changed ("Make the sky purple" → ch1), kept with "Use this":
-  /// Your cutout of the change.
+  /// The piece cut, then changed ("Make the sky purple" → ch1), then "Fix the cutout" on Before
+  /// and after: Your cutout of the change.
   private func openYourCutout(code: String) -> XCUIApplication {
     let app = openPieceCutout(code: code)
     tap(app, "Use this")
+    XCTAssertTrue(productPhoto(app).waitForExistence(timeout: 15))
     typeChange(app)
     tap(app, "Make the change")
-    tap(app, "Use this")
+    XCTAssertTrue(app.staticTexts["Here's the change"].waitForExistence(timeout: 20))
+    tap(app, "Fix the cutout")
     XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 20), "Your cutout")
     return app
   }
@@ -356,7 +359,7 @@ final class CutoutUITests: XCTestCase {
     let button = app.buttons[label]
     XCTAssertTrue(button.waitForExistence(timeout: 10), "\(label) is shown")
     for _ in 0..<3 where !button.isHittable { app.swipeUp() }
-    XCTAssertTrue(button.isEnabled, "\(label) is enabled")
+    waitUntilEnabled(button, timeout: 10)
     button.tap()
   }
 

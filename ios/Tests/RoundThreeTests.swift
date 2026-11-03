@@ -174,7 +174,7 @@ final class RoundThreeTests: XCTestCase {
     app.backToCutout()
     XCTAssertEqual(app.createPath, [.yourCutout("d1")])
     XCTAssertEqual(app.flow.cut(for: "d1")?.artwork.id, "d1")
-    XCTAssertEqual(app.flow.routeAfterCutout(of: "d1"), .makingProduct)
+    XCTAssertEqual(app.flow.routeAfterCutout(of: "d1"), .changeIt)
   }
 
   // MARK: Reconcile (ruling 6)
@@ -264,9 +264,6 @@ final class RoundThreeTests: XCTestCase {
     flow.recordPhoto(PhotoArtworkResponse(artwork: Artwork(id: "p1", cleanedUrl: "c"), candidates: [], imageSize: nil), box: box)
     XCTAssertTrue(MakingCutoutView.isDone(.area(box), in: flow))
     XCTAssertFalse(MakingCutoutView.isDone(.area([0, 0, 50, 50]), in: flow), "a new frame is a new job")
-    XCTAssertFalse(MakingCutoutView.isDone(.change("ch1"), in: flow))
-    flow.changeCuts["ch1"] = Cut(artwork: Artwork(id: "ch1", cleanedUrl: "x"), candidates: [], imageSize: nil, selected: [], box: nil)
-    XCTAssertTrue(MakingCutoutView.isDone(.change("ch1"), in: flow))
     XCTAssertEqual(MakingCutoutView.target(of: .area(box), in: flow), "p1")
   }
 

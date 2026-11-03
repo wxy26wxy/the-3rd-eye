@@ -531,6 +531,9 @@ def create_product(body):
         raise MockError(409, "artwork_not_ready", "Pick and clean up the artwork first")
     count("products")
     count(f"products/{artwork_id}")
+    if MODE["slow"]:
+        # T141: SLOW... also makes products take 4 s (the app goes to the background meanwhile).
+        time.sleep(4)
     if artwork_id in {d["id"] for d in DESIGNS["list"]} and not find_design(artwork_id)["cleanedUrl"]:
         raise MockError(409, "artwork_not_ready", "Pick and clean up the artwork first")
     # Round 4 (T143): a change result's product has its own id, so the parent's and the child's coexist.

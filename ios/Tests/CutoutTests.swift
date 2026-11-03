@@ -215,7 +215,8 @@ final class CutoutTests: XCTestCase {
     XCTAssertEqual(flow.productPlan(for: Artwork(id: "p1", cleanedUrl: "cut-1"), type: .sticker), .create)
     flow.discardPhoto()
     XCTAssertNil(flow.product)
-    XCTAssertNil(flow.productCut)
+    XCTAssertTrue(flow.products.isEmpty)
+    XCTAssertTrue(flow.productCuts.isEmpty)
   }
 
   /// A refreshed draft takes the rebuilt mockup and price from `GET /artworks`; missing → unchanged.

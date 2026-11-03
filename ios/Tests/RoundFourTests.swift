@@ -112,4 +112,85 @@ final class RoundFourTests: XCTestCase {
     XCTAssertNil(flow.cropBox)
     XCTAssertNil(flow.photoArtwork)
   }
+
+  // MARK: Ruling 2: the product before Change it
+
+  func testMakeProductCreatesOnceThenReuses() async throws {
+    BackgroundWork.host = RecordingBackgroundHost()
+    let stub = StubTransport(status: 201, body: #"{"id":"pr-new-sticker","artworkId":"p1","type":"sticker","mockupUrl":"https://x/m.png"}"#)
+    let flow = CreateFlow()
+    flow.productType = .sticker
+    let piece = Artwork(id: "p1", cleanedUrl: "cut-1")
+    let api = APIClient(baseURL: base, transport: stub, token: "t0k")
+    let made = try await flow.makeProduct(for: piece, type: .sticker, api: api)
+    XCTAssertEqual(made.mockupUrl, "https://x/m.png")
+    XCTAssertEqual(stub.requests.map { $0.url?.path }, ["/api/v1/products"])
+    let sent = try XCTUnwrap(JSONSerialization.jsonObject(with: try XCTUnwrap(stub.requests[0].httpBody)) as? [String: Any])
+    XCTAssertEqual(sent["artworkId"] as? String, "p1")
+    XCTAssertNotNil(sent["clientRequestId"] as? String)
+    XCTAssertNil(flow.pendingJob)
+    _ = try await flow.makeProduct(for: piece, type: .sticker, api: api)
+    XCTAssertEqual(stub.requests.count, 1, "the draft of this cut is reused: no second call")
+  }
+
+  func testMakeProductKeepsTheRequestIdForTryAgainAfterALostAnswer() async {
+    BackgroundWork.host = RecordingBackgroundHost()
+    let flow = CreateFlow()
+    let piece = Artwork(id: "p1", cleanedUrl: "cut-1")
+    final class Failing: HTTPTransport, @unchecked Sendable {
+      var bodies: [Data] = []
+      func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        if let body = request.httpBody { bodies.append(body) }
+        throw URLError(.networkConnectionLost)
+      }
+    }
+    let transport = Failing()
+    let api = APIClient(baseURL: base, transport: transport, token: "t0k")
+    _ = try? await flow.makeProduct(for: piece, type: .sticker, api: api)
+    let job = flow.pendingJob
+    XCTAssertNotNil(job, "kept for Try again")
+    _ = try? await flow.makeProduct(for: piece, type: .sticker, api: api)
+    XCTAssertEqual(flow.pendingJob?.clientRequestId, job?.clientRequestId, "Try again sends the same id")
+  }
+
+  func testContinueFromADesignWithoutADraftOpensChangeIt() {
+    let app = AppState(api: APIClient(baseURL: base, transport: StubTransport(body: "{}"), token: "t"))
+    app.continueFrom(artwork: Artwork(id: "d1", cleanedUrl: "c", products: [ArtworkProduct(id: "live", type: .sticker, status: "published")]),
+                     productType: .sticker)
+    XCTAssertEqual(app.createPath, [.changeIt], "Change it in the making state")
+    XCTAssertEqual(app.flow.currentCut?.id, "d1")
+    XCTAssertNil(app.flow.readyProduct(for: app.flow.currentCut))
+    app.continueFrom(artwork: Artwork(id: "d2", cleanedUrl: "c", products: [ArtworkProduct(id: "draft", type: .sticker, status: "draft")]),
+                     productType: .sticker)
+    XCTAssertEqual(app.createPath, [.listingDetails], "a draft goes on to its listing")
+    XCTAssertEqual(app.flow.product?.id, "draft")
+    XCTAssertEqual(app.flow.readyProduct(for: app.flow.currentCut)?.id, "draft")
+  }
+
+  /// Listing "Redo" → Your cutout → "Use this" → Change it (its product kept, no new one).
+  func testRedoFromTheListingComesBackToChangeIt() {
+    let app = AppState(api: APIClient(baseURL: base, transport: StubTransport(body: "{}"), token: "t"))
+    let flow = app.flow
+    flow.productType = .sticker
+    flow.photo = UIGraphicsImageRenderer(size: CGSize(width: 4, height: 4)).image { _ in }
+    flow.recordPhoto(PhotoArtworkResponse(artwork: Artwork(id: "p1", cleanedUrl: "c"), candidates: [], imageSize: nil), box: [0, 0, 4, 4])
+    flow.useProduct(Product(id: "pr1", artworkId: "p1", type: .sticker), madeFrom: Artwork(id: "p1", cleanedUrl: "c"))
+    XCTAssertEqual(flow.routeAfterLooksGood(), .listingDetails)
+    app.createPath = [.chooseMethod, .adjustArea, .yourCutout("p1"), .changeIt, .listingDetails]
+    app.backToCutout()
+    XCTAssertEqual(app.createPath.last, .yourCutout("p1"))
+    XCTAssertEqual(flow.routeAfterCutout(of: "p1"), .changeIt)
+    XCTAssertEqual(flow.readyProduct(for: flow.currentCut)?.id, "pr1", "the photo shows at once")
+  }
+
+  func testCleanupAndCutoutAnswersCarryProducts() throws {
+    let cleanup = #"{"id":"p1","cleanedUrl":"c2","details":{"failedProductIds":[]},"products":[{"id":"pr1","type":"sticker","status":"draft","priceCents":500,"title":null,"description":null,"mockupUrl":"m2","previewUrl":"v2"}]}"#
+    let res = try JSONDecoder().decode(CleanupResult.self, from: Data(cleanup.utf8))
+    XCTAssertEqual(res.products.first?.mockupUrl, "m2")
+    XCTAssertNil(res.artwork.products, "the answer's products are not the artwork's list")
+    let cut = #"{"artwork":{"id":"ch1","cleanedUrl":"c"},"candidates":[],"imageSize":{"w":1,"h":1},"products":[]}"#
+    XCTAssertEqual(try JSONDecoder().decode(CutoutResponse.self, from: Data(cut.utf8)).products, [])
+    let old = #"{"id":"p1","cleanedUrl":"c2"}"#
+    XCTAssertEqual(try JSONDecoder().decode(CleanupResult.self, from: Data(old.utf8)).products, [], "older servers")
+  }
 }

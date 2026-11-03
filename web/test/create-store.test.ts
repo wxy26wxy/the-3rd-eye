@@ -1,12 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  addChange, backToOriginal, currentArtworkId, currentChange, cutoutOf, getDraft, productToMake, resetDraft, updateDraft, withCutout, type ChangeStep, type CutoutState, type Draft,
+  addChange, backToOriginal, currentArtworkId, currentChange, cutoutOf, getDraft, madeFor, productPlan, recordProduct, resetDraft, updateDraft, withCutout, type ChangeStep, type CutoutState, type Draft,
 } from "@/components/create/store";
 
 const piece: Draft = {
-  product: "sticker", method: "photo", photoArtworkId: "p1",
-  candidates: [{ id: "c1", bbox: [0, 0, 10, 10], score: 0.9, thumbUrl: "/c1.png" }, { id: "c2", bbox: [10, 10, 20, 20], score: 0.8, thumbUrl: "/c2.png" }],
-  imageSize: { w: 100, h: 100 },
+  product: "sticker", method: "photo",
   pieceArtworkId: "p1", pieceUrl: "/piece.png", pieceAlt: "A fern", pieceSpoken: "A fern drawn in pen.",
 };
 const step = (id: string, parentId: string): ChangeStep => ({
@@ -67,32 +65,28 @@ describe("R1 + T130: the product picture on creator screens", () => {
   });
 });
 
-describe("consistency item 6: one draft product per artwork and type", () => {
+describe("round 4 ruling 2: one draft product per artwork and type, made before Change it", () => {
   const product = { id: "pr1", artworkId: "p1", creatorId: "me", type: "sticker" as const, mockupUrl: "/m.png", printPngUrl: null, printSvgUrl: null, priceCents: 500, status: "draft", previewUrl: "/pv.png" };
   const cut: CutoutState = { artworkId: "p1", candidates: [], imageSize: null, selectedIds: [], cleanedUrl: "/cut-1.png", altText: null, box: null, points: [] };
-  const made: Draft = { ...piece, artworkId: "p1", productRecord: product, productCut: "/cut-1.png", cutouts: { p1: cut } };
-  it("the same artwork and type (browser back, Use this again) reuses the product; another artwork or type makes one", () => {
-    expect(productToMake(made)).toBe("reuse");
-    expect(productToMake({ ...made, artworkId: "k1" })).toBe("make");
-    expect(productToMake({ ...made, product: "tote" })).toBe("make");
-    expect(productToMake({ ...made, productRecord: undefined })).toBe("make");
+  const made: Draft = { ...piece, made: { p1: { ...product, cut: "/cut-1.png" } }, cutouts: { p1: cut } };
+  it("the same artwork and type is ready (no second POST); another artwork or type makes one", () => {
+    expect(productPlan(made, "p1")).toBe("ready");
+    expect(madeFor(made, "p1")?.id).toBe("pr1");
+    expect(productPlan(made, "k1")).toBe("make");
+    expect(productPlan({ ...made, product: "tote" }, "p1")).toBe("make");
+    expect(madeFor({ ...made, product: "tote" }, "p1")).toBeNull();
+    expect(productPlan({ ...made, made: undefined }, "p1")).toBe("make");
   });
-  it("a later Apply cutout on that artwork (the server rebuilt its files) reuses it and reads its pictures again", () => {
-    expect(productToMake({ ...made, cutouts: { p1: { ...cut, cleanedUrl: "/cut-2.png" } } })).toBe("refresh");
+  it("a later cut on that artwork (the server rebuilt its files) without the new pictures: refresh", () => {
+    expect(productPlan({ ...made, cutouts: { p1: { ...cut, cleanedUrl: "/cut-2.png" } } }, "p1")).toBe("refresh");
   });
-  it("review m4: the refresh after a re-cut drops the old listing (its print check is stale) so it drafts again", async () => {
-    const { refreshProduct, updateDraft, getDraft, resetDraft } = await import("@/components/create/store");
-    resetDraft({ ...made, listing: { title: "Old", description: "", tags: [], price_cents: 500, print_ok: false, print_check: "resolution", notes: "" }, listingRun: "r1", trace: [] });
-    const fetch = vi.fn(async () => Response.json({ artworks: [{ id: "p1", products: [{ id: "pr1", mockupUrl: "/m2.png", previewUrl: "/pv2.png" }] }] }));
-    vi.stubGlobal("fetch", fetch);
-    try {
-      await refreshProduct(product, "/cut-2.png");
-      const d = getDraft();
-      expect(d.listing).toBeUndefined();
-      expect(d.listingRun).toBeUndefined();
-      expect(d.trace).toBeUndefined();
-      expect(d.productRecord?.mockupUrl).toBe("/m2.png");
-      expect(d.productCut).toBe("/cut-2.png");
-    } finally { vi.unstubAllGlobals(); updateDraft({}); }
+  it("review m4: recording a rebuilt product that is on the listing drops the old listing (its print check is stale)", () => {
+    const listed: Draft = { ...made, productRecord: product, listing: { title: "Old", description: "", tags: [], price_cents: 500, print_ok: false, print_check: "resolution", notes: "" }, listingRun: "r1", trace: [] };
+    const patch = recordProduct(listed, "p1", { ...product, mockupUrl: "/m2.png", cut: "/cut-2.png" });
+    expect(patch).toMatchObject({ productRecord: { ...product, mockupUrl: "/m2.png" }, listing: undefined, listingRun: undefined, trace: undefined });
+    expect(patch.productRecord).not.toHaveProperty("cut");
+    expect(patch.made?.p1).toMatchObject({ mockupUrl: "/m2.png", cut: "/cut-2.png" });
+    // another product: the listing is left alone
+    expect(recordProduct(listed, "k1", { ...product, id: "pr2", cut: null })).not.toHaveProperty("listing");
   });
 });

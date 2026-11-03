@@ -5,11 +5,12 @@ import { fmt, m } from "@/components/messages";
 import { ApiError } from "../api";
 import { frameSize, initialFrame } from "../area";
 import { HydratingScreen, MissingState } from "../CreateScreen";
+import { CropError } from "../crop";
 import { usableSize, type Box, type ImageSize } from "../cutout";
 import { describeError, revealError, type ScreenError } from "../errors";
-import { adjustBack, cutArea, takeNewPhoto } from "../flow";
+import { adjustBack, areaFrame, cutArea, hasLocalPhoto, photoGone, sameNotFound, takeNewPhoto } from "../flow";
+import { photoUrl } from "../localPhoto";
 import { getDraft, useCreate } from "../store";
-import { useOriginal } from "../useOriginal";
 import { AdjustAreaView } from "./AdjustAreaView";
 import { AreaFrame } from "./AreaFrame";
 
@@ -24,25 +25,41 @@ export function sizeText(box: Box, image: ImageSize): string {
 /** A 422 for the frame is about where the frame is, not about the photo: move or grow it and try again. */
 export function areaError(err: unknown): ScreenError {
   if (isNotFound(err)) return { message: a.notFound, action: "none" };
+  if (err instanceof CropError) return { message: m.create.photo.cannotOpen, action: "none" };
   return describeError(err);
 }
 
-/** `detect` found nothing inside the frame. */
+/** The crop had no drawing in it. */
 export function isNotFound(err: unknown): boolean {
   return err instanceof ApiError && err.code === "no_drawing_found";
 }
 
 /**
- * /create/adjust (round 3): Adjust the area, right after the photo. The frame starts at the whole
- * stored photo (or the frame of the last cut); "Use this area" goes on to Making your cutout, which
- * detects inside the frame (`POST /artworks/{id}/detect {box}`), then Your cutout. When nothing was
- * found there, this screen says to move or grow the frame.
+ * /create/adjust (round 4 ruling 1): Adjust the area on the photo still on the device (no upload,
+ * no call). The frame starts at the whole photo (or the last frame used); "Use this area" goes on
+ * to Making your cutout, which crops the photo to the frame, uploads the crop and sends `POST
+ * /artworks` on it. When the crop had nothing in it, this screen says to move or grow the frame.
+ * After a reload the photo is gone: the photo step, with a notice.
  */
 export function AdjustArea() {
   const { ready, draft } = useCreate();
   if (!ready) return <HydratingScreen title={a.title} />;
   if (!draft.area || !draft.product) return <MissingState />;
-  return <AreaFlow key={draft.area.artworkId} />;
+  if (!hasLocalPhoto(draft)) return <PhotoGone />;
+  return <AreaFlow key={draft.area.photoKey} />;
+}
+
+/** The local photo was lost (a reload): on to the photo step, which says so. */
+function PhotoGone() {
+  const router = useRouter();
+  const { update } = useCreate();
+  // Checked again when the effect runs: the kept-mounted route (cacheComponents) re-runs this effect
+  // when it is shown again, possibly before it re-renders with a newly picked photo.
+  useEffect(() => {
+    const d = getDraft();
+    if (d.area && !hasLocalPhoto(d)) photoGone({ router, update }, d);
+  }, [router, update]);
+  return <HydratingScreen title={a.title} />;
 }
 
 function AreaFlow() {
@@ -52,38 +69,39 @@ function AreaFlow() {
   const sizeId = `${uid}-size`;
   const { draft, update } = useCreate();
   const area = draft.area as NonNullable<typeof draft.area>;
-  const { detail, onImageError } = useOriginal(area.artworkId);
-  const imageSize = detail.state === "ok" && detail.imageSize ? detail.imageSize : usableSize(draft.imageSize) ? draft.imageSize : null;
-  const originalUrl = detail.state === "ok" ? detail.originalUrl : null;
+  const src = photoUrl(area.photoKey);
+  const [failed, setFailed] = useState(false);
+  const imageSize = usableSize(area.size) ? area.size : null;
   const retake = takeNewPhoto(draft);
-  // Coming back to the cut photo shows the frame it was cut with; Reset always goes to the whole photo.
-  const returning = draft.pieceArtworkId === area.artworkId ? draft.pieceBox ?? null : null;
+  // The last frame used on this photo (Back from Your cutout, a redo); Reset always goes to the whole photo.
+  const returning = areaFrame(draft);
   const [edited, setEdited] = useState<Box | null>(null);
   const [announce, setAnnounce] = useState("");
   const initial = imageSize ? initialFrame(undefined, imageSize) : null;
   const box = edited ?? returning ?? initial;
 
-  // Nothing found in the frame (detect 422, review I2): focus and show the move-or-grow advice. The
-  // route is kept mounted, so this runs when the screen is shown again with the flag set.
+  // Nothing found in the crop (422): focus and show the move-or-grow advice. The route is kept
+  // mounted, so this runs when the screen is shown again with the flag set.
   const errorRef = useRef<HTMLDivElement>(null);
   const notFound = !!draft.areaNotFound;
   useEffect(() => { if (notFound) revealError(errorRef.current); }, [notFound]);
 
   function say(text: string) { setAnnounce((prev) => (prev === text ? `${text} ` : text)); }
   function commit(next: Box) {
-    if (draft.areaNotFound) update({ areaNotFound: undefined });
+    if (draft.areaNotFound && !sameNotFound(draft, next)) update({ areaNotFound: undefined });
     if (imageSize) say(sizeText(next, imageSize));
   }
   function reset() {
     if (!initial || !imageSize) return;
     setEdited(initial);
+    commit(initial);
     say(`${a.resetDone}. ${sizeText(initial, imageSize)}`);
   }
 
-  /** "Use this area": on to Making your cutout, which sends the cleanup (T130); errors show there. */
+  /** "Use this area": on to Making your cutout, which crops, uploads and creates the row; errors show there. */
   function use() {
     if (!box) return;
-    cutArea({ getDraft, update, router }, box);
+    if (!cutArea({ getDraft, update, router }, box)) revealError(errorRef.current);
   }
 
   return (
@@ -94,14 +112,14 @@ function AreaFlow() {
       back={adjustBack(draft)}
       retake={retake}
       busy={false}
-      photo={imageSize && originalUrl && box ? (
+      photo={imageSize && src && box && !failed ? (
         <AreaFrame
-          src={originalUrl} image={imageSize} box={box} disabled={false}
+          src={src} image={imageSize} box={box} disabled={false}
           label={a.frameLabel} describedBy={`${sizeId} ${hintId}`}
-          onChange={setEdited} onCommit={commit} onLimit={(k) => say(k === "small" ? a.tooSmall : a.atEdge)} onImageError={onImageError}
+          onChange={setEdited} onCommit={commit} onLimit={(k) => say(k === "small" ? a.tooSmall : a.atEdge)} onImageError={() => setFailed(true)}
         />
       ) : null}
-      photoState={detail.state === "loading" ? "loading" : "missing"}
+      photoState={failed ? "missing" : "loading"}
       announce={announce}
       canUse={!!box}
       error={notFound ? { message: a.notFound, action: "none" } : null}

@@ -10,9 +10,9 @@ const c = m.create.cutout;
 /**
  * Making your cutout (board `2038:4369`): no logo or Back while busy, the title and copy, the
  * animation, "Cutting out your art…", and the dimmed Use this in the bar. The animation: the
- * searching magnifier for the photo's `detect` (round 3 ruling 3: it moved here from the upload
- * step), the creating-cutout video for a change result (R7; first frame under reduced motion). On failure: the error card with Try
- * again, and Back to the art in the bar.
+ * searching magnifier while the crop of the frame is uploaded and cut (round 4: crop → upload →
+ * `POST /artworks`), the creating-cutout video for a change result (R7; first frame under reduced
+ * motion). On failure: the error card with Try again, and Back to the art in the bar.
  */
 export function MakingCutoutView({ changed, error, back, onRetry }: {
   changed: boolean; error: ScreenError | null; back: string; onRetry: () => void;

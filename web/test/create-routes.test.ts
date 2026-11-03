@@ -11,3 +11,10 @@ describe("Round 3: retired creator routes", () => {
     expect(() => select()).toThrow("NEXT_REDIRECT /create/adjust");
   });
 });
+
+describe("Round 4 ruling 2: the Making screen is gone", () => {
+  it("/create/making goes to Change it (its making state makes the product)", async () => {
+    const making = (await import("@/app/create/making/page")).default;
+    expect(() => making()).toThrow("NEXT_REDIRECT /create/change");
+  });
+});

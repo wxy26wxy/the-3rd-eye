@@ -4,7 +4,16 @@
 `web/lib/**` (extends but does not break `lib/ai/types.ts`, `lib/db/schema.ts`), `web/app/api/**`, `web/app/media/**`, `web/drizzle/**`, `web/test/**`, `web/vitest.config.ts`, `scripts/seed.ts`, `scripts/probe_meta.ts`, appends to `docs/architecture.md`, `docs/decisions.md`, `docs/progress.md`.
 
 ## Current task
-T111 · Change-it API, cutout, order size and quantity, trace relabel (design v3, photo-first) — on `feat/backend-T111`. Earlier: T010 backend and AI pipeline behind `docs/api.md`.
+T134 · Feedback round 3 backend — on `feat/backend-T134` (from main 20e248b). Contract: `docs/api.md` → "Creator flow (round 3)".
+- `POST /artworks {detect:false}` stores the photo only (no SAM, `candidates: []`, never 422); `POST /artworks/{id}/detect {box}` (`detectInBox` in `lib/pipeline/artworks.ts`): SAM on the crop, masks placed back (`placeMask` in `lib/image/mask.ts`), candidates largest first, the largest cut and clipped, products rebuilt; `409 not_a_photo` on a change result or generated row; `422 no_drawing_found` when nothing is inside the frame.
+- Print check (`lib/products/checks.ts`): contrast in Lab over opaque pixels (spread ≥ 30 or chroma ≥ 25), a warning; resolution on the cleaned PNG with one ×2, the only hard gate; `measurePrintCheck`; stored checks carry `version: 2` and `check`; approve takes `acceptPrintWarning` and re-measures pre-T134 checks; the 409 carries `check`; a re-cut unpublishes only on resolution. `ListingDraft.print_check`.
+- Idempotency (`lib/pipeline/idempotency.ts`): `clientRequestId` on `change` and `products`, queries `getArtworkByClientRequest` / `getProductByClientRequest`, `isUniqueViolation` exported; `insertOnce` returns the winner's row on a race.
+- `GET /listings/{productId}` → `{product, listing, draft}` (`toListingDraft`, `printIssueOf` in `lib/api/dto.ts`).
+- Edges: `finishMask` upscales first (Lanczos3), blurs at the target scale (σ = 0.8 × target/working) and soft-thresholds; `resizeMask`, SAM `scaleMask` and `toSize` are linear + threshold; `composeSticker` uses `softEdge` for the white border alpha; `clipAlpha` feathers 1 px.
+- **Migration 0006** (`web/drizzle/0006_t134_client_request_ids.sql`, additive, idempotent): `artworks.client_request_id`, `products.client_request_id`, unique partial indexes per creator. **Not applied; the user applies it (`pnpm migrate` from `web/`) before v0.9 is deployed** — every artwork and product query reads the new columns.
+- Mock: `detect`, `detect:false`, `clientRequestId` repeats, `GET /listings/<id>`, `NOPRINT…` (contrast, accept → 200), `NORES…` (resolution, always 409).
+
+Earlier: T111 · Change-it API, cutout, order size and quantity; T010 backend and AI pipeline behind `docs/api.md`.
 
 ## Interface exposed to others
 - **Data access** (`@/lib/db/queries`): creators (`getCreatorById/BySlug/ByLoginCode`, `listCreators`, `updateCreator`), artworks (`insertArtwork`, `getArtwork`, `listArtworksByCreator`, …), shop (`listPublishedProducts({ type?, creatorId?, limit? })`; `madeByVoice` filter removed in T111, `getPublicProduct(id)` → `{ product, listing, creator, artwork }`), `listProductsByCreator`, story tag (`getStoryTag(token)` → token/order/product/listing/creator/thankYou/messages), admin (`listOrdersAdmin()`, `updateOrderStatus(id, status)`, `listAiCallsForArtwork(id)`), `isStoryVideoPath`. All soft-delete aware.

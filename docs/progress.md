@@ -340,3 +340,8 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - `docs/api.md`: "Creator flow (round 2b)" lists the calls per step for web and iOS; the Create summary follows the new order. `docs/handoffs/backend.md` T129 entry.
 - Verify: `pnpm test`, `pnpm lint`, `pnpm build`, `bash scripts/check_clean.sh`.
 
+## T134 backend · Feedback round 3: detect inside the frame, print warning, smooth edges, idempotency (2026-11-03)
+- `POST /artworks {detect:false}`, new `POST /artworks/{id}/detect {box}`, `GET /listings/{productId}`, `clientRequestId` on `change` / `products` (migration 0006, not applied: the user applies it before deploy), `approve {acceptPrintWarning}` with `check` on the 409, colour contrast warning + cleaned-PNG resolution gate, smooth cutout edges and soft sticker border.
+- Mock (`ios/scripts/mock_api.py`): detect, detect:false, clientRequestId repeats (counts stay 1), GET listings, NOPRINT (contrast) and NORES (resolution) modes.
+- `docs/api.md` "Creator flow (round 3)" (round 2b marked superseded), handoff, ADR, `docs/deployments.md` note.
+- Verify: `pnpm test` (from `web/`), `pnpm lint`, `pnpm build`, `bash scripts/check_clean.sh`; reviewer: `vitest run test/edge-smoothing.test.ts test/print-warning.test.ts` and one live `detect` after migration 0006.

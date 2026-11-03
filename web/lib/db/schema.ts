@@ -4,7 +4,7 @@
  * records the T### task whose code path wrote the row (traceability).
  */
 import {
-  pgTable, pgEnum, uuid, text, integer, boolean, timestamp, jsonb,
+  pgTable, pgEnum, uuid, text, integer, boolean, timestamp, jsonb, uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { DEFAULT_SPLIT } from "../split";
 import { relations, sql } from "drizzle-orm";
@@ -85,8 +85,11 @@ export const artworks = pgTable("artworks", {
   artworkVideoUrl: text("artwork_video_url"),      // optional per-piece video (later)
   status: artworkStatus("status").default("draft").notNull(),
   lastError: text("last_error"),                   // why the last pipeline run did not finish (null when fine)
+  clientRequestId: text("client_request_id"),      // idempotency key of the "change" call that made this row (T134)
   ...trace,
-});
+}, (t) => [
+  uniqueIndex("artworks_creator_client_request_uq").on(t.creatorId, t.clientRequestId).where(sql`${t.clientRequestId} IS NOT NULL`),
+]);
 
 export const products = pgTable("products", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -99,8 +102,11 @@ export const products = pgTable("products", {
   printSvgUrl: text("print_svg_url"),              // private (die-cut line)
   priceCents: integer("price_cents").notNull().default(500),
   status: productStatus("status").default("draft").notNull(),
+  clientRequestId: text("client_request_id"),      // idempotency key of the POST /products call (T134)
   ...trace,
-});
+}, (t) => [
+  uniqueIndex("products_creator_client_request_uq").on(t.creatorId, t.clientRequestId).where(sql`${t.clientRequestId} IS NOT NULL`),
+]);
 
 export const listings = pgTable("listings", {
   productId: uuid("product_id").primaryKey().references(() => products.id),

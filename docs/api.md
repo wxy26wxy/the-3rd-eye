@@ -15,15 +15,16 @@ Media never goes through these routes except short audio (≤ 4 MB). Images/vide
 `POST /transcribe` multipart `file` (m4a/mp3/wav, ≤ 60 s) or JSON `{ audioUrl }` → `{ text, language?, segments? }`
 
 ## Create
-Since v0.8 the apps are photo-first. The creator flow (order, calls per step, errors) is described once, in "Creator flow (round 2b)" at the end of this file; earlier flow text in the T080/T111 sections below is superseded where it differs. `POST /prompts/shape`, `POST /artworks {source:"text2image"}` and `POST /artworks/{id}/refine` stay in the backend but are **not used by the apps since v0.8** (kept and tested; removal is a post-hackathon task).
+Since v0.8 the apps are photo-first. Since round 3 (T134–T136) the order is: photo → `POST /artworks {source:"photo", detect:false}` → Adjust the area on the whole photo → **`detect {box}`** (detection inside the frame) → Your cutout (`cleanup` with `points`) → **`change`** (optional, repeatable) → **`cutout`** → Your cutout (`cleanup` on the change result) → `products`. See "Creator flow (round 3)" for the exact calls per step (round 2b is kept below, superseded), and "Change it (T111)". `POST /prompts/shape`, `POST /artworks {source:"text2image"}` and `POST /artworks/{id}/refine` stay in the backend but are **not used by the apps since v0.8** (kept and tested; removal is a post-hackathon task).
 
 `POST /prompts/shape` `{ transcript, answers?: string[], product: "sticker"|"tote" }` → `{ prompt, style_notes, clarifying_question: string|null, spoken_confirmation }`
 `POST /artworks` one of:
 - `{ source: "text2image", prompt, transcript?, product, n?: 1..4 }` → `{ artworks: ArtworkVariant[] }` (one row per variant; each has `altText`, `spokenDescription`, `differencesFromPrompt`, `genResponseId`)
-- `{ source: "photo"|"canvas", imageUrl, product }` → `{ artwork: Artwork, candidates: Candidate[], imageSize: { w, h } }` (SAM finds every drawing or object; `cleanedUrl` null until a candidate is chosen when `candidates.length > 1`; `imageSize` = pixel size of the stored original, the coordinate space of `bbox`, `points` and `box`)
+- `{ source: "photo"|"canvas", imageUrl, product, detect?: boolean }` → `{ artwork: Artwork, candidates: Candidate[], imageSize: { w, h } }` (`detect: false` (T134): photo stored, `candidates: []`, no SAM, never 422; default `true`: SAM finds every drawing or object; `cleanedUrl` null until a candidate is chosen when `candidates.length > 1`; `imageSize` = pixel size of the stored original, the coordinate space of `bbox`, `points` and `box`)
 `POST /artworks/{id}/select` `{ candidateId }` → `Artwork` (cleaned PNG + cut path)
+`POST /artworks/{id}/detect` `{ box: [x0,y0,x1,y1] }` → `{ artwork: Artwork, candidates: Candidate[], imageSize: { w, h }, details }` (SAM inside the frame, largest cut out and clipped; T134)
 `POST /artworks/{id}/refine` `{ instruction }` → `{ artwork: ArtworkVariant }` (new row, `parentArtworkId` set) (not used by the apps since v0.8)
-`POST /artworks/{id}/change` `{ instruction, transcript? }` → 201 `{ artwork: ArtworkVariant, description: { alt, spoken, differences } }` (new child row; T111)
+`POST /artworks/{id}/change` `{ instruction, transcript?, clientRequestId? }` → 201 `{ artwork: ArtworkVariant, description: { alt, spoken, differences } }` (new child row; T111)
 `POST /artworks/{id}/cutout` → `{ artwork: Artwork, candidates: Candidate[], imageSize: { w, h } }` (SAM on the artwork's picture, largest piece cut out; T111)
 `POST /artworks/{id}/cleanup` `{ candidateIds?: string[], points?: { x, y, label: "positive"|"negative" }[], box?: [x0,y0,x1,y1], clipToBox?: boolean }` (at least one of the first three) → `Artwork` (see T080 clarifications; `clipToBox` since T126)
 `GET /artworks` → `{ artworks: ArtworkListItem[] }` (mine, newest first; each carries `products` with `priceCents`, `title`, `description`, `mockupUrl`, `previewUrl`)
@@ -31,9 +32,10 @@ Since v0.8 the apps are photo-first. The creator flow (order, calls per step, er
 `DELETE /artworks/{id}` → `{ id, deleted: true, archivedProductIds: string[] }`
 
 ## Products and listings
-`POST /products` `{ artworkId, type: "sticker"|"tote" }` → `Product` (sticker: `printPngUrl`, `printSvgUrl`, `mockupUrl`, `previewUrl`; tote: `mockupUrl`, `previewUrl: null`) — may take up to 60 s
+`POST /products` `{ artworkId, type: "sticker"|"tote", clientRequestId? }` → `Product` (sticker: `printPngUrl`, `printSvgUrl`, `mockupUrl`, `previewUrl`; tote: `mockupUrl`, `previewUrl: null`) — may take up to 60 s
 `POST /listings/{productId}/run` → `{ listing: ListingDraft, trace: AgentStep[] }`
-`POST /listings/{productId}/approve` `{ approvedVia: "voice"|"tap", edits?: { title?, description?, priceCents? } }` → `{ product: Product, listing: Listing, storyVideoNeeded: boolean }`
+`GET /listings/{productId}` → `{ product: Product, listing: Listing | null, draft: ListingDraft | null }` (T134)
+`POST /listings/{productId}/approve` `{ approvedVia: "voice"|"tap", edits?: { title?, description?, priceCents? }, acceptPrintWarning?: boolean }` → `{ product: Product, listing: Listing, storyVideoNeeded: boolean }`
 
 ## Story video (per creator, once)
 `POST /creators/me/story-video` `{ videoUrl /* blob pathname */, mentionDisability?: boolean }` → `Creator` (captions generated; `storyVideoVtt` set)
@@ -52,15 +54,15 @@ Since v0.8 the apps are photo-first. The creator flow (order, calls per step, er
 ## Types (JSON field names)
 ```
 Creator { id, slug, displayName, studioName, avatarUrl, bioShort, storyText, storyVideoUrl, storyVideoVtt, mentionDisability, accessPrefs, split, isExample }
-Artwork { id, creatorId, source, transcript, shapedPrompt, originalUrl, cleanedUrl, maskUrl, cutPathSvg, altText, spokenDescription, differencesFromPrompt, genResponseId, parentArtworkId, changeInstruction, status, lastError, createdAt }
+Artwork { id, creatorId, source, transcript, shapedPrompt, originalUrl, cleanedUrl, maskUrl, cutPathSvg, altText, spokenDescription, differencesFromPrompt, genResponseId, parentArtworkId, changeInstruction, clientRequestId, status, lastError, createdAt }
 ArtworkVariant = Artwork & { previewUrl }
 ArtworkListItem = Artwork & { products: ArtworkProduct[] }
 ArtworkProduct { id, type: "sticker"|"tote", status: "draft"|"published"|"archived", priceCents: number, title: string|null, description: string|null, mockupUrl: string|null, previewUrl: string|null }
 ImageSize { w, h } /* px of the stored original */
 CleanupPoint { x, y, label: "positive"|"negative" } /* px in original */
 Candidate { id, bbox: [x0,y0,x1,y1] /* px in original */, score, thumbUrl }
-Product { id, artworkId, creatorId, type, mockupUrl, previewUrl, printPngUrl, printSvgUrl, priceCents, status }
-ListingDraft { title, description, tags[], price_cents, print_ok, notes }
+Product { id, artworkId, creatorId, type, mockupUrl, previewUrl, printPngUrl, printSvgUrl, priceCents, status, clientRequestId }
+ListingDraft { title, description, tags[], price_cents, print_ok, print_check: "resolution"|"contrast"|null, notes }
 Listing { productId, title, description, tags, priceSuggestionCents, approvedAt, approvedVia, madeByVoice }
 AgentStep { step, tool?, args?, result?, text? }
 OrderSummary { id, productId, productTitle, mockupUrl, buyerName, amountCents, creatorShareCents, size, quantity, status, createdAt, hasThankYou, unreadMessages }
@@ -182,8 +184,10 @@ Additive: no field or path removed. The text-to-image routes keep working.
 4. **Backfill.** `pnpm backfill:previews` (from `web/`, reads `.env.local`; `--dry-run` lists only) builds the preview for every non-deleted sticker product whose artwork has `cleanedUrl` and whose `previewUrl` is null: one `composeSticker` from the stored cleaned PNG, no mockup, no model calls, print files untouched; the write only lands while `preview_url` is still null, so a second run finds nothing. Prints `stickers without a preview / built / skipped / failed`. Needs migration 0005 (`products.preview_url`) applied first.
 5. **Mock (`ios/scripts/mock_api.py`).** Every product carries `previewUrl` (a bordered sticker PNG served by the mock; `null` for totes); `POST /listings/{id}/run` answers after about 2 s with the `{ listing, trace }` shape above; `GET /creators/me` returns `storyVideoUrl` (a `/media/...mp4` pathname the mock serves) and `storyVideoVtt`.
 
-## Creator flow (round 2b, T129 backend, 2026-11-03)
-The canonical order on **both** web and iOS (this section is the single description of the creator flow; it supersedes the "Looks good as is" line of T111 item 1: the cutout is now reviewed before Change it, and "Looks good as is" goes to Making product). No new route or field; every call below exists since T080/T111/T126. Coordinates are always pixels of the row's `imageSize` (the photo for the original row, the edited picture for a change result).
+## Creator flow (round 2b, T129 backend, 2026-11-03) — superseded by round 3 (T134)
+Kept for the TestFlight build in the field (it still calls `POST /artworks` without `detect`). New client work follows "Creator flow (round 3)" below.
+
+The canonical order on **both** web and iOS (supersedes the "Looks good as is" line of T111 item 1: the cutout is now reviewed before Change it). No new route or field; every call below exists since T080/T111/T126. Coordinates are always pixels of the row's `imageSize` (the photo for the original row, the edited picture for a change result).
 
 | # | Screen / action | Call | Notes |
 |---|---|---|---|
@@ -205,3 +209,54 @@ Errors on every `cleanup` are unchanged: `400 invalid_request` (body rules, `cli
 
 **Mock (`ios/scripts/mock_api.py`).** `POST /artworks/ch<n>/cleanup` takes the same body (same validation), answers that change row with a new `cleanedUrl` (`404` for an unknown `ch<n>`) and echoes the body in `GET /__mock/last/cleanup`; `GET /artworks/ch<n>` returns `candidates` + `imageSize` once its `cutout` ran (no candidates before, as the server); `POST /artworks/p1/cutout` stays `409 not_a_change`.
 
+## Creator flow (round 3, T134 backend, 2026-11-03)
+The canonical order on **both** web and iOS from v0.9 (replaces the round 2b table; Choose a pattern is gone). Additive: every round 2b call still works, and `POST /artworks` without `detect` behaves as before (the TestFlight build in the field). Coordinates are always pixels of the row's `imageSize` (the stored photo for the original row, the edited picture for a change result); no EXIF handling on the client.
+
+| # | Screen / action | Call | Notes |
+|---|---|---|---|
+| 1 | Photo → Finding ("Getting your photo ready…") | `POST /artworks {source:"photo", imageUrl, product, detect:false}` | → 201 `{artwork, candidates: [], imageSize}`, `status: "draft"`, `cleanedUrl: null`. No SAM call, so it **never answers `422 no_drawing_found`** (no detection ran). |
+| 2 | Adjust the area (the stored photo, frame = the whole photo `[0,0,w,h]`) → "Use this area" → Making your cutout | `POST /artworks/{id}/detect {box: the frame}` | → `{artwork, candidates, imageSize, details}`. SAM (both phrases, "drawing" and "handmade object") runs on the **crop** of the frame; masks and `bbox`es are placed back in photo pixels, so every candidate lies inside the frame. Candidates are stored on the row (replacing earlier ones), **largest first**; `candidates[0]` is auto-picked and cut out with the frame as a clip (as `cleanup {candidateIds:[candidates[0].id], box, clipToBox:true}`). Inside the frame a piece may fill the crop edge to edge and may contain its own parts: both are kept (no background or paper/table drop, unlike the whole-photo search). Nothing found → `422 no_drawing_found` with `artworkId` (show "move or grow the frame" on Adjust the area; nothing is cut, the previous candidates and cut stay). |
+| 2a | Adjust the area again after a cut (the creator re-frames) | `POST /artworks/{id}/detect {box: the new frame}` | **A re-framed area always sends `detect` again**: detection runs inside the new frame and replaces the candidates. `cleanup` is only for marks (step 3). Design detail → "Re-do the cutout" opens Adjust the area and also sends `detect`. |
+| 3 | Your cutout → Add area / Remove area → "Apply cutout" | `POST /artworks/{id}/cleanup {candidateIds:[picked], box: the frame, points, clipToBox:true}` | Unchanged from round 2b step 4. The candidate strip shows only when `candidates.length ≥ 2`; picking another candidate = `cleanup {candidateIds:[that id], box: the frame, clipToBox:true}`. |
+| 4 | Your cutout → "Looks good as is" → Making product | `POST /products {artworkId, type, clientRequestId}` | `clientRequestId`: a uuid per attempt (reuse it on "Try again" for the same attempt). Reuse the draft product for the same artwork + type, as before. |
+| 5 | Change it → Make the change → Changing | `POST /artworks/{id}/change {instruction, transcript?, clientRequestId}` | web sends its `changeNonce`, iOS a uuid per attempt. → 201 child row (as T111). |
+| 6 | Before and after → Change it again / Back to my original | `POST /artworks/{childId}/change {…, clientRequestId}` / no call | As round 2b. |
+| 7 | Before and after → "Use this" → Making your cutout | `POST /artworks/{childId}/cutout` | As round 2b (SAM on the whole edited picture; `detect` is for the photo row only). |
+| 8 | Your cutout (after a change) → marks → "Apply cutout" | `POST /artworks/{childId}/cleanup {…}` | As round 2b step 9. |
+| 9 | Your cutout → "Use this" | `POST /products {artworkId: childId, type, clientRequestId}` | As step 4. |
+| 10 | Listing details (drafting) | `POST /listings/{productId}/run`; recovery `GET /listings/{productId}` | The product picture shows as soon as `POST /products` returns; "Redo" cancels the client's run (the server run completes and upserts). |
+| 11 | Approve and list it | `POST /listings/{productId}/approve {approvedVia, edits?, acceptPrintWarning?}` | See "Print check" below. |
+
+### `POST /artworks/{id}/detect` (T134)
+- Creator auth; own artwork else `404 not_found`. Body `{ box: [x0, y0, x1, y1] }` (pixels of `imageSize`, `x0 < x1`, `y0 < y1`, non-negative; clamped to the image like every box, start floored, end rounded up). Anything else → `400 invalid_request`.
+- Only the **photo row** (`source` `photo` or `canvas`, `changeInstruction` null). A change result or a text2image row → `409 not_a_photo` ("Use cutout for a changed picture"). Row without an original → `400 no_original`.
+- Response 200 `{ artwork: Artwork /* cleanedUrl, cutPathSvg, status "ready" */, candidates: Candidate[] /* largest first */, imageSize, details: { failedProductIds, unpublishedProductIds } }`. Products already made from the row are rebuilt as after a `cleanup`.
+- Errors: `422 no_drawing_found` (nothing inside the frame, or a box entirely outside the image; with `artworkId`; only `lastError` is set: the row's previous candidates and cut are kept, so a `cleanup` with an earlier candidate still works), `504 deadline_exceeded`. Time ≈ 10–25 s (two SAM calls in parallel + describe). Rate-limited as a model route.
+
+### `detect` on `POST /artworks`
+`detect?: boolean`, default `true` (today's behaviour: SAM on the whole photo, auto-cut of a single small piece, 422 when nothing is found). `detect: false` stores the rotated original (same EXIF rotation, flatten and ×2 upscale cap as before, so `imageSize` is the same coordinate space) and answers 201 `{artwork, candidates: [], imageSize}`; `GET /artworks/{id}` then has `candidates: []` until `detect` runs.
+
+### Print check (ruling 2: a warning, never a block, except resolution)
+- **Resolution** (the only hard gate): measured on the artwork's **cleaned PNG** (not the print file) allowing **one further ×2**: OK when `min(w, h) × 2 ≥ 900 px` (sticker, 3 in at 300 dpi) / `1500 px` (tote). Note: the cleaned PNG may itself already be up to ×2 of the photo's pixels (the cut is upscaled when small), so in the worst case the print is about ×4 of the photo's pixels; a stricter rule is a one-line change.
+- **Contrast** (a warning): measured in Lab over the **opaque pixels only** (alpha ≥ 128): lightness spread `L p95 − p5 ≥ 30` **or** colourfulness `chroma p90 ≥ 25` **or** a dark piece (mean `L ≤ 50`). Faint pencil on white and evenly toned light-grey pieces warn; yellow, pastel, colourful and dark pieces pass.
+- `ListingDraft.print_ok` = **true only when neither check is flagged**; `ListingDraft.print_check` = `"resolution"` (failed; reported first when both are flagged), `"contrast"` (warning only), or `null`. The listing form shows the line for `print_check`.
+- `POST /listings/{id}/approve`:
+  - resolution failed → `409 {error: {code: "print_check_failed", message, check: "resolution"}}`, **even with** `acceptPrintWarning: true`. Client: "Re-do the cutout" / "Use a bigger photo".
+  - contrast warning and no `acceptPrintWarning` → `409 {error: {code: "print_check_failed", message, check: "contrast"}}`. Client: "Use anyway" → the same approve with `acceptPrintWarning: true` → 200 published.
+  - A listing saved under the old rule (before v0.9) is measured again under these rules at approve time (and saved), so drafts that failed the old greyscale rule can be published.
+- After a re-cut (`cleanup` / `detect` with products), a **published** product goes back to draft only when **resolution** fails (`details.unpublishedProductIds`); a contrast warning leaves it published.
+
+### `clientRequestId` on `change` and `products` (idempotency)
+- Optional string, 1–100 characters, chosen by the client per attempt. Stored on the new row (`Artwork.clientRequestId`, `Product.clientRequestId`; null when not sent), unique per creator.
+- First call → 201 as before. A repeat with the same id → **200 with the same row** (no new row; no new image edit or product build once the first call has stored its row); for `change` the `description` is rebuilt from the row (`alt`, `spoken`, `differences`), and when the row has none yet (the first call is still describing it, or its describe failed) it is described for the repeat. If that also fails, `alt` / `spoken` are `""`: clients always fall back to their own copy when they are empty.
+- The same id for a different target (`change`: another parent artwork; `products`: another artwork or type) → `409 client_request_conflict`.
+- Two concurrent calls with the same id: both run their model step (an in-flight first call stores no marker), then the database's unique index wins and the loser answers 200 with the winner's row.
+- Needs migration 0006 (`artworks.client_request_id`, `products.client_request_id`, unique partial indexes). **The user applies it before deploying v0.9**; the v0.9 code reads the columns on every artwork/product query.
+
+### `GET /listings/{productId}` (recovery and the drafting screen)
+Own product else `404 not_found`. → 200 `{ product: Product, listing: Listing | null, draft: ListingDraft | null }`. `listing` is the saved row (`approvedAt` null for a draft); `draft` is what `POST /listings/{id}/run` last returned: the pending re-run copy for a published product when there is one, else the saved row in `ListingDraft` shape (`print_ok`, `print_check`, `notes` from the stored print check). Both null before the agent first ran.
+
+### Cutout edges (ruling 4)
+New cuts have a 1–2 px anti-aliased edge (no terraces), the sticker preview and print file a soft white-border edge, and a frame clip a 1 px feather. Existing products are not rebuilt (`pnpm backfill:previews` may be re-run later).
+
+**Mock (`ios/scripts/mock_api.py`).** `POST /artworks {detect:false}` → `candidates: []` + `imageSize` (in every mode, never 422). `POST /artworks/<p1|d<n>>/detect {box}` sleeps 2 s and answers `{artwork, candidates, imageSize, details}` (sign-in `ONE…`: one candidate; `NONE…`/`NOCUT…`: `422 no_drawing_found` with `artworkId`; `ch<n>`: `409 not_a_photo`; bad box: 400); the body is in `GET /__mock/last/detect`, calls in `/__mock/count/detect`; `GET /artworks/p1` then lists the detected candidates. `clientRequestId` on `change` / `products` is echoed on the row; a repeat with the same id answers 200 with the same row (`/__mock/count/change` and `/__mock/count/products` stay at 1; another target → 409 `client_request_conflict`). `GET /listings/<id>` → `{product, listing, draft}` (nulls before a run). Sign-in `NOPRINT…`: run gives `print_ok: false, print_check: "contrast"`, approve answers 409 `print_check_failed` with `check: "contrast"`, and 200 with `acceptPrintWarning: true`. Sign-in `NORES…`: `check: "resolution"`, 409 even with the flag.

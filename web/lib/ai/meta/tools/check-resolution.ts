@@ -6,7 +6,7 @@ export { checkResolution };
 
 export const checkResolutionTool: ToolDef = {
   name: "check_resolution",
-  description: "Checks whether the artwork has enough pixels to print sharply at the product's size.",
+  description: "Checks whether the cut-out artwork has enough pixels (allowing one 2x upscale) to print sharply at the product's size.",
   parameters: obj({}),
   handler: async (_args, ctx) => checkResolution(ctx),
 };

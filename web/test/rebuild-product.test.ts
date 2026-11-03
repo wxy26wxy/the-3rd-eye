@@ -66,4 +66,14 @@ describe("rebuildProductFiles", () => {
     expect(state.patch?.status).toBe("draft");
     expect((state.printCheck as { print_ok: boolean }).print_ok).toBe(false);
   });
+
+  it("a published product whose new cut only gets a contrast warning stays published (T134)", async () => {
+    const faint = `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000"><rect width="1000" height="1000" fill="#fff"/><path d="M100 500 H900" stroke="#c8c8c8" stroke-width="12"/></svg>`;
+    files.set("cleaned.png", await sharp(Buffer.from(faint)).png().toBuffer());
+    state.product = { id: "p1", artworkId: "a1", creatorId: "c1", type: "sticker", status: "published" };
+    const out = await rebuildProductFiles("p1");
+    expect(out.unpublished).toBe(false);
+    expect(state.patch?.status).toBeUndefined();
+    expect(state.printCheck).toMatchObject({ print_ok: false, check: "contrast" });
+  });
 });

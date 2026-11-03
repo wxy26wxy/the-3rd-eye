@@ -41,6 +41,16 @@ POST /listings/<id>/run sleeps 2 s and answers {listing, trace} (title/descripti
 GET /__mock/last/run has the product id). GET /creators/me returns storyVideoUrl (a pathname the mock
 serves at /media/<pathname>, a short MP4 with Range support) and storyVideoVtt; sign-in NOVIDEO...
 returns both null ("No story video yet"); POST /creators/me/story-video replaces them.
+Round 3 (T134): POST /artworks {source: photo, detect: false} answers the stored photo with candidates []
+and imageSize (every mode, never 422). POST /artworks/<p1|d<n>>/detect {box} sleeps 2 s and answers
+{artwork, candidates, imageSize, details} (ONE...: one candidate; NONE.../NOCUT...: 422 no_drawing_found
+with artworkId; ch<n>: 409 not_a_photo; bad box: 400); body in GET /__mock/last/detect, calls in
+/__mock/count/detect; GET /artworks/p1 then lists the detected candidates. clientRequestId on change and
+products is echoed on the row; a repeat with the same id answers 200 with the same row and is not counted
+(/__mock/count/change and /__mock/count/products stay at 1); the same id for another target answers 409
+client_request_conflict. GET /listings/<id> answers {product, listing, draft} (nulls before a run).
+NOPRINT...: run gives print_ok false + print_check "contrast", approve answers 409 print_check_failed with
+check "contrast", and 200 with acceptPrintWarning: true. NORES...: check "resolution", 409 even with the flag.
 """
 import json
 import math
@@ -164,7 +174,7 @@ def count(name):
     COUNTS[name] = COUNTS.get(name, 0) + 1
 # A sign-in code starting with ONE makes photo answers carry a single, already cut-out candidate.
 # NOCUT… makes every cleanup answer 422; DETAILS… makes it carry non-empty details.
-MODE = {"nocutout": False, "single": False, "none": False, "fail": False, "details": False, "slow": False, "noprint": False, "novideo": False}
+MODE = {"nocutout": False, "single": False, "none": False, "fail": False, "details": False, "slow": False, "noprint": False, "nores": False, "novideo": False}
 CUTS = {"n": 0}
 
 
@@ -180,6 +190,26 @@ def photo_artwork(cleaned=None, alt=None):
 
 # Change it (T111): each change makes a new child row ch1, ch2, ... (the last body is in LAST["change"]).
 CHANGES = {"n": 0, "rows": {}, "cut": set()}
+# Round 3 (T134): clientRequestId -> (target, status-200 response) for change and products; detect state of p1.
+REQUESTS = {"change": {}, "products": {}}
+DETECT = {"candidates": None}
+
+
+def check_request_id(body):
+    rid = body.get("clientRequestId")
+    if rid is not None and (not isinstance(rid, str) or not 1 <= len(rid) <= 100):
+        raise MockError(400, "invalid_request", "clientRequestId must be 1-100 characters")
+    return rid
+
+
+def repeat_of(kind, rid, target):
+    """The stored answer for a repeated clientRequestId (200), a 409 for another target, else None."""
+    if rid is None or rid not in REQUESTS[kind]:
+        return None
+    stored_target, response = REQUESTS[kind][rid]
+    if stored_target != target:
+        raise MockError(409, "client_request_conflict", "This clientRequestId was used for another request")
+    return 200, response
 
 
 def change_artwork(artwork_id, body):
@@ -187,6 +217,11 @@ def change_artwork(artwork_id, body):
     instruction = str(body.get("instruction") or "").strip()
     if not instruction or len(instruction) > 1000:
         raise MockError(400, "invalid_request", "instruction must be 1-1000 characters")
+    rid = check_request_id(body)
+    again = repeat_of("change", rid, artwork_id)
+    if again:
+        return again
+    count("change")
     time.sleep(2)
     CHANGES["n"] += 1
     child_id = f"ch{CHANGES['n']}"
@@ -197,11 +232,14 @@ def change_artwork(artwork_id, body):
         "altText": "Yellow school bus under a purple sky",
         "spokenDescription": "A yellow school bus drives along a road. The sky above it is purple now.",
         "differencesFromPrompt": differences or None, "previewUrl": f"{BASE}/img.png?change={CHANGES['n']}",
-        "createdAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+        "createdAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"), "clientRequestId": rid,
     }
     CHANGES["rows"][child_id] = child
-    return 201, {"artwork": child, "description": {
+    response = {"artwork": child, "description": {
         "alt": child["altText"], "spoken": child["spokenDescription"], "differences": differences}}
+    if rid is not None:
+        REQUESTS["change"][rid] = (artwork_id, response)
+    return 201, response
 
 
 def cutout_artwork(artwork_id, body):
@@ -246,6 +284,10 @@ def change_cleanup(artwork_id, body):
 def create_artwork(body):
     if body.get("source") in ("photo", "canvas"):
         LAST["artworks"] = body
+        if body.get("detect") is False:
+            # Round 3 (T134): the photo is stored, no detection ran, so never 422.
+            DETECT["candidates"] = []
+            return 201, {"artwork": photo_artwork(), "candidates": [], "imageSize": IMAGE_SIZE}
         if MODE["none"]:
             raise MockError(422, "no_drawing_found", "We could not find a drawing in this photo.", artworkId="p1")
         if MODE["single"]:
@@ -316,8 +358,38 @@ def cleanup(body, artwork_id="p1"):
     return {**photo_artwork(f"{BASE}/img.png?cut={CUTS['n']}", alt), "details": details}
 
 
+def detect(artwork_id, body):
+    """Round 3 (T134): SAM inside the frame on the photo row; the largest candidate is cut out."""
+    LAST["detect"] = {**body, "artworkId": artwork_id}
+    count("detect")
+    if artwork_id in CHANGES["rows"]:
+        raise MockError(409, "not_a_photo", "Use cutout for a changed picture")
+    design = find_design(artwork_id) if artwork_id != "p1" else None
+    box = body.get("box")
+    if set(body) - {"box"} or not isinstance(box, list) or len(box) != 4 \
+            or not all(isinstance(v, (int, float)) and v >= 0 for v in box) or not (box[0] < box[2] and box[1] < box[3]):
+        raise MockError(400, "invalid_request", "box must be [x0, y0, x1, y1] with x0 < x1 and y0 < y1")
+    time.sleep(2)
+    if MODE["none"] or MODE["fail"]:
+        DETECT["candidates"] = []
+        raise MockError(422, "no_drawing_found", "Nothing was found inside the frame.", artworkId=artwork_id)
+    cands = CANDIDATES[:1] if MODE["single"] else CANDIDATES
+    CUTS["n"] += 1
+    row = photo_artwork(f"{BASE}/img.png?detect={CUTS['n']}", f"Cut-out of {cands[0]['id']}")
+    row["cutPathSvg"] = "M10 10 L90 10 L90 90 L10 90 Z"
+    if design:
+        design["cleanedUrl"], design["status"], design["lastError"] = row["cleanedUrl"], "ready", None
+        row = {**row, "id": artwork_id, "altText": design["altText"]}
+    else:
+        DETECT["candidates"] = cands
+    return {"artwork": row, "candidates": cands, "imageSize": IMAGE_SIZE,
+            "details": {"failedProductIds": [], "unpublishedProductIds": []}}
+
+
 def artwork_detail(_body):
     cands = [] if MODE["none"] else CANDIDATES[:1] if MODE["single"] else CANDIDATES
+    if DETECT["candidates"] is not None:
+        cands = DETECT["candidates"]
     return {"artwork": photo_artwork(), "candidates": cands, "imageSize": IMAGE_SIZE, "originalUrl": f"{BASE}/img.png"}
 
 
@@ -391,21 +463,31 @@ def design_cleanup(artwork_id, body):
 
 def create_product(body):
     LAST["products"] = body
+    rid = check_request_id(body)
+    again = repeat_of("products", rid, (body.get("artworkId"), body.get("type")))
+    if again:
+        return again
     count("products")
     if body.get("artworkId") in {d["id"] for d in DESIGNS["list"]} and not find_design(body["artworkId"])["cleanedUrl"]:
         raise MockError(409, "artwork_not_ready", "Pick and clean up the artwork first")
     product_id = f"pr-new-{body.get('type')}"
-    return {"id": product_id, "artworkId": body.get("artworkId"), "creatorId": "c-test",
-            "type": body.get("type"), "mockupUrl": f"{BASE}/img.png", "previewUrl": preview_for(product_id, body.get("type")),
-            "printPngUrl": None, "printSvgUrl": None,
-            "priceCents": 500, "status": "draft"}
+    product = {"id": product_id, "artworkId": body.get("artworkId"), "creatorId": "c-test",
+               "type": body.get("type"), "mockupUrl": f"{BASE}/img.png", "previewUrl": preview_for(product_id, body.get("type")),
+               "printPngUrl": None, "printSvgUrl": None,
+               "priceCents": 500, "status": "draft", "clientRequestId": rid}
+    PRODUCTS[product_id] = product
+    if rid is not None:
+        REQUESTS["products"][rid] = ((body.get("artworkId"), body.get("type")), product)
+    return 201, product
 
 
 def approve(product_id, body):
     LAST["approve"] = {**body, "productId": product_id}
     edits = body.get("edits") or {}
-    if MODE.get("noprint"):
-        raise MockError(409, "print_check_failed", "effective dpi 96 < 150; contrast 1.2:1")
+    if MODE.get("nores"):
+        raise MockError(409, "print_check_failed", "short side 240px, needs 900px", check="resolution")
+    if MODE.get("noprint") and body.get("acceptPrintWarning") is not True:
+        raise MockError(409, "print_check_failed", "lightness spread 12 < 30; chroma 3 < 25", check="contrast")
     words = f"{edits.get('title') or ''} {edits.get('description') or ''}".lower()
     if "unkind" in words:
         raise MockError(409, "moderation_failed", "flagged: harassment (0.91)")
@@ -446,12 +528,45 @@ def run_listing(product_id, _body):
         "title": title or f"Frog King {word}",
         "description": description or "A smiling green frog wearing a small gold crown, drawn with thick dark outlines.",
         "tags": ["frog", "crown", kind], "price_cents": 2500 if kind == "tote" else SUGGESTED_CENTS,
-        "print_ok": True, "notes": "",
+        "print_ok": True, "print_check": None, "notes": "",
     }
-    trace = [{"step": 1, "tool": "check_resolution", "result": {"ok": True}},
-             {"step": 2, "tool": "check_contrast", "result": {"ok": True}},
+    if MODE["nores"]:
+        listing.update(print_ok=False, print_check="resolution", notes="Too small for a 3 in sticker.")
+    elif MODE["noprint"]:
+        listing.update(print_ok=False, print_check="contrast", notes="Low contrast: the design may look faint when printed.")
+    trace = [{"step": 1, "tool": "check_resolution", "result": {"ok": not MODE["nores"]}},
+             {"step": 2, "tool": "check_contrast", "result": {"ok": not MODE["noprint"]}},
              {"step": 3, "text": "Drafted the listing."}]
+    RUNS[product_id] = {"kind": kind, "listing": listing}
     return {"listing": listing, "trace": trace}
+
+
+# Round 3 (T134): products made since sign-in and the last listing run per product.
+PRODUCTS = {}
+RUNS = {}
+
+
+def get_listing(product_id, _body):
+    """GET /listings/<id>: the product, its saved listing and the last run's draft (nulls before a run)."""
+    product = PRODUCTS.get(product_id)
+    for d in DESIGNS["list"]:
+        for p in d["products"]:
+            if p["id"] == product_id:
+                product = product or {"id": p["id"], "artworkId": d["id"], "creatorId": "c-test", "type": p["type"],
+                                      "mockupUrl": p.get("mockupUrl"), "previewUrl": p.get("previewUrl"),
+                                      "printPngUrl": None, "printSvgUrl": None,
+                                      "priceCents": p.get("priceCents") or SUGGESTED_CENTS, "status": p["status"],
+                                      "clientRequestId": None}
+    if not product:
+        raise MockError(404, "not_found", "no such product")
+    run = RUNS.get(product_id)
+    if not run:
+        return {"product": product, "listing": None, "draft": None}
+    draft = run["listing"]
+    listing = {"productId": product_id, "title": draft["title"], "description": draft["description"],
+               "tags": draft["tags"], "priceSuggestionCents": draft["price_cents"], "approvedAt": None,
+               "approvedVia": None, "madeByVoice": False}
+    return {"product": product, "listing": listing, "draft": draft}
 
 
 # Routes with an id in the path: (method, regex) -> fn(id, body).
@@ -462,6 +577,8 @@ PATTERN_ROUTES = [
     ("POST", re.compile(r"^/api/v1/artworks/([\w-]+)/change$"), change_artwork),
     ("POST", re.compile(r"^/api/v1/artworks/([\w-]+)/cutout$"), cutout_artwork),
     ("POST", re.compile(r"^/api/v1/artworks/(ch\d+)/cleanup$"), change_cleanup),
+    ("POST", re.compile(r"^/api/v1/artworks/(p1|d\d+|ch\d+)/detect$"), detect),
+    ("GET", re.compile(r"^/api/v1/listings/([\w-]+)$"), get_listing),
     ("GET", re.compile(r"^/api/v1/artworks/(ch\d+)$"), lambda i, b: change_detail(i)),
     ("POST", re.compile(r"^/api/v1/listings/([\w-]+)/approve$"), approve),
     ("POST", re.compile(r"^/api/v1/listings/([\w-]+)/run$"), run_listing),
@@ -484,12 +601,17 @@ def sign_in(body):
     MODE["details"] = code.startswith("DETAILS")
     MODE["slow"] = code.startswith("SLOW")
     MODE["noprint"] = code.startswith("NOPRINT")
+    MODE["nores"] = code.startswith("NORES")
     MODE["novideo"] = code.startswith("NOVIDEO")
     STORY["url"], STORY["vtt"] = (None, None) if MODE["novideo"] else (STORY_VIDEO_PATH, STORY_VTT)
     LAST.clear()
     COUNTS.clear()
     DESIGNS["list"] = designs()
     CHANGES["n"], CHANGES["rows"], CHANGES["cut"] = 0, {}, set()
+    REQUESTS["change"], REQUESTS["products"] = {}, {}
+    DETECT["candidates"] = None
+    PRODUCTS.clear()
+    RUNS.clear()
     creator = {**CREATOR, "accessPrefs": {**CREATOR["accessPrefs"], "simpleMode": not multi}}
     return {"token": "c-test.mock", "creator": creator}
 

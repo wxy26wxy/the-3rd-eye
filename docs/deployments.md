@@ -81,3 +81,7 @@
 - No migration. Known, minor: iOS Story video Skip does not send `dismissStoryDraft`; the web keyboard path cannot add a Remove-area mark (see `docs/accessibility.md`).
 - Production: round 2b was promoted by the founder on 2026-11-02 (evening) as deployment `dpl_GTaKpasRNth7NhTYnqokNe2wD9Ui`, built from main 20e248b; smoke OK. TestFlight: The 3rd Eye 0.5.0 build 3 upload **pending** (product owner, Xcode Organizer).
 - Approver: the product owner. Rollback target: the v0.8.1 production deployment (id not recorded, see its entry; the last recorded id is v0.8's `dpl_Bjz7uZNSYJUJqZQjD8HQhNWW2TA7`) (Vercel instant rollback; no migration to undo).
+
+## v0.9 (feedback round 3, T134–T137) · pending
+- **Prerequisite: migration 0006 must be applied to the shared database before v0.9 is deployed.** The user runs `pnpm migrate drizzle/0006_t134_client_request_ids.sql` from `web/` (additive and idempotent: `artworks.client_request_id`, `products.client_request_id`, two unique partial indexes). Without it every artwork and product query fails (they select the new columns). Applied by the founder on 2026-11-02 (evening) from the backend worktree; verified: both columns present.
+- Rollback: the v0.8.x deployment; the columns are additive, so rolling the web back needs no revert.

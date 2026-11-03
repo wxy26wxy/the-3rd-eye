@@ -346,3 +346,9 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - `docs/accessibility.md`: Your cutout scripts for both platforms with the tools back (Add area / Remove area, Apply cutout, marks with delete, iOS "Add the area around your art" action, web Marks list); the flow order in every script; stated gap: no keyboard Remove-area mark on the web. Labels checked against `web/messages/en.json` and `Localizable.xcstrings`.
 - `docs/demo_script.md`: beats in the canonical order (a Remove-area tap on the first cutout, change by voice, cutout again, sticker; tote shows the AI tote photo). `docs/design/screens.md`: "Round 2b — to mirror in Figma" section with board ids. README step 2, `docs/submission.md` flow sentence, `docs/deployments.md` v0.8.2 entry.
 - Verify: `bash scripts/check_clean.sh` ok on each commit. Not done: scripts not run on a device; tag v0.8.2 and the deploys are the product owner's.
+
+## T134 backend · Feedback round 3: detect inside the frame, print warning, smooth edges, idempotency (2026-11-03)
+- `POST /artworks {detect:false}`, new `POST /artworks/{id}/detect {box}`, `GET /listings/{productId}`, `clientRequestId` on `change` / `products` (migration 0006, not applied: the user applies it before deploy), `approve {acceptPrintWarning}` with `check` on the 409, colour contrast warning + cleaned-PNG resolution gate, smooth cutout edges and soft sticker border.
+- Mock (`ios/scripts/mock_api.py`): detect, detect:false, clientRequestId repeats (counts stay 1), GET listings, NOPRINT (contrast) and NORES (resolution) modes.
+- `docs/api.md` "Creator flow (round 3)" (round 2b marked superseded), handoff, ADR, `docs/deployments.md` note.
+- Verify: `pnpm test` (from `web/`), `pnpm lint`, `pnpm build`, `bash scripts/check_clean.sh`; reviewer: `vitest run test/edge-smoothing.test.ts test/print-warning.test.ts` and one live `detect` after migration 0006.

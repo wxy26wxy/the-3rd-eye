@@ -74,7 +74,7 @@ export async function listCreatorsAdmin(): Promise<AdminCreatorRow[]> {
 }
 
 /** True for a Postgres unique violation (drizzle wraps driver errors in `cause`). */
-function isUniqueViolation(err: unknown): boolean {
+export function isUniqueViolation(err: unknown): boolean {
   for (let e: unknown = err, i = 0; e && i < 4; e = (e as { cause?: unknown }).cause, i++) {
     if ((e as { code?: string }).code === "23505") return true;
   }
@@ -169,6 +169,13 @@ export async function insertArtwork(values: typeof artworks.$inferInsert): Promi
 
 export async function getArtwork(id: string): Promise<ArtworkRow | null> {
   const [row] = await db().select().from(artworks).where(and(eq(artworks.id, id), isNull(artworks.deletedAt))).limit(1);
+  return row ?? null;
+}
+
+/** The row a creator's `clientRequestId` made (T134), deleted rows included (the unique index covers them). */
+export async function getArtworkByClientRequest(creatorId: string, clientRequestId: string): Promise<ArtworkRow | null> {
+  const [row] = await db().select().from(artworks)
+    .where(and(eq(artworks.creatorId, creatorId), eq(artworks.clientRequestId, clientRequestId))).limit(1);
   return row ?? null;
 }
 
@@ -275,6 +282,13 @@ export async function insertProduct(values: typeof products.$inferInsert): Promi
 
 export async function getProduct(id: string): Promise<ProductRow | null> {
   const [row] = await db().select().from(products).where(and(eq(products.id, id), isNull(products.deletedAt))).limit(1);
+  return row ?? null;
+}
+
+/** The product a creator's `clientRequestId` made (T134), deleted rows included. */
+export async function getProductByClientRequest(creatorId: string, clientRequestId: string): Promise<ProductRow | null> {
+  const [row] = await db().select().from(products)
+    .where(and(eq(products.creatorId, creatorId), eq(products.clientRequestId, clientRequestId))).limit(1);
   return row ?? null;
 }
 

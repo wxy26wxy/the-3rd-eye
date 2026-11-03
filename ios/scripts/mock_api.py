@@ -647,7 +647,7 @@ ROUTES = {
     ("GET", "/api/v1/artworks/p1"): artwork_detail,
     # Blob client upload: token event, then the PUT the app sends to MOCK_BLOB_API (= BASE/blob/).
     ("POST", "/api/v1/uploads"): lambda b: {"clientToken": "vercel_blob_client_mockstore_token"},
-    ("GET", "/api/v1/artworks"): lambda b: {"artworks": DESIGNS["list"] + [
+    ("GET", "/api/v1/artworks"): lambda b: count("artworks-list") or {"artworks": DESIGNS["list"] + [
         {**row, "products": []} for row in reversed(list(CHANGES["rows"].values()))]},
     ("POST", "/api/v1/products"): create_product,
     ("GET", "/api/v1/orders"): lambda b: {"orders": [], "unread": 0},

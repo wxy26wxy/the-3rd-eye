@@ -300,7 +300,7 @@ struct AdjustAreaView: View {
       if let cut = flow.cutoutArtwork { app.designs.replace(cut) }
       guard app.designsPath.last == .adjustArea else { return }
       app.designsPath.removeLast()
-      Task { await app.designs.load() }
+      Task { await app.designs.load(force: true) }
     } catch {
       if let message = CleanupResult.errorMessage(for: error) { self.error = message }
     }

@@ -167,10 +167,16 @@ final class AppState {
     selectedTab = .create
   }
 
-  func push(_ route: CreateRoute) { createPath.append(route) }
+  /// Every step of a creation may have changed a row on the server (a new photo, cut, change,
+  /// product or listing): My designs fetches its list again next time (Ruling 3, T144).
+  func push(_ route: CreateRoute) {
+    designs.markStale()
+    createPath.append(route)
+  }
 
   /// Replaces the top screen (used by loading screens so Back skips them).
   func replaceTop(with route: CreateRoute) {
+    designs.markStale()
     if !createPath.isEmpty { createPath.removeLast() }
     createPath.append(route)
   }

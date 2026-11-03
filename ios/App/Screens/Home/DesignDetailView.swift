@@ -245,7 +245,7 @@ struct DesignDetailView: View {
       if app.designsPath.last == .detail(artworkId) { app.designsPath.append(.adjustArea) }
     } catch {
       if APIError.isCancellation(error) { return }
-      if case APIError.server(404, _, _) = error { Task { await app.designs.load() } }
+      if case APIError.server(404, _, _) = error { Task { await app.designs.load(force: true) } }
       self.error = error.localizedDescription
     }
   }

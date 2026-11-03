@@ -289,6 +289,25 @@ final class DesignsUITests: XCTestCase {
 
   // MARK: Helpers
 
+  /// Ruling 3 (T144): back from a design the tiles show at once (pictures from the memory cache,
+  /// no spinner) and the list is not fetched again within 30 s.
+  func testBackFromADesignShowsTheTilesAtOnce() throws {
+    let app = openDesigns()
+    let bird = app.buttons["Blue bird on a branch, In the shop"]
+    XCTAssertTrue(bird.waitForExistence(timeout: 10))
+    let loading = app.descendants(matching: .any).matching(identifier: "tile-loading")
+    let settled = expectation(for: NSPredicate(format: "count == 0"), evaluatedWith: loading)
+    wait(for: [settled], timeout: 10)
+    let fetched = try count("artworks-list")
+    XCTAssertGreaterThanOrEqual(fetched, 1)
+    open(app, "Blue bird on a branch, In the shop")
+    XCTAssertTrue(app.buttons["See it in the shop"].waitForExistence(timeout: 5))
+    app.buttons["Back"].firstMatch.tap()
+    XCTAssertTrue(bird.waitForExistence(timeout: 5))
+    XCTAssertEqual(loading.count, 0, "every tile drew its picture from the cache")
+    XCTAssertEqual(try count("artworks-list"), fetched, "the list was not fetched again")
+  }
+
   private func openDesigns(code: String = "TEST-CODE") -> XCUIApplication {
     let app = XCUIApplication()
     self.app = app

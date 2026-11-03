@@ -413,3 +413,9 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - `flow.ts`: a re-frame deletes the previous photo row (`DELETE /artworks/{id}` via the BFF) after the new `POST /artworks` succeeds, never before; a 422 row (id from `ApiError.artworkId`) is deleted on the next "Use this area" (same frame or not) and on "Take a new photo"; a failed delete is logged and ignored; rows with a published product (draft's knowledge) are skipped. Stale results delete their own row.
 - Docs: `api.md` round 4 note under the table, `accessibility.md` Adjust the area web script line 6a, handoff.
 - Tests: 8 new in `test/create-flow.test.ts` (order, failed create keeps old row, 422 row on next Use this area and Take a new photo, failed delete, published guard).
+
+## T146 ios · Superseded and failed crop rows (2026-11-03)
+- `AppState.swift` (`CreateFlow`), `MakingCutoutView`, `AdjustAreaView`, `DesignsStore.shown`: a re-frame deletes the previous photo row (`DELETE /artworks/{id}`) after the new `POST /artworks` (or its recovery) gave a cut, never before; a row that answered 422 (id from `NoDrawingFound.artworkId`) is deleted on the next "Use this area" (same frame or not) and on "Take a new photo" (with the earlier piece row); a stale answer deletes its own new row; a row with a published product the flow knows about is never deleted; a failed delete is logged and ignored; My designs hides photo rows with no cut and `lastError == "no_drawing_found"`.
+- Mock: sign-in `REFRAME…` (later crops get their own row ids) and `/__mock/count/artworks-deletes`. Docs: `accessibility.md` iOS Adjust the area script line 7, handoff.
+- Tests: 11 unit tests (`ReframeCleanupTests`: order, failed create keeps the old row, 422 row on next Use this area and Take a new photo, published guard, failed delete, stale answer, `shown`) and 3 UI tests in `CutoutUITests` counting `artworks-deletes`.
+

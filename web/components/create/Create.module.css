@@ -178,7 +178,6 @@
 .errorSpot { display: grid; gap: var(--space-m); }
 .errorSpot:empty { display: none; }
 /* Your cutout, Fix the edges (T130, restored from v0.8-rc1 without Draw a box): the frame, the tap layer, the numbered marks. */
-.drawnBox { position: absolute; pointer-events: none; border: calc(var(--border-thin) * 2) dashed var(--primary); box-shadow: 0 0 0 var(--border-thin) var(--surface); border-radius: var(--radius-s); }
 .tapLayer { position: absolute; inset: 0; cursor: crosshair; }
 .markLayer { pointer-events: none; }
 .mark {
@@ -398,3 +397,14 @@
 
 /* Mascot picture cards (R7): Take a photo / Upload a picture and You're live. */
 .mascotPicture { display: block; width: 100%; height: auto; border-radius: var(--radius-card); }
+
+/* Round 4 ruling 2: Change it and Before and after show the product photo, faded in once it is made. */
+.productPhoto { padding: 0; }
+.productPhoto .artLabel { z-index: 1; }
+.productPhoto .artPreviewImg { width: 100%; height: 100%; aspect-ratio: auto; }
+.productPhoto img { animation: productFadeIn var(--motion-slow) var(--motion-easing) both; }
+@keyframes productFadeIn { from { opacity: 0; } to { opacity: 1; } }
+/* The making state: the creating animation in the picture's place, the status line under it. */
+.productMaking { display: grid; gap: var(--space-s); }
+.productMaking .stickerLoading { aspect-ratio: 342 / 240; }
+.waitHint { margin: 0; font-size: var(--type-body-size); line-height: var(--type-body-lh); color: var(--color-ink-soft); text-align: center; }

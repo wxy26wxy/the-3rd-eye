@@ -1,7 +1,7 @@
 "use client";
 import { useRef, type MouseEvent } from "react";
 import { fmt, m } from "@/components/messages";
-import { fitRect, imagePoint, percentRect, type Box, type CutoutPoint, type ImageSize, type XY } from "../cutout";
+import { fitRect, imagePoint, type CutoutPoint, type ImageSize, type XY } from "../cutout";
 import styles from "../Create.module.css";
 
 export type TapMode = "add" | "remove";
@@ -9,20 +9,20 @@ export type TapMode = "add" | "remove";
 function pct(v: number) { return `${v}%`; }
 
 /**
- * Your cutout's picture on "Fix the edges" (T130, restored from v0.8-rc1 without "Draw a box"): the
- * photo (or the changed picture) with the frame from Adjust the area and the numbered + / − marks.
+ * Your cutout's picture on "Fix the edges": the working picture (round 4: the crop of the frame, or
+ * the changed picture; no frame outline, the picture is what was inside the frame) with the
+ * numbered + / − marks.
  * A tap adds a mark (Add area or Remove area); a tap on a mark removes it. Pointer only: the tap
  * layer and the marks are hidden from assistive tech, and the same actions are real controls
  * under the picture ("Add the area around your art" and the Marks list).
  */
-export function CutoutPhoto({ src, image, frame, points, disabled, onTap, onRemoveMark, onImageError }: {
-  src: string; image: ImageSize; frame: Box | null; points: CutoutPoint[]; disabled: boolean;
+export function CutoutPhoto({ src, image, points, disabled, onTap, onRemoveMark, onImageError }: {
+  src: string; image: ImageSize; points: CutoutPoint[]; disabled: boolean;
   onTap: (p: XY) => void; onRemoveMark: (index: number) => void;
   /** The presigned picture URL expired or failed: the screen fetches a fresh one. */
   onImageError?: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const frameRect = frame ? percentRect(frame, image) : null;
 
   function tap(e: MouseEvent<HTMLDivElement>) {
     if (disabled || !ref.current) return;
@@ -38,10 +38,6 @@ export function CutoutPhoto({ src, image, frame, points, disabled, onTap, onRemo
         <div className={styles.cutStage} style={{ aspectRatio: `${image.w} / ${image.h}` }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={src} alt="" className={styles.cutImg} draggable={false} onError={onImageError} />
-          {frameRect ? (
-            <span aria-hidden="true" className={styles.drawnBox}
-              style={{ left: pct(frameRect.left), top: pct(frameRect.top), width: pct(frameRect.width), height: pct(frameRect.height) }} />
-          ) : null}
         </div>
         <div aria-hidden="true" className={styles.tapLayer} onClick={tap} />
         <div className={[styles.cutStage, styles.markLayer].join(" ")} style={{ aspectRatio: `${image.w} / ${image.h}` }}>

@@ -2,15 +2,20 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
-import { api } from "../api";
+import { upload } from "@vercel/blob/client";
+import { api, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid } from "../api";
 import { HydratingScreen, MissingState } from "../CreateScreen";
+import { cropToFrame } from "../crop";
 import {
   centrePoint, marksRequest, MAX_POINTS, needsTrimAdvice, sameMarks, usableSize, wholeImageBox,
   type CleanupRequest, type CutoutPoint, type XY,
 } from "../cutout";
 import { describeError, type ScreenError } from "../errors";
-import { applyMarks, areaNotFound, cutIsChange, cutoutVisit, makingCutoutBack, pickRequest, runAreaCut, runChangeCut, showsPieces, takeCutout, yourCutoutBack } from "../flow";
-import { cutoutOf, getDraft, once, resetDraft, updateDraft, useCreate, type CutoutState, type Draft } from "../store";
+import {
+  applyMarks, areaNotFound, cutIsChange, cutoutNewPhoto, cutoutVisit, makingCutoutBack, photoGone, PhotoGoneError, pickRequest, runAreaCut,
+  runChangeCut, showsPieces, takeCutout, yourCutoutBack, type CropUpload,
+} from "../flow";
+import { cutoutOf, getCreator, getDraft, once, resetDraft, updateDraft, useCreate, useCreator, type CutoutState, type Draft } from "../store";
 import { useOriginal } from "../useOriginal";
 import { areaError, isNotFound } from "./AdjustArea";
 import { CutoutPhoto, type TapMode } from "./CutoutPhoto";
@@ -30,10 +35,10 @@ function cleanupError(err: unknown, sent: CleanupRequest | null): ScreenError {
 }
 
 /**
- * /create/cutout (T130). Making your cutout runs the cut the draft is waiting for: the frame from
- * Adjust the area (`cleanup {candidateIds?, box, clipToBox: true}`), or a change result's
- * `POST /artworks/{id}/cutout` (once per artwork). Then Your cutout: the cut, with Add area /
- * Remove area marks and Apply cutout on "Fix the edges".
+ * /create/cutout. Making your cutout runs the cut the draft is waiting for: the crop of the frame
+ * from Adjust the area (round 4: crop on the device → upload → `POST /artworks`), or a change
+ * result's `POST /artworks/{id}/cutout` (once per artwork). Then Your cutout: the cut, with Add area
+ * / Remove area marks (in pixels of the crop) and Apply cutout on "Fix the edges".
  */
 export function Cutout() {
   const { ready, draft } = useCreate();
@@ -47,22 +52,40 @@ export function Cutout() {
 }
 
 /**
- * Making your cutout for "Use this area" (`detect` inside the frame); a frame with nothing in it goes
- * back to Adjust the area, which says to move or grow it.
+ * The crop upload (round 4 ruling 1): the local photo cropped to the frame on a canvas (orientation
+ * applied, JPEG), then the Blob client upload, as the photo upload was before. Only the crop leaves
+ * the device.
+ */
+function cropUploader(creatorId: () => Promise<string>): CropUpload {
+  return async (file, box) => {
+    const { blob } = await cropToFrame(file, box);
+    const id = await creatorId();
+    const res = await upload(`creators/${id}/photo/${uuid()}.jpg`, blob, { access: UPLOAD_ACCESS, handleUploadUrl: HANDLE_UPLOAD_URL, contentType: "image/jpeg" });
+    return res.url;
+  };
+}
+
+/**
+ * Making your cutout for "Use this area" (crop → upload → `POST /artworks`, the searching
+ * magnifier); a crop with nothing in it goes back to Adjust the area, which says to move or grow the
+ * frame; a lost local photo (a reload) goes to the photo step.
  */
 function MakingArea({ job }: { job: NonNullable<Draft["pendingArea"]> }) {
   const router = useRouter();
+  const { refresh } = useCreator();
   const [error, setError] = useState<ScreenError | null>(null);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let live = true;
+    const upload = cropUploader(async () => (getCreator() ?? (await refresh()))?.id ?? "me");
     // The draft is updated even after a navigation away; only a result for this frame counts.
-    once(`area:${job.nonce}:${attempt}`, () => runAreaCut(flowDeps, job)).catch((err) => {
+    once(`area:${job.nonce}:${attempt}`, () => runAreaCut({ ...flowDeps, upload }, job)).catch((err) => {
+      if (err instanceof PhotoGoneError) { if (getDraft().pendingArea?.nonce === job.nonce) photoGone({ router, update: updateDraft }, getDraft()); return; }
       if (isNotFound(err)) { areaNotFound({ ...flowDeps, router }, job); return; }
       if (live) setError(areaError(err));
     });
     return () => { live = false; };
-  }, [job, attempt, router]);
+  }, [job, attempt, router, refresh]);
   return (
     <MakingCutoutView
       changed={false}
@@ -137,7 +160,7 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
 
   const imageSize = detail.state === "ok" && detail.imageSize ? detail.imageSize : usableSize(cutout.imageSize) ? cutout.imageSize : null;
   const originalUrl = detail.state === "ok" ? detail.originalUrl : null;
-  // The frame from Adjust the area (the piece) or the whole picture (a change result).
+  // The whole working picture (round 4: the piece's picture is the crop of the frame).
   const box = cutout.box ?? wholeImageBox(imageSize);
   const request = box ? marksRequest(cutout.selectedIds, box, points) : null;
   const saved = sameMarks(points, cutout.points);
@@ -256,13 +279,14 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
       title={c.title}
       lead={lead}
       back={yourCutoutBack(draft, artworkId)}
+      newPhoto={cutoutNewPhoto(draft, artworkId)}
       work={work}
       announce={announce}
       cut={shown && cutout.cleanedUrl ? { src: cutout.cleanedUrl, alt: cutout.altText ?? t.cutoutAlt, aspectRatio: imageSize ? `${imageSize.w} / ${imageSize.h}` : undefined } : null}
       canShowCut={saved && !!cutout.cleanedUrl}
       photo={imageSize && originalUrl ? (
         <CutoutPhoto
-          src={originalUrl} image={imageSize} frame={cutout.box} points={points}
+          src={originalUrl} image={imageSize} points={points}
           disabled={busy} onTap={onTap} onRemoveMark={removeMark} onImageError={onImageError}
         />
       ) : null}

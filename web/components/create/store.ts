@@ -34,8 +34,8 @@ export type CutoutState = {
   cleanedUrl: string | null;
   altText: string | null;
   /**
-   * The box Apply cutout sends with the marks (T130): the frame from Adjust the area for the piece,
-   * the whole picture for a change result.
+   * The box Apply cutout sends with the marks: the whole working picture `[0, 0, w, h]` (round 4: the
+   * piece's picture is already the crop; a change result is the edited picture).
    */
   box: Box | null;
   /** The Add area / Remove area marks the saved cut was made with (none for the first cut). */
@@ -45,21 +45,26 @@ export type CutoutState = {
 export type Draft = {
   product?: ProductType;
   method?: "photo" | "upload";
-  /** The photo artwork (POST /artworks) and its SAM pieces. */
-  photoArtworkId?: string;
-  candidates?: Candidate[];
-  /** Pixels of the stored original for `photoArtworkId` (the space of `Candidate.bbox`). */
-  imageSize?: ImageSize | null;
-  /** What Adjust the area frames (round 3): the photo artwork; the frame starts at the whole photo. */
-  area?: { artworkId: string };
-  /** The last `detect` found nothing in the frame: Adjust the area says to move or grow it. */
-  areaNotFound?: boolean;
-  /** The cut piece (Adjust the area's `cleanup`); the same row as `photoArtworkId`. */
+  /**
+   * What Adjust the area frames (round 4 ruling 1): the photo on the device, by its key in the
+   * in-memory map (`localPhoto.ts`; lost on a reload), its size as shown (orientation applied), and
+   * the last frame used ("Back" returns to it; the whole photo at first).
+   */
+  area?: { photoKey: string; size: ImageSize; frame?: Box };
+  /** The local photo was lost (a reload during the flow): the photo step says to pick it again. */
+  photoLost?: boolean;
+  /**
+   * The crop of this frame found nothing (`422 no_drawing_found`): Adjust the area says to move or
+   * grow the frame; "Use this area" on the same frame sends nothing again.
+   */
+  areaNotFound?: { photoKey: string; box: Box };
+  /** The cut piece: the row `POST /artworks` made from the crop (its original is the crop). */
   pieceArtworkId?: string;
   pieceUrl?: string | null;
   pieceAlt?: string | null;
   pieceSpoken?: string | null;
-  /** The frame the piece was cut with on Adjust the area (image pixels). */
+  /** The photo and frame the piece's crop was made from (local photo pixels). */
+  piecePhotoKey?: string;
   pieceBox?: Box;
   /** Every change made in this draft, oldest first. */
   changes?: ChangeStep[];
@@ -74,10 +79,10 @@ export type Draft = {
    */
   changeNonce?: string;
   /**
-   * The cut "Use this area" asked for, run by Making your cutout (T130); `nonce` is new per "Use
-   * this area", so a kept-mounted /create/cutout never re-sends an older one.
+   * The crop "Use this area" asked for, run by Making your cutout (crop → upload → `POST /artworks`);
+   * `nonce` is new per "Use this area", so a kept-mounted /create/cutout never re-sends an older one.
    */
-  pendingArea?: { artworkId: string; box: Box; nonce: string };
+  pendingArea?: { photoKey: string; box: Box; nonce: string };
   /** The row that "Your cutout" works on (the piece, or the change result after `cutout`). */
   cutoutArtworkId?: string;
   /** Every cut made in this draft, by artwork (a change result is cut once, T130). */
@@ -152,6 +157,8 @@ function subscribe(fn: () => void) { listeners.add(fn); return () => { listeners
 
 /** The draft as it is now (for callbacks that finish after a render). */
 export function getDraft(): Draft { return load().draft; }
+/** The signed-in creator's profile when it was loaded already (for callbacks). */
+export function getCreator(): Creator | null { return load().creator; }
 export function updateDraft(patch: Partial<Draft>) { const s = load(); save({ ...s, draft: { ...s.draft, ...patch } }); }
 /** Start a new piece; keeps the signed-in creator. */
 export function resetDraft(keep: Partial<Draft> = {}) { const s = load(); save({ ...s, draft: { ...keep } }); }

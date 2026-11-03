@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   STORY_REDO_RETURN, storyVideoDone, canRedoListing, canRedoCutout, redoCutout, redoListing, redoTarget, toMaking, adjustBack, takeNewPhoto, afterPhoto, applyMarks, areaNotFound, busyWhile, pickRequest, showsPieces, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
   changeItCut, cutoutVisit, leaveChanging, makingCutoutBack, runAreaCut, runChange, runChangeCut, skipChange, submitChange, takeChange, takeCutout, yourCutoutBack, type FlowDeps,
+  areaFrame, cutoutNewPhoto, hasLocalPhoto, largestFirst, photoGone, PhotoGoneError, sameNotFound,
 } from "@/components/create/flow";
+import { CropError } from "@/components/create/crop";
+import { putPhoto } from "@/components/create/localPhoto";
 import { marksRequest } from "@/components/create/cutout";
 import { dragFrame, initialFrame, keyFrame, moveFrame, resizeFrame, frameSize } from "@/components/create/area";
 import { ApiError } from "@/components/create/api";
@@ -34,101 +37,141 @@ const artwork = (over: Record<string, unknown> = {}) => ({
   id: "p1", creatorId: "me", source: "photo" as const, transcript: null, shapedPrompt: null, originalUrl: "o", cleanedUrl: null, altText: "A fern",
   spokenDescription: "A fern drawn in pen.", differencesFromPrompt: null, parentArtworkId: null, status: "draft", ...over,
 });
-const pieceCut: CutoutState = { artworkId: "p1", candidates, imageSize: { w: 100, h: 100 }, selectedIds: ["c1"], cleanedUrl: "/piece.png", altText: "A fern", box: [1, 2, 30, 40], points: [] };
+/** The photo on the device (round 4): a key in the in-memory map, its size, and the last frame. */
+const PHOTO = "ph1";
+const photoFile = new Blob(["photo"], { type: "image/jpeg" });
+putPhoto(PHOTO, photoFile);
+const area = { photoKey: PHOTO, size: { w: 400, h: 300 } };
+const pieceCut: CutoutState = { artworkId: "p1", candidates, imageSize: { w: 100, h: 100 }, selectedIds: ["c1"], cleanedUrl: "/piece.png", altText: "A fern", box: [0, 0, 100, 100], points: [] };
 const piece: Draft = {
-  product: "sticker", method: "photo", photoArtworkId: "p1", candidates, imageSize: { w: 100, h: 100 }, area: { artworkId: "p1" },
-  pieceArtworkId: "p1", pieceUrl: "/piece.png", pieceAlt: "A fern", pieceBox: [1, 2, 30, 40], cutoutArtworkId: "p1", cutouts: { p1: pieceCut },
+  product: "sticker", method: "photo", area: { ...area, frame: [1, 2, 30, 40] },
+  pieceArtworkId: "p1", pieceUrl: "/piece.png", pieceAlt: "A fern", piecePhotoKey: PHOTO, pieceBox: [1, 2, 30, 40], cutoutArtworkId: "p1", cutouts: { p1: pieceCut },
 };
 const change = (id: string, parentId: string): ChangeStep => ({ artworkId: id, parentId, instruction: `do ${id}`, previewUrl: `/${id}.png`, alt: `alt ${id}`, spoken: null, differences: "" });
 const changeAnswer = { artwork: { ...artwork({ id: "k2", parentArtworkId: "k1" }), previewUrl: "/k2.png" }, description: { alt: "A fern, bigger", spoken: "A big fern.", differences: "" } };
 
-const detectAnswer = (over: Record<string, unknown> = {}) => ({
-  artwork: artwork({ cleanedUrl: "/c2-cut.png", altText: "A flower", status: "ready" }), candidates: [candidates[1], candidates[0]],
-  imageSize: { w: 100, h: 100 }, details: { failedProductIds: [], unpublishedProductIds: [] }, ...over,
+/** `POST /artworks` on the crop (default detection): the single piece auto-cut, `imageSize` = the crop. */
+const createAnswer = (over: Record<string, unknown> = {}) => ({
+  artwork: artwork({ id: "p2", cleanedUrl: "/p2-cut.png", altText: "A flower", status: "ready" }), candidates: [candidates[0]],
+  imageSize: { w: 140, h: 120 }, ...over,
 });
+/** A crop upload that records what it was asked to crop. */
+function uploader(url = "https://blob/crop.jpg") {
+  const seen: { file: Blob; box: number[] }[] = [];
+  const upload = vi.fn(async (file: Blob, box: number[]) => { seen.push({ file, box: [...box] }); return url; });
+  return { upload, seen };
+}
 
-describe("Photo routing (round 3)", () => {
-  it("the photo always goes to Adjust the area on the whole photo, no piece yet; earlier changes are dropped", () => {
-    const h = harness({ ...piece, changes: [change("k1", "p1")], changedArtworkId: "k1", areaNotFound: true });
-    afterPhoto(h.deps, { artwork: artwork({ id: "p9" }), candidates: [], imageSize: { w: 50, h: 60 } });
+describe("Photo routing (round 4 ruling 1: the photo stays on the device)", () => {
+  it("a picked photo goes straight to Adjust the area with no call; the frame starts at the whole photo; earlier pieces and changes are dropped", () => {
+    const h = harness({ ...piece, changes: [change("k1", "p1")], changedArtworkId: "k1", areaNotFound: { photoKey: PHOTO, box: [0, 0, 1, 1] }, photoLost: true });
+    afterPhoto(h.deps, { key: PHOTO, size: { w: 50, h: 60 } });
+    expect(h.api).not.toHaveBeenCalled();
     expect(h.calls.at(-1)).toBe("push /create/adjust");
-    expect(h.draft).toMatchObject({ photoArtworkId: "p9", area: { artworkId: "p9" }, candidates: [], imageSize: { w: 50, h: 60 } });
-    expect(h.draft.area).toEqual({ artworkId: "p9" });
+    expect(h.draft.area).toEqual({ photoKey: PHOTO, size: { w: 50, h: 60 } });
+    expect(areaFrame(h.draft)).toEqual([0, 0, 50, 60]);
     expect(h.draft.pieceArtworkId).toBeUndefined();
     expect(h.draft.cutouts).toBeUndefined();
     expect(h.draft.areaNotFound).toBeUndefined();
+    expect(h.draft.photoLost).toBeUndefined();
+    expect(h.draft.changes).toBeUndefined();
+    expect(h.draft.changedArtworkId).toBeUndefined();
     expect(adjustBack(h.draft)).toBe("/create/photo?mode=camera");
     expect(adjustBack({ ...h.draft, method: "upload" })).toBe("/create/photo?mode=upload");
     expect(takeNewPhoto(h.draft)).toBe("/create/photo?mode=camera");
     expect(takeNewPhoto({ ...h.draft, method: "upload" })).toBe("/create/photo?mode=upload");
-    expect(h.draft.changes).toBeUndefined();
-    expect(h.draft.changedArtworkId).toBeUndefined();
   });
 
-  it("the frame starts at the whole photo", () => {
+  it("the frame starts at the whole photo; Back to Adjust the area shows the last frame", () => {
     expect(initialFrame(undefined, { w: 400, h: 300 })).toEqual([0, 0, 400, 300]);
+    expect(areaFrame({ area })).toEqual([0, 0, 400, 300]);
+    expect(areaFrame(piece)).toEqual([1, 2, 30, 40]);
+    expect(areaFrame({})).toBeNull();
+  });
+
+  it("a reload loses the local photo: Adjust the area sends the creator to the photo step with the notice", () => {
+    const h = harness({ ...piece, area: { photoKey: "gone", size: { w: 10, h: 10 } }, pendingArea: { photoKey: "gone", box: [0, 0, 5, 5], nonce: "n" } });
+    expect(hasLocalPhoto(h.draft)).toBe(false);
+    expect(hasLocalPhoto(piece)).toBe(true);
+    photoGone(h.deps, h.draft);
+    expect(h.calls.at(-1)).toBe("replace /create/photo?mode=camera");
+    expect(h.draft.photoLost).toBe(true);
+    expect(h.draft.pendingArea).toBeUndefined();
   });
 });
 
-describe("Adjust the area → detect inside the frame (round 3)", () => {
-  it("Use this area → Making your cutout runs POST detect {box}; the largest piece is the cut and the pieces found go on Your cutout", async () => {
-    const h = harness({ ...piece, candidates: [], cutouts: undefined, pieceArtworkId: undefined, area: { artworkId: "p1" }, changes: [change("k1", "p1")], changedArtworkId: "k1" },
-      { "/detect": detectAnswer() });
-    cutArea(h.deps, [8, 9, 22, 21]);
-    // no call on Adjust the area: on to /create/cutout, which shows Making your cutout for this frame
+describe("Adjust the area → crop on the device → POST /artworks (round 4 ruling 1)", () => {
+  it("Use this area: no call on Adjust the area; Making your cutout crops the local photo to the frame, uploads it once and sends POST /artworks {source, imageUrl, product} (no detect)", async () => {
+    const h = harness({ product: "sticker", method: "photo", area, changes: [change("k1", "p1")], changedArtworkId: "k1" }, { artworks: createAnswer() });
+    const u = uploader();
+    expect(cutArea(h.deps, [8, 9, 222, 121])).toBe(true);
     expect(h.api).not.toHaveBeenCalled();
+    expect(u.upload).not.toHaveBeenCalled();
     expect(h.calls.at(-1)).toBe("push /create/cutout");
     expect(cutoutVisit(h.draft)).toBe("area");
     expect(h.draft.changedArtworkId).toBeUndefined();
-    await runAreaCut(h.deps, h.draft.pendingArea!);
-    expect(h.calls.filter((c) => c.startsWith("api"))).toEqual(['api artworks/p1/detect {"box":[8,9,22,21]}']);
-    expect(h.draft).toMatchObject({ pieceArtworkId: "p1", pieceBox: [8, 9, 22, 21], pieceUrl: "/c2-cut.png", pieceAlt: "A flower", cutoutArtworkId: "p1" });
-    expect(h.draft.candidates?.map((c) => c.id)).toEqual(["c2", "c1"]);
-    expect(cutoutOf(h.draft, "p1")).toMatchObject({ selectedIds: ["c2"], cleanedUrl: "/c2-cut.png", box: [8, 9, 22, 21], points: [], imageSize: { w: 100, h: 100 } });
-    expect(cutoutOf(h.draft, "p1")?.candidates.map((c) => c.id)).toEqual(["c2", "c1"]);
+    expect(h.draft.area?.frame).toEqual([8, 9, 222, 121]);
+    await runAreaCut({ ...h.deps, upload: u.upload }, h.draft.pendingArea!);
+    expect(u.seen).toEqual([{ file: photoFile, box: [8, 9, 222, 121] }]);
+    expect(h.calls.filter((c) => c.startsWith("api"))).toEqual(['api artworks {"source":"photo","imageUrl":"https://blob/crop.jpg","product":"sticker"}']);
+    expect(h.calls.some((c) => c.includes("/detect"))).toBe(false);
+    expect(h.draft).toMatchObject({ pieceArtworkId: "p2", piecePhotoKey: PHOTO, pieceBox: [8, 9, 222, 121], pieceUrl: "/p2-cut.png", pieceAlt: "A flower", cutoutArtworkId: "p2" });
+    // Your cutout works on the crop: its size, the whole picture as the box, no frame
+    expect(cutoutOf(h.draft, "p2")).toMatchObject({ selectedIds: ["c1"], cleanedUrl: "/p2-cut.png", box: [0, 0, 140, 120], points: [], imageSize: { w: 140, h: 120 } });
     expect(h.draft.pendingArea).toBeUndefined();
     expect(cutoutVisit(h.draft)).toBe("cut");
     expect(h.draft.cutoutNotice).toBeUndefined();
-    // Back targets: Your cutout → Adjust the area (first pass); Change it → Your cutout
-    expect(yourCutoutBack(h.draft, "p1")).toBe("/create/adjust");
+    // Back targets: Your cutout → Adjust the area (the local photo, the last frame); Change it → Your cutout
+    expect(yourCutoutBack(h.draft, "p2")).toBe("/create/adjust");
+    expect(cutoutNewPhoto(h.draft, "p2")).toBeNull();
     expect(changeItBack(h.draft)).toBe("/create/cutout");
     expect(makingCutoutBack("area")).toBe("/create/adjust");
-    // Use this on Your cutout → Change it, on the piece
-    takeCutout(h.deps, "p1");
-    expect(h.calls.at(-1)).toBe("push /create/change");
-    expect(currentArtworkId(h.draft)).toBe("p1");
   });
 
-  it("a re-framed area after the cut sends detect again (cleanup is only for marks)", async () => {
-    const h = harness({ ...piece }, { "/detect": detectAnswer() });
-    cutArea(h.deps, [5, 5, 25, 25]);
-    await runAreaCut(h.deps, h.draft.pendingArea!);
-    expect(h.calls.filter((c) => c.startsWith("api"))).toEqual(['api artworks/p1/detect {"box":[5,5,25,25]}']);
-    expect(h.calls.some((c) => c.includes("/cleanup"))).toBe(false);
+  it("several pieces and no cut from the server: the largest is cut with cleanup {candidateIds:[largest], box: the whole crop, clipToBox}", async () => {
+    const big = { id: "big", bbox: [0, 0, 100, 90] as [number, number, number, number], score: 0.7, thumbUrl: "/big.png" };
+    const h = harness({ product: "tote", method: "upload", area }, {
+      artworks: createAnswer({ artwork: artwork({ id: "p3" }), candidates: [candidates[0], big] }),
+      "/cleanup": { ...artwork({ id: "p3", cleanedUrl: "/big-cut.png", altText: "A big fern" }), details: { failedProductIds: [], unpublishedProductIds: [] } },
+    });
+    cutArea(h.deps, [0, 0, 400, 300]);
+    await runAreaCut({ ...h.deps, upload: uploader().upload }, h.draft.pendingArea!);
+    expect(h.calls.filter((c) => c.startsWith("api"))).toEqual([
+      'api artworks {"source":"photo","imageUrl":"https://blob/crop.jpg","product":"tote"}',
+      'api artworks/p3/cleanup {"candidateIds":["big"],"box":[0,0,140,120],"clipToBox":true}',
+    ]);
+    expect(cutoutOf(h.draft, "p3")).toMatchObject({ selectedIds: ["big"], cleanedUrl: "/big-cut.png", box: [0, 0, 140, 120] });
+    expect(cutoutOf(h.draft, "p3")?.candidates.map((c) => c.id)).toEqual(["big", "c1"]);
+    expect(largestFirst([candidates[0], big]).map((c) => c.id)).toEqual(["big", "c1"]);
   });
 
   it("a result for a frame that was replaced meanwhile (Back, a new frame) is dropped", async () => {
-    const h = harness({ ...piece, pieceUrl: undefined, area: { artworkId: "p1" } }, { "/detect": detectAnswer({ artwork: artwork({ cleanedUrl: "/old.png" }) }) });
-    cutArea(h.deps, [8, 9, 22, 21]);
+    const h = harness({ product: "sticker", area }, { artworks: createAnswer() });
+    cutArea(h.deps, [8, 9, 222, 121]);
     const first = h.draft.pendingArea!;
-    cutArea(h.deps, [5, 5, 25, 25]);
+    cutArea(h.deps, [5, 5, 250, 250]);
     expect(h.draft.pendingArea?.nonce).not.toBe(first.nonce);
-    await runAreaCut(h.deps, first);
+    await runAreaCut({ ...h.deps, upload: uploader().upload }, first);
     expect(h.draft.pieceUrl).toBeUndefined();
-    expect(h.draft.pendingArea?.box).toEqual([5, 5, 25, 25]);
+    expect(h.draft.pendingArea?.box).toEqual([5, 5, 250, 250]);
   });
 
-  it("nothing found inside the frame (422 no_drawing_found): back to Adjust the area with the move-or-grow advice; nothing is cut; the next frame clears it", () => {
-    const h = harness({ ...piece, cutouts: undefined, pieceArtworkId: undefined, pieceUrl: undefined, area: { artworkId: "p1" } });
-    cutArea(h.deps, [0, 0, 10, 10]);
+  it("nothing found in the crop (422 no_drawing_found): back to Adjust the area with the move-or-grow advice; the same frame sends nothing again; a new frame clears it", () => {
+    const h = harness({ product: "sticker", area });
+    cutArea(h.deps, [0, 0, 100, 100]);
     const job = h.draft.pendingArea!;
     areaNotFound(h.deps, job);
     expect(h.calls.at(-1)).toBe("replace /create/adjust");
-    expect(h.draft.areaNotFound).toBe(true);
+    expect(h.draft.areaNotFound).toEqual({ photoKey: PHOTO, box: [0, 0, 100, 100] });
     expect(h.draft.pendingArea).toBeUndefined();
-    expect(cutoutOf(h.draft, "p1")).toBeNull();
-    // a stale job does nothing
-    cutArea(h.deps, [0, 0, 50, 50]);
+    expect(areaFrame(h.draft)).toEqual([0, 0, 100, 100]);
+    // the same frame: nothing is started (the advice stays on screen)
+    const before = h.calls.length;
+    expect(cutArea(h.deps, [0, 0, 100, 100])).toBe(false);
+    expect(h.calls).toHaveLength(before);
+    expect(sameNotFound(h.draft, [0, 0, 100, 100])).toBe(true);
+    // a stale job does nothing; a moved frame cuts again
+    expect(cutArea(h.deps, [0, 0, 150, 150])).toBe(true);
     expect(h.draft.areaNotFound).toBeUndefined();
     areaNotFound(h.deps, job);
     expect(h.draft.pendingArea).toBeDefined();
@@ -136,23 +179,36 @@ describe("Adjust the area → detect inside the frame (round 3)", () => {
     expect(isNotFound(new ApiError(504, "deadline_exceeded", "late"))).toBe(false);
   });
 
-  it("the same frame again → no call, and Your cutout opens on the piece, not on an earlier change (review M5)", () => {
-    const h = harness({ ...piece, pieceBox: [1, 2, 3, 4], changes: [change("k1", "p1")], changedArtworkId: "k1", cutoutArtworkId: "k1" });
-    cutArea(h.deps, [1, 2, 3, 4]);
+  it("the same photo and frame again → no upload and no call; Your cutout opens on the piece, not on an earlier change (review M5)", () => {
+    const h = harness({ ...piece, changes: [change("k1", "p1")], changedArtworkId: "k1", cutoutArtworkId: "k1" });
+    cutArea(h.deps, [1, 2, 30, 40]);
     expect(h.api).not.toHaveBeenCalled();
     expect(h.calls.at(-1)).toBe("push /create/cutout");
     expect(h.draft.changedArtworkId).toBeUndefined();
     expect(h.draft.cutoutArtworkId).toBe("p1");
     expect(cutoutVisit(h.draft)).toBe("cut");
     expect(currentArtworkId(h.draft)).toBe("p1");
-    // a moved frame cuts again
-    cutArea(h.deps, [1, 2, 3, 5]);
+    // a moved frame crops again; so does the same frame on a new photo
+    cutArea(h.deps, [1, 2, 30, 41]);
     expect(cutoutVisit(h.draft)).toBe("area");
+    const g = harness({ ...piece, area: { ...area, photoKey: "other" } });
+    cutArea(g.deps, [1, 2, 30, 40]);
+    expect(cutoutVisit(g.draft)).toBe("area");
   });
 
-  it("a frame with no drawing in it: the advice to move or grow the frame (not Retake)", () => {
+  it("the local photo is gone when the crop should run: PhotoGoneError, nothing uploaded", async () => {
+    const h = harness({ product: "sticker", area: { photoKey: "gone", size: { w: 10, h: 10 } } });
+    cutArea(h.deps, [0, 0, 10, 10]);
+    const u = uploader();
+    await expect(runAreaCut({ ...h.deps, upload: u.upload }, h.draft.pendingArea!)).rejects.toBeInstanceOf(PhotoGoneError);
+    expect(u.upload).not.toHaveBeenCalled();
+    expect(h.api).not.toHaveBeenCalled();
+  });
+
+  it("a frame with no drawing in it: the advice to move or grow the frame (not Retake); a picture the browser cannot open asks for another", () => {
     expect(areaError(new ApiError(422, "no_drawing_found", "Nothing found"))).toEqual({ message: m.create.adjust.notFound, action: "none" });
     expect(areaError(new ApiError(504, "deadline_exceeded", "late")).action).toBe("retry");
+    expect(areaError(new CropError())).toEqual({ message: m.create.photo.cannotOpen, action: "none" });
   });
 });
 
@@ -163,7 +219,7 @@ describe("Your cutout candidate strip (round 3)", () => {
     expect(showsPieces({ candidates: [] })).toBe(false);
     const h = harness({ ...piece }, { "/cleanup": { ...artwork({ cleanedUrl: "/c2.png" }), details: { failedProductIds: [], unpublishedProductIds: [] } } });
     const out = await applyMarks(h.deps, { ...pieceCut, points: [{ x: 1, y: 1, label: "positive" }], selectedIds: ["c2"] }, pickRequest("c2", pieceCut.box!));
-    expect(h.calls.find((c) => c.startsWith("api"))).toBe('api artworks/p1/cleanup {"candidateIds":["c2"],"box":[1,2,30,40],"clipToBox":true}');
+    expect(h.calls.find((c) => c.startsWith("api"))).toBe('api artworks/p1/cleanup {"candidateIds":["c2"],"box":[0,0,100,100],"clipToBox":true}');
     expect(out.cut).toMatchObject({ selectedIds: ["c2"], cleanedUrl: "/c2.png", points: [] });
     expect(h.draft.pieceUrl).toBe("/c2.png");
   });
@@ -399,11 +455,11 @@ describe("T117: kept-mounted routes (cacheComponents) never re-send or come back
 
   it("busy flags (Adjust the area busy, Photo phase) are clear after a navigation and after a failure", async () => {
     const seen: (string | boolean | null)[] = [];
-    const h = harness({ ...piece, area: { artworkId: "p1" } }, { "/detect": detectAnswer() });
+    const h = harness({ ...piece }, { artworks: createAnswer() });
     let busy = false;
-    cutArea(h.deps, [1, 1, 9, 9]);
-    await busyWhile((v: boolean) => { busy = v; seen.push(v); }, true, false, () => runAreaCut(h.deps, h.draft.pendingArea!));
-    expect(h.calls.at(-1)).toBe("update pendingArea,candidates,imageSize,pieceArtworkId,pieceBox,pieceUrl,pieceAlt,pieceSpoken,cutouts,cutoutArtworkId,cutoutNotice");
+    cutArea(h.deps, [1, 1, 99, 99]);
+    await busyWhile((v: boolean) => { busy = v; seen.push(v); }, true, false, () => runAreaCut({ ...h.deps, upload: uploader().upload }, h.draft.pendingArea!));
+    expect(h.calls.at(-1)).toBe("update pendingArea,pieceArtworkId,piecePhotoKey,pieceBox,pieceUrl,pieceAlt,pieceSpoken,cutouts,cutoutArtworkId,cutoutNotice");
     expect(busy).toBe(false);
     let work: string | null = null;
     await busyWhile<string | null>((v) => { work = v; seen.push(v); }, "use", null, async () => { throw new Error("cut failed"); }).catch(() => {});
@@ -414,18 +470,18 @@ describe("T117: kept-mounted routes (cacheComponents) never re-send or come back
 
 describe("T118 / T130: Back from Change it", () => {
   it("goes to Your cutout even with a change on screen, and leaves the change chain intact", () => {
-    const d: Draft = { ...piece, area: { artworkId: "p1" }, ...addChange(piece, change("k1", "p1")) };
+    const d: Draft = { ...piece, ...addChange(piece, change("k1", "p1")) };
     d.changes = [...(d.changes ?? []), change("k2", "k1")];
     d.changedArtworkId = "k2";
     const before = JSON.stringify(d);
     expect(changeItBack(d)).toBe("/create/cutout");
     expect(JSON.stringify(d)).toBe(before);
     expect(currentArtworkId(d)).toBe("k2");
-    // a draft without a cut (an old session) goes back to Adjust the area, or the photo screen
+    // a draft without a cut (an old session) goes back to Adjust the area on the local photo, or the photo screen without it
     const old = { ...piece, cutouts: undefined, cutoutArtworkId: undefined };
     expect(changeItBack(old)).toBe("/create/adjust");
     expect(changeItBack({ ...old, area: undefined, method: "upload" })).toBe("/create/photo?mode=upload");
-    expect(changeItBack({ ...old, area: undefined })).toBe("/create/photo?mode=camera");
+    expect(changeItBack({ ...old, area: { ...area, photoKey: "gone" } })).toBe("/create/photo?mode=camera");
   });
 });
 
@@ -451,15 +507,18 @@ describe("T133: review minors", () => {
     expect(changeItCut(k2)).toBe("p1");
   });
 
-  it("a double tap on Use this area sends one detect", async () => {
-    const h = harness({ ...piece, area: { artworkId: "p1" } }, { "/detect": detectAnswer() });
-    cutArea(h.deps, [8, 9, 22, 21]);
+  it("a double tap on Use this area uploads one crop and sends one POST /artworks", async () => {
+    const h = harness({ product: "sticker", area }, { artworks: createAnswer() });
+    const u = uploader();
+    cutArea(h.deps, [8, 9, 222, 121]);
     const job = h.draft.pendingArea!;
-    cutArea(h.deps, [8, 9, 22, 21]);
+    cutArea(h.deps, [8, 9, 222, 121]);
     expect(h.draft.pendingArea?.nonce).toBe(job.nonce);
     expect(h.calls.filter((c) => c === "push /create/cutout")).toHaveLength(2);
     // Making your cutout runs the job once per nonce (both visits share the in-flight call)
-    await Promise.all([once(`area:${job.nonce}:0`, () => runAreaCut(h.deps, job)), once(`area:${h.draft.pendingArea!.nonce}:0`, () => runAreaCut(h.deps, h.draft.pendingArea!))]);
+    const run = () => runAreaCut({ ...h.deps, upload: u.upload }, job);
+    await Promise.all([once(`area:${job.nonce}:0`, run), once(`area:${h.draft.pendingArea!.nonce}:0`, run)]);
+    expect(u.upload).toHaveBeenCalledTimes(1);
     expect(h.api).toHaveBeenCalledTimes(1);
   });
 
@@ -528,12 +587,12 @@ describe("Round 3 ruling 5: Redo while the listing drafts", () => {
     expect(h.api).not.toHaveBeenCalled();
   });
 
-  it("no cut of the product's artwork in the draft: Redo falls back to Adjust the area on the photo (review m1); nothing to go to → no Redo", () => {
-    const h = harness({ productRecord: product, photoArtworkId: "p9", product: "sticker", listingRun: "run-1", areaNotFound: true });
+  it("no cut of the product's artwork in the draft: Redo falls back to Adjust the area on the local photo (review m1); nothing to go to → no Redo", () => {
+    const h = harness({ productRecord: product, area, product: "sticker", listingRun: "run-1", areaNotFound: { photoKey: PHOTO, box: [0, 0, 1, 1] } });
     expect(canRedoListing(h.draft)).toBe(true);
     redoListing(h.deps);
     expect(h.calls.at(-1)).toBe("push /create/adjust");
-    expect(h.draft.area).toEqual({ artworkId: "p9" });
+    expect(h.draft.area).toEqual(area);
     expect(h.draft.areaNotFound).toBeUndefined();
     expect(h.draft.listingRun).toBeUndefined();
     expect(h.draft.productRecord).toEqual(product);
@@ -545,12 +604,12 @@ describe("Round 3 ruling 5: Redo while the listing drafts", () => {
 describe("Round 3 review I3: Re-do the cutout after a print check", () => {
   const product = { id: "pr1", artworkId: "p1", creatorId: "me", type: "sticker" as const, mockupUrl: "/m.png", printPngUrl: null, printSvgUrl: null, priceCents: 500, status: "draft", previewUrl: "/pv.png" };
   const listed: Draft = { ...piece, artworkId: "p1", productRecord: product, listingRun: "run-1", listing: { title: "Fern", description: "", tags: [], price_cents: 500, print_ok: false, print_check: "resolution", notes: "" } };
-  it("resolution (marks cannot fix it) → Adjust the area on the photo, where the frame can grow or Retake gives a bigger photo", () => {
+  it("resolution (marks cannot fix it) → Adjust the area on the local photo with the last frame, where the frame can grow or a new photo is taken", () => {
     const h = harness(listed);
     expect(canRedoCutout(h.draft, "resolution")).toBe(true);
     redoCutout(h.deps, "resolution");
     expect(h.calls.at(-1)).toBe("push /create/adjust");
-    expect(h.draft.area).toEqual({ artworkId: "p1" });
+    expect(areaFrame(h.draft)).toEqual([1, 2, 30, 40]);
     expect(h.draft.listingRun).toBeUndefined();
     expect(h.api).not.toHaveBeenCalled();
   });
@@ -561,10 +620,21 @@ describe("Round 3 review I3: Re-do the cutout after a print check", () => {
     expect(h.draft.cutoutArtworkId).toBe("p1");
   });
   it("each falls back to the other screen (review m2); neither → no action", () => {
-    expect(redoTarget({ productRecord: product, photoArtworkId: "p9" }, "cutout")).toBe("adjust");
-    expect(redoTarget({ ...listed, photoArtworkId: undefined }, "adjust")).toBe("cutout");
+    expect(redoTarget({ productRecord: product, area }, "cutout")).toBe("adjust");
+    expect(redoTarget({ ...listed, area: { ...area, photoKey: "gone" } }, "adjust")).toBe("cutout");
     expect(redoTarget({ productRecord: product }, "adjust")).toBeNull();
     expect(canRedoCutout({ productRecord: product }, "resolution")).toBe(false);
-    expect(canRedoCutout({ ...listed, photoArtworkId: undefined }, "resolution")).toBe(true);
+    expect(canRedoCutout({ ...listed, area: undefined }, "resolution")).toBe(true);
+  });
+
+  it("round 4: after a reload (no local photo) a resolution redo opens Your cutout on the stored crop with Take a new photo", () => {
+    const h = harness({ ...listed, area: { ...area, photoKey: "gone" } });
+    redoCutout(h.deps, "resolution");
+    expect(h.calls.at(-1)).toBe("push /create/cutout");
+    expect(h.draft.cutoutArtworkId).toBe("p1");
+    expect(cutoutNewPhoto(h.draft, "p1")).toBe("/create/photo?mode=camera");
+    expect(yourCutoutBack(h.draft, "p1")).toBe("/create/photo?mode=camera");
+    // a change result's Your cutout never offers it (Back goes to Before and after)
+    expect(cutoutNewPhoto({ ...h.draft, ...addChange(h.draft, change("k1", "p1")) }, "k1")).toBeNull();
   });
 });

@@ -27,8 +27,6 @@ export type Candidate = { id: string; bbox: [number, number, number, number]; sc
 export type ArtworkDetail = { artwork: Artwork; candidates: Candidate[]; imageSize: { w: number; h: number } | null; originalUrl: string | null };
 /** `POST /artworks/{id}/cutout` (T111): the largest piece of the artwork's picture, cut out. `candidates[0]` is that piece. */
 export type CutoutResult = { artwork: Artwork; candidates: Candidate[]; imageSize: { w: number; h: number } };
-/** `POST /artworks/{id}/detect {box}` (round 3): SAM inside the frame; candidates largest first, `candidates[0]` cut out. */
-export type DetectResult = { artwork: Artwork; candidates: Candidate[]; imageSize: { w: number; h: number }; details?: { failedProductIds: string[]; unpublishedProductIds: string[] } };
 /** `POST /artworks/{id}/cleanup`: the saved cut plus products that could not follow it. */
 export type CleanupResult = Artwork & { details?: { failedProductIds: string[]; unpublishedProductIds: string[] } };
 export type Product = {

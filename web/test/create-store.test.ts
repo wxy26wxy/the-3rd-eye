@@ -4,9 +4,7 @@ import {
 } from "@/components/create/store";
 
 const piece: Draft = {
-  product: "sticker", method: "photo", photoArtworkId: "p1",
-  candidates: [{ id: "c1", bbox: [0, 0, 10, 10], score: 0.9, thumbUrl: "/c1.png" }, { id: "c2", bbox: [10, 10, 20, 20], score: 0.8, thumbUrl: "/c2.png" }],
-  imageSize: { w: 100, h: 100 },
+  product: "sticker", method: "photo",
   pieceArtworkId: "p1", pieceUrl: "/piece.png", pieceAlt: "A fern", pieceSpoken: "A fern drawn in pen.",
 };
 const step = (id: string, parentId: string): ChangeStep => ({

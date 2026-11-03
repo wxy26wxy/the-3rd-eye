@@ -1,13 +1,14 @@
 /**
- * The creator flow's routing and draft decisions (canonical order, round 3: photo → adjust the area
- * on the whole photo → making your cutout (`detect`) → your cutout → change it → [changing → compare
- * → making your cutout → your cutout] → making the product),
- * kept out of the screens so they can be tested with a mocked `api` and router.
+ * The creator flow's routing and draft decisions (canonical order, round 4: photo (kept on the
+ * device) → adjust the area on the local photo → making your cutout (crop → upload → `POST
+ * /artworks`) → your cutout → change it → [changing → compare → making your cutout → your cutout] →
+ * making the product), kept out of the screens so they can be tested with a mocked `api` and router.
  */
 import { m } from "@/components/messages";
-import { uuid, type Artwork, type Candidate, type ChangeResult, type CleanupResult, type CutoutResult, type DetectResult } from "./api";
+import { uuid, type Artwork, type Candidate, type ChangeResult, type CleanupResult, type CutoutResult } from "./api";
 import { sameBox } from "./area";
-import { productNotice, wholeImageBox, type Box, type CleanupRequest } from "./cutout";
+import { productNotice, usableSize, wholeImageBox, type Box, type CleanupRequest, type ImageSize } from "./cutout";
+import { getPhoto, hasPhoto } from "./localPhoto";
 import { addChange, currentArtworkId, currentChange, cutoutOf, withCutout, type ChangeStep, type CutoutState, type Draft } from "./store";
 
 export type FlowRouter = { push: (href: string) => void; replace: (href: string) => void };
@@ -16,7 +17,7 @@ export type FlowDeps = { api: FlowApi; router: FlowRouter; update: (patch: Parti
 
 /** Everything picked, changed or cut for an earlier piece. */
 export const NEW_PIECE: Partial<Draft> = {
-  pieceArtworkId: undefined, pieceUrl: undefined, pieceAlt: undefined, pieceSpoken: undefined, pieceBox: undefined,
+  pieceArtworkId: undefined, pieceUrl: undefined, pieceAlt: undefined, pieceSpoken: undefined, piecePhotoKey: undefined, pieceBox: undefined,
   changes: undefined, changedArtworkId: undefined, changeInstruction: undefined, changeTranscript: undefined,
   pendingArea: undefined, cutoutArtworkId: undefined, cutouts: undefined, cutoutNotice: undefined,
 };
@@ -25,86 +26,158 @@ const NOTICE_COPY = { failed: m.create.select.failedProducts, unpublished: m.cre
 
 // ---- Take a photo / Upload a picture
 
-export type PhotoResult = { artwork: Artwork; candidates: Candidate[]; imageSize?: { w: number; h: number } | null };
+/** `POST /artworks {source:"photo", imageUrl, product}` (default detection, on the crop). */
+export type PhotoResult = { artwork: Artwork; candidates: Candidate[]; imageSize?: ImageSize | null; details?: CleanupResult["details"] };
 
 /**
- * After `POST /artworks {detect:false}` (round 3): always Adjust the area on the stored photo, the
- * frame at the whole photo; detection runs inside the frame on "Use this area".
+ * A photo was picked (round 4 ruling 1): it stays on the device (`putPhoto(key, file)` by the
+ * screen) and Adjust the area opens on it at once, the frame at the whole photo. No upload, no call.
  */
-export function afterPhoto({ router, update }: Pick<FlowDeps, "router" | "update">, res: PhotoResult): void {
-  update({ ...NEW_PIECE, areaNotFound: undefined, photoArtworkId: res.artwork.id, candidates: [], imageSize: res.imageSize ?? null, area: { artworkId: res.artwork.id } });
+export function afterPhoto({ router, update }: Pick<FlowDeps, "router" | "update">, photo: { key: string; size: ImageSize }): void {
+  update({ ...NEW_PIECE, areaNotFound: undefined, photoLost: undefined, area: { photoKey: photo.key, size: { ...photo.size } } });
   router.push("/create/adjust");
+}
+
+/** The photo step for the draft's method (where Back from Adjust the area and "Take a new photo" go). */
+export function photoStep(d: Draft): string {
+  return d.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
+}
+
+/**
+ * The local photo is gone (a reload emptied the in-memory map): the photo step, which says to pick
+ * it again. A crop still waiting is dropped.
+ */
+export function photoGone({ router, update }: Pick<FlowDeps, "router" | "update">, d: Draft): void {
+  update({ photoLost: true, pendingArea: undefined, areaNotFound: undefined });
+  router.replace(photoStep(d));
+}
+
+/** Adjust the area's photo is still on the device (false after a reload). */
+export function hasLocalPhoto(d: Draft): boolean {
+  return hasPhoto(d.area?.photoKey);
 }
 
 // ---- Adjust the area
 
 /** Back from Adjust the area: the photo screen it came from. */
 export function adjustBack(d: Draft): string {
-  return d.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
+  return photoStep(d);
 }
 
-/** "Take a new photo" on Adjust the area: the photo step for the draft's method (the same place Back goes). */
+/** "Take a new photo" on Adjust the area (and on Your cutout without the local photo): the photo step. */
 export function takeNewPhoto(d: Draft): string {
-  return adjustBack(d);
+  return photoStep(d);
+}
+
+/** The frame Adjust the area shows: the last one used on this photo, else the whole photo. */
+export function areaFrame(d: Draft): Box | null {
+  const area = d.area;
+  if (!area || !usableSize(area.size)) return null;
+  return area.frame ? [...area.frame] as Box : wholeImageBox(area.size);
+}
+
+/** The frame that just found nothing is still the one on screen: the advice stays, nothing is sent again. */
+export function sameNotFound(d: Draft, box: Box): boolean {
+  const nf = d.areaNotFound;
+  return !!nf && nf.photoKey === d.area?.photoKey && sameBox(nf.box, box);
 }
 
 /**
- * "Use this area" (round 3): on to /create/cutout, where Making your cutout sends `POST
- * /artworks/{id}/detect {box}` (`runAreaCut`; a re-framed area always detects again). The same
- * frame as last time keeps its cut (no call) and shows Your cutout again, on the piece (a change
- * made before is dropped: it was made from the old cut).
+ * "Use this area" (round 4): on to /create/cutout, where Making your cutout crops the local photo to
+ * the frame, uploads the crop and sends `POST /artworks` on it (`runAreaCut`). The same photo and
+ * frame as the piece on hand keeps it (no upload, no call) and shows Your cutout again on the piece
+ * (a change made before is dropped: it was made from the old cut). Returns false when nothing was
+ * started (no photo, or the frame that just found nothing).
  */
-export function cutArea({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, box: Box): void {
+export function cutArea({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, box: Box): boolean {
   const d = getDraft();
   const area = d.area;
-  if (!area) return;
-  // A second tap while the same cut is on its way (T133): no second cleanup, the same Making screen.
+  if (!area) return false;
+  if (sameNotFound(d, box)) return false;
+  const framed = { ...area, frame: [...box] as Box };
+  // A second tap while the same crop is on its way: no second upload, the same Making screen.
   const p = d.pendingArea;
-  if (p && p.artworkId === area.artworkId && sameBox(p.box, box)) {
+  if (p && p.photoKey === area.photoKey && sameBox(p.box, box) && !d.cutoutArtworkId) {
     router.push("/create/cutout");
-    return;
+    return true;
   }
-  if (d.pieceArtworkId === area.artworkId && sameBox(d.pieceBox, box) && d.pieceUrl && cutoutOf(d, area.artworkId)) {
-    update({ areaNotFound: undefined, changedArtworkId: undefined, changes: undefined, changeInstruction: undefined, changeTranscript: undefined, cutoutArtworkId: area.artworkId });
+  if (d.pieceArtworkId && d.piecePhotoKey === area.photoKey && sameBox(d.pieceBox, box) && d.pieceUrl && cutoutOf(d, d.pieceArtworkId)) {
+    update({ area: framed, areaNotFound: undefined, pendingArea: undefined, changedArtworkId: undefined, changes: undefined, changeInstruction: undefined, changeTranscript: undefined, cutoutArtworkId: d.pieceArtworkId });
     router.push("/create/cutout");
-    return;
+    return true;
   }
-  update({ ...NEW_PIECE, areaNotFound: undefined, cutoutArtworkId: area.artworkId, pendingArea: { artworkId: area.artworkId, box: [...box] as Box, nonce: newNonce() } });
+  update({ ...NEW_PIECE, area: framed, areaNotFound: undefined, pendingArea: { photoKey: area.photoKey, box: [...box] as Box, nonce: newNonce() } });
   router.push("/create/cutout");
+  return true;
+}
+
+/** Crops `file` to `box` and uploads the crop (Blob client upload); answers the uploaded URL. */
+export type CropUpload = (file: Blob, box: Box) => Promise<string>;
+
+/** Largest piece first (by bbox area), so the auto-cut piece is first in the strip. */
+export function largestFirst(candidates: readonly Candidate[]): Candidate[] {
+  const size = (c: Candidate) => Math.max(0, c.bbox[2] - c.bbox[0]) * Math.max(0, c.bbox[3] - c.bbox[1]);
+  return [...candidates].sort((a, b) => size(b) - size(a));
 }
 
 /**
- * Making your cutout for "Use this area": `POST /artworks/{id}/detect {box}` (SAM inside the frame,
- * the largest piece cut out and clipped), then that piece is the piece and its cut is on Your
- * cutout with the pieces found (the screen follows the draft; no navigation). A result for a frame
- * that was replaced meanwhile (Back, a new frame) is dropped.
+ * Making your cutout for "Use this area" (round 4): the local photo cropped to the frame and
+ * uploaded (`upload`), then `POST /artworks {source:"photo", imageUrl: <crop>, product}` (default
+ * detection: SAM on the crop). The new row is the piece; its original is the crop, so Your cutout
+ * marks the crop with the box `[0, 0, w, h]`. When the server left the choice open (several pieces,
+ * no `cleanedUrl`), the largest is cut here with `cleanup {candidateIds:[largest], box, clipToBox}`.
+ * A result for a frame that was replaced meanwhile (Back, a new frame) is dropped. Throws
+ * `PhotoGoneError` when the local photo is no longer in memory.
  */
-export async function runAreaCut({ api, update, getDraft }: Pick<FlowDeps, "api" | "update" | "getDraft">, job: NonNullable<Draft["pendingArea"]>): Promise<void> {
-  const res = await api<DetectResult>(`artworks/${job.artworkId}/detect`, { json: { box: [...job.box] } });
+export async function runAreaCut({ api, update, getDraft, upload }: Pick<FlowDeps, "api" | "update" | "getDraft"> & { upload: CropUpload }, job: NonNullable<Draft["pendingArea"]>): Promise<void> {
+  const product = getDraft().product;
+  const file = getPhoto(job.photoKey);
+  if (!file) throw new PhotoGoneError();
+  if (!product) throw new PhotoGoneError();
+  const stale = () => getDraft().pendingArea?.nonce !== job.nonce;
+  const imageUrl = await upload(file, job.box);
+  if (stale()) return;
+  const res = await api<PhotoResult>("artworks", { json: { source: "photo", imageUrl, product } });
+  if (stale()) return;
+  const size = usableSize(res.imageSize) ? res.imageSize : null;
+  const box = wholeImageBox(size);
+  const pieces = largestFirst(res.candidates);
+  const first = pieces[0]?.id;
+  let art: Pick<Artwork, "cleanedUrl" | "altText" | "spokenDescription"> = res.artwork;
+  let details = res.details;
+  if (!art.cleanedUrl && first && box) {
+    const cut = await api<CleanupResult>(`artworks/${res.artwork.id}/cleanup`, { json: pickRequest(first, box) });
+    if (stale()) return;
+    art = cut;
+    details = cut.details;
+  }
   const d = getDraft();
-  if (d.pendingArea?.nonce !== job.nonce) return;
-  const art = res.artwork;
-  const first = res.candidates[0]?.id;
+  const id = res.artwork.id;
   const cut: CutoutState = {
-    artworkId: job.artworkId, candidates: res.candidates, imageSize: res.imageSize ?? d.imageSize ?? null,
-    selectedIds: first ? [first] : [], cleanedUrl: art.cleanedUrl, altText: art.altText, box: [...job.box] as Box, points: [],
+    artworkId: id, candidates: pieces, imageSize: size,
+    selectedIds: first ? [first] : [], cleanedUrl: art.cleanedUrl, altText: art.altText, box, points: [],
   };
   update({
-    pendingArea: undefined, candidates: res.candidates, imageSize: res.imageSize ?? d.imageSize ?? null,
-    pieceArtworkId: job.artworkId, pieceBox: [...job.box] as Box,
+    pendingArea: undefined,
+    pieceArtworkId: id, piecePhotoKey: job.photoKey, pieceBox: [...job.box] as Box,
     pieceUrl: art.cleanedUrl, pieceAlt: art.altText, pieceSpoken: art.spokenDescription,
-    ...withCutout(d, cut), cutoutArtworkId: job.artworkId,
-    cutoutNotice: productNotice(res.details, NOTICE_COPY) ?? undefined,
+    ...withCutout(d, cut), cutoutArtworkId: id,
+    cutoutNotice: productNotice(details, NOTICE_COPY) ?? undefined,
   });
 }
 
+/** The local photo for a waiting crop is gone (a reload): Making your cutout sends the creator to the photo step. */
+export class PhotoGoneError extends Error {
+  constructor() { super("photo_gone"); this.name = "PhotoGoneError"; }
+}
+
 /**
- * `detect` found nothing inside the frame (`422 no_drawing_found`): back to Adjust the area, which
- * says to move or grow the frame (only for the frame still waiting; nothing was cut).
+ * The crop has no drawing in it (`422 no_drawing_found`): back to Adjust the area, which says to
+ * move or grow the frame (only for the frame still waiting). The row the server made stays a draft.
  */
 export function areaNotFound({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, job: NonNullable<Draft["pendingArea"]>): void {
   if (getDraft().pendingArea?.nonce !== job.nonce) return;
-  update({ pendingArea: undefined, areaNotFound: true });
+  update({ pendingArea: undefined, areaNotFound: { photoKey: job.photoKey, box: [...job.box] as Box } });
   router.replace("/create/adjust");
 }
 
@@ -135,8 +208,7 @@ export async function runChangeCut({ api, update, getDraft }: Pick<FlowDeps, "ap
 /** What /create/cutout shows for the draft: Your cutout, Making your cutout (the area cut or a change result's cutout), or nothing to show. */
 export function cutoutVisit(d: Draft): "cut" | "area" | "change" | "missing" {
   const target = d.cutoutArtworkId;
-  if (!target) return "missing";
-  if (d.pendingArea?.artworkId === target) return "area";
+  if (!target) return d.pendingArea ? "area" : "missing";
   if (cutoutOf(d, target)) return "cut";
   return d.changes?.some((c) => c.artworkId === target) ? "change" : "missing";
 }
@@ -153,9 +225,22 @@ export function cutIsChange(d: Draft, artworkId: string): boolean {
   return artworkId !== d.pieceArtworkId;
 }
 
-/** Back from Your cutout: Adjust the area on the first pass, Before and after after a change. */
+/**
+ * Back from Your cutout: Before and after for a change result; for the piece, Adjust the area on the
+ * local photo (the last frame), or the photo step when the photo is no longer on the device.
+ */
 export function yourCutoutBack(d: Draft, artworkId: string): string {
-  return cutIsChange(d, artworkId) ? "/create/compare" : "/create/adjust";
+  if (cutIsChange(d, artworkId)) return "/create/compare";
+  return hasLocalPhoto(d) ? "/create/adjust" : photoStep(d);
+}
+
+/**
+ * "Take a new photo" on Your cutout: offered on the piece when the local photo is gone (a reload, or
+ * a redo from the listing after one), since re-framing needs the photo; null otherwise (Back goes
+ * to Adjust the area, which has it).
+ */
+export function cutoutNewPhoto(d: Draft, artworkId: string): string | null {
+  return !cutIsChange(d, artworkId) && !hasLocalPhoto(d) ? photoStep(d) : null;
 }
 
 /**
@@ -240,8 +325,7 @@ export async function busyWhile<T>(set: (v: T) => void, busy: T, idle: T, run: (
  */
 export function changeItBack(d: Draft): string {
   if (changeItCut(d)) return "/create/cutout";
-  if (d.area) return "/create/adjust";
-  return d.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
+  return hasLocalPhoto(d) ? "/create/adjust" : photoStep(d);
 }
 
 /**
@@ -334,16 +418,17 @@ export function artOnScreen(d: Draft): { src: string | null; alt: string | null;
 
 // ---- Get it ready for the shop
 
-/** Where a redo from the listing goes: Your cutout of the product's artwork, or Adjust the area on the photo. */
+/** Where a redo from the listing goes: Your cutout of the product's artwork, or Adjust the area on the local photo. */
 export type RedoTarget = "cutout" | "adjust";
 
 /**
  * The redo destination for `prefer`, falling back to the other one (round 3 review m1/m2): Your
- * cutout needs the product's cut in this draft, Adjust the area needs the photo. Null: neither.
+ * cutout needs the product's cut in this draft, Adjust the area needs the local photo (round 4: it
+ * is gone after a reload, and the server has no uncropped photo). Null: neither.
  */
 export function redoTarget(d: Draft, prefer: RedoTarget): RedoTarget | null {
   const cut = !!d.productRecord && !!cutoutOf(d, d.productRecord.artworkId);
-  const photo = !!d.photoArtworkId;
+  const photo = hasLocalPhoto(d);
   if (prefer === "cutout") return cut ? "cutout" : photo ? "adjust" : null;
   return photo ? "adjust" : cut ? "cutout" : null;
 }
@@ -351,10 +436,10 @@ export function redoTarget(d: Draft, prefer: RedoTarget): RedoTarget | null {
 function goRedo({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, target: RedoTarget, patch: Partial<Draft>): void {
   const d = getDraft();
   if (target === "cutout" && d.productRecord) {
-    update({ ...patch, cutoutArtworkId: d.productRecord.artworkId });
+    update({ ...patch, pendingArea: undefined, cutoutArtworkId: d.productRecord.artworkId });
     router.push("/create/cutout");
-  } else if (d.photoArtworkId) {
-    update({ ...patch, area: { artworkId: d.photoArtworkId }, areaNotFound: undefined });
+  } else if (hasLocalPhoto(d)) {
+    update({ ...patch, pendingArea: undefined, areaNotFound: undefined });
     router.push("/create/adjust");
   }
 }
@@ -377,8 +462,9 @@ export function canRedoListing(d: Draft): boolean {
 
 /**
  * "Re-do the cutout" after a print check on approve (round 3 review I3): a picture too small to print
- * (`resolution`, the only hard block, which marks cannot fix) goes to Adjust the area on the photo,
- * where the frame can grow or Retake gives a bigger photo; a contrast warning goes to Your cutout.
+ * (`resolution`, the only hard block, which marks cannot fix) goes to Adjust the area on the local
+ * photo, where the frame can grow or "Take a new photo" gives a bigger one (round 4: without the
+ * local photo, Your cutout with "Take a new photo"); a contrast warning goes to Your cutout.
  * The listing stays until the product is rebuilt: a re-cut makes Making refresh the product, which
  * drops the old listing and its print check (`refreshProduct`). Clearing it here would start a new
  * agent run on the Listing screen that is still showing.

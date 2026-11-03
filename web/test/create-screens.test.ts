@@ -181,13 +181,23 @@ describe("Your cutout view (T130: the cut, then Fix the edges with Add area / Re
     expect(text(fixing({ photo: null, photoState: "missing" }))).toContain(t.photoMissingNone);
   });
 
-  it("the picture: the frame, numbered + / − marks hidden from assistive tech (out of the tab order), the tap layer hidden", () => {
+  it("round 4: without the local photo (a redo after a reload) Take a new photo sits before Start over; not offered otherwise", () => {
+    const out = cutoutView({ newPhoto: "/create/photo?mode=upload" });
+    before(out, t.use, m.create.adjust.newPhoto);
+    before(out, m.create.adjust.newPhoto, m.common.startOver);
+    expect(out).toMatch(/<a [^>]*href="\/create\/photo\?mode=upload"/);
+    expect(cutoutView()).not.toContain(m.create.adjust.newPhoto);
+  });
+
+  it("the picture (round 4: the crop, no frame outline), numbered + / − marks hidden from assistive tech (out of the tab order), the tap layer hidden", () => {
     const out = html(createElement(CutoutPhoto, {
-      src: "/o.jpg", image: { w: 200, h: 100 }, frame: [20, 10, 120, 90], disabled: false, onTap: noop, onRemoveMark: noop,
+      src: "/o.jpg", image: { w: 200, h: 100 }, disabled: false, onTap: noop, onRemoveMark: noop,
       points: [{ x: 50, y: 50, label: "positive" }, { x: 100, y: 25, label: "negative" }],
     }));
     expect(out).toContain(`role="group" aria-label="${t.photoLabelCut}"`);
-    expect(out).toMatch(/left:10%;top:10%;width:50%;height:80%/);
+    expect(out).toContain('src="/o.jpg"');
+    expect(out).not.toMatch(/dashed|drawnBox|height:80%/);
+    expect(out).toContain("left:25%;top:50%");
     expect(out.match(/<button[^>]*tabindex="-1"[^>]*aria-hidden="true"/g)).toHaveLength(2);
     expect(text(out)).toContain("+1");
     expect(text(out)).toContain("−2");
@@ -239,7 +249,9 @@ describe("Adjust the area view (R2)", () => {
     before(out, "PHOTO", ad.notFound);
     expect(out).toContain('role="alert"');
     expect(out).not.toContain(m.create.errors.retake);
-    expect(m.create.photo.finding).toBe("Getting your photo ready…");
+    // round 4: the photo opens on the device at once; "Getting your photo ready…" is retired
+    expect(Object.keys(m.create.photo)).not.toContain("finding");
+    expect(Object.keys(m.create.photo)).not.toContain("uploading");
   });
 
   it("cutting: no Back, the cutting line, only Use this area (dimmed)", () => {

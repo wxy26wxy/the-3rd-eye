@@ -20,6 +20,11 @@ export type YourCutoutViewProps = {
   lead: string;
   /** Back target (hidden while a request runs). */
   back: string;
+  /**
+   * "Take a new photo" (round 4): the photo step, offered on the piece when the local photo is no
+   * longer on the device (re-framing needs it); null otherwise.
+   */
+  newPhoto?: string | null;
   /** The request in flight: Apply cutout ("apply"), Use this ("use") or a piece from the strip ("pick"). */
   work: "apply" | "use" | "pick" | null;
   /** Text for the one permanent polite live region. */
@@ -42,7 +47,7 @@ export type YourCutoutViewProps = {
   canUse: boolean;
   canApply: boolean;
   /**
-   * The candidate strip (round 3): the pieces `detect` found inside the frame, only when there are
+   * The candidate strip: the pieces found on the crop, only when there are
    * two or more; `picked` is the one in the cut.
    */
   pieces?: { id: string; thumbUrl: string }[] | null;
@@ -73,8 +78,8 @@ export type YourCutoutViewProps = {
  * / Start over in the bar. Fix the edges: the picture on the green photo card with the frame and the
  * marks, the Add area / Remove area picker, the instruction and keyboard hint, "Add the area around
  * your art" (the keyboard and screen-reader path), the Marks list, notices and errors, Clear marks;
- * Use this / Apply cutout / Start over in the bar. No "Draw a box": the frame from Adjust the area is
- * the box. While a request runs, Back and every control are locked and only Use this shows (dimmed).
+ * Use this / Apply cutout / (Take a new photo) / Start over in the bar. No "Draw a box" and no frame
+ * outline: the picture is the crop of the frame (round 4). While a request runs, Back and every control are locked and only Use this shows (dimmed).
  */
 export function YourCutoutView({ resultRef, errorRef, toolsRef, on, ...p }: YourCutoutViewProps) {
   const busy = p.work !== null;
@@ -85,6 +90,7 @@ export function YourCutoutView({ resultRef, errorRef, toolsRef, on, ...p }: Your
     <>
       <Button block onClick={on.use} disabled={!p.canUse}>{t.use}</Button>
       {showing ? null : <Button block variant="secondary" arrow={false} onClick={on.apply} disabled={!p.canApply}>{t.apply}</Button>}
+      {p.newPhoto ? <Button block variant="secondary" arrow={false} href={p.newPhoto}>{m.create.adjust.newPhoto}</Button> : null}
       <Button block variant="secondary" arrow={false} onClick={on.startOver}>{m.common.startOver}</Button>
     </>
   );

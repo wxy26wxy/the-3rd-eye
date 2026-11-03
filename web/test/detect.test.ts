@@ -51,7 +51,7 @@ vi.mock("@/lib/ai/registry", () => ({
 }));
 vi.mock("@/lib/image/ref", () => ({ pngRef: (b: Buffer) => ({ data: b }) }));
 
-import { createFromImage, detectInBox } from "@/lib/pipeline/artworks";
+import { clipAlpha, createFromImage, detectInBox } from "@/lib/pipeline/artworks";
 
 const W = 400, H = 300;
 function rect(w: number, h: number, x0: number, y0: number, x1: number, y1: number): Mask {
@@ -152,5 +152,22 @@ describe("createFromImage detect:false", () => {
     files.set("upload.png", await sharp({ create: { width: 1200, height: 1000, channels: 3, background: "#ffffff" } }).png().toBuffer());
     await expect(createFromImage("c1", { source: "photo", imageUrl: "creators/c1/photo/u.jpg", product: "sticker" })).rejects.toMatchObject({ code: "no_drawing_found" });
     expect(state.findCalls).toEqual([{ w: 1200, h: 1000 }]);
+  });
+});
+
+describe("clipAlpha (T134: 1 px feather inside the frame)", () => {
+  it("clears outside the box and halves the alpha on the box's edge pixels at k = 1; k = 2 feathers over 2 px", () => {
+    const a = { width: 10, height: 10, alpha: new Uint8Array(100).fill(255) };
+    clipAlpha(a, [2, 2, 8, 8], 1);
+    expect(a.alpha[1 * 10 + 5]).toBe(0);
+    expect(a.alpha[2 * 10 + 5]).toBe(128);
+    expect(a.alpha[3 * 10 + 5]).toBe(255);
+    expect(a.alpha[7 * 10 + 5]).toBe(128);
+    const b = { width: 20, height: 20, alpha: new Uint8Array(400).fill(255) };
+    clipAlpha(b, [2, 2, 8, 8], 2); // alpha at ×2: box 4..16
+    expect(b.alpha[10 * 20 + 3]).toBe(0);
+    expect(b.alpha[10 * 20 + 4]).toBe(64);
+    expect(b.alpha[10 * 20 + 5]).toBe(191);
+    expect(b.alpha[10 * 20 + 6]).toBe(255);
   });
 });

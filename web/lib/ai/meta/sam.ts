@@ -137,9 +137,10 @@ export function transformPath(d: string, dx: number, dy: number, sx = 1, sy = 1)
   });
 }
 
+/** Request-size mask → original size: linear kernel, thresholded at 127 (T134: no nearest-neighbour blocks). */
 async function scaleMask(mask: Mask, width: number, height: number): Promise<Mask> {
   if (mask.width === width && mask.height === height) return mask;
-  const png = await maskSharp(mask).resize(width, height, { kernel: "nearest", fit: "fill" }).png().toBuffer();
+  const png = await maskSharp(mask).resize(width, height, { kernel: "linear", fit: "fill" }).png().toBuffer();
   return maskFromPng(png);
 }
 

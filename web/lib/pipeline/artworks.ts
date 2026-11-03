@@ -75,11 +75,21 @@ async function finishArtwork(
   });
 }
 
-/** Clears the soft alpha outside `box` (original pixels; the alpha is the original × `k`) so the finished edge cannot spill past it. */
-function clipAlpha(alpha: { width: number; height: number; alpha: Uint8Array }, box: BBox, k: number): void {
+/**
+ * Clears the soft alpha outside `box` (original pixels; the alpha is the original × `k`) so the finished
+ * edge cannot spill past it, and feathers the alpha over 1 original pixel (`k` alpha pixels) inside the
+ * box so a cut along the frame is not a hard line (T134).
+ */
+export function clipAlpha(alpha: { width: number; height: number; alpha: Uint8Array }, box: BBox, k: number): void {
   const b = clampBox(box.map((v) => v * k) as BBox, alpha.width, alpha.height) ?? [0, 0, 0, 0];
+  const fw = Math.max(1, Math.round(k));
   for (let y = 0; y < alpha.height; y++) {
-    for (let x = 0; x < alpha.width; x++) if (x < b[0] || x >= b[2] || y < b[1] || y >= b[3]) alpha.alpha[y * alpha.width + x] = 0;
+    for (let x = 0; x < alpha.width; x++) {
+      const i = y * alpha.width + x;
+      if (x < b[0] || x >= b[2] || y < b[1] || y >= b[3]) { alpha.alpha[i] = 0; continue; }
+      const d = Math.min(x - b[0], b[2] - 1 - x, y - b[1], b[3] - 1 - y);
+      if (d < fw) alpha.alpha[i] = Math.round(alpha.alpha[i] * (d + 0.5) / fw);
+    }
   }
 }
 
@@ -434,8 +444,8 @@ export async function cleanupArtwork(artwork: ArtworkRow, hint: CleanupHint, tas
   return recut(artwork, original, kept, { prompt: artwork.shapedPrompt ?? artwork.changeInstruction ?? undefined, task, clip });
 }
 
-/** Stored masks are at the original's size; guard against older rows that are not. */
+/** Stored masks are at the original's size; guard against older rows that are not (linear + threshold, T134). */
 async function toSize(m: Mask, W: number, H: number): Promise<Mask> {
   if (!W || !H || (m.width === W && m.height === H)) return m;
-  return maskFromPng(await sharp(await maskToPng(m)).resize(W, H, { kernel: "nearest", fit: "fill" }).png().toBuffer());
+  return maskFromPng(await sharp(await maskToPng(m)).resize(W, H, { kernel: "linear", fit: "fill" }).png().toBuffer());
 }

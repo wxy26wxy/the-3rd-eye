@@ -12,6 +12,7 @@ vi.mock("@/lib/db/queries", () => ({
     return null;
   },
   markArtworksFailed: async () => undefined,
+  listArtworkProductSummaries: async () => [],
 }));
 vi.mock("@/lib/pipeline/artworks", async (orig) => ({
   assertChangeResult: (await orig<typeof import("@/lib/pipeline/artworks")>()).assertChangeResult,
@@ -63,6 +64,7 @@ describe("POST /artworks/{id}/cutout (T111)", () => {
     expect(body.artwork).toMatchObject({ id: "child1", cleanedUrl: "https://x/cut.png", status: "ready" });
     expect(body.candidates).toEqual([{ id: "k1", bbox: [0, 0, 9, 9], score: 0.9, thumbUrl: "t1" }, { id: "k2", bbox: [0, 0, 2, 2], score: 0.99, thumbUrl: "t2" }]);
     expect(body.imageSize).toEqual({ w: 1600, h: 1600 });
+    expect(body.products).toEqual([]); // T143: no product made from the change result yet
     expect(JSON.stringify(body)).not.toContain("secret");
   });
   it("404 for someone else's artwork, 400 without a stored picture", async () => {

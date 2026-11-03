@@ -9,12 +9,12 @@ const rows = new Map<string, Record<string, unknown>>();
 const state = {
   findCalls: [] as { w: number; h: number }[], findOpts: [] as unknown[], segmentCalls: 0, rebuilt: [] as string[], products: [] as { id: string }[],
   crop: [] as { mask: Mask; bbox: [number, number, number, number]; score: number; svgPath: string }[],
-  updates: [] as Record<string, unknown>[],
+  updates: [] as Record<string, unknown>[], reads: [] as string[],
 };
 let n = 0;
 vi.mock("@/lib/storage", () => ({
   storage: () => ({
-    read: async (p: string) => { const b = files.get(p); if (!b) throw new Error(`missing ${p}`); return b; },
+    read: async (p: string) => { state.reads.push(p); const b = files.get(p); if (!b) throw new Error(`missing ${p}`); return b; },
     putPublic: async (p: string, data: Buffer) => { files.set(p, data); return { pathname: p, url: p }; },
     putPrivate: async (p: string, data: Buffer) => { files.set(p, data); return { pathname: p, url: p }; },
     delete: async () => undefined,
@@ -70,7 +70,7 @@ async function photoRow(extra: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
-  state.findCalls = []; state.findOpts = []; state.segmentCalls = 0; state.rebuilt = []; state.products = []; state.crop = []; state.updates = [];
+  state.findCalls = []; state.findOpts = []; state.segmentCalls = 0; state.rebuilt = []; state.products = []; state.crop = []; state.updates = []; state.reads = [];
 });
 
 describe("placeMask", () => {
@@ -158,6 +158,34 @@ describe("createFromImage detect:false", () => {
     files.set("upload.png", await sharp({ create: { width: 1200, height: 1000, channels: 3, background: "#ffffff" } }).png().toBuffer());
     await expect(createFromImage("c1", { source: "photo", imageUrl: "creators/c1/photo/u.jpg", product: "sticker" })).rejects.toMatchObject({ code: "no_drawing_found" });
     expect(state.findCalls).toEqual([{ w: 1200, h: 1000 }]);
+  });
+});
+
+describe("createFromImage framed (T143, round 4: the upload is the creator's crop)", () => {
+  it("detects on the whole picture with the frame rules, cuts the largest piece, answers details, reads the original once", async () => {
+    files.set("upload.png", await sharp({ create: { width: 1200, height: 900, channels: 3, background: "#ffffff" } }).png().toBuffer());
+    state.crop = [
+      seg(rect(1200, 900, 10, 10, 40, 40), [10, 10, 40, 40]),
+      seg(rect(1200, 900, 0, 0, 1200, 900), [0, 0, 1200, 900]), // fills the crop edge to edge: kept
+    ];
+    const out = await createFromImage("c1", { source: "photo", imageUrl: "creators/c1/photo/u.jpg", product: "sticker", framed: true });
+    expect(state.findCalls).toEqual([{ w: 1200, h: 900 }]);
+    expect(state.findOpts[0]).toMatchObject({ maxCoverage: 1, dropContainers: false });
+    expect(state.reads).toEqual([]); // the stored original is passed on, not read back
+    expect(out.imageSize).toEqual({ w: 1200, h: 900 });
+    expect(out.candidates.map((c) => c.bbox)).toEqual([[0, 0, 1200, 900], [10, 10, 40, 40]]); // largest first
+    const row = out.artwork as unknown as { cleanedUrl: string; status: string };
+    expect(row.status).toBe("ready");
+    expect(row.cleanedUrl).toBeTruthy();
+    expect(out.details).toEqual({ failedProductIds: [], unpublishedProductIds: [] });
+  });
+
+  it("nothing found → 422 no_drawing_found with the new row's artworkId", async () => {
+    files.set("upload.png", await sharp({ create: { width: 1200, height: 900, channels: 3, background: "#ffffff" } }).png().toBuffer());
+    const err = await createFromImage("c1", { source: "photo", imageUrl: "creators/c1/photo/u.jpg", product: "tote", framed: true }).catch((e: unknown) => e);
+    expect(err).toMatchObject({ status: 422, code: "no_drawing_found" });
+    const id = (err as { details?: { artworkId?: string } }).details?.artworkId;
+    expect(id && rows.get(id)).toMatchObject({ candidates: [], lastError: "no_drawing_found" });
   });
 });
 

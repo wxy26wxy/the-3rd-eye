@@ -27,6 +27,9 @@ type Creds = { token?: string; storeId?: string };
 type Env = Record<string, string | undefined>;
 
 /** Message the client gets when the private store cannot be reached with the server's credentials. */
+/** `cache-control` max-age of public files, in seconds: one year (every public pathname is written once). */
+export const PUBLIC_CACHE_MAX_AGE = 365 * 24 * 60 * 60;
+
 export const STORAGE_UNAVAILABLE = "Storage is unavailable; try again later.";
 /** One-time server log line for the same case (local credentials; never shown to clients). */
 export const STORAGE_CREDENTIALS_HINT = "Storage credentials expired; run `vercel env pull`";
@@ -147,7 +150,8 @@ export class BlobStorage implements Storage {
   async putPublic(path: string, data: PutBody, contentType: string): Promise<StoredFile> {
     let pathname = path;
     for (let i = 0; i < 3 && (await exists(pathname, publicCreds())); i++) pathname = withSuffix(path);
-    const res = await put(pathname, toBody(data), { access: "public", contentType, ...publicCreds(), allowOverwrite: false });
+    // Write-once pathnames (never overwritten), so browsers and the apps may keep a public file a year (T143).
+    const res = await put(pathname, toBody(data), { access: "public", contentType, ...publicCreds(), allowOverwrite: false, cacheControlMaxAge: PUBLIC_CACHE_MAX_AGE });
     return { pathname: res.pathname, url: res.url };
   }
 

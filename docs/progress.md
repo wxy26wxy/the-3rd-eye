@@ -340,3 +340,10 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - `docs/api.md`: "Creator flow (round 2b)" lists the calls per step for web and iOS; the Create summary follows the new order. `docs/handoffs/backend.md` T129 entry.
 - Verify: `pnpm test`, `pnpm lint`, `pnpm build`, `bash scripts/check_clean.sh`.
 
+## T135 web · Feedback round 3 creator flow (2026-11-03)
+- Photo → Adjust the area on the whole photo (`POST /artworks {detect:false}`, "Getting your photo ready…") → Making your cutout sends `detect {box}` (every new frame; the searching magnifier moved here) → Your cutout (marks keep `cleanup`; a candidate strip only for two pieces or more). Nothing found inside the frame returns to Adjust the area with the move-or-grow advice. Choose a pattern removed; `/create/pattern` and `/create/select` redirect to `/create/adjust`.
+- The AI product photo first for stickers: shop tiles, the hero phone card, gallery slide 1 (the bordered preview is slide 2, contained), Ready and Listing.
+- Listing: the product picture on top while drafting, the drafting card over the text fields only, a secondary Redo (drops the run by nonce, back to Your cutout, the draft product kept). Print check by `check`: contrast → Use anyway (`acceptPrintWarning: true`) / Re-do the cutout; resolution → Re-do the cutout.
+- `clientRequestId` on `change` (the nonce) and `products` (one per Use this, reused by Try again).
+- Verify (from the repo root): `pnpm test` (426 passed, 2 skipped), `pnpm lint`, `pnpm build`, `bash scripts/check_clean.sh`; Lighthouse mobile accessibility 100 on `/` and `/p/<sticker id>` (`pnpm dev`).
+- Unfinished: Lighthouse on `/create/adjust` needs a creator sign-in (the page redirects to `/create/code`), not run; the live run as the Test Artist is the PM's after T134 merges.

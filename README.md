@@ -14,7 +14,7 @@ This is our entry for the Meta Global AI Developer Hackathon (Startups track, "B
 
 ![The shop home page at desktop width: the eyebrow "Stickers & totes by disabled artists", the headline "Art with a story in every piece.", the buttons Shop new arrivals and How story tags work, and a photo of the green mascot holding tote bags with a Tap the tag card](docs/images/web-shop-home.png)
 
-The iOS shots come from the simulator running against the mock API (`ios/scripts/mock_api.py`), with the mascot standing in for the drawing and the change result (the first two are v0.8-rc1; Adjust the area is v0.8 and shows the test suite's generated photo with the frame dragged out from the first piece; since round 3 the screen opens on the whole photo with the frame around all of it, and since round 4, v0.9.1, it shows the photo still on the phone, with Take a new photo, before anything is uploaded; a new screenshot is still to be taken); the shop shot is the local dev server, captured at 1440 px and shown here at 1200 px. Mascot and sky imagery: The 3rd Eye design team.
+The iOS shots come from the simulator running against the mock API (`ios/scripts/mock_api.py`), with the mascot standing in for the drawing and the change result (the first two are v0.8-rc1; Adjust the area is v0.8 and shows the test suite's generated photo with the frame dragged out from the first piece; since round 3 the screen opens on the whole photo with the frame around all of it, and since round 4, v0.9.1, it shows the photo still on the phone, with Take a new photo, before anything is uploaded; a new screenshot is still to be taken); the shop shot is the local dev server, captured at 1440 px and shown here at 1200 px. Mascot and sky imagery: The 3rd Eye design team. The creator portraits are illustrative, provided by the founder.
 
 ## Try it in 3 minutes
 
@@ -87,7 +87,7 @@ Node 24 and pnpm. From the repository root run `pnpm install`.
 **Web** (`web/`):
 - `cp .env.example .env.local` and fill what you have. The app builds and the unit tests pass with no keys. With `AI_FIXTURES=1` the AI stages return synthetic offline results (not Meta output) so the screens can be explored without keys.
 - `pnpm dev` serves http://localhost:3000. `pnpm build && pnpm start` runs the production build.
-- Real runs need `META_API_KEY`, `DATABASE_URL` (Neon Postgres), `CREATOR_SESSION_SECRET`, `ADMIN_PASSWORD` and the Blob settings listed in `docs/architecture.md`. `pnpm db:migrate` then `pnpm seed` creates the schema and the example creators; the seed writes their sign-in codes to `web/.creator-codes.local`, which is not committed.
+- Real runs need `META_API_KEY`, `DATABASE_URL` (Neon Postgres), `CREATOR_SESSION_SECRET`, `ADMIN_PASSWORD` and the Blob settings listed in `docs/architecture.md`. `pnpm db:migrate` then `pnpm seed` creates the schema and the example creators; the seed writes their sign-in codes to `web/.creator-codes.local`, which is not committed, and gives Maya Ortiz and June Park their portraits from `scripts/seed-assets/avatars/` while they have none. To set or replace a creator's portrait later, from the repository root: `pnpm avatar <slug> <image file>` (480 px centre-square crop to public storage, then the creator's `avatar_url`; add `--dry-run` to check the crop without writing). `FEATURED_CREATOR_SLUG` (default `june-park`) picks the creator the shop features first.
 - For the open-weight stage, run Ollama with the `muse-glimmer` model and set `OLLAMA_BASE_URL`.
 
 **iOS** (`ios/`, Xcode and XcodeGen):

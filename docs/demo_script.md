@@ -6,8 +6,8 @@ Shot-by-shot script for the submission video. Narration is plain, first person p
 - **Production site:** https://the-3rd-eye.vercel.app. Phone app: the next TestFlight build of The 3rd Eye (the round 4 app, v0.9.1) once the product owner has uploaded it (pending, see `docs/deployments.md`); until then a local build on the phone or the simulator.
 - **Sign-in is done before every take**, so no code or sign-in screen is on camera.
 - **Creator codes:** open `web/.creator-codes.local` on the dev Mac. Never type a code on camera; paste it before the take starts or use the app link from `/admin`.
-  - **June Park** (photo, Change it by voice, Before and after, Your cutout): shots 2 and 3. June is one of our fictional example artists; say so in the narration and on the end card.
-  - **Leo**: his bus sticker is the product in shot 4. Use a tester creator for rehearsals so the demo creators' data stays clean (a change makes a new draft artwork each time).
+  - **June Park** is the main artist of the video (round 5, 2026-11-03): the photo flow, Change it by voice, Before and after and the listing (shots 2 and 3), her sticker is the product in shot 4, she records the thank-you and owns the story video (shot 5), and her story tag is the one tapped (shot 6). June is one of our fictional example artists; say so in the narration and on the end card. Her portrait (illustrative, provided by the founder) shows on the shop, her page, the product page and the story tag.
+  - Leo is hidden from the public site since 2026-11-03 and is not in the video; keep his `/t/` links out of every shot. Use a tester creator for rehearsals so the demo creators' data stays clean (a change makes a new draft artwork each time).
 - **Mac:** Ollama running with `muse-glimmer`, the app pointed at the Mac only for the story-draft shot. On Vercel the same stage falls back to Muse Spark 1.3.
 - **Phone:** VoiceOver on, Settings > Accessibility > VoiceOver > Speech volume up, Do Not Disturb on, screen recording ready (Control Centre). Over-the-shoulder camera on a tripod for the three phone shots.
 - **Props:** one rough pencil sketch on paper (a character with a book works well with the change "make the book red"), one printed die-cut sticker with an NFC tag written to `/t/<token>` of a test order (to do: print, cut and write it at the physical test before the freeze, Nov 3, 18:00; method: a standard NFC writer app), a second phone to play the buyer.
@@ -66,9 +66,9 @@ Narration:
 Fallback: if the change or the product photo is slow on stage, use the rehearsal take (`fallback-cutout.mov`). Do not retry on camera more than once.
 
 ### 4. A buyer finds it (1:15-1:40)
-Capture: screen recording of https://the-3rd-eye.vercel.app in a phone-sized browser window. Product: Leo's bus sticker (or the sticker just published). Since round 3 the shop card and the first picture on the product page show the **AI product photo** (the Muse Image mockup, `mockupUrl`, of the sticker in a scene), for stickers and totes alike; hold on the card for a second. The **second gallery picture** is the bordered die-cut sticker (white border, contained, never cropped): swipe to it once so viewers see what is printed. The art in the AI photo is not guaranteed to be to scale.
+Capture: screen recording of https://the-3rd-eye.vercel.app in a phone-sized browser window. Creator: **June Park**. Product: June's sticker (the smiling cactus, or the sticker just published in shot 3); the shop's hero chip and the first "Meet the makers" card show June with her portrait. Since round 3 the shop card and the first picture on the product page show the **AI product photo** (the Muse Image mockup, `mockupUrl`, of the sticker in a scene), for stickers and totes alike; hold on the card for a second. The **second gallery picture** is the bordered die-cut sticker (white border, contained, never cropped): swipe to it once so viewers see what is printed. The art in the AI photo is not guaranteed to be to scale.
 
-Steps: shop home ("Art with a story in every piece.") > "New this week" > the product page (breadcrumb Shop / Stickers / the name, "Sticker · die-cut · waterproof", "Leo earns from every sticker sold.") > **Size** "4 in" > quantity "More" once (2) > **"Add to bag"** > the order sheet "Buy this piece": enter a name, "Place order · <price>" (the sheet says "Demo checkout: no payment is taken yet.") > "Thank you!" with the "Open the story tag" link.
+Steps: shop home ("Art with a story in every piece.") > "New this week" > the product page (breadcrumb Shop / Stickers / the name, "Sticker · die-cut · waterproof", "June earns from every sticker sold.") > **Size** "4 in" > quantity "More" once (2) > **"Add to bag"** > the order sheet "Buy this piece": enter a name, "Place order · <price>" (the sheet says "Demo checkout: no payment is taken yet.") > "Thank you!" with the "Open the story tag" link.
 
 Narration:
 "A buyer finds the sticker in the shop and sees who made it. They pick a size and a quantity. Checkout is staged in this demo: it creates the order but takes no payment. Then they get a link to the story tag."
@@ -76,7 +76,7 @@ Narration:
 Fallback: the shop has seeded products and orders; if the live site is slow, use a recording made in rehearsal. `/admin` shows the order with "size × qty" for the edit if needed.
 
 ### 5. The creator says thank you (1:40-2:05)
-Capture: simulator capture of the Orders tab, then the phone for the 10-second video.
+Creator: **June Park**. Capture: simulator capture of the Orders tab, then the phone for the 10-second video.
 
 Steps: Orders tab shows the new order (the list refreshes about every 10 seconds, there is no push notification) > Order detail > thank-you composer > record a 10-second video > send. Show the Create tab once: under the product choice the **"My story video"** row ("Recorded <date>") opens the player ("Watch", with captions) and "Record again" (the new video replaces the old one on every product). Mention the story-draft sheet: after the story video, "Here's a story we drafted from your video" offers "Use this story", "Edit it" or "Skip".
 
@@ -86,7 +86,7 @@ Narration:
 Fallback: if Ollama is down, the stage uses Muse Spark 1.3 and the response says `provider: "meta-fallback"`; narrate it honestly ("Spark covers when the Mac is off"). If recording fails, use `fallback-thankyou.mov`.
 
 ### 6. The sticker, the tap, the reply (2:05-2:40)
-Capture: over the shoulder for the print and tap; screen recordings for the page and the creator app.
+Creator: **June Park** (the tag of a staged order on her sticker; `DEMO_STORY_TAG_TOKEN` should point at a June order). Capture: over the shoulder for the print and tap; screen recordings for the page and the creator app.
 
 Steps:
 1. Show the printed die-cut sticker (print PNG and die SVG downloaded from `/admin`). Show the NFC tag on the back. The physical sticker and tag are done at the physical test before the freeze (Nov 3, 18:00) (method: a standard NFC writer app); until they exist, use the QR route in the fallback and do not narrate a tap.

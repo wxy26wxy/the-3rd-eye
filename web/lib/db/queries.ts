@@ -152,6 +152,13 @@ export async function updateCreator(id: string, patch: CreatorPatch): Promise<Cr
   return row ?? null;
 }
 
+/** Sets avatar_url only while it is still null (seed, T147); true when the row changed. */
+export async function setCreatorAvatarIfMissing(id: string, avatarUrl: string): Promise<boolean> {
+  const rows = await db().update(creators).set({ avatarUrl })
+    .where(and(eq(creators.id, id), isNull(creators.avatarUrl), isNull(creators.deletedAt))).returning({ id: creators.id });
+  return rows.length > 0;
+}
+
 /** Idempotent by slug (seed). */
 export async function upsertCreatorBySlug(values: typeof creators.$inferInsert): Promise<CreatorRow> {
   const { slug, ...rest } = values;

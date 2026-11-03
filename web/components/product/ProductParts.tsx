@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ProductDetail, ShopProduct } from "@/lib/db/queries.contract";
 import { fmt, m, sharePercent } from "@/components/messages";
+import { Avatar } from "@/components/site/Avatar";
 import { ProductCard, toneAt } from "@/components/site/ProductCard";
 import { StoryVideo } from "@/components/site/StoryVideo";
 import { CheckIcon, PlusIcon } from "@/components/ui/Icons";
@@ -28,8 +29,9 @@ export function PaysArtistNote({ name, type, split }: { name: string; type: Prod
 }
 
 /**
- * Meet the maker (4012:4365): the story video (captions, native controls), the eyebrow, the maker's own
- * words as a quote, and where to watch it again.
+ * Meet the maker (4012:4365): the story video (captions, native controls), the eyebrow, the maker's
+ * portrait (decorative, initials without one; T147) beside their name, their own words as a quote, and
+ * where to watch it again.
  */
 export function MeetMakerCard({ product: p }: { product: Pick<ProductDetail, "type" | "creator"> }) {
   const quote = p.creator.storyText ?? p.creator.bioShort;
@@ -38,6 +40,10 @@ export function MeetMakerCard({ product: p }: { product: Pick<ProductDetail, "ty
       <StoryVideo creator={p.creator} className={styles.makerVideo} />
       <div className={styles.makerText}>
         <Eyebrow as="h2" id="maker-title" tone="accent">{m.product.meetMaker}</Eyebrow>
+        <div className={styles.makerWhoRow}>
+          <Avatar name={p.creator.displayName} src={p.creator.avatarUrl} size="l" tone="deep" />
+          <p className={styles.makerWho}>{p.creator.displayName}</p>
+        </div>
         {quote ? <blockquote className={styles.quote}><p>“{quote}”</p></blockquote> : null}
         <p className={styles.scan}>{p.type === "sticker" ? m.product.scanSticker : m.product.scanTote}</p>
       </div>

@@ -107,6 +107,9 @@ struct ListingDetailsView: View {
       }
     }
     .task { await createProductIfNeeded() }
+    .onChange(of: app.flow.resumeCount) { _, _ in
+      Task { @MainActor in await recoverRun() }
+    }
   }
 
   /// The product picture on a grey card at its own proportions (the AI product photo, else the
@@ -209,9 +212,19 @@ struct ListingDetailsView: View {
     }
     creatingProduct = true
     defer { creatingProduct = false }
+    let flow = app.flow
+    let job = flow.startJob(.product(artworkId: artwork.id, type: type))
     do {
-      let product = try await app.api.createProduct(artworkId: artwork.id, type: type, clientRequestId: UUID().uuidString)
-      app.flow.useProduct(product, madeFrom: artwork)
+      let product: Product
+      do {
+        product = try await app.api.createProduct(artworkId: artwork.id, type: type, clientRequestId: job.clientRequestId)
+      } catch APIError.transport(let reason) {
+        // A lost answer: the product may be made already (round 3 ruling 6).
+        guard case .product(let made)? = await CreateFlow.reconcile(job, api: app.api) else { throw APIError.transport(reason) }
+        product = made
+      }
+      flow.finishJob(job)
+      flow.useProduct(product, madeFrom: artwork)
       fill(from: product)
       if ListingPhase.autoRuns(title: title, savedTitle: app.flow.productTitle, alreadyRan: autoRan) {
         autoRan = true
@@ -221,6 +234,7 @@ struct ListingDetailsView: View {
     } catch is CancellationError {
       return
     } catch {
+      if case APIError.transport = error {} else { flow.finishJob(job) }
       self.error = error.localizedDescription
     }
   }
@@ -244,17 +258,44 @@ struct ListingDetailsView: View {
 
   private func runAgent() async {
     guard let product = app.flow.product else { return }
+    let flow = app.flow
     improving = true
     error = nil
     refusal = nil
     UIAccessibility.post(notification: .announcement, argument: String(localized: "Writing your listing…"))
     defer { improving = false }
+    let job = flow.startJob(.listing(productId: product.id))
     do {
-      apply(try await app.api.runListingAgent(productId: product.id).listing, for: product)
+      let res = try await app.api.runListingAgent(productId: product.id)
+      guard flow.finishJob(job) else { return }
+      apply(res.listing, for: product)
     } catch {
-      if APIError.isCancellation(error) { return }
+      if APIError.isCancellation(error) {
+        flow.finishJob(job)
+        return
+      }
+      if case APIError.transport = error {
+        if await recoverRun() { return }
+      } else {
+        flow.finishJob(job)
+      }
       self.error = error.localizedDescription
     }
+  }
+
+  /// The listing the agent already wrote on the server (`GET /listings/{id}`, after a lost answer or
+  /// back in the app): shown once.
+  @discardableResult
+  private func recoverRun() async -> Bool {
+    let flow = app.flow
+    guard let job = flow.pendingJob, case .listing(let productId) = job.kind, let product = flow.product, product.id == productId,
+          case .listing(let draft)? = await CreateFlow.reconcile(job, api: app.api),
+          flow.finishJob(job) else { return false }
+    runTask?.cancel()
+    error = nil
+    apply(draft, for: product)
+    improving = false
+    return true
   }
 
   /// The agent's listing in the fields (and kept with the creation, so coming back here, Back then
@@ -273,9 +314,19 @@ struct ListingDetailsView: View {
     UIAccessibility.post(notification: .announcement, argument: String(localized: "I wrote a listing called \(title), for \(Money.format(cents: priceCents)). You earn \(Money.format(cents: earnCents)) per sale. Check it, then tap Approve and list it."))
   }
 
+  /// The approval the server already saved (`GET /listings/{id}`: approved and published), as the
+  /// approve answer would have said it.
+  private func approvedOnServer(_ product: Product) async -> ApproveListingResponse? {
+    guard let res = try? await app.api.listing(productId: product.id), let listing = res.listing,
+          listing.approvedAt != nil, res.product.status == "published" else { return nil }
+    let needsVideo = (app.creator?.storyVideoUrl ?? "").isEmpty
+    return ApproveListingResponse(product: res.product, listing: listing, storyVideoNeeded: needsVideo)
+  }
+
   /// "Redo" (drafting) and "Re-do the cutout" (a resolution refusal): the run stops, the creator
   /// goes back to Your cutout with the draft product kept.
   private func redo() {
+    if let job = app.flow.pendingJob, case .listing = job.kind { app.flow.finishJob(job) }
     runTask?.cancel()
     runTask = nil
     improving = false
@@ -296,7 +347,14 @@ struct ListingDetailsView: View {
     defer { approving = false }
     do {
       let edits = ListingEdits(title: title, description: description.isEmpty ? nil : description, priceCents: priceCents)
-      let res = try await app.api.approveListing(productId: product.id, via: via, edits: edits, acceptPrintWarning: acceptPrintWarning)
+      let res: ApproveListingResponse
+      do {
+        res = try await app.api.approveListing(productId: product.id, via: via, edits: edits, acceptPrintWarning: acceptPrintWarning)
+      } catch APIError.transport(let reason) {
+        // A lost answer: the listing may be in the shop already (round 3 ruling 6).
+        guard let live = await approvedOnServer(product) else { throw APIError.transport(reason) }
+        res = live
+      }
       app.flow.approval = res
       app.flow.product = res.product
       app.push(res.storyVideoNeeded ? .storyVideo : .youreLive)

@@ -14,7 +14,6 @@ final class CanonicalFlowTests: XCTestCase {
   private func photoFlow() -> CreateFlow {
     let flow = CreateFlow()
     flow.setPhoto(artwork: Artwork(id: "p1"), candidates: [one, two], imageSize: size)
-    flow.pieceCandidateId = "cand-1"
     return flow
   }
 
@@ -24,27 +23,16 @@ final class CanonicalFlowTests: XCTestCase {
 
   // MARK: Route table
 
-  func testUseThisAreaCutsFirstThenOnlyWhenTheFrameChanges() {
+  func testUseThisAreaDetectsFirstThenOnlyWhenTheFrameChanges() {
     let flow = photoFlow()
-    let area = AreaFrame.initial(piece: one, image: size)
-    let request = CutoutRequest.make(piece: one, area: area)
-    XCTAssertEqual(flow.routeAfterArea(request), .makingCutout(.area(request)), "first time: always the cleanup")
-    flow.recordCut(of: "p1", Artwork(id: "p1", cleanedUrl: "https://x/cut1.png"), request: request)
+    let area = AreaFrame.whole(size)
+    XCTAssertEqual(flow.routeAfterArea(box: area.box), .makingCutout(.detect(area.box)), "first time: always detect")
+    flow.recordDetect(DetectResponse(artwork: Artwork(id: "p1", cleanedUrl: "https://x/cut1.png"), candidates: [one, two], imageSize: size), box: area.box)
     XCTAssertEqual(flow.pieceCutFrom, "cand-1")
-    XCTAssertEqual(flow.pieceBox, request.box)
-    XCTAssertEqual(flow.routeAfterArea(request), .yourCutout("p1"), "same piece and frame: no second cut")
-    let moved = CutoutRequest.make(piece: one, area: area.grown(in: size))
-    XCTAssertEqual(flow.routeAfterArea(moved), .makingCutout(.area(moved)), "a new frame cuts again")
-    let other = CutoutRequest.make(piece: two, area: area)
-    XCTAssertEqual(flow.routeAfterArea(other), .makingCutout(.area(other)), "another piece cuts again")
-  }
-
-  func testWholePhotoFrameIsCutToo() {
-    let flow = CreateFlow()
-    flow.setPhoto(artwork: Artwork(id: "p1"), candidates: [], imageSize: size)
-    let request = CutoutRequest.make(piece: nil, area: .whole(size))
-    XCTAssertEqual(request, CleanupRequest(box: [0, 0, 1200, 1600], clipToBox: true))
-    XCTAssertEqual(flow.routeAfterArea(request), .makingCutout(.area(request)))
+    XCTAssertEqual(flow.pieceBox, area.box)
+    XCTAssertEqual(flow.routeAfterArea(box: area.box), .yourCutout("p1"), "same frame: no second cut")
+    let smaller = area.shrunk(in: size)
+    XCTAssertEqual(flow.routeAfterArea(box: smaller.box), .makingCutout(.detect(smaller.box)), "a new frame detects again")
   }
 
   func testYourCutoutGoesToChangeItFirstAndToTheProductAfterAChange() {

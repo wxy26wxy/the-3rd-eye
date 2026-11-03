@@ -22,6 +22,10 @@ struct MakingProductView: View {
       retry: { error = nil; attempt += 1 }
     )
     .task(id: attempt) { await run() }
+    .onChange(of: app.flow.resumeCount) { _, _ in
+      let flow = app.flow
+      Task { @MainActor in await recover(flow) }
+    }
   }
 
   private func run() async {
@@ -30,10 +34,16 @@ struct MakingProductView: View {
       error = String(localized: "The design is missing. Go back and pick it again.")
       return
     }
+    var job: PendingJob?
     do {
       switch flow.productPlan(for: artwork, type: type) {
       case .create:
-        flow.useProduct(try await app.api.createProduct(artworkId: artwork.id, type: type), madeFrom: artwork)
+        // One `clientRequestId` per attempt (round 3): Try again after a lost answer sends it again.
+        let pending = flow.startJob(.product(artworkId: artwork.id, type: type))
+        job = pending
+        let product = try await app.api.createProduct(artworkId: artwork.id, type: type, clientRequestId: pending.clientRequestId)
+        guard flow.finishJob(pending) else { return }
+        flow.useProduct(product, madeFrom: artwork)
       case .reuse:
         // Back from Listing details and "Use this" again, same cut: the draft is reused.
         break
@@ -41,14 +51,35 @@ struct MakingProductView: View {
         // Re-cut: the server rebuilt the draft's print file and mockup; read them again.
         flow.useProduct(CreateFlow.refreshed(draft, in: try await app.api.myArtworks()), madeFrom: artwork)
       }
-      UIAccessibility.post(notification: .announcement,
-                           argument: type == .tote ? String(localized: "Your tote bag is ready!") : String(localized: "Your sticker is ready!"))
-      if app.createPath.last == .makingProduct { app.replaceTop(with: .listingDetails) }
-    } catch is CancellationError {
-      return
+      leave(type: type, flow: flow)
     } catch {
       if APIError.isCancellation(error) { return }
+      if case APIError.transport = error {
+        if await recover(flow) { return }
+      } else if let job {
+        flow.finishJob(job)
+      }
       self.error = error.localizedDescription
     }
+  }
+
+  /// Listing details as soon as the product exists (its picture shows there while the listing is written).
+  private func leave(type: ProductType, flow: CreateFlow) {
+    UIAccessibility.post(notification: .announcement,
+                         argument: type == .tote ? String(localized: "Your tote bag is ready!") : String(localized: "Your sticker is ready!"))
+    if flow === app.flow, app.createPath.last == .makingProduct { app.replaceTop(with: .listingDetails) }
+  }
+
+  /// The product already made on the server (after a lost answer, or back in the app): used once.
+  @discardableResult
+  private func recover(_ flow: CreateFlow) async -> Bool {
+    guard let job = flow.pendingJob, case .product(let artworkId, let type) = job.kind,
+          let artwork = flow.artwork, artwork.id == artworkId,
+          case .product(let product)? = await CreateFlow.reconcile(job, api: app.api),
+          flow.finishJob(job) else { return false }
+    error = nil
+    flow.useProduct(product, madeFrom: artwork)
+    leave(type: type, flow: flow)
+    return true
   }
 }

@@ -117,41 +117,65 @@ final class ListingStoryTests: XCTestCase {
   }
 }
 
-/// Ruling (T122): every photo goes through Adjust the area before Change it.
+/// Round 3: every photo goes to Adjust the area on the whole photo; `detect` cuts inside the frame.
 @MainActor
 final class AdjustAreaRouteTests: XCTestCase {
   private let size = ImageSize(w: 1200, h: 1600)
   private let one = Candidate(id: "c1", bbox: [100, 160, 500, 693])
   private let two = Candidate(id: "c2", bbox: [660, 896, 1060, 1429])
 
-  /// T131: the auto-cut piece skips Choose a pattern but is still cut with the frame (the server's
-  /// own cut is not clipped to it).
-  func testAutoCutPieceSkipsChooseAPatternButIsCutWithTheFrame() {
+  func testFrameStartsOnTheWholePhotoAndDetectsTheFirstTime() {
     let flow = CreateFlow()
-    let cut = Artwork(id: "p1", cleanedUrl: "https://x/cut.png")
-    flow.setPhoto(artwork: cut, candidates: [one], imageSize: size)
-    XCTAssertEqual(flow.routeAfterFinding(artwork: cut), .adjustArea)
-    XCTAssertEqual(flow.pieceCandidateId, "c1")
-    XCTAssertNil(flow.pieceArtwork, "no cut of ours yet")
-    let request = CutoutRequest.make(piece: one, area: AreaFrame.initial(piece: one, image: size))
-    XCTAssertEqual(flow.routeAfterArea(request), .makingCutout(.area(request)), "Use this area unchanged still cuts")
-  }
-
-  func testNoDrawingGoesStraightToTheFrame() {
-    let flow = CreateFlow()
-    let photo = Artwork(id: "p1")
-    flow.setPhoto(artwork: photo, candidates: [], imageSize: size)
-    XCTAssertEqual(flow.routeAfterFinding(artwork: photo), .adjustArea)
+    flow.setPhoto(artwork: Artwork(id: "p1"), candidates: [], imageSize: size)
+    let whole = AreaFrame.initial(piece: nil, image: size)
+    XCTAssertEqual(whole.box, [0, 0, 1200, 1600])
+    XCTAssertEqual(flow.routeAfterArea(box: whole.box), .makingCutout(.detect(whole.box)))
     XCTAssertNil(flow.pieceArtwork)
   }
 
-  func testSeveralDrawingsOrAnUncutOneAreChosenFirst() {
+  func testDetectAnswerBecomesThePieceAndTheSameFrameIsNotSentAgain() {
     let flow = CreateFlow()
-    let photo = Artwork(id: "p1")
-    flow.setPhoto(artwork: photo, candidates: [one, two], imageSize: size)
-    XCTAssertEqual(flow.routeAfterFinding(artwork: photo), .choosePattern)
-    flow.setPhoto(artwork: photo, candidates: [one], imageSize: size)
-    XCTAssertEqual(flow.routeAfterFinding(artwork: photo), .choosePattern, "one drawing not cut yet: Choose a pattern shows it picked")
-    XCTAssertNil(flow.pieceArtwork)
+    flow.setPhoto(artwork: Artwork(id: "p1", altText: "Photo"), candidates: [], imageSize: size)
+    let box: [Double] = [50, 100, 1100, 1500]
+    flow.addChange(ChangeStep(artwork: Artwork(id: "ch1"), base: Artwork(id: "p1"), instruction: "x"))
+    flow.recordDetect(DetectResponse(artwork: Artwork(id: "p1", cleanedUrl: "https://x/d1.png"), candidates: [two, one], imageSize: size), box: box)
+    XCTAssertEqual(flow.photoCandidates.map(\.id), ["c2", "c1"])
+    XCTAssertEqual(flow.pieceCutFrom, "c2", "the largest, first, is the one cut")
+    XCTAssertEqual(flow.pieceBox, box)
+    XCTAssertEqual(flow.pieceArtwork?.altText, "Photo")
+    XCTAssertTrue(flow.changes.isEmpty, "a new piece drops the changes")
+    XCTAssertEqual(flow.cut(for: "p1")?.box, box)
+    XCTAssertEqual(flow.cut(for: "p1")?.selected, ["c2"])
+    XCTAssertEqual(flow.routeAfterArea(box: box), .yourCutout("p1"), "same frame: no second detect")
+    let moved: [Double] = [0, 0, 600, 800]
+    XCTAssertEqual(flow.routeAfterArea(box: moved), .makingCutout(.detect(moved)), "a re-framed area detects again")
+  }
+
+  /// The strip shows only for several drawings; picking one sends it with the frame.
+  func testStripOnlyForSeveralDrawings() {
+    let box: [Double] = [50, 100, 1100, 1500]
+    var cut = Cut(artwork: Artwork(id: "p1"), candidates: [one], imageSize: size, selected: ["c1"], box: box)
+    XCTAssertFalse(YourCutoutView.showsStrip(cut))
+    cut.candidates = [one, two]
+    XCTAssertTrue(YourCutoutView.showsStrip(cut))
+    XCTAssertEqual(YourCutoutView.pick(two, on: cut), CleanupRequest(candidateIds: ["c2"], box: box, clipToBox: true))
+    cut.box = nil
+    XCTAssertEqual(YourCutoutView.pick(two, on: cut), CleanupRequest(candidateIds: ["c2"], box: [0, 0, 1200, 1600], clipToBox: true),
+                   "after a change: the whole picture")
+  }
+
+  func testPickOnAChangeKeepsThePickedPiece() {
+    let flow = CreateFlow()
+    flow.changeCuts["ch1"] = Cut(artwork: Artwork(id: "ch1", cleanedUrl: "a"), candidates: [one, two], imageSize: size, selected: ["c1"], box: nil)
+    flow.recordCut(of: "ch1", Artwork(id: "ch1", cleanedUrl: "b"), request: CleanupRequest(candidateIds: ["c2"], box: [0, 0, 1200, 1600], clipToBox: true))
+    XCTAssertEqual(flow.changeCuts["ch1"]?.selected, ["c2"])
+    XCTAssertEqual(flow.changeCuts["ch1"]?.artwork.cleanedUrl, "b")
+  }
+
+  func testDetectOnlyOnThePhotoRow() {
+    XCTAssertTrue(AdjustAreaView.isPhotoRow(Artwork(id: "d1", source: "photo")))
+    XCTAssertTrue(AdjustAreaView.isPhotoRow(Artwork(id: "d1")))
+    XCTAssertFalse(AdjustAreaView.isPhotoRow(Artwork(id: "ch1", source: "photo", parentArtworkId: "p1", changeInstruction: "x")))
+    XCTAssertFalse(AdjustAreaView.isPhotoRow(Artwork(id: "d2", source: "text2image")))
   }
 }

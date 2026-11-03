@@ -176,4 +176,102 @@ final class RoundThreeTests: XCTestCase {
     XCTAssertEqual(app.flow.cut(for: "d1")?.artwork.id, "d1")
     XCTAssertEqual(app.flow.routeAfterCutout(of: "d1"), .makingProduct)
   }
+
+  // MARK: Reconcile (ruling 6)
+
+  private let started = ISO8601DateFormatter().date(from: "2026-11-03T10:00:00Z")!
+
+  private func child(_ id: String, base: String = "p1", instruction: String = "Purple sky", at created: String, rid: String? = nil) -> Artwork {
+    Artwork(id: id, parentArtworkId: base, changeInstruction: instruction, createdAt: created, clientRequestId: rid)
+  }
+
+  func testRecoveredChangeIsTheChildMadeAfterTheJobStarted() {
+    let job = PendingJob(kind: .change(baseId: "p1", instruction: "Purple sky"), startedAt: started, clientRequestId: "r1")
+    let artworks = [
+      Artwork(id: "p1"),
+      child("old", at: "2026-11-03T09:00:00.000Z"),
+      child("other", instruction: "Red sky", at: "2026-11-03T10:00:30.000Z"),
+      child("elsewhere", base: "p9", at: "2026-11-03T10:00:30.000Z"),
+      child("ch2", at: "2026-11-03T10:00:40.000Z"),
+      child("ch3", at: "2026-11-03T10:00:50Z"),
+    ]
+    XCTAssertEqual(CreateFlow.recoveredChange(in: artworks, job: job)?.id, "ch3", "the newest matching child after the start")
+    XCTAssertNil(CreateFlow.recoveredChange(in: Array(artworks.prefix(4)), job: job), "an earlier child of the same request is not it")
+    let exact = artworks + [child("chX", at: "2026-11-03T08:00:00.000Z", rid: "r1")]
+    XCTAssertEqual(CreateFlow.recoveredChange(in: exact, job: job)?.id, "chX", "its clientRequestId wins")
+    let skew = [child("ch4", at: "2026-11-03T09:59:00.000Z")]
+    XCTAssertEqual(CreateFlow.recoveredChange(in: skew, job: job)?.id, "ch4", "a minute of clock difference is allowed")
+  }
+
+  func testRecoveredProductIsOfThatArtworkAndType() {
+    let job = PendingJob(kind: .product(artworkId: "p1", type: .sticker), startedAt: started, clientRequestId: "r2")
+    var art = Artwork(id: "p1", cleanedUrl: "u")
+    art.products = [ArtworkProduct(id: "t1", type: .tote, status: "draft"),
+                    ArtworkProduct(id: "s0", type: .sticker, status: "archived"),
+                    ArtworkProduct(id: "s1", type: .sticker, status: "draft", priceCents: 500, mockupUrl: "https://x/m.png")]
+    let found = CreateFlow.recoveredProduct(in: [Artwork(id: "d1"), art], job: job)
+    XCTAssertEqual(found?.id, "s1")
+    XCTAssertEqual(found?.artworkId, "p1")
+    XCTAssertEqual(found?.mockupUrl, "https://x/m.png")
+    XCTAssertNil(CreateFlow.recoveredProduct(in: [Artwork(id: "p1")], job: job))
+  }
+
+  func testRecoveredCutIsANewCutOut() {
+    let detect = PendingJob(kind: .cut(artworkId: "p1", previousCut: "https://x/old.png", needsCandidates: true), startedAt: started, clientRequestId: "r3")
+    let one = Candidate(id: "c1", bbox: [0, 0, 10, 10])
+    XCTAssertTrue(CreateFlow.recoveredCut(ArtworkDetailResponse(artwork: Artwork(id: "p1", cleanedUrl: "https://x/new.png"), candidates: [one]), job: detect))
+    XCTAssertFalse(CreateFlow.recoveredCut(ArtworkDetailResponse(artwork: Artwork(id: "p1", cleanedUrl: "https://x/old.png"), candidates: [one]), job: detect),
+                   "the old cut is not the answer")
+    XCTAssertFalse(CreateFlow.recoveredCut(ArtworkDetailResponse(artwork: Artwork(id: "p1", cleanedUrl: "https://x/new.png"), candidates: []), job: detect),
+                   "detect without drawings is not done")
+    let cutout = PendingJob(kind: .cut(artworkId: "ch1", previousCut: nil, needsCandidates: false), startedAt: started, clientRequestId: "r4")
+    XCTAssertTrue(CreateFlow.recoveredCut(ArtworkDetailResponse(artwork: Artwork(id: "ch1", cleanedUrl: "c"), candidates: []), job: cutout))
+    XCTAssertFalse(CreateFlow.recoveredCut(ArtworkDetailResponse(artwork: Artwork(id: "ch1"), candidates: []), job: cutout))
+  }
+
+  func testOneRequestIdPerAttempt() {
+    let flow = CreateFlow()
+    let first = flow.startJob(.change(baseId: "p1", instruction: "Purple"))
+    XCTAssertEqual(flow.startJob(.change(baseId: "p1", instruction: "Purple")).clientRequestId, first.clientRequestId,
+                   "Try again after a lost answer keeps the id")
+    XCTAssertTrue(flow.finishJob(first))
+    XCTAssertFalse(flow.finishJob(first), "a late answer is not applied twice")
+    let second = flow.startJob(.change(baseId: "p1", instruction: "Purple"))
+    XCTAssertNotEqual(second.clientRequestId, first.clientRequestId, "a new action gets a new id")
+    let other = flow.startJob(.product(artworkId: "p1", type: .sticker))
+    XCTAssertNotEqual(other.clientRequestId, second.clientRequestId)
+    XCTAssertEqual(flow.pendingJob, other)
+  }
+
+  func testReturnToTheAppWithAJobInFlightAsksScreensToReconcile() {
+    let app = AppState(api: APIClient(baseURL: base, transport: StubTransport(body: "{}"), token: nil))
+    app.scenePhaseChanged(.active)
+    XCTAssertEqual(app.flow.resumeCount, 0, "nothing in flight")
+    _ = app.flow.startJob(.listing(productId: "pr1"))
+    app.scenePhaseChanged(.background)
+    app.scenePhaseChanged(.active)
+    XCTAssertEqual(app.flow.resumeCount, 1)
+  }
+
+  func testReconcileReadsTheServer() async throws {
+    BackgroundWork.host = RecordingBackgroundHost()
+    let stub = StubTransport(body: "{}")
+    let api = APIClient(baseURL: base, transport: stub, token: "t0k")
+    stub.queue = [(200, #"{"artworks":[{"id":"ch7","parentArtworkId":"p1","changeInstruction":"Purple sky","createdAt":"2026-11-03T10:01:00.000Z","altText":"Purple"}]}"#)]
+    let change = PendingJob(kind: .change(baseId: "p1", instruction: "Purple sky"), startedAt: started, clientRequestId: "r1")
+    guard case .change(let res)? = await CreateFlow.reconcile(change, api: api) else { return XCTFail("the child") }
+    XCTAssertEqual(res.artwork.id, "ch7")
+    XCTAssertEqual(res.description?.alt, "Purple")
+    XCTAssertEqual(stub.requests.last?.url?.path, "/api/v1/artworks")
+
+    stub.queue = [(200, #"{"product":{"id":"pr1"},"listing":null,"draft":{"title":"Frog","price_cents":500,"print_ok":true,"print_check":null}}"#)]
+    guard case .listing(let draft)? = await CreateFlow.reconcile(PendingJob(kind: .listing(productId: "pr1"), startedAt: started, clientRequestId: "r5"), api: api)
+    else { return XCTFail("the draft") }
+    XCTAssertEqual(draft.title, "Frog")
+    XCTAssertEqual(stub.requests.last?.url?.path, "/api/v1/listings/pr1")
+
+    stub.queue = [(200, #"{"product":{"id":"pr1"},"listing":null,"draft":null}"#)]
+    let none = await CreateFlow.reconcile(PendingJob(kind: .listing(productId: "pr1"), startedAt: started, clientRequestId: "r5"), api: api)
+    XCTAssertNil(none, "nothing written yet")
+  }
 }

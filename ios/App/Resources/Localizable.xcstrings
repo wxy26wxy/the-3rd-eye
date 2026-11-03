@@ -268,9 +268,6 @@
     "Enter a price between $1.00 and $1,000.00, like 5.00." : {
 
     },
-    "Finding your drawings…" : {
-
-    },
     "Finish the listing and put it in the shop" : {
 
     },
@@ -293,6 +290,9 @@
     "Frame your art again and cut it out" : {
 
     },
+    "Getting your photo ready…" : {
+
+    },
     "Go back" : {
 
     },
@@ -303,9 +303,6 @@
 
     },
     "Goes on to change it or keep it as it is" : {
-
-    },
-    "Goes on to set the area around your art" : {
 
     },
     "Goes on to your sticker draft" : {
@@ -421,6 +418,9 @@
 
     },
     "Loading your designs" : {
+
+    },
+    "Looking for your drawing in the frame and cutting it out. This takes a few seconds." : {
 
     },
     "Looks good as is" : {
@@ -684,9 +684,6 @@
     "Reset" : {
 
     },
-    "Retake" : {
-
-    },
     "Save changes" : {
 
     },
@@ -863,13 +860,7 @@
     "Take a photo" : {
 
     },
-    "Takes a new photo" : {
-
-    },
     "Takes a photo of your drawing" : {
-
-    },
-    "Tap the one you want." : {
 
     },
     "Tap the parts to leave out. Tap a mark again to remove it." : {
@@ -1011,25 +1002,13 @@
     "We couldn't find a drawing in that area. Make the frame bigger or move it over your drawing, then try again." : {
 
     },
-    "We couldn't find your drawing, so the frame covers the whole photo. Drag the corners around it." : {
-
-    },
     "We couldn't load your video. Try again later." : {
 
     },
     "We filled in your code from the link. Tap Sign in." : {
 
     },
-    "We found %lld drawings in your photo. Pick one to change and turn into a sticker." : {
-
-    },
-    "We found %lld drawings in your photo. Pick one to change and turn into a tote bag." : {
-
-    },
-    "We found one drawing in your photo. Use it to change and turn into a sticker." : {
-
-    },
-    "We found one drawing in your photo. Use it to change and turn into a tote bag." : {
+    "We found %lld drawings in the frame. Tap the one you want." : {
 
     },
     "We kept the first 15 seconds of your video." : {
@@ -1171,9 +1150,6 @@
 
     },
     "Your photo" : {
-
-    },
-    "Your photo with the drawings we found" : {
 
     },
     "Your product" : {

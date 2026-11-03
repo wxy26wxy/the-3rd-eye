@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Board "Finding drawings · Cloud studio" (`21:4390`): upload the photo and let SAM find every
-/// drawing on it; the tall green card with the searching mascot and one line under it.
+/// The short upload step (round 3): "Getting your photo ready…" over the photo while it is uploaded
+/// and stored (`POST /artworks {detect: false}`, no drawing looked for); then Adjust the area on the
+/// whole photo. The searching mascot moved to Making your cutout (`detect`).
 struct FindingDrawingsView: View {
   @Environment(AppState.self) private var app
   @State private var error: String?
@@ -9,12 +10,11 @@ struct FindingDrawingsView: View {
 
   var body: some View {
     LoadingScreen(
-      title: "Finding your drawings…",
+      title: "Getting your photo ready…",
       detail: "This takes a few seconds…",
-      media: .animation(resource: Tokens.Asset.mascotMagnifier, aspect: ThemeEffects.tallSkyCardAspect),
+      media: .art(nil, photo: app.flow.photo),
       error: error,
       retry: { error = nil; attempt += 1 },
-      showsSpinner: false,
       mutedDetail: true
     )
     .task(id: attempt) { await run() }
@@ -28,13 +28,16 @@ struct FindingDrawingsView: View {
     do {
       if app.creator == nil { await app.refreshCreator() }
       guard let creatorId = app.creator?.id else { throw APIError.unauthorized }
-      let uploaded = try await BlobUploader(api: app.api).upload(data, creatorId: creatorId, kind: .photo, contentType: "image/jpeg", fileExtension: "jpg")
-      let res = try await app.api.artworkFromPhoto(imageUrl: uploaded.url, product: product)
-      app.flow.setPhoto(artwork: res.artwork, candidates: res.candidates, imageSize: res.imageSize)
-      // Nothing to choose (no drawing, or one already cut out): straight to Adjust the area.
-      app.replaceTop(with: app.flow.routeAfterFinding(artwork: res.artwork))
+      let api = app.api
+      let uploaded = try await BackgroundWork.run("photo-upload") {
+        try await BlobUploader(api: api).upload(data, creatorId: creatorId, kind: .photo, contentType: "image/jpeg", fileExtension: "jpg")
+      }
+      let res = try await app.api.artworkFromPhoto(imageUrl: uploaded.url, product: product, detect: false)
+      app.flow.setPhoto(artwork: res.artwork, candidates: [], imageSize: res.imageSize)
+      // Always Adjust the area next, the frame on the whole photo; `detect` looks inside it.
+      if app.createPath.last == .findingDrawings { app.replaceTop(with: .adjustArea) }
     } catch let none as NoDrawingFound {
-      // No drawing found (T131): not a dead end. The photo is stored; Adjust the area opens on the
+      // An older server that still looks for drawings and found none (T131): not a dead end. The photo is stored; Adjust the area opens on the
       // whole photo, with the stored original's size so the frame is in its pixels.
       await rescue(none)
     } catch is CancellationError {

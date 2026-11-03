@@ -1,4 +1,5 @@
 import Observation
+import os
 import SwiftUI
 
 enum HomeTab: Hashable { case create, designs, orders, messages }
@@ -97,6 +98,7 @@ final class AppState {
   /// appearance (review M7), not up to 30 s later.
   private func watchProducts(of flow: CreateFlow) {
     flow.onProductMade = { [weak self] in self?.designs.markStale() }
+    flow.onRowDropped = { [weak self] in self?.designs.markStale() }
   }
 
   var split: Split { creator?.split ?? .default }
@@ -283,6 +285,14 @@ final class CreateFlow {
   var areaError: String?
   /// The frame whose crop had nothing in it (review M5): the same frame again sends nothing.
   var emptyBox: [Double]?
+  /// T146: the photo row the re-frame in progress began from (deleted once the new row exists), the
+  /// row that answered `422 no_drawing_found` (deleted on the next "Use this area" or "Take a new
+  /// photo"), and the rows already sent to `DELETE` (never twice).
+  var supersedes: String?
+  var emptyRowId: String?
+  private(set) var droppedRows: Set<String> = []
+  /// Called after a row was deleted (My designs fetches its list again).
+  var onRowDropped: (() -> Void)?
   /// The long call in flight (round 3 ruling 6) and how often the app came back while it ran.
   private(set) var pendingJob: PendingJob?
   private(set) var resumeCount = 0
@@ -423,6 +433,77 @@ final class CreateFlow {
     }
   }
 
+  // MARK: Superseded and failed crop rows (T146)
+
+  /// A row with a published product is never deleted (what the flow knows; unknown = no product).
+  func hasPublishedProduct(_ artworkId: String) -> Bool {
+    if products[artworkId]?.status == "published" { return true }
+    if let product, product.artworkId == artworkId, product.status == "published" { return true }
+    for art in [photoArtwork, pieceArtwork, artwork] {
+      if let art, art.id == artworkId, art.liveProducts.contains(where: \.isPublished) { return true }
+    }
+    return false
+  }
+
+  /// Soft-deletes a superseded or failed photo row (`DELETE /artworks/{id}`) in the background. A
+  /// failure is logged and ignored: it never blocks the flow. Nil when nothing is sent (already
+  /// sent, or the row has a published product).
+  @discardableResult
+  func dropRow(_ artworkId: String, api: APIClient) -> Task<Void, Never>? {
+    guard !droppedRows.contains(artworkId), !hasPublishedProduct(artworkId) else { return nil }
+    droppedRows.insert(artworkId)
+    let done = onRowDropped
+    return Task { @MainActor in
+      do {
+        try await api.deleteArtwork(id: artworkId)
+        done?()
+      } catch {
+        Logger(subsystem: "com.the3rdeye.app", category: "flow").warning("Could not delete the earlier upload: \(error.localizedDescription, privacy: .public)")
+      }
+    }
+  }
+
+  /// Making your cutout is about to create a row for a new crop: the photo row on hand is the one
+  /// it replaces (kept through a failed or empty attempt in between).
+  func beginReframe() {
+    guard supersedes == nil, let id = photoArtwork?.id, id != emptyRowId, !droppedRows.contains(id) else { return }
+    supersedes = id
+  }
+
+  /// The new crop's row exists: only now is the row it replaces deleted.
+  @discardableResult
+  func dropSuperseded(except newId: String, api: APIClient) -> Task<Void, Never>? {
+    defer { supersedes = nil }
+    guard let old = supersedes, old != newId else { return nil }
+    return dropRow(old, api: api)
+  }
+
+  /// "Use this area": the row that answered 422 goes, whether or not the frame changed.
+  @discardableResult
+  func dropEmptyRow(api: APIClient) -> Task<Void, Never>? {
+    guard let id = emptyRowId else { return nil }
+    emptyRowId = nil
+    return dropRow(id, api: api)
+  }
+
+  /// "Take a new photo": the 422 row and the earlier piece row the re-frame began from go.
+  @discardableResult
+  func dropRowsOnRetake(api: APIClient) -> [Task<Void, Never>] {
+    var tasks: [Task<Void, Never>] = []
+    if let t = dropEmptyRow(api: api) { tasks.append(t) }
+    if let old = supersedes, let t = dropRow(old, api: api) { tasks.append(t) }
+    supersedes = nil
+    return tasks
+  }
+
+  /// An answer nobody wants any more (the photo was discarded meanwhile): its own new row goes. The
+  /// row the flow holds (a recovery applied it) stays.
+  @discardableResult
+  func dropIfStale(_ artworkId: String, api: APIClient) -> Task<Void, Never>? {
+    guard photoArtwork?.id != artworkId, emptyRowId != artworkId else { return nil }
+    return dropRow(artworkId, api: api)
+  }
+
   // MARK: Route table (T131)
 
   /// Adjust the area › "Use this area" (round 4): the frame already cut (same photo, same frame)
@@ -430,7 +511,10 @@ final class CreateFlow {
   /// cutout (a new row each time).
   func routeAfterArea(box: [Double]) -> CreateRoute? {
     guard photo != nil, box != emptyBox else { return nil }
-    if let photoId = photoArtwork?.id, cropBox == box, pieceArtwork?.cleanedUrl != nil { return .yourCutout(photoId) }
+    if let photoId = photoArtwork?.id, cropBox == box, pieceArtwork?.cleanedUrl != nil {
+      supersedes = nil
+      return .yourCutout(photoId)
+    }
     return .makingCutout(.area(box))
   }
 
@@ -501,6 +585,8 @@ final class CreateFlow {
     areaBox = nil
     emptyBox = nil
     cropUpload = nil
+    supersedes = nil
+    emptyRowId = nil
     resetChange()
     resetCutout(artwork: nil, candidates: [], imageSize: nil)
     artwork = nil

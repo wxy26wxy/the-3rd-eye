@@ -275,7 +275,59 @@ final class CutoutUITests: XCTestCase {
     XCTAssertFalse(app.buttons["Reset"].isEnabled, "the frame starts on the whole new photo")
   }
 
+  // MARK: T146 superseded and failed crop rows
+
+  /// A re-frame (mock REFRAME…: the second crop is row p2) deletes the first row, after the second
+  /// `POST /artworks` and not before: `/__mock/count/artworks-deletes` is 0 after the first cut and
+  /// 1 after the second, for p1.
+  func testReframeDeletesTheEarlierRow() throws {
+    let app = openAdjustArea(code: "REFRAME-CODE")
+    let area = app.otherElements["adjust-area"]
+    tap(app, "Use this area")
+    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 20))
+    XCTAssertEqual(try count("artworks-posts"), 1)
+    XCTAssertEqual(try count("artworks-deletes"), 0, "nothing to replace yet")
+    app.buttons["Back"].firstMatch.tap()
+    XCTAssertTrue(area.waitForExistence(timeout: 5))
+    photoPoint(area, 0, 0).press(forDuration: 0.3, thenDragTo: photoPoint(area, 0.3, 0.4))
+    tap(app, "Use this area")
+    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 20))
+    XCTAssertEqual(try count("artworks-posts"), 2)
+    try waitForCount("artworks-deletes", 1)
+    XCTAssertEqual(try lastBody("delete")["id"] as? String, "p1", "the first row, not the new one")
+  }
+
+  /// Mock NONE…: the 422 row is deleted on the next "Use this area", also for the same frame (the
+  /// advice stays and nothing is created again).
+  func testNothingFoundRowIsDeletedOnTheNextUseThisArea() throws {
+    let app = openAdjustArea(code: "NONE-CODE")
+    tap(app, "Use this area")
+    XCTAssertTrue(element(app, containing: "We couldn't find a drawing in that area.").waitForExistence(timeout: 15))
+    XCTAssertEqual(try count("artworks-deletes"), 0, "kept until the next Use this area")
+    tap(app, "Use this area")
+    try waitForCount("artworks-deletes", 1)
+    XCTAssertEqual(try count("artworks-posts"), 1)
+  }
+
+  /// Mock NONE…: "Take a new photo" deletes the 422 row.
+  func testNothingFoundRowIsDeletedOnTakeANewPhoto() throws {
+    let app = openAdjustArea(code: "NONE-CODE")
+    tap(app, "Use this area")
+    XCTAssertTrue(element(app, containing: "We couldn't find a drawing in that area.").waitForExistence(timeout: 15))
+    XCTAssertEqual(try count("artworks-deletes"), 0)
+    tap(app, "Take a new photo")
+    try waitForCount("artworks-deletes", 1)
+    XCTAssertEqual(try lastBody("delete")["id"] as? String, "p1")
+  }
+
   // MARK: Helpers
+
+  /// The mock's count reaches `expected` (the delete runs in the background after the screen moved on).
+  private func waitForCount(_ route: String, _ expected: Int) throws {
+    let deadline = Date().addingTimeInterval(10)
+    while try count(route) != expected, Date() < deadline { Thread.sleep(forTimeInterval: 0.3) }
+    XCTAssertEqual(try count(route), expected, route)
+  }
 
   private func launchPhotoFlow(code: String) -> XCUIApplication {
     let app = XCUIApplication()

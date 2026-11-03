@@ -1,13 +1,14 @@
 /**
- * The creator flow's routing and draft decisions (photo → pattern → adjust the area → change →
- * compare → cutout),
+ * The creator flow's routing and draft decisions (canonical order, T130: photo → pattern → adjust
+ * the area → making your cutout → your cutout → change it → [changing → compare → making your
+ * cutout → your cutout] → making the product),
  * kept out of the screens so they can be tested with a mocked `api` and router.
  */
 import { m } from "@/components/messages";
-import type { Artwork, Candidate, ChangeResult, CleanupResult } from "./api";
+import type { Artwork, Candidate, ChangeResult, CleanupResult, CutoutResult } from "./api";
 import { sameBox } from "./area";
-import { productNotice, type Box } from "./cutout";
-import { addChange, currentArtworkId, currentChange, pieceCutout, type ChangeStep, type Draft } from "./store";
+import { productNotice, wholeImageBox, type Box, type CleanupRequest } from "./cutout";
+import { addChange, currentArtworkId, currentChange, cutoutOf, withCutout, type ChangeStep, type CutoutState, type Draft } from "./store";
 
 export type FlowRouter = { push: (href: string) => void; replace: (href: string) => void };
 export type FlowApi = <T>(path: string, init?: { method?: string; json?: unknown }) => Promise<T>;
@@ -17,8 +18,10 @@ export type FlowDeps = { api: FlowApi; router: FlowRouter; update: (patch: Parti
 export const NEW_PIECE: Partial<Draft> = {
   pieceArtworkId: undefined, pieceCandidateId: undefined, pieceUrl: undefined, pieceAlt: undefined, pieceSpoken: undefined, pieceBox: undefined,
   changes: undefined, changedArtworkId: undefined, changeInstruction: undefined, changeTranscript: undefined,
-  cutoutArtworkId: undefined, cutout: undefined, cutoutNotice: undefined,
+  pendingArea: undefined, cutoutArtworkId: undefined, cutouts: undefined, cutoutNotice: undefined,
 };
+
+const NOTICE_COPY = { failed: m.create.select.failedProducts, unpublished: m.create.select.unpublishedProducts };
 
 // ---- Take a photo / Upload a picture
 
@@ -67,33 +70,130 @@ export function adjustBack(d: Draft): string {
  * found), with `clipToBox` so nothing of the cut lies outside the frame (T126; a frame that leaves
  * nothing answers 422 `no_drawing_found`, shown as "move or grow the frame").
  */
-export function areaRequest(area: NonNullable<Draft["area"]>, box: Box): { candidateIds?: string[]; box: Box; clipToBox: true } {
+export function areaRequest(area: { candidateId?: string }, box: Box): { candidateIds?: string[]; box: Box; clipToBox: true } {
   return area.candidateId
     ? { candidateIds: [area.candidateId], box: [...box] as Box, clipToBox: true }
     : { box: [...box] as Box, clipToBox: true };
 }
 
 /**
- * "Use this area": `POST /artworks/{id}/cleanup {candidateIds:[piece], box, clipToBox: true}` and the cut piece goes on
- * to Change it. The same piece with the same frame as last time keeps its cut (no call) but starts
- * from the piece again (a change made before is no longer on screen).
+ * "Use this area" (T130): on to /create/cutout, where Making your cutout sends `POST
+ * /artworks/{id}/cleanup {candidateIds:[piece], box, clipToBox: true}` (`runAreaCut`). The same
+ * piece with the same frame as last time keeps its cut (no call) and shows Your cutout again, on
+ * the piece (a change made before is dropped: it was made from the old cut).
  */
-export async function cutArea({ api, router, update, getDraft }: FlowDeps, box: Box): Promise<void> {
+export function cutArea({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, box: Box): void {
   const d = getDraft();
   const area = d.area;
   if (!area) return;
-  if (d.pieceArtworkId === area.artworkId && d.pieceCandidateId === area.candidateId && sameBox(d.pieceBox, box) && d.pieceUrl) {
-    update({ changedArtworkId: undefined, changes: undefined, changeInstruction: undefined, changeTranscript: undefined, cutoutArtworkId: undefined, cutout: undefined });
+  // A second tap while the same cut is on its way (T133): no second cleanup, the same Making screen.
+  const p = d.pendingArea;
+  if (p && p.artworkId === area.artworkId && p.candidateId === area.candidateId && sameBox(p.box, box)) {
+    router.push("/create/cutout");
+    return;
+  }
+  if (d.pieceArtworkId === area.artworkId && d.pieceCandidateId === area.candidateId && sameBox(d.pieceBox, box) && d.pieceUrl && cutoutOf(d, area.artworkId)) {
+    update({ changedArtworkId: undefined, changes: undefined, changeInstruction: undefined, changeTranscript: undefined, cutoutArtworkId: area.artworkId });
+    router.push("/create/cutout");
+    return;
+  }
+  update({ ...NEW_PIECE, cutoutArtworkId: area.artworkId, pendingArea: { artworkId: area.artworkId, candidateId: area.candidateId, box: [...box] as Box, nonce: newNonce() } });
+  router.push("/create/cutout");
+}
+
+/**
+ * Making your cutout for "Use this area": the `cleanup` call, then the cut piece is the piece and
+ * its cut is on Your cutout (the screen follows the draft; no navigation). A result for a frame
+ * that was replaced meanwhile (Back, a new frame) is dropped.
+ */
+export async function runAreaCut({ api, update, getDraft }: Pick<FlowDeps, "api" | "update" | "getDraft">, job: NonNullable<Draft["pendingArea"]>): Promise<void> {
+  const art = await api<CleanupResult>(`artworks/${job.artworkId}/cleanup`, { json: areaRequest(job, job.box) });
+  const d = getDraft();
+  if (d.pendingArea?.nonce !== job.nonce) return;
+  const cut: CutoutState = {
+    artworkId: job.artworkId, candidates: d.candidates ?? [], imageSize: d.imageSize ?? null,
+    selectedIds: job.candidateId ? [job.candidateId] : [], cleanedUrl: art.cleanedUrl, altText: art.altText, box: [...job.box] as Box, points: [],
+  };
+  update({
+    pendingArea: undefined, pieceArtworkId: job.artworkId, pieceCandidateId: job.candidateId, pieceBox: [...job.box] as Box,
+    pieceUrl: art.cleanedUrl, pieceAlt: art.altText, pieceSpoken: art.spokenDescription,
+    ...withCutout(d, cut), cutoutArtworkId: job.artworkId,
+    cutoutNotice: productNotice(art.details, NOTICE_COPY) ?? undefined,
+  });
+}
+
+/** Making your cutout for a change result: `POST /artworks/{id}/cutout` (once per artwork); the box for later marks is the whole picture. */
+export async function runChangeCut({ api, update, getDraft }: Pick<FlowDeps, "api" | "update" | "getDraft">, artworkId: string): Promise<void> {
+  const res = await api<CutoutResult>(`artworks/${artworkId}/cutout`, { method: "POST", json: {} });
+  const first = res.candidates[0]?.id;
+  const cut: CutoutState = {
+    artworkId, candidates: res.candidates, imageSize: res.imageSize, selectedIds: first ? [first] : [],
+    cleanedUrl: res.artwork.cleanedUrl, altText: res.artwork.altText, box: wholeImageBox(res.imageSize), points: [],
+  };
+  update({ ...withCutout(getDraft(), cut), cutoutNotice: undefined });
+}
+
+/** What /create/cutout shows for the draft: Your cutout, Making your cutout (the area cut or a change result's cutout), or nothing to show. */
+export function cutoutVisit(d: Draft): "cut" | "area" | "change" | "missing" {
+  const target = d.cutoutArtworkId;
+  if (!target) return "missing";
+  if (d.pendingArea?.artworkId === target) return "area";
+  if (cutoutOf(d, target)) return "cut";
+  return d.changes?.some((c) => c.artworkId === target) ? "change" : "missing";
+}
+
+/** Where Making your cutout's Back goes after a failure: Adjust the area for the area cut, Before and after for a change. */
+export function makingCutoutBack(kind: "area" | "change"): string {
+  return kind === "area" ? "/create/adjust" : "/create/compare";
+}
+
+// ---- Your cutout
+
+/** True when Your cutout shows a change result (not the piece cut on Adjust the area). */
+export function cutIsChange(d: Draft, artworkId: string): boolean {
+  return artworkId !== d.pieceArtworkId;
+}
+
+/** Back from Your cutout: Adjust the area on the first pass, Before and after after a change. */
+export function yourCutoutBack(d: Draft, artworkId: string): string {
+  return cutIsChange(d, artworkId) ? "/create/compare" : "/create/adjust";
+}
+
+/**
+ * Apply cutout (T130): `cleanup {candidateIds?, box, points, clipToBox: true}` on the artwork on
+ * screen (the piece, or the change result); the saved cut replaces the one on Your cutout (and the
+ * piece's picture on Change it, for the piece).
+ */
+export async function applyMarks({ api, update, getDraft }: Pick<FlowDeps, "api" | "update" | "getDraft">, cut: CutoutState, req: CleanupRequest): Promise<{ cut: CutoutState; notice: string | null }> {
+  const art = await api<CleanupResult>(`artworks/${cut.artworkId}/cleanup`, { json: req });
+  const d = getDraft();
+  const next: CutoutState = { ...cut, cleanedUrl: art.cleanedUrl, altText: art.altText, points: (req.points ?? []).map((p) => ({ ...p })) };
+  const notice = productNotice(art.details, NOTICE_COPY);
+  const piece = cut.artworkId === d.pieceArtworkId ? { pieceUrl: art.cleanedUrl, pieceAlt: art.altText, pieceSpoken: art.spokenDescription } : {};
+  update({ ...withCutout(d, next), ...piece, cutoutNotice: notice ?? undefined });
+  return { cut: next, notice };
+}
+
+/**
+ * "Use this" on Your cutout: the piece goes on to Change it (on the piece, not on an earlier
+ * change); a change result goes on to Making your sticker / tote bag.
+ */
+export function takeCutout({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, artworkId: string): void {
+  if (!cutIsChange(getDraft(), artworkId)) {
+    update({ changedArtworkId: undefined, cutoutArtworkId: artworkId });
     router.push("/create/change");
     return;
   }
-  const art = await api<CleanupResult>(`artworks/${area.artworkId}/cleanup`, { json: areaRequest(area, box) });
-  update({
-    ...NEW_PIECE, pieceArtworkId: area.artworkId, pieceCandidateId: area.candidateId, pieceBox: [...box] as Box,
-    pieceUrl: art.cleanedUrl, pieceAlt: art.altText, pieceSpoken: art.spokenDescription,
-    cutoutNotice: productNotice(art.details, { failed: m.create.select.failedProducts, unpublished: m.create.select.unpublishedProducts }) ?? undefined,
-  });
-  router.push("/create/change");
+  toMaking({ router, update }, artworkId);
+}
+
+/**
+ * On to Making your sticker / tote bag for `artworkId`. The draft product is kept: Making reuses
+ * it for the same artwork and type (consistency item 6, `productToMake`).
+ */
+export function toMaking({ router, update }: Pick<FlowDeps, "router" | "update">, artworkId: string): void {
+  update({ artworkId });
+  router.push("/create/making");
 }
 
 // ---- Change it
@@ -132,20 +232,44 @@ export async function busyWhile<T>(set: (v: T) => void, busy: T, idle: T, run: (
 }
 
 /**
- * Back from Change it: Adjust the area (the screen before it), also while a change is on screen
- * (Before and after's Back goes to Change it, so pointing here at Before and after made a loop). The
- * change chain stays in the draft, so "Change it again" from Before and after still works.
+ * Back from Change it: Your cutout (T130), also while a change is on screen (Before and after's
+ * Back goes to Change it, so pointing at Before and after made a loop). The change chain stays in
+ * the draft, so "Change it again" from Before and after still works.
  */
 export function changeItBack(d: Draft): string {
+  if (changeItCut(d)) return "/create/cutout";
   if (d.area) return "/create/adjust";
   return d.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
 }
 
-/** "Looks good as is": the picked piece is already cut out (no call); a change result is cut on the next screen. */
+/**
+ * The cut Change it's Back opens (T133): the cut of the art on screen when it has one, else the
+ * piece's cut; null when there is none. Change it keeps `cutoutArtworkId` on it, so Back never opens
+ * the cut of a change that is no longer on screen.
+ */
+export function changeItCut(d: Draft): string | null {
+  const target = currentArtworkId(d);
+  if (target && cutoutOf(d, target)) return target;
+  return d.pieceArtworkId && cutoutOf(d, d.pieceArtworkId) ? d.pieceArtworkId : null;
+}
+
+/**
+ * "Looks good as is" (T130): the cut was already reviewed on Your cutout, so straight on to Making
+ * your sticker / tote bag. Only a change on screen that was never cut (Back to my original onto an
+ * earlier change) is cut first.
+ */
 export function skipChange({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">): void {
   const d = getDraft();
   const target = currentArtworkId(d);
-  update({ cutoutArtworkId: target, cutout: pieceCutout(d) ?? (d.cutout?.artworkId === target ? d.cutout : undefined) });
+  if (!target) return;
+  if (target === d.pieceArtworkId || cutoutOf(d, target)?.cleanedUrl) { toMaking({ router, update }, target); return; }
+  update({ cutoutArtworkId: target });
+  router.push("/create/cutout");
+}
+
+/** Before and after's "Use this": the change result's cut-out (made once per artwork) on Your cutout. */
+export function takeChange({ router, update }: Pick<FlowDeps, "router" | "update">, artworkId: string): void {
+  update({ cutoutArtworkId: artworkId });
   router.push("/create/cutout");
 }
 

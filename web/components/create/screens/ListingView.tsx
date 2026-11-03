@@ -49,7 +49,7 @@ export type ListingViewProps = {
 
 /**
  * Get it ready for the shop (boards `2030:3752`, drafting `2030:3804`, error `2030:3832`). Element order
- * follows the board (ruling): the product picture (sticker preview or tote art, never the AI mockup, R1) → Improve with AI → Name → Description → Price → You earn per sale
+ * follows the board (ruling): the product picture (sticker preview, R1; the tote's AI mockup photo, T130) → Improve with AI → Name → Description → Price → You earn per sale
  * → print check → Show how the AI decided (disclosure) → error card; Put it in the shop in the bar,
  * which submits the form through its `form` attribute. Field errors sit under their field. While the
  * agent drafts (R5) the form is not rendered: the animation (still under reduced motion) and the line.

@@ -465,7 +465,26 @@
       "failedProducts": "Your cutout is saved. One product could not be rebuilt; try again later.",
       "unpublishedProducts": "One product went back to draft because the new cutout is too small to print, so it is out of the shop for now. After a bigger or clearer cutout, publish it again from My designs in the iPhone app.",
       "retake": "Retake",
-      "use": "Use this"
+      "use": "Use this",
+      "photoMissingNone": "We couldn't show your photo. Try again later, or retake it.",
+      "modesLabel": "What a tap on the photo does",
+      "modeAdd": "Add area",
+      "modeRemove": "Remove area",
+      "instruction": "Tap where the cutout should include more, or pick Remove area and tap what to leave out.",
+      "keyboardHint": "With a keyboard or screen reader, use Add the area around your art and the Marks list instead.",
+      "addAround": "Add the area around your art",
+      "markAdded": "Added area, mark {n}. Remove this mark",
+      "markRemoved": "Left out, mark {n}. Remove this mark",
+      "marksLabel": "Marks",
+      "maxMarks": "You can add up to 10 marks. Tap a mark to remove it.",
+      "clearMarks": "Clear marks",
+      "announceMark": "Mark added",
+      "announceUnmark": "Mark removed",
+      "announceCleared": "Marks cleared",
+      "apply": "Apply cutout",
+      "showCutout": "Show the cutout",
+      "backToPhoto": "Fix the edges",
+      "photoLabelCut": "Your art"
     },
     "adjust": {
       "title": "Adjust the area",
@@ -561,10 +580,12 @@
     },
     "cutout": {
       "title": "Your cutout",
-      "copy": "Here's your cutout.",
+      "copy": "Here's the cutout of your changed art.",
       "makingTitle": "Making your cutout",
       "makingCopy": "Cutting out your changed art.",
-      "makingCopyOriginal": "Cutting out your art."
+      "makingCopyOriginal": "Cutting out your art.",
+      "copyOriginal": "Here's the cutout of your art.",
+      "adjustCopy": "Fix the edges if you need to. Tap the photo to add or remove an area."
     },
     "making": {
       "titleSticker": "Making your sticker",

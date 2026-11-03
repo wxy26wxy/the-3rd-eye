@@ -5,7 +5,7 @@ import { m } from "@/components/messages";
 import { transcribe } from "../api";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { describeError, type ScreenError } from "../errors";
-import { artOnScreen, changeItBack, skipChange, submitChange } from "../flow";
+import { artOnScreen, changeItBack, changeItCut, skipChange, submitChange } from "../flow";
 import { currentArtworkId, getDraft, useCreate } from "../store";
 import { useRecorder } from "../useRecorder";
 import { ChangeItView, type ChangePhase } from "./ChangeItView";
@@ -27,6 +27,11 @@ type FocusTo = "stop" | "field" | "error";
 function ChangeFlow() {
   const router = useRouter();
   const { draft, update } = useCreate();
+  // Back opens the cut of the art on screen (T133), also after "Back to my original".
+  const backCut = changeItCut(draft);
+  useEffect(() => {
+    if (backCut && getDraft().cutoutArtworkId !== backCut) update({ cutoutArtworkId: backCut });
+  }, [backCut, update]);
   const [phase, setPhase] = useState<ChangePhase>("idle");
   const [instruction, setInstruction] = useState("");
   /** What the microphone heard, sent along when the request was spoken (and not retyped). */

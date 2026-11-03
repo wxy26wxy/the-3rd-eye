@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { fmt, m } from "@/components/messages";
 import { YourCutoutView, type YourCutoutViewProps } from "@/components/create/screens/YourCutoutView";
+import { CutoutPhoto } from "@/components/create/screens/CutoutPhoto";
 import { AdjustAreaView, type AdjustAreaViewProps } from "@/components/create/screens/AdjustAreaView";
 import { AreaFrame } from "@/components/create/screens/AreaFrame";
 import { sizeText } from "@/components/create/screens/AdjustArea";
@@ -37,36 +38,108 @@ const before = (out: string, a: string, b: string) => {
   expect(s.indexOf(a), `"${a}" should come before "${b}"`).toBeLessThan(s.indexOf(b));
 };
 
+const cutOn = { mode: noop, addAround: noop, removeMark: noop, clearMarks: noop, showCut: noop, fixEdges: noop, use: noop, apply: noop, retry: noop, startOver: noop };
 function cutoutView(over: Partial<YourCutoutViewProps> = {}): string {
   const props: YourCutoutViewProps = {
+    uid: "u",
     title: m.create.cutout.title,
-    lead: m.create.cutout.copy,
-    back: "/create/change",
+    lead: m.create.cutout.copyOriginal,
+    back: "/create/adjust",
+    work: null,
+    announce: "",
     cut: { src: "/cut.png", alt: t.cutoutAlt, aspectRatio: "4 / 3" },
+    canShowCut: true,
+    photo: null,
+    photoState: "loading",
+    modes: [{ id: "add", label: t.modeAdd }, { id: "remove", label: t.modeRemove }],
+    mode: "add",
+    marks: [],
     notice: null,
-    on: { use: noop, startOver: noop },
+    error: null,
+    canUse: true,
+    canApply: false,
+    on: cutOn,
     ...over,
   };
   return html(createElement(YourCutoutView, props));
 }
+/** Fix the edges open: the picture, no saved cut on screen. */
+const fixing = (over: Partial<YourCutoutViewProps> = {}) => cutoutView({ cut: null, lead: m.create.cutout.adjustCopy, photo: createElement("div", null, "PHOTO"), ...over });
 
-describe("Your cutout view (R3, board 2038:4233 simplified)", () => {
-  it("the cut-out on the checkerboard, the status line, then Use this / Start over; no edge tools", () => {
+describe("Your cutout view (T130: the cut, then Fix the edges with Add area / Remove area)", () => {
+  it("the cut-out on the checkerboard, the status line, Fix the edges, then Use this / Start over; no tools or Apply yet", () => {
     const out = cutoutView();
     expect(out).toContain('aria-label="Back"');
     expect(out).toContain('alt="Your cutout"');
-    before(out, m.create.cutout.title, m.create.cutout.copy);
+    before(out, m.create.cutout.title, m.create.cutout.copyOriginal);
     beforeRaw(out, 'alt="Your cutout"', t.applied);
-    before(out, t.applied, t.use);
+    before(out, t.applied, t.backToPhoto);
+    before(out, t.backToPhoto, t.use);
     before(out, t.use, m.common.startOver);
-    for (const gone of ["Fix the edges", "Apply cutout", "Add area", "Remove area", "Draw a box", "Clear marks", "Box around this piece"]) expect(out).not.toContain(gone);
-    expect(out).not.toContain('type="checkbox"');
+    for (const gone of [t.apply, t.modeAdd, t.modeRemove, t.clearMarks]) expect(out).not.toContain(gone);
     expect(out).not.toContain('type="radio"');
   });
 
-  it("the product notice sits above the bar; without a cut-out Use this is off", () => {
+  it("Fix the edges: picture, Add area / Remove area, instruction, keyboard hint, Add the area around your art; Use this / Apply cutout / Start over; never Draw a box", () => {
+    const out = fixing();
+    before(out, m.create.cutout.adjustCopy, "PHOTO");
+    before(out, "PHOTO", t.showCutout);
+    before(out, t.showCutout, t.modeAdd);
+    before(out, t.modeAdd, t.modeRemove);
+    before(out, t.modeRemove, t.instruction);
+    before(out, t.instruction, t.keyboardHint);
+    before(out, t.keyboardHint, t.addAround);
+    before(out, t.addAround, t.use);
+    before(out, t.use, t.apply);
+    before(out, t.apply, m.common.startOver);
+    expect(out.match(/type="radio"/g)).toHaveLength(2);
+    expect(out).toContain(`<legend class="visually-hidden">${t.modesLabel}</legend>`);
+    for (const gone of ["Draw a box", "Box around", "Use the whole photo", 'type="checkbox"']) expect(out).not.toContain(gone);
+    // nothing new to apply yet
+    expect(out).toMatch(btnDisabled(t.apply));
+    // one polite live region for the mark announcements
+    expect(out.match(/aria-live="polite"/g)).toHaveLength(1);
+  });
+
+  it("marks: the Marks list (one button per mark, the keyboard way to remove it), the 10-mark note, Clear marks; Apply on", () => {
+    const marks = [fmt(t.markAdded, { n: 1 }), fmt(t.markRemoved, { n: 2 })];
+    const out = fixing({ marks, canApply: true, canShowCut: false });
+    expect(out).not.toContain(t.showCutout);
+    before(out, t.addAround, t.marksLabel);
+    before(out, marks[0], marks[1]);
+    expect(out.match(/<button type="button" class="[^"]*markRow/g)).toHaveLength(2);
+    before(out, marks[1], t.maxMarks);
+    before(out, t.maxMarks, t.clearMarks);
+    expect(out).not.toMatch(btnDisabled(t.apply));
+    // at the limit the note becomes the notice (said once, not twice)
+    const full = fixing({ marks, notice: t.maxMarks });
+    expect(full.split(t.maxMarks)).toHaveLength(2);
+  });
+
+  it("working: no Back, no tools, the cutting line, only Use this (dimmed)", () => {
+    const out = fixing({ work: "apply", marks: [fmt(t.markAdded, { n: 1 })] });
+    expect(out).not.toContain('aria-label="Back"');
+    expect(out).toContain(t.applying);
+    for (const gone of [t.modeAdd, t.apply, t.clearMarks, m.common.startOver, t.marksLabel]) expect(out).not.toContain(gone);
+    expect(out).toMatch(btnDisabled(t.use));
+  });
+
+  it("the product notice sits above the bar; a missing picture says so", () => {
     before(cutoutView({ notice: t.failedProducts }), t.failedProducts, t.use);
-    expect(cutoutView({ cut: null })).toMatch(new RegExp(`<button[^>]*disabled[^>]*>(?:(?!</button>).)*${t.use}`));
+    expect(text(fixing({ photo: null, photoState: "missing" }))).toContain(t.photoMissingNone);
+  });
+
+  it("the picture: the frame, numbered + / − marks hidden from assistive tech (out of the tab order), the tap layer hidden", () => {
+    const out = html(createElement(CutoutPhoto, {
+      src: "/o.jpg", image: { w: 200, h: 100 }, frame: [20, 10, 120, 90], disabled: false, onTap: noop, onRemoveMark: noop,
+      points: [{ x: 50, y: 50, label: "positive" }, { x: 100, y: 25, label: "negative" }],
+    }));
+    expect(out).toContain(`role="group" aria-label="${t.photoLabelCut}"`);
+    expect(out).toMatch(/left:10%;top:10%;width:50%;height:80%/);
+    expect(out.match(/<button[^>]*tabindex="-1"[^>]*aria-hidden="true"/g)).toHaveLength(2);
+    expect(text(out)).toContain("+1");
+    expect(text(out)).toContain("−2");
+    expect(out).not.toContain("Draw a box");
   });
 });
 

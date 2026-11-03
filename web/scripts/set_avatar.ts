@@ -3,14 +3,14 @@
  * (`creators/<id>/avatar/<uuid>.jpg`) → creators.avatar_url. Prints the slug, the crop size and the
  * new URL only. Overwrites an existing avatar (the seed never does).
  *   pnpm avatar <slug> <file>            # writes
- *   pnpm avatar <slug> <file> --dry-run  # crops and reports; no upload, no database call
+ *   pnpm avatar <slug> <file> --dry-run  # crops and reports; no upload, no database call, so the slug is not checked
  */
 async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
   const [slug, file] = args.filter((a) => a !== "--dry-run");
   if (!slug || !file) {
-    console.error("usage: pnpm avatar <slug> <file> [--dry-run]");
+    console.error("usage: pnpm avatar <slug> <file> [--dry-run]   (--dry-run makes no database call, so it does not check that the slug exists)");
     process.exit(2);
   }
   const path = await import("node:path");

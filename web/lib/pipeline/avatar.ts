@@ -36,7 +36,7 @@ export async function setAvatar(deps: SetAvatarDeps, args: { slug: string; file:
   deps.log(`slug: ${args.slug}`);
   deps.log(`crop: ${AVATAR_PX}x${AVATAR_PX}`);
   if (args.dryRun) {
-    deps.log("dry run: nothing uploaded, nothing written");
+    deps.log("dry run: nothing uploaded, nothing written, slug not checked");
     return { slug: args.slug, size: AVATAR_PX, url: null };
   }
   const creator = await deps.findCreator(args.slug);

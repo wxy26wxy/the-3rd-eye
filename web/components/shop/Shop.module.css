@@ -251,8 +251,7 @@
   color: var(--text);
   text-decoration: none;
 }
-.poster:hover .posterPhoto { object-fit: cover; }
-.posterLabel { text-decoration: underline; }
+.poster:hover .posterLabel { text-decoration: underline; }
 .tone_soft { background: var(--color-accent-soft); }
 .tone_accent { background: var(--accent); }
 .tone_alt { background: var(--surface-alt); }
@@ -270,6 +269,7 @@
   letter-spacing: var(--type-display-l-ls);
   line-height: var(--type-display-l-lh);
 }
+.posterPhoto { object-fit: cover; }
 .posterLabel {
   position: absolute;
   left: var(--space-xl);

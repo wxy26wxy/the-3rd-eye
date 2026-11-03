@@ -8,17 +8,22 @@ import { suggestPrice } from "@/lib/ai/meta/tools/suggest-price";
 import { normalizeListing } from "@/lib/ai/meta/tools/finalize-listing";
 
 describe("listing tool handlers (pure)", () => {
-  it("check_resolution compares the short side to the product spec", () => {
-    expect(checkResolution({ productType: "sticker", width: 1600, height: 1600 }).ok).toBe(true);
-    const small = checkResolution({ productType: "sticker", width: 800, height: 1200 });
+  it("check_resolution compares the cleaned art's short side, allowing one ×2, to the product spec (T134)", () => {
+    expect(checkResolution({ productType: "sticker", width: 450, height: 1600 }).ok).toBe(true); // 450 × 2 = 900
+    const small = checkResolution({ productType: "sticker", width: 449, height: 1200 });
     expect(small.ok).toBe(false);
     expect(small.requiredShortSidePx).toBe(900);
-    expect(checkResolution({ productType: "tote", width: 1400, height: 2000 }).ok).toBe(false);
+    expect(checkResolution({ productType: "tote", width: 749, height: 2000 }).ok).toBe(false);
+    expect(checkResolution({ productType: "tote", width: 750, height: 2000 }).ok).toBe(true);
   });
 
-  it("check_contrast flags flat images", () => {
-    expect(contrastFromStats({ min: 0, max: 255, stdev: 90, mean: 200 }).ok).toBe(true);
-    expect(contrastFromStats({ min: 200, max: 230, stdev: 5, mean: 215 }).ok).toBe(false);
+  it("check_contrast passes a lightness spread ≥ 30 or chroma ≥ 25, warns otherwise", () => {
+    expect(contrastFromStats({ lightnessSpread: 60, chroma: 0 }).ok).toBe(true);
+    expect(contrastFromStats({ lightnessSpread: 5, chroma: 40 }).ok).toBe(true);
+    const faint = contrastFromStats({ lightnessSpread: 12, chroma: 3 });
+    expect(faint).toMatchObject({ ok: false, warning: true });
+    expect(contrastFromStats({ lightnessSpread: 2, chroma: 1, mean: 49.6 }).ok).toBe(true); // dark piece
+    expect(contrastFromStats({ lightnessSpread: 2, chroma: 1, mean: 50.4 }).ok).toBe(false);
   });
 
   it("suggest_price stays in range and scales with complexity", () => {

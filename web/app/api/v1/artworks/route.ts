@@ -13,7 +13,11 @@ const Body = z.discriminatedUnion("source", [
     source: z.literal("text2image"), prompt: z.string().trim().min(1).max(4000), transcript: z.string().max(4000).optional(),
     product: z.enum(["sticker", "tote"]), n: z.number().int().min(1).max(4).optional(),
   }),
-  z.object({ source: z.enum(["photo", "canvas"]), imageUrl: z.string().min(1), product: z.enum(["sticker", "tote"]) }),
+  z.object({
+    source: z.enum(["photo", "canvas"]), imageUrl: z.string().min(1), product: z.enum(["sticker", "tote"]),
+    /** T134: false = store the photo only (no SAM, `candidates: []`); the frame then goes to `detect`. */
+    detect: z.boolean().optional(),
+  }),
 ]);
 
 export const POST = route(async (req) => {
@@ -23,7 +27,7 @@ export const POST = route(async (req) => {
     const rows = await runPipeline(() => createFromText(creatorId, { prompt: body.prompt, transcript: body.transcript, n: body.n ?? 2, product: body.product }));
     return json({ artworks: rows.map(toArtworkVariant) }, 201);
   }
-  const { artwork, imageSize } = await runPipeline(() => createFromImage(creatorId, { source: body.source, imageUrl: body.imageUrl, product: body.product }));
+  const { artwork, imageSize } = await runPipeline(() => createFromImage(creatorId, { source: body.source, imageUrl: body.imageUrl, product: body.product, detect: body.detect }));
   return json({ artwork: toArtwork(artwork), candidates: toCandidates(artwork), imageSize }, 201);
 });
 

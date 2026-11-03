@@ -44,7 +44,7 @@ const modelSays = (over: Row = {}, trace: Row[] = []) => {
 describe("publish gate uses the server's tool results", () => {
   beforeEach(async () => {
     state.listing = null; state.draftCopy = null; state.published = false; state.moderateCalls = [];
-    state.printPng = await png(1000, 1000); state.artPng = await png(400, 400);
+    state.printPng = await png(1000, 1000); state.artPng = await png(500, 500); // 500 × 2 ≥ 900 (T134: measured on the cleaned art)
   });
 
   it("model claims print_ok but its own check_resolution said no → print_ok false, approve 409", async () => {
@@ -56,14 +56,15 @@ describe("publish gate uses the server's tool results", () => {
     expect(state.published).toBe(false);
   });
 
-  it("model skipped the tools → the server measures the print file itself", async () => {
-    state.printPng = await png(500, 500);
+  it("model skipped the tools → the server measures the cleaned art itself (T134: one ×2 allowed; contrast is a warning)", async () => {
+    state.artPng = await png(400, 400); // 400 × 2 < 900
     modelSays({ print_ok: true });
-    expect((await runListingAgent(draftProduct, artwork)).listing.print_ok).toBe(false);
-    state.printPng = await png(1000, 1000);
-    expect((await runListingAgent(draftProduct, artwork)).listing.print_ok).toBe(true);
-    state.artPng = await png(400, 400, false); // flat white art: contrast fails
-    expect((await runListingAgent(draftProduct, artwork)).listing.print_ok).toBe(false);
+    const small = (await runListingAgent(draftProduct, artwork)).listing;
+    expect(small).toMatchObject({ print_ok: false, print_check: "resolution" });
+    state.artPng = await png(500, 500);
+    expect((await runListingAgent(draftProduct, artwork)).listing).toMatchObject({ print_ok: true, print_check: null });
+    state.artPng = await png(500, 500, false); // flat white art: a contrast warning
+    expect((await runListingAgent(draftProduct, artwork)).listing).toMatchObject({ print_ok: false, print_check: "contrast" });
   });
 
   it("moderates the FINAL text when the agent moderated something else", async () => {

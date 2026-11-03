@@ -531,6 +531,15 @@ describe("Making your cutout view (T113, board 2038:4369)", () => {
     expect(out).toMatch(btnDisabled(t.use));
   });
 
+  it("round 3: the photo's detect shows the searching magnifier (moved from the upload step), no video", () => {
+    const out = html(createElement(MakingCutoutView, { changed: false, error: null, back: "/create/adjust", onRetry: noop }));
+    before(out, m.create.cutout.makingTitle, m.create.cutout.makingCopyOriginal);
+    expect(out).not.toContain("sticker-loading");
+    expect(out).toMatch(/magnifier/i);
+    expect(out).toContain(t.applying);
+    expect(out).toMatch(btnDisabled(t.use));
+  });
+
   it("error: Back, the error card with Try again", () => {
     const out = html(createElement(MakingCutoutView, { changed: false, error: { message: m.create.errors.timeout, action: "retry" }, back: "/create/change", onRetry: noop }));
     expect(out).toContain('aria-label="Back"');

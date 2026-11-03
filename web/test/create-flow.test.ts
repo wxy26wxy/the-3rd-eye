@@ -929,6 +929,35 @@ describe("Superseded and failed photo rows are deleted (T146)", () => {
     warn.mockRestore();
   });
 
+  it("a second subscriber reporting the same 422 does not delete the row twice", () => {
+    const h = harness({ product: "sticker", area });
+    cutArea(h.deps, [0, 0, 100, 100]);
+    const job = h.draft.pendingArea!;
+    areaNotFound(h.deps, job, "bad1");
+    areaNotFound(h.deps, job, "bad1");
+    expect(deletes(h)).toEqual([]);
+  });
+
+  it("a stale result after the fallback cleanup deletes its own new row", async () => {
+    const h = harness({ ...piece }, { artworks: createAnswer({ artwork: artwork({ id: "p3", cleanedUrl: null }), candidates }), cleanup: createAnswer().artwork });
+    cutArea(h.deps, [5, 5, 100, 100]);
+    const job = h.draft.pendingArea!;
+    h.api.mockImplementationOnce(async () => createAnswer({ artwork: artwork({ id: "p3", cleanedUrl: null }), candidates }));
+    h.api.mockImplementationOnce(async () => { cutArea(h.deps, [9, 9, 90, 90]); return createAnswer().artwork; });
+    await runAreaCut({ ...h.deps, upload: uploader().upload }, job);
+    expect(deletes(h)).toEqual(["artworks/p3"]);
+  });
+
+  it("Take a new photo after a 422 also deletes the earlier piece row the re-frame began from", () => {
+    const h = harness({ ...piece });
+    cutArea(h.deps, [0, 0, 50, 50]);
+    areaNotFound(h.deps, h.draft.pendingArea!, "bad1");
+    discardNotFoundRow(h.deps);
+    expect(deletes(h)).toEqual(["artworks/bad1", "artworks/p1"]);
+    discardNotFoundRow(h.deps);
+    expect(deletes(h)).toHaveLength(2);
+  });
+
   it("a row with a published product is never deleted", async () => {
     const made = { id: "pr1", artworkId: "p1", creatorId: "me", type: "sticker" as const, mockupUrl: null, printPngUrl: null, printSvgUrl: null, priceCents: 500, status: "published", previewUrl: null, cut: null };
     const d: Draft = { ...piece, made: { p1: made } };

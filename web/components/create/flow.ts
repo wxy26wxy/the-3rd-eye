@@ -143,9 +143,11 @@ export async function dropRow({ api, getDraft }: Pick<FlowDeps, "api" | "getDraf
 /** "Take a new photo": the row that answered 422 is deleted (the click only; the link navigates). */
 export function discardNotFoundRow({ api, update, getDraft }: Pick<FlowDeps, "api" | "update" | "getDraft">): void {
   const nf = getDraft().areaNotFound;
-  if (!nf?.artworkId) return;
-  void dropRow({ api, getDraft }, nf.artworkId);
-  update({ areaNotFound: { ...nf, artworkId: undefined } });
+  if (!nf || (!nf.artworkId && !nf.replaces)) return;
+  // The 422 row, and the earlier piece row the re-frame began from: neither is wanted any more.
+  if (nf.artworkId) void dropRow({ api, getDraft }, nf.artworkId);
+  if (nf.replaces) void dropRow({ api, getDraft }, nf.replaces);
+  update({ areaNotFound: { ...nf, artworkId: undefined, replaces: undefined } });
 }
 
 /** Crops `file` to `box` and uploads the crop (Blob client upload); answers the uploaded URL. */
@@ -187,7 +189,7 @@ export async function runAreaCut({ api, update, getDraft, upload }: Pick<FlowDep
   const first = pieces[0]?.id;
   if (!art.cleanedUrl && first && box) {
     const cut = await api<CleanupResult>(`artworks/${res.artwork.id}/cleanup`, { json: pickRequest(first, box) });
-    if (stale()) return;
+    if (stale()) { void dropRow({ api, getDraft }, res.artwork.id); return; }
     art = cut;
     details = cut.details;
   }
@@ -219,7 +221,8 @@ export class PhotoGoneError extends Error {
  */
 export function areaNotFound({ api, router, update, getDraft }: Pick<FlowDeps, "api" | "router" | "update" | "getDraft">, job: NonNullable<Draft["pendingArea"]>, artworkId?: string | null): void {
   if (getDraft().pendingArea?.nonce !== job.nonce) {
-    if (artworkId) void dropRow({ api, getDraft }, artworkId);
+    // A second subscriber of the same job (Strict Mode, a kept-mounted remount) finds it already handled.
+    if (artworkId && getDraft().areaNotFound?.artworkId !== artworkId) void dropRow({ api, getDraft }, artworkId);
     return;
   }
   update({ pendingArea: undefined, areaNotFound: { photoKey: job.photoKey, box: [...job.box] as Box, ...(artworkId ? { artworkId } : {}), ...(job.replaces ? { replaces: job.replaces } : {}) } });

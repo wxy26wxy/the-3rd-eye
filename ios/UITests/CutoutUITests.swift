@@ -29,14 +29,14 @@ final class CutoutUITests: XCTestCase {
   /// with the whole crop as the box. Back and Use this area unchanged: nothing sent again.
   func testPhotoThenFrameThenCropUpload() throws {
     let app = launchPhotoFlow(code: "TEST-CODE")
-    XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 20), "Adjust the area right after the photo")
+    XCTAssertTrue(app.otherElements["adjust-area"].waitToAppear(timeout: 20), "Adjust the area right after the photo")
     XCTAssertTrue(app.staticTexts["Drag the corners so the frame covers your drawing."].exists)
     XCTAssertTrue(app.buttons["Take a new photo"].exists)
     XCTAssertEqual(try count("blob-put"), 0, "no upload before Use this area")
     XCTAssertEqual(try count("artworks-posts"), 0)
     attachScreenshot(app, "adjust-the-area-local-photo")
     tap(app, "Use this area")
-    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 15), "Making your cutout, then Your cutout")
+    XCTAssertTrue(yourCutout(app).waitToAppear(timeout: 15), "Making your cutout, then Your cutout")
     XCTAssertEqual(try count("blob-put"), 1, "one upload: the crop")
     XCTAssertEqual(try count("artworks-posts"), 1, "one POST /artworks")
     XCTAssertEqual(try count("detect"), 0, "no detect call")
@@ -48,13 +48,11 @@ final class CutoutUITests: XCTestCase {
     XCTAssertEqual(upload["height"] as? Int, 800)
     XCTAssertEqual(try count("cleanup"), 0)
     let first = app.buttons["Piece 1"]
-    XCTAssertTrue(first.waitForExistence(timeout: 5), "two drawings in the crop: the strip")
+    XCTAssertTrue(first.waitToAppear(timeout: 5), "two drawings in the crop: the strip")
     XCTAssertTrue(first.isSelected, "the largest was cut")
     tap(app, "Piece 2")
-    XCTAssertTrue(app.buttons["Piece 2"].waitForExistence(timeout: 10))
-    let picked = NSPredicate(format: "isSelected == true")
-    expectation(for: picked, evaluatedWith: app.buttons["Piece 2"])
-    waitForExpectations(timeout: 15)
+    XCTAssertTrue(app.buttons["Piece 2"].waitToAppear(timeout: 10))
+    XCTAssertTrue(poll(timeout: 15) { app.buttons["Piece 2"].isSelected }, "Piece 2 is picked")
     let body = try lastBody("cleanup")
     XCTAssertEqual(body["candidateIds"] as? [String], ["cand-2"])
     XCTAssertEqual(body["box"] as? [Double], [0, 0, 1200, 1600], "the whole stored crop")
@@ -62,9 +60,9 @@ final class CutoutUITests: XCTestCase {
     XCTAssertNil(body["points"])
     // Back to the frame and Use this area unchanged: no second upload or create.
     app.buttons["Back"].firstMatch.tap()
-    XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.otherElements["adjust-area"].waitToAppear(timeout: 5))
     tap(app, "Use this area")
-    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 10))
+    XCTAssertTrue(yourCutout(app).waitToAppear(timeout: 10))
     XCTAssertEqual(try count("blob-put"), 1, "the same frame is not uploaded again")
     XCTAssertEqual(try count("artworks-posts"), 1)
   }
@@ -85,16 +83,16 @@ final class CutoutUITests: XCTestCase {
     XCTAssertFalse(app.buttons["Reset"].isEnabled, "back where it started")
     photoPoint(area, 0, 0).press(forDuration: 0.3, thenDragTo: photoPoint(area, 0.3, 0.4))
     tap(app, "Use this area")
-    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 15), "Your cutout")
+    XCTAssertTrue(yourCutout(app).waitToAppear(timeout: 15), "Your cutout")
     let upload = try lastBody("blob-put")
     XCTAssertEqual(Double(upload["width"] as? Int ?? 0), 420, accuracy: 24, "the left edge followed the drag")
     XCTAssertEqual(Double(upload["height"] as? Int ?? 0), 480, accuracy: 32, "the top edge followed the drag")
     app.buttons["Back"].firstMatch.tap()
-    XCTAssertTrue(area.waitForExistence(timeout: 5))
+    XCTAssertTrue(area.waitToAppear(timeout: 5))
     XCTAssertTrue(app.buttons["Reset"].isEnabled, "back on the frame last used")
     tap(app, "Reset")
     tap(app, "Use this area")
-    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 15))
+    XCTAssertTrue(yourCutout(app).waitToAppear(timeout: 15))
     XCTAssertEqual(try count("blob-put"), 2, "a re-framed area is a new crop")
     XCTAssertEqual(try count("artworks-posts"), 2, "and a new row")
     XCTAssertEqual(try lastBody("blob-put")["width"] as? Int, 600)
@@ -118,7 +116,7 @@ final class CutoutUITests: XCTestCase {
     outside.press(forDuration: 0.3, thenDragTo: photoPoint(area, 0.25, 0.25))
     XCTAssertTrue(app.buttons["Reset"].isEnabled, "the corner moved")
     tap(app, "Use this area")
-    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 15))
+    XCTAssertTrue(yourCutout(app).waitToAppear(timeout: 15))
     let upload = try lastBody("blob-put")
     // The drag ran a quarter of the photo plus the 15 pt it started outside it.
     XCTAssertEqual(Double(upload["width"] as? Int ?? 0), 450 - 15 * 600 / photo.width, accuracy: 24, "the left edge followed the drag")
@@ -130,7 +128,7 @@ final class CutoutUITests: XCTestCase {
   func testNothingInTheFrameComesBackToTheFrame() throws {
     let app = openAdjustArea(code: "NONE-CODE")
     tap(app, "Use this area")
-    XCTAssertTrue(element(app, containing: "We couldn't find a drawing in that area.").waitForExistence(timeout: 15))
+    XCTAssertTrue(element(app, containing: "We couldn't find a drawing in that area.").waitToAppear(timeout: 15))
     XCTAssertTrue(app.otherElements["adjust-area"].exists, "back on Adjust the area")
     XCTAssertFalse(app.buttons["Try again"].exists, "no error screen")
     XCTAssertTrue(app.buttons["Use this area"].isEnabled, "it can be tried again")
@@ -138,21 +136,22 @@ final class CutoutUITests: XCTestCase {
     XCTAssertEqual(try count("detect"), 0)
     // Review M5: the same frame again sends nothing; the advice stays.
     tap(app, "Use this area")
-    XCTAssertTrue(element(app, containing: "We couldn't find a drawing in that area.").waitForExistence(timeout: 5))
+    XCTAssertTrue(element(app, containing: "We couldn't find a drawing in that area.").waitToAppear(timeout: 5))
     XCTAssertTrue(app.otherElements["adjust-area"].exists)
     XCTAssertEqual(try count("artworks-posts"), 1, "no second POST for the same frame")
     XCTAssertEqual(try count("blob-put"), 1)
   }
 
-  /// Switching tabs while the cut runs does not lose it: Your cutout follows, the crop sent once.
+  /// Switching tabs while the cut runs (mock SLOW…: the crop takes 4 s) does not lose it: Your
+  /// cutout follows, the crop sent once.
   func testCutSurvivesATabSwitch() throws {
-    let app = openAdjustArea(code: "TEST-CODE")
+    let app = openAdjustArea(code: "SLOW-CODE")
     tap(app, "Use this area")
     app.tabBars.buttons["My designs"].tap()
-    XCTAssertTrue(app.buttons["Blue bird on a branch, In the shop"].waitForExistence(timeout: 10))
-    sleep(4)
+    XCTAssertTrue(app.buttons["Blue bird on a branch, In the shop"].waitToAppear(timeout: 10))
+    try waitForCount("framed-answers")
     app.tabBars.buttons["Create"].tap()
-    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 10), "the cut went on to Your cutout")
+    XCTAssertTrue(yourCutout(app).waitToAppear(timeout: 10), "the cut went on to Your cutout")
     XCTAssertEqual(try count("artworks-posts"), 1, "sent once, not again when the tab came back")
     XCTAssertEqual(try count("blob-put"), 1)
   }
@@ -172,7 +171,7 @@ final class CutoutUITests: XCTestCase {
     XCTAssertFalse(app.buttons["Apply cutout"].isEnabled, "nothing marked yet")
     XCTAssertEqual(try count("cleanup"), 0)
     tap(app, "Use this")
-    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "Change it")
+    XCTAssertTrue(app.buttons["Looks good as is"].waitToAppear(timeout: 10), "Change it")
     XCTAssertEqual(try count("cleanup"), 0, "Use this without marks sends nothing")
     XCTAssertEqual(try count("artworks-posts"), 1)
   }
@@ -184,21 +183,21 @@ final class CutoutUITests: XCTestCase {
     let app = openPieceCutout(code: "TEST-CODE")
     tap(app, "Fix the edges")
     let photo = cutoutPhoto(app)
-    XCTAssertTrue(photo.waitForExistence(timeout: 10), "the crop for the marks")
+    XCTAssertTrue(photo.waitToAppear(timeout: 10), "the crop for the marks")
     photo.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.2)).tap()
     photo.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.3)).tap()
-    XCTAssertTrue(app.buttons["Added area, mark 2"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["Added area, mark 2"].waitToAppear(timeout: 5))
     tap(app, "Remove area")
     _ = cutoutPhoto(app)
     photo.coordinate(withNormalizedOffset: CGVector(dx: 0.35, dy: 0.25)).tap()
-    XCTAssertTrue(app.buttons["Left out, mark 3"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["Left out, mark 3"].waitToAppear(timeout: 5))
     // A tap on mark 2's dot deletes it.
     photo.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.3)).tap()
-    XCTAssertFalse(app.buttons["Left out, mark 3"].waitForExistence(timeout: 2), "the marks renumber")
+    XCTAssertTrue(app.buttons["Left out, mark 3"].waitToDisappear(timeout: 2), "the marks renumber")
     XCTAssertTrue(app.buttons["Left out, mark 2"].exists)
     attachScreenshot(app, "your-cutout-marks")
     tap(app, "Apply cutout")
-    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 15), "the new cut-out is shown")
+    XCTAssertTrue(yourCutout(app).waitToAppear(timeout: 15), "the new cut-out is shown")
     let body = try lastBody("cleanup")
     XCTAssertEqual(try lastBody("cleanup-target")["artworkId"] as? String, "p1")
     XCTAssertEqual(body["candidateIds"] as? [String], ["cand-1"], "the piece goes with the marks")
@@ -210,7 +209,7 @@ final class CutoutUITests: XCTestCase {
     XCTAssertEqual(points[0]["y"] as? Double ?? 0, 320, accuracy: 40)
     XCTAssertFalse(app.buttons["Apply cutout"].isEnabled, "the cut matches the marks")
     tap(app, "Use this")
-    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "Change it")
+    XCTAssertTrue(app.buttons["Looks good as is"].waitToAppear(timeout: 10), "Change it")
     XCTAssertEqual(try count("cleanup"), 1, "applied once")
   }
 
@@ -221,11 +220,11 @@ final class CutoutUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["Here's the cutout of your changed art. Fix the edges if you need to."].exists)
     tap(app, "Fix the edges")
     let photo = cutoutPhoto(app)
-    XCTAssertTrue(photo.waitForExistence(timeout: 10))
+    XCTAssertTrue(photo.waitToAppear(timeout: 10))
     photo.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-    XCTAssertTrue(app.buttons["Added area, mark 1"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["Added area, mark 1"].waitToAppear(timeout: 5))
     tap(app, "Apply cutout")
-    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 15))
+    XCTAssertTrue(yourCutout(app).waitToAppear(timeout: 15))
     XCTAssertEqual(try lastBody("cleanup-target")["artworkId"] as? String, "ch1", "the change result is cut again")
     let body = try lastBody("cleanup")
     XCTAssertEqual(body["candidateIds"] as? [String], ["cand-1"], "the piece the cutout found")
@@ -233,7 +232,7 @@ final class CutoutUITests: XCTestCase {
     XCTAssertEqual(body["clipToBox"] as? Bool, true)
     XCTAssertEqual((body["points"] as? [[String: Any]])?.count, 1)
     tap(app, "Use this")
-    XCTAssertTrue(productPhoto(app).waitForExistence(timeout: 15), "back on Change it with the change's product photo")
+    XCTAssertTrue(productPhoto(app).waitToAppear(timeout: 15), "back on Change it with the change's product photo")
     XCTAssertEqual(try count("products"), 2, "p1 and ch1, made before; the cleanup rebuilt ch1's")
   }
 
@@ -242,10 +241,10 @@ final class CutoutUITests: XCTestCase {
     let app = openPieceCutout(code: "TEST-CODE")
     tap(app, "Fix the edges")
     let photo = cutoutPhoto(app)
-    XCTAssertTrue(photo.waitForExistence(timeout: 10))
+    XCTAssertTrue(photo.waitToAppear(timeout: 10))
     photo.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.25)).tap()
     tap(app, "Use this")
-    XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 15), "Change it")
+    XCTAssertTrue(app.buttons["Looks good as is"].waitToAppear(timeout: 15), "Change it")
     XCTAssertEqual((try lastBody("cleanup")["points"] as? [[String: Any]])?.count, 1, "the mark was sent")
   }
 
@@ -254,13 +253,13 @@ final class CutoutUITests: XCTestCase {
   func testCutoutFailureOffersTryAgain() throws {
     let app = openPieceCutout(code: "NOCUTOUT-CODE")
     tap(app, "Use this")
-    XCTAssertTrue(productPhoto(app).waitForExistence(timeout: 15))
+    XCTAssertTrue(productPhoto(app).waitToAppear(timeout: 15))
     typeChange(app)
     tap(app, "Make the change")
-    XCTAssertTrue(element(app, containing: "nothing found in the edited picture").waitForExistence(timeout: 15), "422 shows the server's message")
+    XCTAssertTrue(element(app, containing: "nothing found in the edited picture").waitToAppear(timeout: 15), "422 shows the server's message")
     XCTAssertTrue(app.buttons["Try again"].exists)
     app.buttons["Back to my art"].tap()
-    XCTAssertTrue(productPhoto(app).waitForExistence(timeout: 5), "back on Change it with the sticker as it was")
+    XCTAssertTrue(productPhoto(app).waitToAppear(timeout: 5), "back on Change it with the sticker as it was")
     XCTAssertEqual(try count("products"), 1)
   }
 
@@ -269,9 +268,9 @@ final class CutoutUITests: XCTestCase {
     let app = openYourCutout(code: "TEST-CODE")
     tap(app, "Start over")
     let upload = app.buttons["Upload a picture, Pick one you already have"]
-    XCTAssertTrue(upload.waitForExistence(timeout: 10), "Choose method")
+    XCTAssertTrue(upload.waitToAppear(timeout: 10), "Choose method")
     upload.tap()
-    XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 20), "a new photo, on the frame")
+    XCTAssertTrue(app.otherElements["adjust-area"].waitToAppear(timeout: 20), "a new photo, on the frame")
     XCTAssertFalse(app.buttons["Reset"].isEnabled, "the frame starts on the whole new photo")
   }
 
@@ -281,14 +280,14 @@ final class CutoutUITests: XCTestCase {
     let app = XCUIApplication()
     self.app = app
     app.launchEnvironment["UITEST_PHOTO"] = "1"
-    app.launchEnvironment["MOCK_BLOB_API"] = mockAPIURL.appendingPathComponent("blob").absoluteString + "/"
+    app.launchEnvironment["MOCK_BLOB_API"] = mockBlobAPI
     app.launch()
     signIn(app, code: code)
     let sticker = app.buttons["Sticker, Die-cut, waterproof"]
-    XCTAssertTrue(sticker.waitForExistence(timeout: 10))
+    XCTAssertTrue(sticker.waitToAppear(timeout: 10))
     sticker.tap()
     let upload = app.buttons["Upload a picture, Pick one you already have"]
-    XCTAssertTrue(upload.waitForExistence(timeout: 5))
+    XCTAssertTrue(upload.waitToAppear(timeout: 5))
     upload.tap()
     return app
   }
@@ -307,13 +306,13 @@ final class CutoutUITests: XCTestCase {
   /// Adjust the area on the whole photo.
   private func openAdjustArea(code: String) -> XCUIApplication {
     let app = launchPhotoFlow(code: code)
-    XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 20), "Adjust the area")
+    XCTAssertTrue(app.otherElements["adjust-area"].waitToAppear(timeout: 20), "Adjust the area")
     return app
   }
 
   private func typeChange(_ app: XCUIApplication) {
     let field = app.textViews["What to change"].exists ? app.textViews["What to change"] : app.textFields["What to change"]
-    XCTAssertTrue(field.waitForExistence(timeout: 10))
+    XCTAssertTrue(field.waitToAppear(timeout: 10))
     field.tap()
     field.typeText("Make the sky purple\n")
     app.swipeUp()
@@ -323,7 +322,7 @@ final class CutoutUITests: XCTestCase {
   private func openPieceCutout(code: String) -> XCUIApplication {
     let app = openAdjustArea(code: code)
     tap(app, "Use this area")
-    XCTAssertTrue(yourCutout(app).waitForExistence(timeout: 20), "Your cutout of the piece")
+    XCTAssertTrue(yourCutout(app).waitToAppear(timeout: 20), "Your cutout of the piece")
     return app
   }
 
@@ -348,12 +347,12 @@ final class CutoutUITests: XCTestCase {
   private func openYourCutout(code: String) -> XCUIApplication {
     let app = openPieceCutout(code: code)
     tap(app, "Use this")
-    XCTAssertTrue(productPhoto(app).waitForExistence(timeout: 15))
+    XCTAssertTrue(productPhoto(app).waitToAppear(timeout: 15))
     typeChange(app)
     tap(app, "Make the change")
-    XCTAssertTrue(app.staticTexts["Here's the change"].waitForExistence(timeout: 20))
+    XCTAssertTrue(app.staticTexts["Here's the change"].waitToAppear(timeout: 20))
     tap(app, "Fix the cutout")
-    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 20), "Your cutout")
+    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitToAppear(timeout: 20), "Your cutout")
     return app
   }
 
@@ -363,7 +362,7 @@ final class CutoutUITests: XCTestCase {
 
   private func tap(_ app: XCUIApplication, _ label: String) {
     let button = app.buttons[label]
-    XCTAssertTrue(button.waitForExistence(timeout: 10), "\(label) is shown")
+    XCTAssertTrue(button.waitToAppear(timeout: 10), "\(label) is shown")
     for _ in 0..<3 where !button.isHittable { app.swipeUp() }
     waitUntilEnabled(button, timeout: 10)
     button.tap()

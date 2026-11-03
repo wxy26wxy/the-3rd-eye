@@ -23,7 +23,7 @@ final class TabBarUITests: XCTestCase {
     app.launch()
     signIn(app, code: "TEST-CODE")
     let bar = app.tabBars.firstMatch
-    XCTAssertTrue(bar.waitForExistence(timeout: 10))
+    XCTAssertTrue(bar.waitToAppear(timeout: 10))
     XCTAssertEqual(app.tabBars.count, 1)
 
     let names = ["Create", "My designs", "Orders", "Messages"]
@@ -43,11 +43,11 @@ final class TabBarUITests: XCTestCase {
 
     // Re-tapping the selected tab goes back to its first screen.
     let sticker = app.buttons["Sticker, Die-cut, waterproof"]
-    XCTAssertTrue(sticker.waitForExistence(timeout: 5))
+    XCTAssertTrue(sticker.waitToAppear(timeout: 5))
     sticker.tap()
-    XCTAssertTrue(app.buttons["Back"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["Back"].waitToAppear(timeout: 5))
     bar.buttons["Create"].tap()
-    XCTAssertTrue(sticker.waitForExistence(timeout: 5), "back on the first Create screen")
+    XCTAssertTrue(sticker.waitToAppear(timeout: 5), "back on the first Create screen")
   }
 }
 

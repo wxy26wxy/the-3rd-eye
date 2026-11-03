@@ -340,3 +340,9 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - `docs/api.md`: "Creator flow (round 2b)" lists the calls per step for web and iOS; the Create summary follows the new order. `docs/handoffs/backend.md` T129 entry.
 - Verify: `pnpm test`, `pnpm lint`, `pnpm build`, `bash scripts/check_clean.sh`.
 
+
+## T132 docs · Round 2b flow docs (2026-11-03)
+- `docs/api.md`: "Creator flow (round 2b)" is the single description of the flow; step 5 fixed ("Looks good as is" is on Change it and goes to Making product; Your cutout "Use this" goes to Change it); the T111 "Looks good as is" and `cutout` lines marked superseded; iOS Story video Skip not sending `dismissStoryDraft` noted (known, minor).
+- `docs/accessibility.md`: Your cutout scripts for both platforms with the tools back (Add area / Remove area, Apply cutout, marks with delete, iOS "Add the area around your art" action, web Marks list); the flow order in every script; stated gap: no keyboard Remove-area mark on the web. Labels checked against `web/messages/en.json` and `Localizable.xcstrings`.
+- `docs/demo_script.md`: beats in the canonical order (a Remove-area tap on the first cutout, change by voice, cutout again, sticker; tote shows the AI tote photo). `docs/design/screens.md`: "Round 2b — to mirror in Figma" section with board ids. README step 2, `docs/submission.md` flow sentence, `docs/deployments.md` v0.8.2 entry.
+- Verify: `bash scripts/check_clean.sh` ok on each commit. Not done: scripts not run on a device; tag v0.8.2 and the deploys are the product owner's.

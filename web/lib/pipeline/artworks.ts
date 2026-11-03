@@ -186,9 +186,9 @@ const THUMB_SOURCE_SIDE = 1024;
  */
 export async function createFromImage(
   creatorId: string,
-  input: { source: "photo" | "canvas"; imageUrl: string; product: "sticker" | "tote"; detect?: boolean },
+  input: { source: "photo" | "canvas"; imageUrl: string; product: "sticker" | "tote"; detect?: boolean; framed?: boolean },
   task = "T010",
-): Promise<{ artwork: ArtworkRow; candidates: SamCandidate[]; imageSize: ImageSize }> {
+): Promise<{ artwork: ArtworkRow; candidates: SamCandidate[]; imageSize: ImageSize; details?: Omit<RecutResult, "artwork"> }> {
   const uploadPath = clientUploadPath(input.imageUrl, creatorId);
   const raw = await readClientUpload(uploadPath, creatorId, 25 * 1024 * 1024);
   const png = await ensureDpi(await sharp(raw).rotate().flatten({ background: "#ffffff" }).png().toBuffer());
@@ -204,9 +204,14 @@ export async function createFromImage(
   }
   let artwork = await insertArtwork({
     id, creatorId, source: input.source, originalUrl: original.pathname, shapingTrace: { product: input.product, imageSize }, status: "draft", createdByTask: task,
-    ...(input.detect === false ? { candidates: [] } : {}),
+    ...(input.detect === false || input.framed ? { candidates: [] } : {}),
   });
   if (input.detect === false) return { artwork, candidates: [], imageSize };
+  if (input.framed) {
+    // Round 4 (T143): the upload is the creator's crop, so the whole picture is the frame.
+    const out = await detectInBox(artwork, [0, 0, imageSize.w, imageSize.h], task, png);
+    return { artwork: out.artwork, candidates: out.candidates, imageSize, details: { failedProductIds: out.failedProductIds, unpublishedProductIds: out.unpublishedProductIds } };
+  }
   const { segments: segs, droppedContainer } = await (await ai()).segmenter.findCandidates(pngRef(png), { trace: traceFor(id, task, "segment"), max: MAX_CANDIDATES });
   const candidates = await storeCandidates(creatorId, png, imageSize, segs);
   artwork = await updateArtwork(id, { candidates });
@@ -245,12 +250,13 @@ async function storeCandidates(creatorId: string, png: Buffer, imageSize: ImageS
  * call). Products made from the row are rebuilt as after a cleanup.
  */
 export async function detectInBox(
-  artwork: ArtworkRow, box: BBox, task = "T134",
+  artwork: ArtworkRow, box: BBox, task = "T134", original?: Buffer,
 ): Promise<RecutResult & { candidates: SamCandidate[]; imageSize: ImageSize }> {
   assertPhotoRow(artwork);
   if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
   trackArtwork(artwork.id);
-  const png = await storage().read(artwork.originalUrl);
+  // `original`: the stored original's bytes when the caller has them (T143 `framed` upload), saving a read.
+  const png = original ?? await storage().read(artwork.originalUrl);
   const meta = await sharp(png).metadata();
   const W = meta.width ?? 0, H = meta.height ?? 0;
   const imageSize: ImageSize = { w: W, h: H };
@@ -395,7 +401,7 @@ export function assertChangeResult(artwork: Pick<ArtworkRow, "id" | "changeInstr
  * as the row's candidates largest first (replacing earlier ones), and the largest is cut out like a
  * picked candidate. "Your cutout" then adjusts it with cleanupArtwork.
  */
-export async function cutoutArtwork(artwork: ArtworkRow, task = "T111"): Promise<{ artwork: ArtworkRow; candidates: SamCandidate[]; imageSize: ImageSize }> {
+export async function cutoutArtwork(artwork: ArtworkRow, task = "T111"): Promise<RecutResult & { candidates: SamCandidate[]; imageSize: ImageSize }> {
   assertChangeResult(artwork);
   if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
   trackArtwork(artwork.id);
@@ -406,13 +412,13 @@ export async function cutoutArtwork(artwork: ArtworkRow, task = "T111"): Promise
   const largestFirst = [...segments].sort((a, b) => area(b.mask) - area(a.mask));
   const candidates = await storeCandidates(artwork.creatorId, png, imageSize, largestFirst);
   const st = (artwork.shapingTrace as Record<string, unknown> | null) ?? {};
-  let row = await updateArtwork(artwork.id, { candidates, shapingTrace: { ...st, imageSize } });
+  const row = await updateArtwork(artwork.id, { candidates, shapingTrace: { ...st, imageSize } });
   if (candidates.length === 0) {
     await updateArtwork(artwork.id, { lastError: "no_drawing_found" });
     throw new ApiError(422, "no_drawing_found", "We could not find the art in the changed picture. Try another change, or go back to your original.", { artworkId: artwork.id });
   }
-  row = (await cleanupArtwork(row, { candidateIds: [candidates[0].id] }, task)).artwork;
-  return { artwork: row, candidates, imageSize };
+  const cut = await cleanupArtwork(row, { candidateIds: [candidates[0].id] }, task);
+  return { ...cut, candidates, imageSize };
 }
 
 /** Pixel size of the stored original: recorded at upload (`shapingTrace.imageSize`), else read from the file. */

@@ -114,6 +114,13 @@ function ChangeFlow() {
     return () => { on = false; };
   }, [target, plan, cut, attempt]);
   const tote = draft.product === "tote";
+  // Review m1: the making status line unmounts when the photo arrives, so the live region says it.
+  const [readyNote, setReadyNote] = useState("");
+  const [lastPlan, setLastPlan] = useState(plan);
+  if (lastPlan !== plan) {
+    setLastPlan(plan);
+    setReadyNote(plan === "ready" ? (tote ? m.create.result.readyTote : m.create.result.readySticker) : "");
+  }
   const making = plan === "ready" ? null : {
     status: tote ? m.create.result.makingTote : m.create.result.makingSticker,
     hint: tote ? m.create.result.beingMadeTote : m.create.result.beingMadeSticker,
@@ -140,7 +147,7 @@ function ChangeFlow() {
       instruction={instruction}
       seconds={recorder.seconds}
       error={error}
-      announce={phase === "listening" ? m.create.speak.listening : ""}
+      announce={phase === "listening" ? m.create.speak.listening : readyNote}
       refs={{ field: fieldRef, stop: stopRef, error: errorRef }}
       on={{
         instruction: setInstruction,

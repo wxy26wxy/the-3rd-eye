@@ -577,6 +577,12 @@ describe("Change it view (T113, boards 2027:3138 / 2026:3067 / 2026:3135 / 2038:
     expect(failed).toContain(m.create.errors.retry);
     expect(failed).toMatch(new RegExp(`<button[^>]*aria-disabled="true"[^>]*>(?:(?!</button>).)*${r.skip}`));
     // tote copy
+    // review m1: the live region says when it is ready (ChangeIt passes it as `announce`)
+    const region = /role="status" aria-live="polite">([^<]*)</;
+    expect(change({ announce: r.readySticker }).match(region)?.[1]).toBe("Your sticker is ready");
+    expect(r.readyTote).toBe("Your tote bag is ready");
+    const screen = readFileSync(resolve(__dirname, "../components/create/screens/ChangeIt.tsx"), "utf8");
+    expect(screen).toMatch(/plan === "ready" \? \(tote \? m\.create\.result\.readyTote : m\.create\.result\.readySticker\)/);
     expect([r.makingSticker, r.makingTote, r.beingMadeSticker, r.beingMadeTote, r.fixCutout]).toEqual(["Making your sticker…", "Making your tote bag…", "Your sticker is being made", "Your tote bag is being made", "Fix the cutout"]);
   });
 

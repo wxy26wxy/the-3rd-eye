@@ -70,7 +70,9 @@ function ChangingFlow({ req, nonce }: { req: { base: string; instruction: string
     }
     const deps = {
       api, getDraft,
-      update: (patch: Parameters<typeof update>[0]) => { if (here.current) update(patch); },
+      // Draft updates always land (review m4): a creator who left mid-run and comes back must not
+      // repeat a finished cutout or mint a new product id; only navigation and speech need the screen.
+      update,
       router: { push: (h: string) => { if (here.current) router.push(h); }, replace: (h: string) => { if (here.current) router.replace(h); } },
     };
     once(`change:${nonce}:${attempt}`, () => runChange(deps, req, (s) => { if (here.current) setStage(s); }))

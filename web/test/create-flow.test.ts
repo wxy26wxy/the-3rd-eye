@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   STORY_REDO_RETURN, storyVideoDone, canRedoListing, canRedoCutout, redoCutout, redoListing, redoTarget, adjustBack, takeNewPhoto, afterPhoto, applyMarks, areaNotFound, busyWhile, pickRequest, showsPieces, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
@@ -328,7 +330,7 @@ describe("Round 4 ruling 2: the product is made before Change it", () => {
     expect(productPlan({ ...h.draft, product: "tote" }, "p1")).toBe("make");
   });
 
-  it("a failed POST /products: Try again sends the same clientRequestId; each Use this mints a new one", async () => {
+  it("a failed POST /products: Try again sends the same clientRequestId, and so does a second Use this", async () => {
     const h = harness({ ...piece }, { products: new ApiError(504, "deadline_exceeded", "late") });
     takeCutout(h.deps, "p1");
     const first = h.draft.productJob!.requestId;
@@ -336,8 +338,44 @@ describe("Round 4 ruling 2: the product is made before Change it", () => {
     await expect(runProduct(h.deps, "p1")).rejects.toThrow();
     const ids = h.calls.filter((c) => c.startsWith("api products")).map((c) => JSON.parse(c.slice(c.indexOf("{"))).clientRequestId);
     expect(ids).toEqual([first, first]);
+  });
+
+  it("review m3: a second Use this while the product is still to be made keeps the clientRequestId (the server may have the row); another artwork's job is replaced", () => {
+    const h = harness({ ...piece });
     takeCutout(h.deps, "p1");
-    expect(h.draft.productJob!.requestId).not.toBe(first);
+    const first = h.draft.productJob!.requestId;
+    takeCutout(h.deps, "p1");
+    expect(h.draft.productJob!.requestId).toBe(first);
+    // a job for another artwork is replaced by a new one
+    h.deps.update({ productJob: { artworkId: "k9", requestId: "old" } });
+    takeCutout(h.deps, "p1");
+    expect(h.draft.productJob!.requestId).not.toBe("old");
+    expect(h.draft.productJob!.artworkId).toBe("p1");
+  });
+
+  it("review m4: a creator who left Changing mid-run still gets the draft updates, so a retry repeats no cutout and sends the same product id", async () => {
+    const answers: Record<string, unknown> = {
+      "/change": { artwork: { ...artwork({ id: "k1", parentArtworkId: "p1" }), previewUrl: "/k1.png" }, description: { alt: "blue", spoken: "", differences: "" } },
+      "/cutout": { artwork: artwork({ id: "k1", cleanedUrl: "/k1-cut.png" }), candidates: [], imageSize: { w: 200, h: 150 } },
+      products: new ApiError(504, "deadline_exceeded", "late"),
+    };
+    const h = harness({ ...piece, made: { p1: { ...prod("pr1", "p1"), cut: "/piece.png" } } }, answers);
+    submitChange(h.deps, "make it blue", null);
+    // the screen is gone: navigation is dropped, draft updates still land (Changing.tsx passes `update` through)
+    const away = { ...h.deps, router: { push: () => {}, replace: () => {} } };
+    await expect(runChange(away, changeRequest(h.draft)!)).rejects.toThrow();
+    expect(cutoutOf(h.draft, "k1")?.cleanedUrl).toBe("/k1-cut.png");
+    const firstId = h.draft.productJob?.requestId;
+    expect(h.draft.productJob?.artworkId).toBe("k1");
+    answers.products = prod("pr2", "k1");
+    await runChange(h.deps, changeRequest(h.draft)!);
+    const api = h.calls.filter((c) => c.startsWith("api"));
+    expect(api.filter((c) => c.includes("/change"))).toHaveLength(1);
+    expect(api.filter((c) => c.includes("/cutout"))).toHaveLength(1);
+    const ids = api.filter((c) => c.startsWith("api products")).map((c) => JSON.parse(c.slice(c.indexOf("{"))).clientRequestId);
+    expect(ids).toEqual([firstId, firstId]);
+    const src = readFileSync(resolve(__dirname, "../components/create/screens/Changing.tsx"), "utf8");
+    expect(src).not.toMatch(/if \(here\.current\) update\(/);
   });
 
   it("Looks good as is → Ready on that product with no call (its listing kept for the same product); nothing while it is being made", () => {

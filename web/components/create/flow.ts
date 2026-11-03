@@ -284,12 +284,15 @@ export async function applyMarks({ api, update, getDraft }: Pick<FlowDeps, "api"
 }
 
 /**
- * A `POST /products` for `artworkId` when Change it will need one (round 4 ruling 2): a new
- * `clientRequestId` per call of this (each "Use this", each change); nothing when the product is
- * there already (the reuse rule: no second `POST /products`).
+ * A `POST /products` for `artworkId` when Change it will need one (round 4 ruling 2); nothing when
+ * the product is there already (the reuse rule: no second `POST /products`). A job already waiting
+ * for the same artwork keeps its `clientRequestId` (review m3): after a lost answer the server may
+ * have made the row, and the same id gets that row back instead of a second draft product.
  */
 function productJobFor(d: Draft, artworkId: string): Partial<Draft> {
-  return productPlan(d, artworkId) === "make" ? { productJob: { artworkId, requestId: uuid() } } : {};
+  if (productPlan(d, artworkId) !== "make") return {};
+  if (d.productJob?.artworkId === artworkId) return {};
+  return { productJob: { artworkId, requestId: uuid() } };
 }
 
 /**

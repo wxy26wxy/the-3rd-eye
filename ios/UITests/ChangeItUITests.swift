@@ -46,6 +46,14 @@ final class ChangeItUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 15), "Your cutout")
     XCTAssertEqual(try lastBody("cutout")["artworkId"] as? String, "ch1", "the change is cut out")
     XCTAssertTrue(app.otherElements["cutout-applied"].exists || app.images["cutout-applied"].exists)
+    XCTAssertEqual(try count("cutout"), 1)
+
+    // Back to Before and after and Use this again: the cut-out is cached per artwork (T131).
+    app.buttons["Back"].firstMatch.tap()
+    XCTAssertTrue(app.staticTexts["Here's the change"].waitForExistence(timeout: 5), "Back from Your cutout: Before and after")
+    tap(app, "Use this")
+    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 10))
+    XCTAssertEqual(try count("cutout"), 1, "no second cutout for the same change")
 
     tap(app, "Use this")
     let name = app.textFields["Name"]
@@ -54,9 +62,10 @@ final class ChangeItUITests: XCTestCase {
     XCTAssertEqual(try lastBody("products")["type"] as? String, "sticker")
   }
 
-  /// "Change it again" edits the change (ch1 → ch2); "Back to my original" drops the changes, and
-  /// "Looks good as is" then makes the sticker from the drawing's own cut-out (no cutout call).
-  func testChangeAgainThenBackToTheOriginal() throws {
+  /// "Change it again" edits the change (ch1 → ch2); "Back to my original" steps back one change
+  /// (T131: to ch1, the chain kept), and again to the drawing; "Looks good as is" then makes the
+  /// sticker from the drawing's own cut-out (no cutout call).
+  func testChangeAgainThenBackOneStepAtATime() throws {
     let app = launchPhotoFlow(code: "TEST-CODE")
     pickPiece(app, "Piece 1")
     typeChange(app, "Make the sky purple")
@@ -75,23 +84,60 @@ final class ChangeItUITests: XCTestCase {
 
     app.buttons["Back to my original"].tap()
     XCTAssertTrue(changeField(app).waitForExistence(timeout: 5))
-    XCTAssertTrue(element(app, containing: "Your art", and: "Cut-out of cand-1").exists, "the original is back")
+    XCTAssertTrue(element(app, containing: "Your art", and: "Yellow school bus under a purple sky").exists, "one change back: the first change")
+    typeChange(app, "Add a moon")
+    tap(app, "Make the change")
+    XCTAssertTrue(app.staticTexts["Here's the change"].waitForExistence(timeout: 20))
+    XCTAssertEqual(try lastBody("change")["artworkId"] as? String, "ch1", "the chain kept ch1")
+    XCTAssertTrue(element(app, containing: "YOU ASKED", and: "Add a moon").exists)
+    app.buttons["Back to my original"].tap()
+    XCTAssertTrue(changeField(app).waitForExistence(timeout: 5))
+    XCTAssertTrue(element(app, containing: "Your art", and: "Yellow school bus").exists, "ch3 → ch1")
+    // Looks good on ch1 (never cut out): Making your cutout, Your cutout, then the product.
+    tap(app, "Looks good as is")
+    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 15), "the change is cut out first")
+    XCTAssertEqual(try lastBody("cutout")["artworkId"] as? String, "ch1")
+    app.buttons["Back"].firstMatch.tap()
+    // Back from this Your cutout: Change it (it was opened from there).
+    XCTAssertTrue(changeField(app).waitForExistence(timeout: 5))
+    // Back from Change it: Your cutout of the piece (canonical Back), whose Use this is Change it again.
+    app.buttons["Back"].firstMatch.tap()
+    XCTAssertTrue(app.staticTexts["Here's the cutout of your art. Fix the edges if you need to."].waitForExistence(timeout: 5),
+                  "Back from Change it: Your cutout of the piece")
+    tap(app, "Use this")
+    XCTAssertTrue(changeField(app).waitForExistence(timeout: 5))
+    XCTAssertTrue(element(app, containing: "Your art", and: "Yellow school bus").exists, "Change it still shows the change on screen")
+    XCTAssertEqual(try count("cutout"), 1)
+  }
+
+  /// T131 order: Adjust the area → Making your cutout → Your cutout → Change it → "Looks good as is"
+  /// → Making your sticker → Listing details, from the piece's cut-out (no cutout call).
+  func testLooksGoodGoesStraightToTheProduct() throws {
+    let app = launchPhotoFlow(code: "TEST-CODE")
+    pickPiece(app, "Piece 1")
+    XCTAssertEqual(try lastBody("cleanup")["candidateIds"] as? [String], ["cand-1"], "cut on the way to Change it")
     tap(app, "Looks good as is")
     XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 20), "straight to Making your sticker, then Listing details")
+    XCTAssertFalse(app.staticTexts["Your cutout is ready. Here it is."].exists)
     XCTAssertTrue(try lastBody("cutout").isEmpty, "the drawing's cut-out exists: no cutout call")
     XCTAssertEqual(try lastBody("products")["artworkId"] as? String, "p1", "the original drawing becomes the product")
   }
 
   /// One drawing, already cut out (mock ONE…): no Choose a pattern, but Adjust the area still comes
-  /// first (ruling, T122); its frame unchanged sends no new cut. Then a tote bag with the tote copy.
-  func testSingleDrawingGoesStraightToChangeIt() throws {
+  /// first (ruling, T122) and its frame cuts it again (T131: the server's cut is not clipped). Then a
+  /// tote bag with the tote copy.
+  func testSingleDrawingIsCutWithTheFrame() throws {
     let app = launchPhotoFlow(code: "ONE-CODE", product: "Tote bag, Natural canvas")
     XCTAssertTrue(app.otherElements["adjust-area"].waitForExistence(timeout: 20), "Adjust the area right after the photo")
     XCTAssertFalse(app.buttons["Piece 1"].exists)
     tap(app, "Use this area")
+    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 15), "Your cutout")
+    let body = try lastBody("cleanup")
+    XCTAssertEqual(body["candidateIds"] as? [String], ["cand-1"], "the auto-cut piece is cut with the frame")
+    XCTAssertEqual(body["clipToBox"] as? Bool, true)
+    tap(app, "Use this")
     XCTAssertTrue(app.buttons["Looks good as is"].waitForExistence(timeout: 10), "then Change it")
-    XCTAssertTrue(try lastBody("cleanup").isEmpty, "the server's cut is kept")
-    XCTAssertTrue(element(app, containing: "WHAT THE IMAGE SHOWS", and: "Cut-out of piece 1").exists)
+    XCTAssertTrue(element(app, containing: "WHAT THE IMAGE SHOWS", and: "Cut-out of cand-1").exists)
     app.buttons["Looks good as is"].tap()
     XCTAssertTrue(app.textFields["Name"].waitForExistence(timeout: 20), "Making your tote bag, then Listing details")
     XCTAssertEqual(try lastBody("products")["type"] as? String, "tote")
@@ -101,6 +147,7 @@ final class ChangeItUITests: XCTestCase {
   func testMakeTheChangeNeedsWords() {
     let app = launchPhotoFlow(code: "ONE-CODE")
     tap(app, "Use this area")
+    tap(app, "Use this")
     let make = app.buttons["Make the change"]
     XCTAssertTrue(make.waitForExistence(timeout: 20))
     XCTAssertFalse(make.isEnabled, "dimmed until there is a change")
@@ -115,6 +162,7 @@ final class ChangeItUITests: XCTestCase {
   func testChangeButtonsShareOneRow() {
     let app = launchPhotoFlow(code: "ONE-CODE")
     tap(app, "Use this area")
+    tap(app, "Use this")
     let make = app.buttons["Make the change"]
     let keep = app.buttons["Looks good as is"]
     XCTAssertTrue(make.waitForExistence(timeout: 20))
@@ -150,8 +198,11 @@ final class ChangeItUITests: XCTestCase {
     XCTAssertTrue(piece.waitForExistence(timeout: 20), "Choose a pattern shows the drawings")
     piece.tap()
     tap(app, "Use this")
-    // Adjust the area (T122): the frame on the piece as it starts.
+    // Adjust the area (T122): the frame on the piece as it starts; Making your cutout, then Your
+    // cutout (T131), whose Use this goes on to Change it.
     tap(app, "Use this area")
+    XCTAssertTrue(app.staticTexts["Your cutout is ready. Here it is."].waitForExistence(timeout: 15), "Your cutout of the piece")
+    tap(app, "Use this")
   }
 
   private func changeField(_ app: XCUIApplication) -> XCUIElement {

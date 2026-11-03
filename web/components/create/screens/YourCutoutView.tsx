@@ -1,7 +1,8 @@
 import type { ReactNode, Ref } from "react";
-import { m } from "@/components/messages";
 import { Button } from "@/components/ui/Button";
-import { CloseIcon, MinusIcon, PlusIcon } from "@/components/ui/Icons";
+import { ArtImage } from "@/components/ui/ArtImage";
+import { CheckIcon, CloseIcon, MinusIcon, PlusIcon } from "@/components/ui/Icons";
+import { fmt, m } from "@/components/messages";
 import { Loading } from "@/components/ui/Loading";
 import { NoticeCard } from "../cards";
 import { CreateScreen } from "../CreateScreen";
@@ -40,11 +41,19 @@ export type YourCutoutViewProps = {
   error: ScreenError | null;
   canUse: boolean;
   canApply: boolean;
+  /**
+   * The candidate strip (round 3): the pieces `detect` found inside the frame, only when there are
+   * two or more; `picked` is the one in the cut.
+   */
+  pieces?: { id: string; thumbUrl: string }[] | null;
+  picked?: string;
   resultRef?: Ref<HTMLHeadingElement>;
   errorRef?: Ref<HTMLDivElement>;
   /** The Add area / Remove area picker, focused when Fix the edges opens. */
   toolsRef?: Ref<HTMLFieldSetElement>;
   on: {
+    /** Picks another piece from the strip (re-cut with the frame). */
+    pick?: (id: string) => void;
     mode: (mode: TapMode) => void;
     addAround: () => void;
     removeMark: (index: number) => void;
@@ -99,6 +108,26 @@ export function YourCutoutView({ resultRef, errorRef, toolsRef, on, ...p }: Your
       ) : p.photoState === "loading" ? <Loading label={t.loadingPhoto} /> : <NoticeCard>{t.photoMissingNone}</NoticeCard>}
 
       {busy ? <Loading inline label={t.applying} /> : null}
+
+      {!busy && p.pieces && p.pieces.length >= 2 ? (
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.marksLabel}>{t.groupLabel}</legend>
+          <ul role="list" className={styles.pieces}>
+            {p.pieces.map((c, i) => (
+              <li key={c.id}>
+                <label className={styles.piece}>
+                  <input className="visually-hidden" type="radio" name={`${p.uid}-piece`} value={c.id} checked={p.picked === c.id} onChange={() => on.pick?.(c.id)} />
+                  <span className={styles.pieceThumb}>
+                    <ArtImage src={c.thumbUrl} alt="" placeholder={m.common.imageMissing} className={styles.pieceArt} />
+                    <span className={styles.pieceCheck} aria-hidden="true"><CheckIcon /></span>
+                  </span>
+                  <span className={styles.pieceName}>{fmt(t.candidate, { n: i + 1 })}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </fieldset>
+      ) : null}
 
       {!busy && !showing && p.canShowCut ? (
         <Button block variant="secondary" arrow={false} onClick={on.showCut}>{t.showCutout}</Button>

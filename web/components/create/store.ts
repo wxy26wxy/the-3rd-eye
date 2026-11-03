@@ -50,12 +50,10 @@ export type Draft = {
   candidates?: Candidate[];
   /** Pixels of the stored original for `photoArtworkId` (the space of `Candidate.bbox`). */
   imageSize?: ImageSize | null;
-  /**
-   * What Adjust the area frames (R2): the photo artwork and the piece (picked on Choose a pattern,
-   * `fromPattern`, or the single piece the server found); no `candidateId` when no drawing was
-   * found: the frame starts at the whole photo.
-   */
-  area?: { artworkId: string; candidateId?: string; fromPattern?: boolean };
+  /** What Adjust the area frames (round 3): the photo artwork; the frame starts at the whole photo. */
+  area?: { artworkId: string };
+  /** The last `detect` found nothing in the frame: Adjust the area says to move or grow it. */
+  areaNotFound?: boolean;
   /** The cut piece (Adjust the area's `cleanup`); the same row as `photoArtworkId`. */
   pieceArtworkId?: string;
   pieceCandidateId?: string;
@@ -80,7 +78,7 @@ export type Draft = {
    * The cut "Use this area" asked for, run by Making your cutout (T130); `nonce` is new per "Use
    * this area", so a kept-mounted /create/cutout never re-sends an older one.
    */
-  pendingArea?: { artworkId: string; candidateId?: string; box: Box; nonce: string };
+  pendingArea?: { artworkId: string; box: Box; nonce: string };
   /** The row that "Your cutout" works on (the piece, or the change result after `cutout`). */
   cutoutArtworkId?: string;
   /** Every cut made in this draft, by artwork (a change result is cut once, T130). */

@@ -1,11 +1,11 @@
 /**
- * The creator flow's routing and draft decisions (canonical order, T130: photo → pattern → adjust
- * the area → making your cutout → your cutout → change it → [changing → compare → making your
- * cutout → your cutout] → making the product),
+ * The creator flow's routing and draft decisions (canonical order, round 3: photo → adjust the area
+ * on the whole photo → making your cutout (`detect`) → your cutout → change it → [changing → compare
+ * → making your cutout → your cutout] → making the product),
  * kept out of the screens so they can be tested with a mocked `api` and router.
  */
 import { m } from "@/components/messages";
-import { uuid, type Artwork, type Candidate, type ChangeResult, type CleanupResult, type CutoutResult, type Product } from "./api";
+import { uuid, type Artwork, type Candidate, type ChangeResult, type CleanupResult, type CutoutResult, type DetectResult, type Product } from "./api";
 import { sameBox } from "./area";
 import { productNotice, wholeImageBox, type Box, type CleanupRequest } from "./cutout";
 import { addChange, currentArtworkId, currentChange, cutoutOf, withCutout, type ChangeStep, type CutoutState, type Draft } from "./store";
@@ -28,59 +28,26 @@ const NOTICE_COPY = { failed: m.create.select.failedProducts, unpublished: m.cre
 export type PhotoResult = { artwork: Artwork; candidates: Candidate[]; imageSize?: { w: number; h: number } | null };
 
 /**
- * After `POST /artworks` (photo): one piece the server already cut → Adjust the area on that piece
- * (R2: the area is always set there; the server's cut is replaced by the frame's); otherwise →
- * Choose a pattern.
+ * After `POST /artworks {detect:false}` (round 3): always Adjust the area on the stored photo, the
+ * frame at the whole photo; detection runs inside the frame on "Use this area".
  */
 export function afterPhoto({ router, update }: Pick<FlowDeps, "router" | "update">, res: PhotoResult): void {
-  const fresh = { ...NEW_PIECE, area: undefined, photoArtworkId: res.artwork.id, candidates: res.candidates, imageSize: res.imageSize ?? null };
-  if (res.artwork.cleanedUrl) {
-    update({ ...fresh, area: { artworkId: res.artwork.id, candidateId: res.candidates[0]?.id } });
-    router.push("/create/adjust");
-    return;
-  }
-  update(fresh);
-  router.push("/create/pattern");
-}
-
-/** Zero pieces found ("Draw a box around your drawing"): Adjust the area on this photo, framed on the whole photo. */
-export function adjustWholePhoto({ router, update }: Pick<FlowDeps, "router" | "update">, artworkId: string): void {
-  update({ ...NEW_PIECE, photoArtworkId: artworkId, candidates: [], imageSize: null, area: { artworkId } });
+  update({ ...NEW_PIECE, areaNotFound: undefined, photoArtworkId: res.artwork.id, candidates: [], imageSize: res.imageSize ?? null, area: { artworkId: res.artwork.id } });
   router.push("/create/adjust");
 }
 
-// ---- Choose a pattern
+// ---- Adjust the area
 
-/** "Use this" on Choose a pattern: Adjust the area opens framed on that piece (no call yet). */
-export function pickPiece({ router, update }: Pick<FlowDeps, "router" | "update">, artworkId: string, candidateId: string): void {
-  update({ area: { artworkId, candidateId, fromPattern: true } });
-  router.push("/create/adjust");
-}
-
-// ---- Adjust the area (R2)
-
-/** Back from Adjust the area: Choose a pattern when the piece was picked there, else the photo screen. */
+/** Back from Adjust the area: the photo screen it came from. */
 export function adjustBack(d: Draft): string {
-  if (d.area?.fromPattern) return "/create/pattern";
   return d.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
 }
 
 /**
- * The `cleanup` body for the frame: the picked piece plus the box (only the box when no piece was
- * found), with `clipToBox` so nothing of the cut lies outside the frame (T126; a frame that leaves
- * nothing answers 422 `no_drawing_found`, shown as "move or grow the frame").
- */
-export function areaRequest(area: { candidateId?: string }, box: Box): { candidateIds?: string[]; box: Box; clipToBox: true } {
-  return area.candidateId
-    ? { candidateIds: [area.candidateId], box: [...box] as Box, clipToBox: true }
-    : { box: [...box] as Box, clipToBox: true };
-}
-
-/**
- * "Use this area" (T130): on to /create/cutout, where Making your cutout sends `POST
- * /artworks/{id}/cleanup {candidateIds:[piece], box, clipToBox: true}` (`runAreaCut`). The same
- * piece with the same frame as last time keeps its cut (no call) and shows Your cutout again, on
- * the piece (a change made before is dropped: it was made from the old cut).
+ * "Use this area" (round 3): on to /create/cutout, where Making your cutout sends `POST
+ * /artworks/{id}/detect {box}` (`runAreaCut`; a re-framed area always detects again). The same
+ * frame as last time keeps its cut (no call) and shows Your cutout again, on the piece (a change
+ * made before is dropped: it was made from the old cut).
  */
 export function cutArea({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, box: Box): void {
   const d = getDraft();
@@ -88,38 +55,65 @@ export function cutArea({ router, update, getDraft }: Pick<FlowDeps, "router" | 
   if (!area) return;
   // A second tap while the same cut is on its way (T133): no second cleanup, the same Making screen.
   const p = d.pendingArea;
-  if (p && p.artworkId === area.artworkId && p.candidateId === area.candidateId && sameBox(p.box, box)) {
+  if (p && p.artworkId === area.artworkId && sameBox(p.box, box)) {
     router.push("/create/cutout");
     return;
   }
-  if (d.pieceArtworkId === area.artworkId && d.pieceCandidateId === area.candidateId && sameBox(d.pieceBox, box) && d.pieceUrl && cutoutOf(d, area.artworkId)) {
-    update({ changedArtworkId: undefined, changes: undefined, changeInstruction: undefined, changeTranscript: undefined, cutoutArtworkId: area.artworkId });
+  if (d.pieceArtworkId === area.artworkId && sameBox(d.pieceBox, box) && d.pieceUrl && cutoutOf(d, area.artworkId)) {
+    update({ areaNotFound: undefined, changedArtworkId: undefined, changes: undefined, changeInstruction: undefined, changeTranscript: undefined, cutoutArtworkId: area.artworkId });
     router.push("/create/cutout");
     return;
   }
-  update({ ...NEW_PIECE, cutoutArtworkId: area.artworkId, pendingArea: { artworkId: area.artworkId, candidateId: area.candidateId, box: [...box] as Box, nonce: newNonce() } });
+  update({ ...NEW_PIECE, areaNotFound: undefined, cutoutArtworkId: area.artworkId, pendingArea: { artworkId: area.artworkId, box: [...box] as Box, nonce: newNonce() } });
   router.push("/create/cutout");
 }
 
 /**
- * Making your cutout for "Use this area": the `cleanup` call, then the cut piece is the piece and
- * its cut is on Your cutout (the screen follows the draft; no navigation). A result for a frame
+ * Making your cutout for "Use this area": `POST /artworks/{id}/detect {box}` (SAM inside the frame,
+ * the largest piece cut out and clipped), then that piece is the piece and its cut is on Your
+ * cutout with the pieces found (the screen follows the draft; no navigation). A result for a frame
  * that was replaced meanwhile (Back, a new frame) is dropped.
  */
 export async function runAreaCut({ api, update, getDraft }: Pick<FlowDeps, "api" | "update" | "getDraft">, job: NonNullable<Draft["pendingArea"]>): Promise<void> {
-  const art = await api<CleanupResult>(`artworks/${job.artworkId}/cleanup`, { json: areaRequest(job, job.box) });
+  const res = await api<DetectResult>(`artworks/${job.artworkId}/detect`, { json: { box: [...job.box] } });
   const d = getDraft();
   if (d.pendingArea?.nonce !== job.nonce) return;
+  const art = res.artwork;
+  const first = res.candidates[0]?.id;
   const cut: CutoutState = {
-    artworkId: job.artworkId, candidates: d.candidates ?? [], imageSize: d.imageSize ?? null,
-    selectedIds: job.candidateId ? [job.candidateId] : [], cleanedUrl: art.cleanedUrl, altText: art.altText, box: [...job.box] as Box, points: [],
+    artworkId: job.artworkId, candidates: res.candidates, imageSize: res.imageSize ?? d.imageSize ?? null,
+    selectedIds: first ? [first] : [], cleanedUrl: art.cleanedUrl, altText: art.altText, box: [...job.box] as Box, points: [],
   };
   update({
-    pendingArea: undefined, pieceArtworkId: job.artworkId, pieceCandidateId: job.candidateId, pieceBox: [...job.box] as Box,
+    pendingArea: undefined, candidates: res.candidates, imageSize: res.imageSize ?? d.imageSize ?? null,
+    pieceArtworkId: job.artworkId, pieceCandidateId: first, pieceBox: [...job.box] as Box,
     pieceUrl: art.cleanedUrl, pieceAlt: art.altText, pieceSpoken: art.spokenDescription,
     ...withCutout(d, cut), cutoutArtworkId: job.artworkId,
-    cutoutNotice: productNotice(art.details, NOTICE_COPY) ?? undefined,
+    cutoutNotice: productNotice(res.details, NOTICE_COPY) ?? undefined,
   });
+}
+
+/**
+ * `detect` found nothing inside the frame (`422 no_drawing_found`): back to Adjust the area, which
+ * says to move or grow the frame (only for the frame still waiting; nothing was cut).
+ */
+export function areaNotFound({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, job: NonNullable<Draft["pendingArea"]>): void {
+  if (getDraft().pendingArea?.nonce !== job.nonce) return;
+  update({ pendingArea: undefined, areaNotFound: true });
+  router.replace("/create/adjust");
+}
+
+/**
+ * The candidate strip on Your cutout (shown for two pieces or more): picking another piece re-cuts
+ * it with the frame, `cleanup {candidateIds:[picked], box, clipToBox: true}` (marks start over).
+ */
+export function pickRequest(candidateId: string, box: Box): { candidateIds: string[]; box: Box; clipToBox: true } {
+  return { candidateIds: [candidateId], box: [...box] as Box, clipToBox: true };
+}
+
+/** The candidate strip shows only when several pieces were found. */
+export function showsPieces(cut: Pick<CutoutState, "candidates">): boolean {
+  return cut.candidates.length >= 2;
 }
 
 /** Making your cutout for a change result: `POST /artworks/{id}/cutout` (once per artwork); the box for later marks is the whole picture. */
@@ -342,6 +336,12 @@ export function artOnScreen(d: Draft): { src: string | null; alt: string | null;
  */
 export function redoListing({ router, update }: Pick<FlowDeps, "router" | "update">, product: Pick<Product, "artworkId">): void {
   update({ listingRun: undefined, listing: undefined, trace: undefined, cutoutArtworkId: product.artworkId });
+  router.push("/create/cutout");
+}
+
+/** "Re-do the cutout" after a print check on approve: Your cutout of the product's artwork; the listing and product stay. */
+export function redoCutout({ router, update }: Pick<FlowDeps, "router" | "update">, product: Pick<Product, "artworkId">): void {
+  update({ cutoutArtworkId: product.artworkId });
   router.push("/create/cutout");
 }
 

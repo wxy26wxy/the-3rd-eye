@@ -141,19 +141,6 @@
 .cutPhoto { position: relative; width: 100%; max-height: var(--size-photo-max-height); }
 .cutStage { position: absolute; top: 0; left: 50%; transform: translateX(-50%); height: 100%; max-width: 100%; }
 .cutImg { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; }
-.outline {
-  position: absolute; pointer-events: none;
-  border: calc(var(--border-thin) * 2) dashed var(--text); border-radius: var(--radius-m);
-  box-shadow: 0 0 0 var(--border-thin) var(--surface);
-}
-/* Choose a pattern: a tap on an outline picks that piece. */
-.outlinePick { pointer-events: auto; cursor: pointer; }
-.outlineOn { border-style: solid; background: color-mix(in srgb, var(--surface-alt) 35%, transparent); }
-.outlineCheck {
-  position: absolute; top: calc(var(--space-s) * -1); right: calc(var(--space-s) * -1);
-  display: grid; place-items: center; width: var(--size-radio); height: var(--size-radio);
-  border-radius: var(--radius-pill); background: var(--text); color: var(--surface); font-size: var(--type-caption-size);
-}
 .checker {
   position: relative; width: 100%; max-height: var(--size-photo-max-height); overflow: hidden;
   border: var(--border-thin) solid var(--border); border-radius: var(--radius-card);

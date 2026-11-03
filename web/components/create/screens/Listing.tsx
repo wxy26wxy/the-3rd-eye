@@ -5,7 +5,7 @@ import { fmt, m } from "@/components/messages";
 import { api, uuid, type AgentStep, type ListingDraft, type Product } from "../api";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { describeError, type ScreenError } from "../errors";
-import { canRedoListing, redoListing } from "../flow";
+import { canRedoListing, redoCutout, redoListing } from "../flow";
 import { cutoutOf, getDraft, once, pictureOf, updateDraft, useCreate, useCreator } from "../store";
 import { ListingView } from "./ListingView";
 
@@ -91,7 +91,8 @@ function ListingForm() {
   const earn = cents ? Math.floor((cents * bps) / 10000) : null;
   const printOk = draft.listing?.print_ok;
 
-  async function submit(e?: FormEvent) {
+  /** Approve; `acceptPrintWarning` after "Use anyway" on a contrast warning (round 3 ruling 2). */
+  async function submit(e?: FormEvent, acceptPrintWarning = false) {
     e?.preventDefault();
     if (!p) return;
     const errs = { title: title.trim() ? undefined : m.create.listing.nameRequired, price: cents ? undefined : m.create.listing.priceInvalid };
@@ -101,7 +102,7 @@ function ListingForm() {
     setError(null);
     try {
       const res = await api<{ product: Product; storyVideoNeeded: boolean }>(`listings/${p.id}/approve`, {
-        json: { approvedVia: "tap", edits: { title: title.trim(), description: description.trim(), priceCents: cents } },
+        json: { approvedVia: "tap", edits: { title: title.trim(), description: description.trim(), priceCents: cents }, ...(acceptPrintWarning ? { acceptPrintWarning: true } : {}) },
       });
       updateDraft({ productRecord: res.product, listingTitle: title.trim(), storyVideoNeeded: res.storyVideoNeeded });
       router.push(res.storyVideoNeeded ? "/create/story-video" : "/create/live");
@@ -128,12 +129,16 @@ function ListingForm() {
       errors={errors}
       earnCents={earn}
       printOk={printOk}
+      printCheck={draft.listing?.print_check ?? null}
       trace={draft.trace ?? []}
       showTrace={showTrace}
       error={error}
       errorRef={errorRef}
       canRedo={canRedoListing(draft)}
-      on={{ redo: () => { if (p) { setError(null); redoListing({ router, update }, p); } }, title: setTitle, description: setDescription, price: setPrice, improve, retry: () => void (failedCall === "approve" ? submit() : improve()), toggleTrace: () => setShowTrace((v) => !v), submit }}
+      on={{
+        redo: () => { if (p) { setError(null); redoListing({ router, update }, p); } },
+        accept: () => void submit(undefined, true),
+        redoCut: canRedoListing(draft) && p ? () => { setError(null); redoCutout({ router, update }, p); } : undefined, title: setTitle, description: setDescription, price: setPrice, improve, retry: () => void (failedCall === "approve" ? submit() : improve()), toggleTrace: () => setShowTrace((v) => !v), submit }}
     />
   );
 }

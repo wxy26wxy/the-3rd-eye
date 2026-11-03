@@ -9,10 +9,10 @@ import {
   type CleanupRequest, type CutoutPoint, type XY,
 } from "../cutout";
 import { describeError, type ScreenError } from "../errors";
-import { applyMarks, cutIsChange, cutoutVisit, makingCutoutBack, runAreaCut, runChangeCut, takeCutout, yourCutoutBack } from "../flow";
+import { applyMarks, areaNotFound, cutIsChange, cutoutVisit, makingCutoutBack, pickRequest, runAreaCut, runChangeCut, showsPieces, takeCutout, yourCutoutBack } from "../flow";
 import { cutoutOf, getDraft, once, resetDraft, updateDraft, useCreate, type CutoutState, type Draft } from "../store";
 import { useOriginal } from "../useOriginal";
-import { areaError } from "./AdjustArea";
+import { areaError, isNotFound } from "./AdjustArea";
 import { CutoutPhoto, type TapMode } from "./CutoutPhoto";
 import { MakingCutoutView } from "./MakingCutoutView";
 import { YourCutoutView } from "./YourCutoutView";
@@ -46,16 +46,23 @@ export function Cutout() {
   return <MissingState />;
 }
 
-/** Making your cutout for "Use this area"; a frame with nothing in it shows the advice to move or grow it. */
+/**
+ * Making your cutout for "Use this area" (`detect` inside the frame); a frame with nothing in it goes
+ * back to Adjust the area, which says to move or grow it.
+ */
 function MakingArea({ job }: { job: NonNullable<Draft["pendingArea"]> }) {
+  const router = useRouter();
   const [error, setError] = useState<ScreenError | null>(null);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let live = true;
     // The draft is updated even after a navigation away; only a result for this frame counts.
-    once(`area:${job.nonce}:${attempt}`, () => runAreaCut(flowDeps, job)).catch((err) => { if (live) setError(areaError(err)); });
+    once(`area:${job.nonce}:${attempt}`, () => runAreaCut(flowDeps, job)).catch((err) => {
+      if (isNotFound(err)) { areaNotFound({ ...flowDeps, router }, job); return; }
+      if (live) setError(areaError(err));
+    });
     return () => { live = false; };
-  }, [job, attempt]);
+  }, [job, attempt, router]);
   return (
     <MakingCutoutView
       changed={false}
@@ -184,6 +191,31 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
     if (cut) { setShowCut(true); focusOn("result"); }
   }
 
+  /** The candidate strip: another piece, cut with the frame (`cleanup {candidateIds:[id], box, clipToBox}`); marks start over. */
+  async function pick(id: string) {
+    if (!box || inFlight.current || cutout.selectedIds[0] === id) return;
+    inFlight.current = true;
+    setWork("apply");
+    setError(null);
+    setNotice(null);
+    try {
+      const out = await applyMarks(flowDeps, { ...cutout, selectedIds: [id] }, pickRequest(id, box));
+      if (!live.current) return;
+      setPoints([]);
+      tell(out.notice);
+      setShowCut(true);
+      focusOn("result");
+    } catch (err) {
+      if (!live.current) return;
+      setError(describeError(err));
+      setFailed("apply");
+      focusOn("error");
+    } finally {
+      inFlight.current = false;
+      if (live.current) setWork(null);
+    }
+  }
+
   /** "Use this": the saved cut goes on (no second call); marks that were not applied yet are saved first. */
   async function goOn() {
     if (inFlight.current) return;
@@ -230,10 +262,13 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
       error={error}
       canUse={!!cutout.cleanedUrl || !!request}
       canApply={!!request && !saved}
+      pieces={showsPieces(cutout) ? cutout.candidates.map((x) => ({ id: x.id, thumbUrl: x.thumbUrl })) : null}
+      picked={cutout.selectedIds[0]}
       resultRef={resultRef}
       errorRef={errorRef}
       toolsRef={toolsRef}
       on={{
+        pick: (id) => void pick(id),
         mode: setMode,
         addAround: () => { const pt = centrePoint(piece?.bbox ?? box); if (pt) addMark(pt); },
         removeMark,

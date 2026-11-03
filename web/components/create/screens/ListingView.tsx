@@ -32,6 +32,8 @@ export type ListingViewProps = {
   /** What the creator earns per sale, in cents (null while the price is not valid). */
   earnCents: number | null;
   printOk: boolean | undefined;
+  /** Which check flagged it (round 3): the warning line follows it. */
+  printCheck?: "resolution" | "contrast" | null;
   trace: AgentStep[];
   showTrace: boolean;
   error: ScreenError | null;
@@ -46,10 +48,22 @@ export type ListingViewProps = {
     improve: () => void;
     /** Repeats the call that failed (approve or the agent). */
     retry: () => void;
+    /** "Use anyway" after a contrast warning: approve with `acceptPrintWarning: true`. */
+    accept?: () => void;
+    /** "Re-do the cutout" after a print check: Your cutout of the product's artwork. */
+    redoCut?: () => void;
     toggleTrace: () => void;
     submit: (e: FormEvent) => void;
   };
 };
+
+/** The print check line's status: fine, the colors may look faint (contrast), or blurry (resolution). */
+export function printStatus(ok: boolean, check?: "resolution" | "contrast" | null): string {
+  const l = m.create.listing;
+  if (check === "contrast") return l.printWarnContrast;
+  if (check === "resolution") return l.printWarnResolution;
+  return ok ? l.printOk : l.printWarn;
+}
 
 /**
  * Get it ready for the shop (boards `2030:3752`, drafting `2030:3804`, error `2030:3832`). Element order
@@ -60,7 +74,7 @@ export type ListingViewProps = {
  * animation, still under reduced motion, and the line) takes the place of the text fields only,
  * followed by a secondary "Redo".
  */
-export function ListingView({ uid, mockup, drafting, canRedo, improving, submitting, title, description, price, errors, earnCents, printOk, trace, showTrace, error, errorRef, on }: ListingViewProps) {
+export function ListingView({ uid, mockup, drafting, canRedo, improving, submitting, title, description, price, errors, earnCents, printOk, printCheck, trace, showTrace, error, errorRef, on }: ListingViewProps) {
   const traceId = `${uid}-trace`;
   return (
     <CreateScreen
@@ -95,7 +109,7 @@ export function ListingView({ uid, mockup, drafting, canRedo, improving, submitt
           {printOk !== undefined ? (
             <p className={styles.printCheck}>
               <span aria-hidden="true" className={styles.printIcon}>{printOk ? <CheckIcon /> : <WarningIcon />}</span>
-              {m.create.listing.printCheck.replace("{status}", printOk ? m.create.listing.printOk : m.create.listing.printWarn)}
+              {m.create.listing.printCheck.replace("{status}", printStatus(printOk, printCheck))}
             </p>
           ) : null}
           {trace.length ? (
@@ -116,7 +130,7 @@ export function ListingView({ uid, mockup, drafting, canRedo, improving, submitt
               </div>
             </>
           ) : null}
-          <div ref={errorRef} tabIndex={-1} className={styles.errorSpot}><ErrorNotice error={error} onRetry={on.retry} /></div>
+          <div ref={errorRef} tabIndex={-1} className={styles.errorSpot}><ErrorNotice error={error} onRetry={on.retry} onAccept={on.accept} onRedo={on.redoCut} /></div>
         </form>
       )}
     </CreateScreen>

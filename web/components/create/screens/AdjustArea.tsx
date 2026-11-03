@@ -23,21 +23,26 @@ export function sizeText(box: Box, image: ImageSize): string {
 
 /** A 422 for the frame is about where the frame is, not about the photo: move or grow it and try again. */
 export function areaError(err: unknown): ScreenError {
-  if (err instanceof ApiError && err.code === "no_drawing_found") return { message: a.notFound, action: "none" };
+  if (isNotFound(err)) return { message: a.notFound, action: "none" };
   return describeError(err);
 }
 
+/** `detect` found nothing inside the frame. */
+export function isNotFound(err: unknown): boolean {
+  return err instanceof ApiError && err.code === "no_drawing_found";
+}
+
 /**
- * /create/adjust (R2): Adjust the area, between Choose a pattern and Your cutout. The frame starts on
- * the picked piece's bbox grown by 8 % (the whole photo when no drawing was found); "Use this area"
- * goes on to Making your cutout, which cuts it out (`POST /artworks/{id}/cleanup {candidateIds:[piece],
- * box, clipToBox: true}`, T130), then Your cutout.
+ * /create/adjust (round 3): Adjust the area, right after the photo. The frame starts at the whole
+ * stored photo (or the frame of the last cut); "Use this area" goes on to Making your cutout, which
+ * detects inside the frame (`POST /artworks/{id}/detect {box}`), then Your cutout. When nothing was
+ * found there, this screen says to move or grow the frame.
  */
 export function AdjustArea() {
   const { ready, draft } = useCreate();
   if (!ready) return <HydratingScreen title={a.title} />;
   if (!draft.area || !draft.product) return <MissingState />;
-  return <AreaFlow key={`${draft.area.artworkId}:${draft.area.candidateId ?? ""}`} />;
+  return <AreaFlow key={draft.area.artworkId} />;
 }
 
 function AreaFlow() {
@@ -47,20 +52,22 @@ function AreaFlow() {
   const sizeId = `${uid}-size`;
   const { draft, update } = useCreate();
   const area = draft.area as NonNullable<typeof draft.area>;
-  const candidate = draft.candidates?.find((c) => c.id === area.candidateId) ?? null;
   const { detail, onImageError } = useOriginal(area.artworkId);
   const imageSize = detail.state === "ok" && detail.imageSize ? detail.imageSize : usableSize(draft.imageSize) ? draft.imageSize : null;
   const originalUrl = detail.state === "ok" ? detail.originalUrl : null;
   const retake = draft.method === "upload" ? "/create/photo?mode=upload" : "/create/photo?mode=camera";
-  // Coming back to the same piece shows the frame it was cut with; Reset always goes to the piece's bbox.
-  const returning = draft.pieceArtworkId === area.artworkId && draft.pieceCandidateId === area.candidateId ? draft.pieceBox ?? null : null;
+  // Coming back to the cut photo shows the frame it was cut with; Reset always goes to the whole photo.
+  const returning = draft.pieceArtworkId === area.artworkId ? draft.pieceBox ?? null : null;
   const [edited, setEdited] = useState<Box | null>(null);
   const [announce, setAnnounce] = useState("");
-  const initial = imageSize ? initialFrame(candidate?.bbox, imageSize) : null;
+  const initial = imageSize ? initialFrame(undefined, imageSize) : null;
   const box = edited ?? returning ?? initial;
 
   function say(text: string) { setAnnounce((prev) => (prev === text ? `${text} ` : text)); }
-  function commit(next: Box) { if (imageSize) say(sizeText(next, imageSize)); }
+  function commit(next: Box) {
+    if (draft.areaNotFound) update({ areaNotFound: undefined });
+    if (imageSize) say(sizeText(next, imageSize));
+  }
   function reset() {
     if (!initial || !imageSize) return;
     setEdited(initial);
@@ -80,7 +87,6 @@ function AreaFlow() {
       sizeText={box && imageSize ? sizeText(box, imageSize) : ""}
       back={adjustBack(draft)}
       retake={retake}
-      none={!area.candidateId}
       busy={false}
       photo={imageSize && originalUrl && box ? (
         <AreaFrame
@@ -92,7 +98,7 @@ function AreaFlow() {
       photoState={detail.state === "loading" ? "loading" : "missing"}
       announce={announce}
       canUse={!!box}
-      error={null}
+      error={draft.areaNotFound ? { message: a.notFound, action: "none" } : null}
       on={{ use, reset }}
     />
   );

@@ -11,8 +11,7 @@ import { AreaFrame } from "@/components/create/screens/AreaFrame";
 import { sizeText } from "@/components/create/screens/AdjustArea";
 import { StoryVideoRowView } from "@/components/create/StoryVideoRow";
 import { MascotPicture } from "@/components/create/art";
-import { ListingView, LISTING_FORM, type ListingViewProps } from "@/components/create/screens/ListingView";
-import { ChoosePatternView, type ChoosePatternViewProps } from "@/components/create/screens/ChoosePatternView";
+import { ListingView, LISTING_FORM, printStatus, type ListingViewProps } from "@/components/create/screens/ListingView";
 import { ChangeItView, CHANGE_FORM, type ChangeItViewProps } from "@/components/create/screens/ChangeItView";
 import { BeforeAfterView, type BeforeAfterViewProps } from "@/components/create/screens/BeforeAfterView";
 import { MakingCutoutView } from "@/components/create/screens/MakingCutoutView";
@@ -78,6 +77,20 @@ describe("Your cutout view (T130: the cut, then Fix the edges with Add area / Re
     before(out, t.use, m.common.startOver);
     for (const gone of [t.apply, t.modeAdd, t.modeRemove, t.clearMarks]) expect(out).not.toContain(gone);
     expect(out).not.toContain('type="radio"');
+  });
+
+  it("round 3: the candidate strip shows the pieces found inside the frame only when there are two or more", () => {
+    const pieces = [{ id: "c1", thumbUrl: "/c1.png" }, { id: "c2", thumbUrl: "/c2.png" }];
+    const out = cutoutView({ pieces, picked: "c2" });
+    expect(out.match(/type="radio"/g)).toHaveLength(2);
+    expect(out).toMatch(/<input[^>]*name="u-piece"[^>]*value="c2"[^>]*checked|<input[^>]*checked[^>]*value="c2"/);
+    expect(text(out)).toContain(fmt(t.candidate, { n: 1 }));
+    expect(text(out)).toContain(t.groupLabel);
+    before(out, t.applied, t.groupLabel);
+    expect(cutoutView({ pieces: [pieces[0]] })).not.toContain('type="radio"');
+    expect(cutoutView({ pieces: null })).not.toContain('type="radio"');
+    // locked while a request runs
+    expect(cutoutView({ pieces, work: "apply" })).not.toContain('name="u-piece"');
   });
 
   it("Fix the edges: picture, Add area / Remove area, instruction, keyboard hint, Add the area around your art; Use this / Apply cutout / Start over; never Draw a box", () => {
@@ -146,7 +159,7 @@ describe("Your cutout view (T130: the cut, then Fix the edges with Add area / Re
 const ad = m.create.adjust;
 function adjust(over: Partial<AdjustAreaViewProps> = {}): string {
   const props: AdjustAreaViewProps = {
-    hintId: "h", sizeId: "sz", sizeText: "Frame covers 54 by 61 percent of the photo", back: "/create/pattern", retake: "/create/photo?mode=camera", none: false, busy: false,
+    hintId: "h", sizeId: "sz", sizeText: "Frame covers 54 by 61 percent of the photo", back: "/create/photo?mode=camera", retake: "/create/photo?mode=camera", busy: false,
     photo: createElement("div", null, "PHOTO"), photoState: "loading", announce: "", canUse: true, error: null,
     on: { use: noop, reset: noop },
     ...over,
@@ -169,8 +182,12 @@ describe("Adjust the area view (R2)", () => {
     expect([ad.title, ad.copy, ad.use, ad.reset, ad.frameLabel]).toEqual(["Adjust the area", "Drag the corners so the frame covers your drawing.", "Use this area", "Reset", "Area frame"]);
   });
 
-  it("no drawing found: the whole-photo copy", () => {
-    expect(text(adjust({ none: true }))).toContain(ad.copyNone);
+  it("round 3: nothing found inside the frame shows the move-or-grow advice on Adjust the area (no Retake)", () => {
+    const out = adjust({ error: { message: ad.notFound, action: "none" } });
+    before(out, "PHOTO", ad.notFound);
+    expect(out).toContain('role="alert"');
+    expect(out).not.toContain(m.create.errors.retake);
+    expect(m.create.photo.finding).toBe("Getting your photo ready…");
   });
 
   it("cutting: no Back, the cutting line, only Use this area (dimmed)", () => {
@@ -313,6 +330,36 @@ describe("Listing view (T105, board 2030:3752: element order follows the board)"
     expect(listing({ drafting: true, canRedo: false })).not.toContain(`>${m.create.listing.redo}<`);
   });
 
+  it("round 3 ruling 2: a contrast 409 says the colors may look faint with Use anyway and Re-do the cutout; resolution only Re-do", async () => {
+    const { ApiError } = await import("@/components/create/api");
+    const { describeError } = await import("@/components/create/errors");
+    const contrast = describeError(new ApiError(409, "print_check_failed", "contrast 1.2:1", { check: "contrast" }));
+    expect(contrast).toEqual({ message: m.create.errors.printContrast, action: "accept" });
+    const resolution = describeError(new ApiError(409, "print_check_failed", "dpi", { check: "resolution" }));
+    expect(resolution).toEqual({ message: m.create.errors.printResolution, action: "redo" });
+    // an older server without `check`: the reason as before
+    expect(describeError(new ApiError(409, "print_check_failed", "too small")).message).toBe(fmt(m.create.errors.printCheck, { reason: "too small" }));
+    const on = { ...listingOn, accept: noop, redoCut: noop };
+    const out = listing({ error: contrast, on });
+    before(out, m.create.errors.printContrast, m.create.errors.useAnyway);
+    before(out, m.create.errors.useAnyway, m.create.errors.redoCutout);
+    const res = listing({ error: resolution, on });
+    expect(res).toMatch(new RegExp(`<button[^>]*>(?:(?!</button>).)*${m.create.errors.redoCutout}`));
+    expect(res).not.toContain(m.create.errors.useAnyway);
+    expect(m.create.errors.useAnyway).toBe("Use anyway");
+    // no Re-do when there is no cut to go back to
+    expect(listing({ error: resolution, on: { ...listingOn, accept: noop } })).not.toMatch(new RegExp(`<button[^>]*>(?:(?!</button>).)*${m.create.errors.redoCutout}`));
+  });
+
+  it("round 3: the print check line follows print_check", () => {
+    const l = m.create.listing;
+    expect(printStatus(true, null)).toBe(l.printOk);
+    expect(printStatus(false, "contrast")).toBe(l.printWarnContrast);
+    expect(printStatus(false, "resolution")).toBe(l.printWarnResolution);
+    expect(printStatus(false, null)).toBe(l.printWarn);
+    expect(text(listing({ printOk: false, printCheck: "contrast" }))).toContain(l.printCheck.replace("{status}", l.printWarnContrast));
+  });
+
   it("409 print check / moderation: the error card sits after the print check, above the bar", () => {
     const message = fmt(m.create.errors.printCheck, { reason: "the picture is too small for a 3 inch sticker." });
     const out = listing({ printOk: undefined, trace: [], error: { message, action: "fix" } });
@@ -329,47 +376,11 @@ describe("Listing view (T105, board 2030:3752: element order follows the board)"
 });
 
 
-function pattern(over: Partial<ChoosePatternViewProps> = {}): string {
-  const props: ChoosePatternViewProps = {
-    lead: fmt(t.copyMany, { n: 3, product: "sticker" }),
-    retake: "/create/photo?mode=camera",
-    photo: createElement("div", null, "PHOTO"),
-    photoState: "loading",
-    candidates: [{ id: "a", thumbUrl: "/a.png" }, { id: "b", thumbUrl: "/b.png" }, { id: "c", thumbUrl: "/c.png" }],
-    picked: "a",
-    on: { pick: noop, use: noop },
-    ...over,
-  };
-  return html(createElement(ChoosePatternView, props));
-}
-
-describe("Choose a pattern view (T113, board 2027:3254)", () => {
-  it("title, copy, photo, the Drawings found radio strip, then Use this / Retake; no cutout tools", () => {
-    const out = pattern();
-    expect(t.title).toBe("Tap the one you want.");
-    expect(text(out)).toContain("We found 3 drawings in your photo. Pick one to change and turn into a sticker.");
-    before(out, t.title, "PHOTO");
-    before(out, "PHOTO", fmt(t.candidate, { n: 1 }));
-    before(out, fmt(t.candidate, { n: 3 }), t.use);
-    before(out, t.use, t.retake);
-    // single pick: one radio group, one checked
-    expect(out.match(/type="radio"/g)?.length).toBe(3);
-    expect(out.match(/type="radio"[^>]*checked/g)?.length).toBe(1);
-    expect(out).toContain(`<legend class="visually-hidden">${t.groupLabel}</legend>`);
-    for (const tool of ["Add area", "Box around this piece", "Apply cutout"]) expect(out).not.toContain(tool);
-  });
-
-  it("tote: the copy names the tote bag", () => {
-    expect(text(pattern({ lead: fmt(t.copyMany, { n: 2, product: "tote bag" }) }))).toContain("turn into a tote bag.");
-  });
-
-});
-
 const s = m.create.speak;
 const r = m.create.result;
 function change(over: Partial<ChangeItViewProps> = {}): string {
   const props: ChangeItViewProps = {
-    back: "/create/pattern",
+    back: "/create/cutout",
     phase: "idle",
     micOff: null,
     art: { src: "/piece.png", alt: "A fern" },

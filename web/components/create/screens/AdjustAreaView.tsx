@@ -18,7 +18,6 @@ export type AdjustAreaViewProps = {
   back: string;
   retake: string;
   /** No drawing was found on the photo: the frame starts at the whole photo. */
-  none: boolean;
   /** "Use this area" is cutting the piece out. */
   busy: boolean;
   /** The photo with the frame (AreaFrame), when the photo and its size are known. */
@@ -48,7 +47,7 @@ export function AdjustAreaView({ on, errorRef, ...p }: AdjustAreaViewProps) {
     </>
   );
   return (
-    <CreateScreen back={p.busy ? undefined : p.back} title={a.title} lead={p.none ? a.copyNone : a.copy} footer={footer}>
+    <CreateScreen back={p.busy ? undefined : p.back} title={a.title} lead={a.copy} footer={footer}>
       <p className="visually-hidden" role="status" aria-live="polite">{p.announce}</p>
       {p.photo !== null ? (
         <div className={[styles.photoCard, p.busy ? styles.photoCardBusy : ""].filter(Boolean).join(" ")}>{p.photo}</div>

@@ -402,3 +402,8 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Mock (`ios/scripts/mock_api.py`, merged T143 version): T141 adds `/__mock/count/blob-put` with `/__mock/last/blob-put` (the upload's JPEG pixel size) and makes sign-in `SLOW…` also slow `POST /products` (4 s).
 - Verify: from `ios/`, unit suite (203 tests) and UI suite (49 tests) green on a fresh iPhone 17 Pro (iOS 27.0) simulator against the mock (`docs/handoffs/ios.md` "Round 4 (T141, T144)"); `bash scripts/check_clean.sh` ok. `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` unchanged.
 - Unfinished / not verified on a device: the crop of a real camera photo (EXIF orientation from the camera), memory while scrolling 50 tiles (Instruments), the live `framed` and product rebuild timings.
+
+## T146 web · Superseded and failed crop rows (2026-11-03)
+- `flow.ts`: a re-frame deletes the previous photo row (`DELETE /artworks/{id}` via the BFF) after the new `POST /artworks` succeeds, never before; a 422 row (id from `ApiError.artworkId`) is deleted on the next "Use this area" (same frame or not) and on "Take a new photo"; a failed delete is logged and ignored; rows with a published product (draft's knowledge) are skipped. Stale results delete their own row.
+- Docs: `api.md` round 4 note under the table, `accessibility.md` Adjust the area web script line 6a, handoff.
+- Tests: 8 new in `test/create-flow.test.ts` (order, failed create keeps old row, 422 row on next Use this area and Take a new photo, failed delete, published guard).

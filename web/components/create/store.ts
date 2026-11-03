@@ -66,7 +66,7 @@ export type Draft = {
    * The crop of this frame found nothing (`422 no_drawing_found`): Adjust the area says to move or
    * grow the frame; "Use this area" on the same frame sends nothing again.
    */
-  areaNotFound?: { photoKey: string; box: Box };
+  areaNotFound?: { photoKey: string; box: Box; /** The row that answered 422 (deleted on the next Use this area or Take a new photo). */ artworkId?: string; /** The earlier photo row still to delete once a later upload succeeds. */ replaces?: string };
   /** The cut piece: the row `POST /artworks` made from the crop (its original is the crop). */
   pieceArtworkId?: string;
   pieceUrl?: string | null;
@@ -91,7 +91,7 @@ export type Draft = {
    * The crop "Use this area" asked for, run by Making your cutout (crop → upload → `POST /artworks`);
    * `nonce` is new per "Use this area", so a kept-mounted /create/cutout never re-sends an older one.
    */
-  pendingArea?: { photoKey: string; box: Box; nonce: string };
+  pendingArea?: { photoKey: string; box: Box; nonce: string; /** The earlier photo row this re-frame supersedes; deleted after the new `POST /artworks` succeeds. */ replaces?: string };
   /** The row that "Your cutout" works on (the piece, or the change result after `cutout`). */
   cutoutArtworkId?: string;
   /** Every cut made in this draft, by artwork (a change result is cut once, T130). */

@@ -17,6 +17,8 @@ export type AdjustAreaViewProps = {
   sizeText: string;
   back: string;
   retake: string;
+  /** Clicked "Take a new photo" (the link still navigates). */
+  onRetake?: () => void;
   /** "Use this area" is cutting the piece out. */
   busy: boolean;
   /** The photo with the frame (AreaFrame), when the photo and its size are known. */
@@ -44,7 +46,7 @@ export function AdjustAreaView({ on, errorRef, ...p }: AdjustAreaViewProps) {
     <>
       <Button block onClick={on.use} disabled={!p.canUse}>{a.use}</Button>
       <Button block variant="secondary" arrow={false} onClick={on.reset} disabled={!p.photo}>{a.reset}</Button>
-      <Button block variant="secondary" arrow={false} href={p.retake}>{a.newPhoto}</Button>
+      <Button block variant="secondary" arrow={false} href={p.retake} onClick={p.onRetake}>{a.newPhoto}</Button>
     </>
   );
   return (

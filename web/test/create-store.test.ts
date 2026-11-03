@@ -56,10 +56,12 @@ describe("creator draft v3 (T113): piece, changes, cutout", () => {
 });
 
 describe("R1 + T130: the product picture on creator screens", () => {
-  it("a sticker shows its bordered preview (never the mockup); a tote its AI mockup photo; else the cut-out art", async () => {
-    const { productPicture } = await import("@/components/create/store");
-    expect(productPicture({ type: "sticker", previewUrl: "/preview.png", mockupUrl: "/m.png" }, { cleanedUrl: "/cut.png" })).toBe("/preview.png");
-    expect(productPicture({ type: "sticker", previewUrl: null, mockupUrl: "/m.png" }, { cleanedUrl: "/cut.png" })).toBe("/cut.png");
+  it("round 3 ruling 1: the AI photo for both types; else a sticker's bordered preview; else the cut-out art", async () => {
+    const { productPicture, pictureOf } = await import("@/components/create/store");
+    expect(pictureOf({ type: "sticker", previewUrl: "/preview.png", mockupUrl: "/m.png" }, { cleanedUrl: "/cut.png" })).toEqual({ src: "/m.png", kind: "photo" });
+    expect(pictureOf({ type: "sticker", previewUrl: "/preview.png", mockupUrl: null }, { cleanedUrl: "/cut.png" })).toEqual({ src: "/preview.png", kind: "sticker" });
+    expect(pictureOf({ type: "sticker", previewUrl: null, mockupUrl: null }, { cleanedUrl: "/cut.png" })).toEqual({ src: "/cut.png", kind: "art" });
+    expect(productPicture({ type: "sticker", previewUrl: null, mockupUrl: "/m.png" }, { cleanedUrl: "/cut.png" })).toBe("/m.png");
     expect(productPicture({ type: "tote", previewUrl: null, mockupUrl: "/tote-mockup.png" }, { cleanedUrl: "/cut.png" })).toBe("/tote-mockup.png");
     expect(productPicture({ type: "tote", previewUrl: null, mockupUrl: null }, { cleanedUrl: "/cut.png" })).toBe("/cut.png");
     expect(productPicture(null, null)).toBeNull();

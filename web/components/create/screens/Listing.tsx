@@ -5,7 +5,7 @@ import { fmt, m } from "@/components/messages";
 import { api, type AgentStep, type ListingDraft, type Product } from "../api";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { describeError, type ScreenError } from "../errors";
-import { cutoutOf, once, productPicture, updateDraft, useCreate, useCreator } from "../store";
+import { cutoutOf, once, pictureOf, updateDraft, useCreate, useCreator } from "../store";
 import { ListingView } from "./ListingView";
 
 const toDollars = (cents: number) => (cents / 100).toFixed(2);
@@ -106,7 +106,7 @@ function ListingForm() {
   return (
     <ListingView
       uid={uid}
-      mockup={{ src: productPicture(p, art), shadow: !tote, alt: fmt(m.create.ready.mockupAlt, { product: tote ? m.common.tote : m.common.sticker }) }}
+      mockup={{ src: pictureOf(p, art).src, shadow: pictureOf(p, art).kind === "sticker", alt: fmt(m.create.ready.mockupAlt, { product: tote ? m.common.tote : m.common.sticker }) }}
       drafting={running && !draft.listing}
       improving={running && !!draft.listing}
       submitting={submitting}

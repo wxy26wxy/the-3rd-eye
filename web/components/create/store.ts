@@ -248,11 +248,19 @@ export function withCutout(d: Draft, cut: CutoutState): Partial<Draft> {
 }
 
 /**
- * The product picture creator screens show: a sticker's bordered preview (R1), a tote's Muse Image
- * mockup (T130 ruling: the AI tote photo again), else the cut-out art.
+ * The product picture creator screens show (Ready, Listing; round 3 ruling 1): the AI product photo
+ * (`mockupUrl`) for both types, else a sticker's bordered preview, else the cut-out art.
  */
 export function productPicture(p: Pick<Product, "type" | "previewUrl" | "mockupUrl"> | null | undefined, cut: Pick<CutoutState, "cleanedUrl"> | null | undefined): string | null {
-  if (p?.type === "tote" && p.mockupUrl) return p.mockupUrl;
-  if (p && p.type !== "tote" && p.previewUrl) return p.previewUrl;
-  return cut?.cleanedUrl ?? null;
+  return pictureOf(p, cut).src;
+}
+
+/**
+ * The picture and how to show it: "photo" (the AI photo, on the grey card), "sticker" (the bordered
+ * preview, soft shadow so its white border reads), "art" (the cut-out).
+ */
+export function pictureOf(p: Pick<Product, "type" | "previewUrl" | "mockupUrl"> | null | undefined, cut: Pick<CutoutState, "cleanedUrl"> | null | undefined): { src: string | null; kind: "photo" | "sticker" | "art" } {
+  if (p?.mockupUrl) return { src: p.mockupUrl, kind: "photo" };
+  if (p && p.type !== "tote" && p.previewUrl) return { src: p.previewUrl, kind: "sticker" };
+  return { src: cut?.cleanedUrl ?? null, kind: "art" };
 }

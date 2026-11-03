@@ -281,6 +281,8 @@ The canonical order on **both** web and iOS from v0.9.1 (replaces the round 3 ta
 | 9 | Listing "Redo" | → Your cutout of the product's artwork (step 3); "Use this" returns to Change it with that product | No new product. |
 | 10 | Approve, story video | as round 3 | |
 
+**Superseded and failed crop rows (T146).** Rows 1 and 2 leave rows behind: a re-frame in the same session makes a new row, and a frame that answers `422 no_drawing_found` leaves an empty draft row. Clients delete them with [`DELETE /artworks/{id}`](#clarifications-t010-backend-2026-10-28) (soft delete, archives the row's products): the superseded photo row **after** the new `POST /artworks` succeeds (a failed new upload keeps the old row), and a 422 row on the next "Use this area" (frame changed or not) or on "Take a new photo". A failed delete is logged and ignored. A row that has a published product is never deleted. The web does this in `components/create/flow.ts` (`dropRow`).
+
 `POST /artworks {detect: false}` and `POST /artworks/{id}/detect {box}` are **not used by the apps since v0.9.1**, kept for the round 3 TestFlight build (both keep working). The plain `POST /artworks {source:"photo"}` (no `framed`, no `detect`) keeps its whole-photo behaviour for the round 2b build in the field: it drops a paper/table-like result, auto-cuts only a single small piece and leaves `cleanedUrl` null when there are several (not what a tight crop needs, hence `framed`).
 
 ### `framed` on `POST /artworks` (T143)

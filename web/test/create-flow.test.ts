@@ -5,12 +5,12 @@ import {
   STORY_REDO_RETURN, storyVideoDone, canRedoListing, canRedoCutout, redoCutout, redoListing, redoTarget, adjustBack, takeNewPhoto, afterPhoto, applyMarks, areaNotFound, busyWhile, pickRequest, showsPieces, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
   changeItCut, cutoutVisit, leaveChanging, makingCutoutBack, runAreaCut, runChange, runChangeCut, skipChange, submitChange, takeChange, takeCutout, yourCutoutBack, type FlowDeps,
   areaFrame, cutoutNewPhoto, hasLocalPhoto, largestFirst, photoGone, PhotoGoneError, sameNotFound,
-  changeItProduct, fixCutout, productPicture, runProduct,
+  changeItProduct, fixCutout, productPicture, runProduct, discardNotFoundRow, dropRow, hasPublishedProduct,
 } from "@/components/create/flow";
 import { stageLine } from "@/components/create/screens/Changing";
 import { CropError } from "@/components/create/crop";
 import { putPhoto } from "@/components/create/localPhoto";
-import { marksRequest } from "@/components/create/cutout";
+import { marksRequest, type Box } from "@/components/create/cutout";
 import { dragFrame, initialFrame, keyFrame, moveFrame, resizeFrame, frameSize } from "@/components/create/area";
 import { ApiError } from "@/components/create/api";
 import { areaError, isNotFound } from "@/components/create/screens/AdjustArea";
@@ -851,5 +851,93 @@ describe("Round 3 review I3: Re-do the cutout after a print check", () => {
     expect(yourCutoutBack(h.draft, "p1")).toBe("/create/photo?mode=camera");
     // a change result's Your cutout never offers it (Back goes to Before and after)
     expect(cutoutNewPhoto({ ...h.draft, ...addChange(h.draft, change("k1", "p1")) }, "k1")).toBeNull();
+  });
+});
+
+describe("Superseded and failed photo rows are deleted (T146)", () => {
+  const deletes = (h: { api: { mock: { calls: unknown[][] } } }) =>
+    h.api.mock.calls.filter((c) => (c[1] as { method?: string } | undefined)?.method === "DELETE").map((c) => c[0]);
+
+  it("a re-frame deletes the previous photo row only after the new POST /artworks succeeds", async () => {
+    const h = harness({ ...piece }, { artworks: createAnswer() });
+    cutArea(h.deps, [5, 5, 100, 100]);
+    expect(h.draft.pendingArea?.replaces).toBe("p1");
+    expect(deletes(h)).toEqual([]);
+    await runAreaCut({ ...h.deps, upload: uploader().upload }, h.draft.pendingArea!);
+    const order = h.api.mock.calls.map((c) => `${(c[1] as { method?: string } | undefined)?.method ?? "POST"} ${c[0]}`);
+    expect(order).toEqual(["POST artworks", "DELETE artworks/p1"]);
+  });
+
+  it("a failed new upload or create keeps the old row", async () => {
+    const h = harness({ ...piece }, { artworks: new ApiError(504, "deadline_exceeded", "late") });
+    cutArea(h.deps, [5, 5, 100, 100]);
+    await expect(runAreaCut({ ...h.deps, upload: uploader().upload }, h.draft.pendingArea!)).rejects.toBeInstanceOf(ApiError);
+    expect(deletes(h)).toEqual([]);
+    const g = harness({ ...piece });
+    cutArea(g.deps, [5, 5, 100, 100]);
+    await expect(runAreaCut({ ...g.deps, upload: async () => { throw new Error("blob"); } }, g.draft.pendingArea!)).rejects.toThrow("blob");
+    expect(deletes(g)).toEqual([]);
+  });
+
+  it("a first frame (no earlier row) deletes nothing", async () => {
+    const h = harness({ product: "sticker", method: "photo", area }, { artworks: createAnswer() });
+    cutArea(h.deps, [5, 5, 100, 100]);
+    await runAreaCut({ ...h.deps, upload: uploader().upload }, h.draft.pendingArea!);
+    expect(deletes(h)).toEqual([]);
+  });
+
+  it("a row that answered 422 is deleted on the next Use this area, same frame or moved", () => {
+    for (const next of [[0, 0, 100, 100], [0, 0, 150, 150]] as Box[]) {
+      const h = harness({ product: "sticker", area });
+      cutArea(h.deps, [0, 0, 100, 100]);
+      areaNotFound(h.deps, h.draft.pendingArea!, "bad1");
+      expect(h.draft.areaNotFound?.artworkId).toBe("bad1");
+      expect(deletes(h)).toEqual([]);
+      cutArea(h.deps, next);
+      expect(deletes(h)).toEqual(["artworks/bad1"]);
+      expect(h.draft.areaNotFound?.artworkId).toBeUndefined();
+    }
+  });
+
+  it("a 422 row is kept apart from the chain: the earlier photo row is still deleted after the later success", async () => {
+    const h = harness({ ...piece }, { artworks: createAnswer() });
+    cutArea(h.deps, [0, 0, 50, 50]);
+    areaNotFound(h.deps, h.draft.pendingArea!, "bad1");
+    cutArea(h.deps, [0, 0, 120, 120]);
+    await runAreaCut({ ...h.deps, upload: uploader().upload }, h.draft.pendingArea!);
+    expect(deletes(h)).toEqual(["artworks/bad1", "artworks/p1"]);
+  });
+
+  it("Take a new photo deletes the 422 row once", () => {
+    const h = harness({ product: "sticker", area });
+    cutArea(h.deps, [0, 0, 100, 100]);
+    areaNotFound(h.deps, h.draft.pendingArea!, "bad1");
+    discardNotFoundRow(h.deps);
+    discardNotFoundRow(h.deps);
+    expect(deletes(h)).toEqual(["artworks/bad1"]);
+  });
+
+  it("a failed delete is logged and does not block the flow", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const h = harness({ ...piece }, { artworks: createAnswer(), "artworks/p1": new ApiError(500, "server_error", "x") });
+    cutArea(h.deps, [5, 5, 100, 100]);
+    await runAreaCut({ ...h.deps, upload: uploader().upload }, h.draft.pendingArea!);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(h.draft.pieceArtworkId).toBe("p2");
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("a row with a published product is never deleted", async () => {
+    const made = { id: "pr1", artworkId: "p1", creatorId: "me", type: "sticker" as const, mockupUrl: null, printPngUrl: null, printSvgUrl: null, priceCents: 500, status: "published", previewUrl: null, cut: null };
+    const d: Draft = { ...piece, made: { p1: made } };
+    expect(hasPublishedProduct(d, "p1")).toBe(true);
+    expect(hasPublishedProduct({ ...piece }, "p1")).toBe(false);
+    const h = harness(d, { artworks: createAnswer() });
+    cutArea(h.deps, [5, 5, 100, 100]);
+    await runAreaCut({ ...h.deps, upload: uploader().upload }, h.draft.pendingArea!);
+    await dropRow(h.deps, "p1");
+    expect(deletes(h)).toEqual([]);
   });
 });

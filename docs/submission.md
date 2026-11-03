@@ -18,9 +18,9 @@ Optional field. Plain language, the live site, one link placeholder.
 
 > 1/ Studios that support artists with disabilities can usually sell an original once, locally. Then it's gone. We built The 3rd Eye so one drawing can become stickers and tote bags people buy again and again. https://the-3rd-eye.vercel.app
 
-> 2/ The artist photographs their own sketch. Meta's SAM 3.1 finds the drawings on the page. They say "make the book red", Muse Voice Transcribe writes it down, Muse Image edits their piece (not a new picture), and Muse Spark describes the result so VoiceOver can read it.
+> 2/ The artist photographs their own sketch. They frame it on the phone and only that part is uploaded; Meta's SAM 3.1 finds the drawing in it. They say "make the book red", Muse Voice Transcribe writes it down, Muse Image edits their piece (not a new picture), and Muse Spark describes the result so VoiceOver can read it.
 
-> 3/ They can change it again or go back to the original. Then the piece is cut out and becomes a die-cut sticker or a tote. Each one carries an NFC tag: tap it and the artist tells you about the work, with captions. You can write back.
+> 3/ They can change it again or go back to the original. Every version is already shown as a die-cut sticker or a tote, so they compare the products themselves. Each one carries an NFC tag: tap it and the artist tells you about the work, with captions. You can write back.
 
 > 4/ Our entry for the Meta Global AI Developer Hackathon. Checkout is staged in the demo (no payment is taken). The 3-minute video: [FOUNDER: link]
 
@@ -35,7 +35,7 @@ The 3rd Eye helps artists with disabilities turn their art into products people 
 3. **No connection between buyers and creators.**
 4. **People who can't draw well still can't finish the piece they imagine.**
 
-The artist photographs or uploads their own drawing, draws a frame around it, and Meta's SAM 3.1 finds the drawing inside the frame and cuts it out; they check the cutout (adding or removing area if it missed a detail). Then they say what to change (Muse Voice Transcribe 1.0 writes it down) or type it, or keep it as is. Muse Image 1.0 edits the cut-out piece, which it receives as the input image, and Muse Spark 1.3 describes the result so they can compare before and after on screen or through VoiceOver. They can change it again or go back to the original; a changed picture is cut out and checked again. It becomes a die-cut sticker or tote bag, with an NFC tag that opens a short captioned video of the artist.
+The artist photographs or uploads their own drawing, draws a frame around it on the device (only the framed part is uploaded; the full photo never leaves the device), and Meta's SAM 3.1 finds the drawing in that crop and cuts it out; they check the cutout (adding or removing area if it missed a detail). Then they say what to change (Muse Voice Transcribe 1.0 writes it down) or type it, or keep it as is. Muse Image 1.0 edits the cut-out piece, which it receives as the input image, and Muse Spark 1.3 describes the result so they can compare before and after on screen or through VoiceOver. They can change it again or go back to the original; a changed picture is cut out and made into a new product photo, so Before and after compares the two products. It becomes a die-cut sticker or tote bag, with an NFC tag that opens a short captioned video of the artist.
 
 It is for artists with disabilities, their studios, and buyers who want to know who made what they buy.
 
@@ -69,8 +69,8 @@ What the video shows (beats from `docs/demo_script.md`):
 
 | Stage | Model id | What it does | Where in the repo |
 |---|---|---|---|
-| Find the drawings in a photo | `sam-3.1` | Two phrase searches ("drawing", "handmade object") on the creator's photo; results merged into at most 6 pieces to pick from | `web/lib/ai/meta/sam.ts` (`findCandidates`), `web/lib/pipeline/artworks.ts`, `web/app/api/v1/artworks/route.ts` |
-| Cut out the piece inside the area frame | `sam-3.1` | Cuts out the picked or changed piece; the **Adjust the area** frame is sent as a SAM box prompt and clips the cut (`clipToBox`); masks finished with hole filling and soft edges | `web/lib/ai/meta/sam.ts`, `web/lib/image/mask.ts`, `web/app/api/v1/artworks/[id]/select/route.ts`, `.../cutout/route.ts`, `.../cleanup/route.ts` |
+| Find the drawings in a photo | `sam-3.1` | Two phrase searches ("drawing", "handmade object") on the crop the device uploads (the full photo never leaves the device); results merged, largest first, the largest cut out | `web/lib/ai/meta/sam.ts` (`findCandidates`), `web/lib/pipeline/artworks.ts`, `web/app/api/v1/artworks/route.ts` |
+| Cut out the piece inside the area frame | `sam-3.1` | Cuts out the picked or changed piece; the cut is clipped to the uploaded crop, the **Adjust the area** frame (`clipToBox`); masks finished with hole filling and soft edges | `web/lib/ai/meta/sam.ts`, `web/lib/image/mask.ts`, `web/app/api/v1/artworks/[id]/select/route.ts`, `.../cutout/route.ts`, `.../cleanup/route.ts` |
 | Die-cut outline | `sam-3.1` (its mask) | The sticker's cut line is grown from the SAM mask; print PNG and die-cut SVG | `web/lib/image/sticker.ts`, `web/lib/pipeline/products.ts` |
 | Spoken change request; video captions | `muse-voice-transcribe-1.0` | Writes down what the artist says to change; captions story and thank-you videos (WAV in) | `web/lib/ai/meta/transcribe.ts`, `web/app/api/v1/transcribe/route.ts`, `web/lib/ai/meta/captions.ts` |
 | Change the picked piece | `muse-image-1.0` | Edit with the picked piece as `input_image` plus the instruction and a keep-the-style guard; the result is a child artwork, so the original is never lost | `web/lib/ai/meta/image.ts` (`editBody`), `web/lib/pipeline/artworks.ts` (`changeArtwork`), `web/app/api/v1/artworks/[id]/change/route.ts` |

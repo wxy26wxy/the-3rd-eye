@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   addChange, backToOriginal, currentArtworkId, currentChange, cutoutOf, getDraft, productToMake, resetDraft, updateDraft, withCutout, type ChangeStep, type CutoutState, type Draft,
 } from "@/components/create/store";
@@ -7,7 +7,7 @@ const piece: Draft = {
   product: "sticker", method: "photo", photoArtworkId: "p1",
   candidates: [{ id: "c1", bbox: [0, 0, 10, 10], score: 0.9, thumbUrl: "/c1.png" }, { id: "c2", bbox: [10, 10, 20, 20], score: 0.8, thumbUrl: "/c2.png" }],
   imageSize: { w: 100, h: 100 },
-  pieceArtworkId: "p1", pieceCandidateId: "c2", pieceUrl: "/piece.png", pieceAlt: "A fern", pieceSpoken: "A fern drawn in pen.",
+  pieceArtworkId: "p1", pieceUrl: "/piece.png", pieceAlt: "A fern", pieceSpoken: "A fern drawn in pen.",
 };
 const step = (id: string, parentId: string): ChangeStep => ({
   artworkId: id, parentId, instruction: `change ${id}`, previewUrl: `/${id}.png`, alt: `alt ${id}`, spoken: `spoken ${id}`, differences: "",
@@ -57,14 +57,13 @@ describe("creator draft v3 (T113): piece, changes, cutout", () => {
 
 describe("R1 + T130: the product picture on creator screens", () => {
   it("round 3 ruling 1: the AI photo for both types; else a sticker's bordered preview; else the cut-out art", async () => {
-    const { productPicture, pictureOf } = await import("@/components/create/store");
+    const { pictureOf } = await import("@/components/create/store");
     expect(pictureOf({ type: "sticker", previewUrl: "/preview.png", mockupUrl: "/m.png" }, { cleanedUrl: "/cut.png" })).toEqual({ src: "/m.png", kind: "photo" });
     expect(pictureOf({ type: "sticker", previewUrl: "/preview.png", mockupUrl: null }, { cleanedUrl: "/cut.png" })).toEqual({ src: "/preview.png", kind: "sticker" });
     expect(pictureOf({ type: "sticker", previewUrl: null, mockupUrl: null }, { cleanedUrl: "/cut.png" })).toEqual({ src: "/cut.png", kind: "art" });
-    expect(productPicture({ type: "sticker", previewUrl: null, mockupUrl: "/m.png" }, { cleanedUrl: "/cut.png" })).toBe("/m.png");
-    expect(productPicture({ type: "tote", previewUrl: null, mockupUrl: "/tote-mockup.png" }, { cleanedUrl: "/cut.png" })).toBe("/tote-mockup.png");
-    expect(productPicture({ type: "tote", previewUrl: null, mockupUrl: null }, { cleanedUrl: "/cut.png" })).toBe("/cut.png");
-    expect(productPicture(null, null)).toBeNull();
+    expect(pictureOf({ type: "tote", previewUrl: null, mockupUrl: "/tote-mockup.png" }, { cleanedUrl: "/cut.png" })).toEqual({ src: "/tote-mockup.png", kind: "photo" });
+    expect(pictureOf({ type: "tote", previewUrl: null, mockupUrl: null }, { cleanedUrl: "/cut.png" })).toEqual({ src: "/cut.png", kind: "art" });
+    expect(pictureOf(null, null)).toEqual({ src: null, kind: "art" });
   });
 });
 
@@ -80,5 +79,20 @@ describe("consistency item 6: one draft product per artwork and type", () => {
   });
   it("a later Apply cutout on that artwork (the server rebuilt its files) reuses it and reads its pictures again", () => {
     expect(productToMake({ ...made, cutouts: { p1: { ...cut, cleanedUrl: "/cut-2.png" } } })).toBe("refresh");
+  });
+  it("review m4: the refresh after a re-cut drops the old listing (its print check is stale) so it drafts again", async () => {
+    const { refreshProduct, updateDraft, getDraft, resetDraft } = await import("@/components/create/store");
+    resetDraft({ ...made, listing: { title: "Old", description: "", tags: [], price_cents: 500, print_ok: false, print_check: "resolution", notes: "" }, listingRun: "r1", trace: [] });
+    const fetch = vi.fn(async () => Response.json({ artworks: [{ id: "p1", products: [{ id: "pr1", mockupUrl: "/m2.png", previewUrl: "/pv2.png" }] }] }));
+    vi.stubGlobal("fetch", fetch);
+    try {
+      await refreshProduct(product, "/cut-2.png");
+      const d = getDraft();
+      expect(d.listing).toBeUndefined();
+      expect(d.listingRun).toBeUndefined();
+      expect(d.trace).toBeUndefined();
+      expect(d.productRecord?.mockupUrl).toBe("/m2.png");
+      expect(d.productCut).toBe("/cut-2.png");
+    } finally { vi.unstubAllGlobals(); updateDraft({}); }
   });
 });

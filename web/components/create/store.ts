@@ -56,7 +56,6 @@ export type Draft = {
   areaNotFound?: boolean;
   /** The cut piece (Adjust the area's `cleanup`); the same row as `photoArtworkId`. */
   pieceArtworkId?: string;
-  pieceCandidateId?: string;
   pieceUrl?: string | null;
   pieceAlt?: string | null;
   pieceSpoken?: string | null;
@@ -213,11 +212,15 @@ export function productToMake(d: Draft): "make" | "reuse" | "refresh" {
   return cut && d.productCut !== undefined && d.productCut !== cut ? "refresh" : "reuse";
 }
 
-/** The product's pictures again after a rebuild (`GET /artworks` carries each product's `mockupUrl` / `previewUrl`). */
+/**
+ * The product's pictures again after a rebuild (`GET /artworks` carries each product's `mockupUrl` /
+ * `previewUrl`). The rebuild made the old listing's print check stale, so the listing is dropped and
+ * Get it ready for the shop drafts it again.
+ */
 export async function refreshProduct(p: Product, cut: string | null): Promise<void> {
   const res = await api<{ artworks: { id: string; products: { id: string; mockupUrl: string | null; previewUrl: string | null }[] }[] }>("artworks");
   const fresh = res.artworks.find((a) => a.id === p.artworkId)?.products.find((x) => x.id === p.id);
-  updateDraft({ productRecord: fresh ? { ...p, mockupUrl: fresh.mockupUrl, previewUrl: fresh.previewUrl } : p, productCut: cut });
+  updateDraft({ productRecord: fresh ? { ...p, mockupUrl: fresh.mockupUrl, previewUrl: fresh.previewUrl } : p, productCut: cut, listing: undefined, trace: undefined, listingRun: undefined });
 }
 
 /** The change on screen, when there is one. */
@@ -255,14 +258,8 @@ export function withCutout(d: Draft, cut: CutoutState): Partial<Draft> {
 
 /**
  * The product picture creator screens show (Ready, Listing; round 3 ruling 1): the AI product photo
- * (`mockupUrl`) for both types, else a sticker's bordered preview, else the cut-out art.
- */
-export function productPicture(p: Pick<Product, "type" | "previewUrl" | "mockupUrl"> | null | undefined, cut: Pick<CutoutState, "cleanedUrl"> | null | undefined): string | null {
-  return pictureOf(p, cut).src;
-}
-
-/**
- * The picture and how to show it: "photo" (the AI photo, on the grey card), "sticker" (the bordered
+ * (`mockupUrl`) for both types, else a sticker's bordered preview, else the cut-out art; with how to
+ * show it: "photo" (the AI photo, on the grey card), "sticker" (the bordered
  * preview, soft shadow so its white border reads), "art" (the cut-out).
  */
 export function pictureOf(p: Pick<Product, "type" | "previewUrl" | "mockupUrl"> | null | undefined, cut: Pick<CutoutState, "cleanedUrl"> | null | undefined): { src: string | null; kind: "photo" | "sticker" | "art" } {

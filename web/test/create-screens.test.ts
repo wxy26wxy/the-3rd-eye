@@ -1,10 +1,12 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { fmt, m } from "@/components/messages";
 import { YourCutoutView, type YourCutoutViewProps } from "@/components/create/screens/YourCutoutView";
+import { retryOf } from "@/components/create/screens/YourCutout";
+import { revealError } from "@/components/create/errors";
+import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { CutoutPhoto } from "@/components/create/screens/CutoutPhoto";
 import { AdjustAreaView, type AdjustAreaViewProps } from "@/components/create/screens/AdjustAreaView";
 import { AreaFrame } from "@/components/create/screens/AreaFrame";
@@ -39,7 +41,10 @@ const before = (out: string, a: string, b: string) => {
 
 const cutOn = { mode: noop, addAround: noop, removeMark: noop, clearMarks: noop, showCut: noop, fixEdges: noop, use: noop, apply: noop, retry: noop, startOver: noop };
 function cutoutView(over: Partial<YourCutoutViewProps> = {}): string {
-  const props: YourCutoutViewProps = {
+  return html(createElement(YourCutoutView, { ...cutoutProps(), ...over }));
+}
+function cutoutProps(): YourCutoutViewProps {
+  return {
     uid: "u",
     title: m.create.cutout.title,
     lead: m.create.cutout.copyOriginal,
@@ -58,9 +63,7 @@ function cutoutView(over: Partial<YourCutoutViewProps> = {}): string {
     canUse: true,
     canApply: false,
     on: cutOn,
-    ...over,
   };
-  return html(createElement(YourCutoutView, props));
 }
 /** Fix the edges open: the picture, no saved cut on screen. */
 const fixing = (over: Partial<YourCutoutViewProps> = {}) => cutoutView({ cut: null, lead: m.create.cutout.adjustCopy, photo: createElement("div", null, "PHOTO"), ...over });
@@ -82,15 +85,51 @@ describe("Your cutout view (T130: the cut, then Fix the edges with Add area / Re
   it("round 3: the candidate strip shows the pieces found inside the frame only when there are two or more", () => {
     const pieces = [{ id: "c1", thumbUrl: "/c1.png" }, { id: "c2", thumbUrl: "/c2.png" }];
     const out = cutoutView({ pieces, picked: "c2" });
-    expect(out.match(/type="radio"/g)).toHaveLength(2);
-    expect(out).toMatch(/<input[^>]*name="u-piece"[^>]*value="c2"[^>]*checked|<input[^>]*checked[^>]*value="c2"/);
-    expect(text(out)).toContain(fmt(t.candidate, { n: 1 }));
+    // buttons with aria-pressed, not radios (review I1)
+    expect(out).not.toContain('type="radio"');
+    expect(out.match(/<button type="button"[^>]*aria-pressed="(true|false)"/g)).toHaveLength(2);
+    expect(out).toMatch(new RegExp(`aria-pressed="true"[^>]*>(?:(?!</button>).)*${fmt(t.candidate, { n: 2 })}`));
+    expect(out).toMatch(/role="group" aria-labelledby="u-pieces"/);
     expect(text(out)).toContain(t.groupLabel);
     before(out, t.applied, t.groupLabel);
-    expect(cutoutView({ pieces: [pieces[0]] })).not.toContain('type="radio"');
-    expect(cutoutView({ pieces: null })).not.toContain('type="radio"');
-    // locked while a request runs
-    expect(cutoutView({ pieces, work: "apply" })).not.toContain('name="u-piece"');
+    expect(cutoutView({ pieces: [pieces[0]] })).not.toContain("aria-pressed");
+    expect(cutoutView({ pieces: null })).not.toContain("aria-pressed");
+    // kept mounted but disabled while a request runs
+    const busy = cutoutView({ pieces, work: "pick" });
+    expect(busy.match(/<button type="button"[^>]*aria-pressed="[^"]*"[^>]*disabled=""/g)).toHaveLength(2);
+  });
+
+  it("review I1: a keyboard move over the strip never re-cuts — only a press (click, Enter, Space) calls pick", () => {
+    const picked: string[] = [];
+    const pieces = [{ id: "c1", thumbUrl: "/c1.png" }, { id: "c2", thumbUrl: "/c2.png" }, { id: "c3", thumbUrl: "/c3.png" }];
+    const tree = YourCutoutView({ ...cutoutProps(), pieces, picked: "c1", on: { ...cutOn, pick: (id) => picked.push(id) } });
+    const buttons: ReactElement<Record<string, unknown>>[] = [];
+    const walk = (n: ReactNode) => {
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      if (!isValidElement(n)) return;
+      const props = n.props as Record<string, unknown>;
+      if (n.type === "button" && "aria-pressed" in props) buttons.push(n as ReactElement<Record<string, unknown>>);
+      walk(props.children as ReactNode);
+    };
+    walk(tree);
+    expect(buttons).toHaveLength(3);
+    for (const b of buttons) {
+      // no change / key handlers that a roving arrow key could fire
+      expect(b.props.onChange).toBeUndefined();
+      expect(b.props.onKeyDown).toBeUndefined();
+      expect(b.props.onKeyUp).toBeUndefined();
+      expect(b.props.onFocus).toBeUndefined();
+    }
+    expect(picked).toEqual([]);
+    (buttons[2].props.onClick as () => void)();
+    expect(picked).toEqual(["c3"]);
+  });
+
+  it("review I4: Try again after a failed pick repeats that pick, not Apply cutout", () => {
+    expect(retryOf("pick", "c2")).toEqual({ kind: "pick", id: "c2" });
+    expect(retryOf("apply", null)).toEqual({ kind: "apply" });
+    expect(retryOf("use", "c2")).toEqual({ kind: "use" });
+    expect(retryOf("pick", null)).toEqual({ kind: "apply" });
   });
 
   it("Fix the edges: picture, Add area / Remove area, instruction, keyboard hint, Add the area around your art; Use this / Apply cutout / Start over; never Draw a box", () => {
@@ -180,6 +219,17 @@ describe("Adjust the area view (R2)", () => {
     expect(out).toContain('<p id="sz" class="visually-hidden">Frame covers 54 by 61 percent of the photo</p>');
     expect(out).toMatch(/role="status" aria-live="polite"/);
     expect([ad.title, ad.copy, ad.use, ad.reset, ad.frameLabel]).toEqual(["Adjust the area", "Drag the corners so the frame covers your drawing.", "Use this area", "Reset", "Area frame"]);
+  });
+
+  it("review I2: the advice card sits in a focusable wrapper, and revealError scrolls it above the bar and focuses it", () => {
+    const out = adjust({ error: { message: ad.notFound, action: "none" } });
+    beforeRaw(out, 'tabindex="-1"', 'role="alert"');
+    beforeRaw(out, 'role="alert"', "find a drawing in that area");
+    expect(adjust()).not.toContain('role="alert"');
+    const calls: string[] = [];
+    revealError({ scrollIntoView: (o?: unknown) => { calls.push(`scroll ${JSON.stringify(o)}`); }, focus: (o?: unknown) => { calls.push(`focus ${JSON.stringify(o)}`); } } as never);
+    expect(calls).toEqual(['scroll {"block":"center"}', 'focus {"preventScroll":true}']);
+    revealError(null);
   });
 
   it("round 3: nothing found inside the frame shows the move-or-grow advice on Adjust the area (no Retake)", () => {
@@ -355,7 +405,7 @@ describe("Listing view (T105, board 2030:3752: element order follows the board)"
     const l = m.create.listing;
     expect(printStatus(true, null)).toBe(l.printOk);
     expect(printStatus(false, "contrast")).toBe(l.printWarnContrast);
-    expect(printStatus(false, "resolution")).toBe(l.printWarnResolution);
+    expect(printStatus(false, "resolution")).toBe(l.printWarn);
     expect(printStatus(false, null)).toBe(l.printWarn);
     expect(text(listing({ printOk: false, printCheck: "contrast" }))).toContain(l.printCheck.replace("{status}", l.printWarnContrast));
   });

@@ -528,8 +528,7 @@
       "traceNote": "note",
       "draftingHint": "We'll show the name, price and description when it's ready.",
       "redo": "Redo",
-      "printWarnContrast": "the colors may look faint",
-      "printWarnResolution": "might print blurry"
+      "printWarnContrast": "the colors may look faint"
     },
     "story": {
       "title": "Make your story video!",

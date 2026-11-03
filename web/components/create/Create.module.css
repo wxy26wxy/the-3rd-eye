@@ -149,7 +149,13 @@
 .checker img { display: block; width: 100%; height: 100%; object-fit: contain; padding: var(--space-xl); }
 /* Piece strip: 80 px thumbnails; chosen = 2 px ink border and the check badge, not chosen = dimmed art. */
 .pieces { display: flex; flex-wrap: wrap; gap: var(--space-m); list-style: none; padding-top: var(--space-s); }
-.piece { display: grid; justify-items: center; gap: var(--space-xs); cursor: pointer; }
+/* The candidate strip (round 3): each piece is a button with aria-pressed; a press re-cuts, arrow keys do nothing. */
+.piece {
+  display: grid; justify-items: center; gap: var(--space-xs); cursor: pointer;
+  border: 0; padding: 0; background: transparent; color: inherit; font: inherit;
+}
+.piece:disabled { cursor: default; opacity: var(--opacity-disabled); }
+.piece:focus-visible { outline: none; }
 .pieceThumb {
   position: relative; display: block; width: calc(var(--size-cta) + var(--size-radio)); aspect-ratio: 1;
   /* Unchosen tile: a muted boundary (4.8:1 on white; UI boundaries need 3:1); chosen: 2 px ink. */
@@ -161,10 +167,10 @@
   display: none; place-items: center; width: var(--size-radio); height: var(--size-radio);
   border-radius: var(--radius-pill); background: var(--text); color: var(--surface); font-size: var(--type-caption-size);
 }
-.piece:has(input:checked) .pieceThumb { border: calc(var(--border-thin) * 2) solid var(--text); }
-.piece:has(input:checked) .pieceArt { opacity: 1; }
-.piece:has(input:checked) .pieceCheck { display: grid; }
-.piece:has(input:focus-visible) .pieceThumb { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
+.piece[aria-pressed="true"] .pieceThumb { border: calc(var(--border-thin) * 2) solid var(--text); }
+.piece[aria-pressed="true"] .pieceArt { opacity: 1; }
+.piece[aria-pressed="true"] .pieceCheck { display: grid; }
+.piece:focus-visible .pieceThumb { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-width); }
 .pieceName { font-size: var(--type-body-size); font-weight: var(--type-caption-weight); }
 .keyboardHint { font-size: var(--type-body-size); line-height: var(--type-body-lh); color: var(--color-ink-soft); text-align: center; justify-self: center; }
 .resultHeading { font-size: var(--type-body-size); font-weight: var(--type-body-weight); text-align: center; justify-self: center; }
@@ -309,7 +315,7 @@
 
 /* Forced colours: fills disappear, so the chosen picture / piece gets a Highlight outline. */
 @media (forced-colors: active) {
-  .mode:has(input:checked), .piece:has(input:checked) .pieceThumb {
+  .mode:has(input:checked), .piece[aria-pressed="true"] .pieceThumb {
     outline: calc(var(--border-thin) * 3) solid Highlight;
     outline-offset: calc(var(--border-thin) * -3);
   }

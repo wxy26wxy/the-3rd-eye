@@ -20,8 +20,8 @@ export type YourCutoutViewProps = {
   lead: string;
   /** Back target (hidden while a request runs). */
   back: string;
-  /** The request in flight: Apply cutout ("apply") or Use this ("use"). */
-  work: "apply" | "use" | null;
+  /** The request in flight: Apply cutout ("apply"), Use this ("use") or a piece from the strip ("pick"). */
+  work: "apply" | "use" | "pick" | null;
   /** Text for the one permanent polite live region. */
   announce: string;
   /** The saved cut on the checkerboard, when it is on screen (null: "Fix the edges" is open). */
@@ -109,24 +109,24 @@ export function YourCutoutView({ resultRef, errorRef, toolsRef, on, ...p }: Your
 
       {busy ? <Loading inline label={t.applying} /> : null}
 
-      {!busy && p.pieces && p.pieces.length >= 2 ? (
-        <fieldset className={styles.fieldset}>
-          <legend className={styles.marksLabel}>{t.groupLabel}</legend>
+      {p.pieces && p.pieces.length >= 2 ? (
+        <div className={styles.fieldset} role="group" aria-labelledby={`${p.uid}-pieces`}>
+          <p className={styles.marksLabel} id={`${p.uid}-pieces`}>{t.groupLabel}</p>
+          {/* Buttons, not radios (review I1): a press re-cuts on the server, so arrow keys must not; kept mounted (dimmed) while a request runs. */}
           <ul role="list" className={styles.pieces}>
             {p.pieces.map((c, i) => (
               <li key={c.id}>
-                <label className={styles.piece}>
-                  <input className="visually-hidden" type="radio" name={`${p.uid}-piece`} value={c.id} checked={p.picked === c.id} onChange={() => on.pick?.(c.id)} />
+                <button type="button" className={styles.piece} aria-pressed={p.picked === c.id} disabled={busy} onClick={() => on.pick?.(c.id)}>
                   <span className={styles.pieceThumb}>
                     <ArtImage src={c.thumbUrl} alt="" placeholder={m.common.imageMissing} className={styles.pieceArt} />
                     <span className={styles.pieceCheck} aria-hidden="true"><CheckIcon /></span>
                   </span>
                   <span className={styles.pieceName}>{fmt(t.candidate, { n: i + 1 })}</span>
-                </label>
+                </button>
               </li>
             ))}
           </ul>
-        </fieldset>
+        </div>
       ) : null}
 
       {!busy && !showing && p.canShowCut ? (

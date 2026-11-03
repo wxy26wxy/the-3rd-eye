@@ -2,10 +2,10 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
-import { api, uuid, type AgentStep, type ListingDraft, type Product } from "../api";
+import { api, ApiError, uuid, type AgentStep, type ListingDraft, type PrintCheck, type Product } from "../api";
 import { HydratingScreen, MissingState } from "../CreateScreen";
-import { describeError, type ScreenError } from "../errors";
-import { canRedoListing, redoCutout, redoListing } from "../flow";
+import { describeError, revealError, type ScreenError } from "../errors";
+import { canRedoCutout, canRedoListing, redoCutout, redoListing } from "../flow";
 import { cutoutOf, getDraft, once, pictureOf, updateDraft, useCreate, useCreator } from "../store";
 import { ListingView } from "./ListingView";
 
@@ -38,6 +38,8 @@ function ListingForm() {
   /** Which call failed last, so "Try again" repeats that one (approve vs. the listing agent). */
   const [failedCall, setFailedCall] = useState<"agent" | "approve">("agent");
   const [error, setError] = useState<ScreenError | null>(null);
+  /** The check named by the last approve 409 (`print_check_failed`), so Re-do the cutout picks its screen. */
+  const [failedCheck, setFailedCheck] = useState<PrintCheck | null>(null);
   const [errors, setErrors] = useState<{ title?: string; price?: string }>({});
 
   function apply(l: ListingDraft) {
@@ -80,11 +82,7 @@ function ListingForm() {
   // A 409 (print check, moderation) lands under the form: bring the card above the pinned bar.
   const errorRef = useRef<HTMLDivElement>(null);
   // Focus goes there too, so a keyboard user continues from the card instead of the top of the page.
-  useEffect(() => {
-    if (!error || !errorRef.current) return;
-    errorRef.current.scrollIntoView({ block: "center" });
-    errorRef.current.focus({ preventScroll: true });
-  }, [error]);
+  useEffect(() => { if (error) revealError(errorRef.current); }, [error]);
 
   const cents = toCents(price);
   const bps = creator?.split?.creator_bps ?? 5000;
@@ -109,6 +107,8 @@ function ListingForm() {
     } catch (err) {
       // 409 print_check_failed / moderation_failed: stay on the form and show the reason.
       setFailedCall("approve");
+      const check = err instanceof ApiError ? err.extra.check : null;
+      setFailedCheck(check === "resolution" || check === "contrast" ? check : null);
       setError(describeError(err));
       setSubmitting(false);
     }
@@ -136,9 +136,9 @@ function ListingForm() {
       errorRef={errorRef}
       canRedo={canRedoListing(draft)}
       on={{
-        redo: () => { if (p) { setError(null); redoListing({ router, update }, p); } },
+        redo: () => { setError(null); redoListing({ router, update, getDraft }); },
         accept: () => void submit(undefined, true),
-        redoCut: canRedoListing(draft) && p ? () => { setError(null); redoCutout({ router, update }, p); } : undefined, title: setTitle, description: setDescription, price: setPrice, improve, retry: () => void (failedCall === "approve" ? submit() : improve()), toggleTrace: () => setShowTrace((v) => !v), submit }}
+        redoCut: canRedoCutout(draft, failedCheck) ? () => { setError(null); redoCutout({ router, update, getDraft }, failedCheck); } : undefined, title: setTitle, description: setDescription, price: setPrice, improve, retry: () => void (failedCall === "approve" ? submit() : improve()), toggleTrace: () => setShowTrace((v) => !v), submit }}
     />
   );
 }

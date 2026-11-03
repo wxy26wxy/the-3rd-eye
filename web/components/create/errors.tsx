@@ -32,6 +32,16 @@ export function describeError(err: unknown, fallback: string = m.create.errorGen
 }
 
 /**
+ * Brings an error card above the pinned bar and moves focus to it (its wrapper has tabIndex -1), so
+ * a keyboard or screen-reader user continues from the message instead of the top of the page.
+ */
+export function revealError(el: Pick<HTMLElement, "scrollIntoView" | "focus"> | null | undefined): void {
+  if (!el) return;
+  el.scrollIntoView({ block: "center" });
+  el.focus({ preventScroll: true });
+}
+
+/**
  * The error card plus the next step the error calls for, as text actions inside the card
  * (web creator boards: "Try again" under the message). Screens whose board puts the next step in
  * the bottom bar (Photo, Drawing) leave the handlers out and render their own actions.

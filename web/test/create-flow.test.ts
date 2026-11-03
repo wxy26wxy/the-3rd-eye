@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  STORY_REDO_RETURN, storyVideoDone, canRedoListing, redoListing, toMaking, adjustBack, afterPhoto, applyMarks, areaNotFound, busyWhile, pickRequest, showsPieces, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
+  STORY_REDO_RETURN, storyVideoDone, canRedoListing, canRedoCutout, redoCutout, redoListing, redoTarget, toMaking, adjustBack, afterPhoto, applyMarks, areaNotFound, busyWhile, pickRequest, showsPieces, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
   changeItCut, cutoutVisit, leaveChanging, makingCutoutBack, runAreaCut, runChange, runChangeCut, skipChange, submitChange, takeChange, takeCutout, yourCutoutBack, type FlowDeps,
 } from "@/components/create/flow";
 import { marksRequest } from "@/components/create/cutout";
@@ -37,7 +37,7 @@ const artwork = (over: Record<string, unknown> = {}) => ({
 const pieceCut: CutoutState = { artworkId: "p1", candidates, imageSize: { w: 100, h: 100 }, selectedIds: ["c1"], cleanedUrl: "/piece.png", altText: "A fern", box: [1, 2, 30, 40], points: [] };
 const piece: Draft = {
   product: "sticker", method: "photo", photoArtworkId: "p1", candidates, imageSize: { w: 100, h: 100 }, area: { artworkId: "p1" },
-  pieceArtworkId: "p1", pieceCandidateId: "c1", pieceUrl: "/piece.png", pieceAlt: "A fern", pieceBox: [1, 2, 30, 40], cutoutArtworkId: "p1", cutouts: { p1: pieceCut },
+  pieceArtworkId: "p1", pieceUrl: "/piece.png", pieceAlt: "A fern", pieceBox: [1, 2, 30, 40], cutoutArtworkId: "p1", cutouts: { p1: pieceCut },
 };
 const change = (id: string, parentId: string): ChangeStep => ({ artworkId: id, parentId, instruction: `do ${id}`, previewUrl: `/${id}.png`, alt: `alt ${id}`, spoken: null, differences: "" });
 const changeAnswer = { artwork: { ...artwork({ id: "k2", parentArtworkId: "k1" }), previewUrl: "/k2.png" }, description: { alt: "A fern, bigger", spoken: "A big fern.", differences: "" } };
@@ -80,7 +80,7 @@ describe("Adjust the area → detect inside the frame (round 3)", () => {
     expect(h.draft.changedArtworkId).toBeUndefined();
     await runAreaCut(h.deps, h.draft.pendingArea!);
     expect(h.calls.filter((c) => c.startsWith("api"))).toEqual(['api artworks/p1/detect {"box":[8,9,22,21]}']);
-    expect(h.draft).toMatchObject({ pieceArtworkId: "p1", pieceCandidateId: "c2", pieceBox: [8, 9, 22, 21], pieceUrl: "/c2-cut.png", pieceAlt: "A flower", cutoutArtworkId: "p1" });
+    expect(h.draft).toMatchObject({ pieceArtworkId: "p1", pieceBox: [8, 9, 22, 21], pieceUrl: "/c2-cut.png", pieceAlt: "A flower", cutoutArtworkId: "p1" });
     expect(h.draft.candidates?.map((c) => c.id)).toEqual(["c2", "c1"]);
     expect(cutoutOf(h.draft, "p1")).toMatchObject({ selectedIds: ["c2"], cleanedUrl: "/c2-cut.png", box: [8, 9, 22, 21], points: [], imageSize: { w: 100, h: 100 } });
     expect(cutoutOf(h.draft, "p1")?.candidates.map((c) => c.id)).toEqual(["c2", "c1"]);
@@ -401,7 +401,7 @@ describe("T117: kept-mounted routes (cacheComponents) never re-send or come back
     let busy = false;
     cutArea(h.deps, [1, 1, 9, 9]);
     await busyWhile((v: boolean) => { busy = v; seen.push(v); }, true, false, () => runAreaCut(h.deps, h.draft.pendingArea!));
-    expect(h.calls.at(-1)).toBe("update pendingArea,candidates,imageSize,pieceArtworkId,pieceCandidateId,pieceBox,pieceUrl,pieceAlt,pieceSpoken,cutouts,cutoutArtworkId,cutoutNotice");
+    expect(h.calls.at(-1)).toBe("update pendingArea,candidates,imageSize,pieceArtworkId,pieceBox,pieceUrl,pieceAlt,pieceSpoken,cutouts,cutoutArtworkId,cutoutNotice");
     expect(busy).toBe(false);
     let work: string | null = null;
     await busyWhile<string | null>((v) => { work = v; seen.push(v); }, "use", null, async () => { throw new Error("cut failed"); }).catch(() => {});
@@ -515,7 +515,7 @@ describe("Round 3 ruling 5: Redo while the listing drafts", () => {
   it("drops the run, opens Your cutout of the product's artwork and keeps the draft product (Use this reuses it, no second POST)", () => {
     const h = harness({ ...piece, artworkId: "p1", productRecord: product, productCut: "/piece.png", listingRun: "run-1", productRequestId: "req-1" });
     expect(canRedoListing(h.draft)).toBe(true);
-    redoListing(h.deps, product);
+    redoListing(h.deps);
     expect(h.draft.listingRun).toBeUndefined();
     expect(h.draft.cutoutArtworkId).toBe("p1");
     expect(h.draft.productRecord).toEqual(product);
@@ -526,8 +526,43 @@ describe("Round 3 ruling 5: Redo while the listing drafts", () => {
     expect(h.api).not.toHaveBeenCalled();
   });
 
-  it("no Redo when the product's artwork has no cut in this draft", () => {
+  it("no cut of the product's artwork in the draft: Redo falls back to Adjust the area on the photo (review m1); nothing to go to → no Redo", () => {
+    const h = harness({ productRecord: product, photoArtworkId: "p9", product: "sticker", listingRun: "run-1", areaNotFound: true });
+    expect(canRedoListing(h.draft)).toBe(true);
+    redoListing(h.deps);
+    expect(h.calls.at(-1)).toBe("push /create/adjust");
+    expect(h.draft.area).toEqual({ artworkId: "p9" });
+    expect(h.draft.areaNotFound).toBeUndefined();
+    expect(h.draft.listingRun).toBeUndefined();
+    expect(h.draft.productRecord).toEqual(product);
     expect(canRedoListing({ productRecord: product })).toBe(false);
     expect(canRedoListing({})).toBe(false);
+  });
+});
+
+describe("Round 3 review I3: Re-do the cutout after a print check", () => {
+  const product = { id: "pr1", artworkId: "p1", creatorId: "me", type: "sticker" as const, mockupUrl: "/m.png", printPngUrl: null, printSvgUrl: null, priceCents: 500, status: "draft", previewUrl: "/pv.png" };
+  const listed: Draft = { ...piece, artworkId: "p1", productRecord: product, listingRun: "run-1", listing: { title: "Fern", description: "", tags: [], price_cents: 500, print_ok: false, print_check: "resolution", notes: "" } };
+  it("resolution (marks cannot fix it) → Adjust the area on the photo, where the frame can grow or Retake gives a bigger photo", () => {
+    const h = harness(listed);
+    expect(canRedoCutout(h.draft, "resolution")).toBe(true);
+    redoCutout(h.deps, "resolution");
+    expect(h.calls.at(-1)).toBe("push /create/adjust");
+    expect(h.draft.area).toEqual({ artworkId: "p1" });
+    expect(h.draft.listingRun).toBeUndefined();
+    expect(h.api).not.toHaveBeenCalled();
+  });
+  it("contrast → Your cutout of the product's artwork", () => {
+    const h = harness(listed);
+    redoCutout(h.deps, "contrast");
+    expect(h.calls.at(-1)).toBe("push /create/cutout");
+    expect(h.draft.cutoutArtworkId).toBe("p1");
+  });
+  it("each falls back to the other screen (review m2); neither → no action", () => {
+    expect(redoTarget({ productRecord: product, photoArtworkId: "p9" }, "cutout")).toBe("adjust");
+    expect(redoTarget({ ...listed, photoArtworkId: undefined }, "adjust")).toBe("cutout");
+    expect(redoTarget({ productRecord: product }, "adjust")).toBeNull();
+    expect(canRedoCutout({ productRecord: product }, "resolution")).toBe(false);
+    expect(canRedoCutout({ ...listed, photoArtworkId: undefined }, "resolution")).toBe(true);
   });
 });

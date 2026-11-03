@@ -5,7 +5,7 @@
  * kept out of the screens so they can be tested with a mocked `api` and router.
  */
 import { m } from "@/components/messages";
-import { uuid, type Artwork, type Candidate, type ChangeResult, type CleanupResult, type CutoutResult, type DetectResult, type Product } from "./api";
+import { uuid, type Artwork, type Candidate, type ChangeResult, type CleanupResult, type CutoutResult, type DetectResult } from "./api";
 import { sameBox } from "./area";
 import { productNotice, wholeImageBox, type Box, type CleanupRequest } from "./cutout";
 import { addChange, currentArtworkId, currentChange, cutoutOf, withCutout, type ChangeStep, type CutoutState, type Draft } from "./store";
@@ -16,7 +16,7 @@ export type FlowDeps = { api: FlowApi; router: FlowRouter; update: (patch: Parti
 
 /** Everything picked, changed or cut for an earlier piece. */
 export const NEW_PIECE: Partial<Draft> = {
-  pieceArtworkId: undefined, pieceCandidateId: undefined, pieceUrl: undefined, pieceAlt: undefined, pieceSpoken: undefined, pieceBox: undefined,
+  pieceArtworkId: undefined, pieceUrl: undefined, pieceAlt: undefined, pieceSpoken: undefined, pieceBox: undefined,
   changes: undefined, changedArtworkId: undefined, changeInstruction: undefined, changeTranscript: undefined,
   pendingArea: undefined, cutoutArtworkId: undefined, cutouts: undefined, cutoutNotice: undefined,
 };
@@ -86,7 +86,7 @@ export async function runAreaCut({ api, update, getDraft }: Pick<FlowDeps, "api"
   };
   update({
     pendingArea: undefined, candidates: res.candidates, imageSize: res.imageSize ?? d.imageSize ?? null,
-    pieceArtworkId: job.artworkId, pieceCandidateId: first, pieceBox: [...job.box] as Box,
+    pieceArtworkId: job.artworkId, pieceBox: [...job.box] as Box,
     pieceUrl: art.cleanedUrl, pieceAlt: art.altText, pieceSpoken: art.spokenDescription,
     ...withCutout(d, cut), cutoutArtworkId: job.artworkId,
     cutoutNotice: productNotice(res.details, NOTICE_COPY) ?? undefined,
@@ -329,25 +329,63 @@ export function artOnScreen(d: Draft): { src: string | null; alt: string | null;
 
 // ---- Get it ready for the shop
 
+/** Where a redo from the listing goes: Your cutout of the product's artwork, or Adjust the area on the photo. */
+export type RedoTarget = "cutout" | "adjust";
+
+/**
+ * The redo destination for `prefer`, falling back to the other one (round 3 review m1/m2): Your
+ * cutout needs the product's cut in this draft, Adjust the area needs the photo. Null: neither.
+ */
+export function redoTarget(d: Draft, prefer: RedoTarget): RedoTarget | null {
+  const cut = !!d.productRecord && !!cutoutOf(d, d.productRecord.artworkId);
+  const photo = !!d.photoArtworkId;
+  if (prefer === "cutout") return cut ? "cutout" : photo ? "adjust" : null;
+  return photo ? "adjust" : cut ? "cutout" : null;
+}
+
+function goRedo({ router, update, getDraft }: Pick<FlowDeps, "router" | "update" | "getDraft">, target: RedoTarget, patch: Partial<Draft>): void {
+  const d = getDraft();
+  if (target === "cutout" && d.productRecord) {
+    update({ ...patch, cutoutArtworkId: d.productRecord.artworkId });
+    router.push("/create/cutout");
+  } else if (d.photoArtworkId) {
+    update({ ...patch, area: { artworkId: d.photoArtworkId }, areaNotFound: undefined });
+    router.push("/create/adjust");
+  }
+}
+
 /**
  * "Redo" while the listing drafts (round 3 ruling 5): the run is dropped by its nonce (the server
  * finishes it and the answer is ignored; `listings/run` upserts), and Your cutout of the product's
- * artwork opens. The draft product is kept, so Use this reuses it (no second `POST /products`).
+ * artwork opens (Adjust the area on the photo when that cut is not in the draft). The draft product
+ * is kept, so Use this reuses it (no second `POST /products`).
  */
-export function redoListing({ router, update }: Pick<FlowDeps, "router" | "update">, product: Pick<Product, "artworkId">): void {
-  update({ listingRun: undefined, listing: undefined, trace: undefined, cutoutArtworkId: product.artworkId });
-  router.push("/create/cutout");
+export function redoListing(deps: Pick<FlowDeps, "router" | "update" | "getDraft">): void {
+  const target = redoTarget(deps.getDraft(), "cutout");
+  if (target) goRedo(deps, target, { listingRun: undefined, listing: undefined, trace: undefined });
 }
 
-/** "Re-do the cutout" after a print check on approve: Your cutout of the product's artwork; the listing and product stay. */
-export function redoCutout({ router, update }: Pick<FlowDeps, "router" | "update">, product: Pick<Product, "artworkId">): void {
-  update({ cutoutArtworkId: product.artworkId });
-  router.push("/create/cutout");
-}
-
-/** Redo is offered only when the product's artwork has a cut in this draft (Your cutout can show it). */
+/** Redo is offered while drafting when it has somewhere to go. */
 export function canRedoListing(d: Draft): boolean {
-  return !!d.productRecord && !!cutoutOf(d, d.productRecord.artworkId);
+  return !!d.productRecord && redoTarget(d, "cutout") !== null;
+}
+
+/**
+ * "Re-do the cutout" after a print check on approve (round 3 review I3): a picture too small to print
+ * (`resolution`, the only hard block, which marks cannot fix) goes to Adjust the area on the photo,
+ * where the frame can grow or Retake gives a bigger photo; a contrast warning goes to Your cutout.
+ * The listing stays until the product is rebuilt: a re-cut makes Making refresh the product, which
+ * drops the old listing and its print check (`refreshProduct`). Clearing it here would start a new
+ * agent run on the Listing screen that is still showing.
+ */
+export function redoCutout(deps: Pick<FlowDeps, "router" | "update" | "getDraft">, check: "resolution" | "contrast" | null): void {
+  const target = redoTarget(deps.getDraft(), check === "resolution" ? "adjust" : "cutout");
+  if (target) goRedo(deps, target, { listingRun: undefined });
+}
+
+/** Whether "Re-do the cutout" has somewhere to go for this check. */
+export function canRedoCutout(d: Draft, check: "resolution" | "contrast" | null): boolean {
+  return !!d.productRecord && redoTarget(d, check === "resolution" ? "adjust" : "cutout") !== null;
 }
 
 // ---- Story video (R6)

@@ -61,7 +61,7 @@ export type ListingViewProps = {
 export function printStatus(ok: boolean, check?: "resolution" | "contrast" | null): string {
   const l = m.create.listing;
   if (check === "contrast") return l.printWarnContrast;
-  if (check === "resolution") return l.printWarnResolution;
+  if (check === "resolution") return l.printWarn;
   return ok ? l.printOk : l.printWarn;
 }
 

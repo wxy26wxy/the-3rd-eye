@@ -93,12 +93,3 @@ export function productNotice(details: CleanupDetails | null | undefined, copy: 
 /** How long the presigned `originalUrl` is trusted before it is fetched again (it lives 10 minutes). */
 export const ORIGINAL_URL_TTL_MS = 9 * 60 * 1000;
 
-/**
- * `POST /artworks` (photo) answered 422 `no_drawing_found` but kept the artwork: its id, so the
- * creator can frame the drawing on that photo (Adjust the area) instead of retaking it. Else null.
- */
-export function boxRescueArtworkId(err: unknown): string | null {
-  if (typeof err !== "object" || err === null) return null;
-  const e = err as { status?: unknown; code?: unknown; extra?: { artworkId?: unknown } };
-  return e.status === 422 && e.code === "no_drawing_found" && typeof e.extra?.artworkId === "string" && e.extra.artworkId ? e.extra.artworkId : null;
-}

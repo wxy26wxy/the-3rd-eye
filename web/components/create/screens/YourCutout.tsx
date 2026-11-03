@@ -93,7 +93,14 @@ function MakingChangeCut({ artworkId }: { artworkId: string }) {
   );
 }
 
-type Work = "apply" | "use";
+type Work = "apply" | "use" | "pick";
+
+/** What Try again repeats: Use this, the failed piece from the strip (review I4), else Apply cutout. */
+export function retryOf(failed: Work | null, failedPick: string | null): { kind: "use" } | { kind: "pick"; id: string } | { kind: "apply" } {
+  if (failed === "use") return { kind: "use" };
+  if (failed === "pick" && failedPick) return { kind: "pick", id: failedPick };
+  return { kind: "apply" };
+}
 
 function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
   const router = useRouter();
@@ -112,6 +119,8 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
   const { detail, onImageError } = useOriginal(artworkId);
   const busy = work !== null;
   const inFlight = useRef(false);
+  /** The piece whose re-cut failed, for Try again. */
+  const failedPick = useRef<string | null>(null);
   const live = useRef(true);
   const resultRef = useRef<HTMLHeadingElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -195,7 +204,8 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
   async function pick(id: string) {
     if (!box || inFlight.current || cutout.selectedIds[0] === id) return;
     inFlight.current = true;
-    setWork("apply");
+    failedPick.current = null;
+    setWork("pick");
     setError(null);
     setNotice(null);
     try {
@@ -208,7 +218,9 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
     } catch (err) {
       if (!live.current) return;
       setError(describeError(err));
-      setFailed("apply");
+      // Try again repeats this pick (review I4), not Apply cutout.
+      failedPick.current = id;
+      setFailed("pick");
       focusOn("error");
     } finally {
       inFlight.current = false;
@@ -277,7 +289,10 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
         fixEdges: () => { setShowCut(false); focusOn("tools"); },
         use: () => void goOn(),
         apply: () => void apply(),
-        retry: () => void (failed === "use" ? goOn() : apply()),
+        retry: () => {
+          const r = retryOf(failed, failedPick.current);
+          void (r.kind === "use" ? goOn() : r.kind === "pick" ? pick(r.id) : apply());
+        },
         startOver,
       }}
     />

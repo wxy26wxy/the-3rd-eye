@@ -1,12 +1,12 @@
 "use client";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
 import { ApiError } from "../api";
 import { frameSize, initialFrame } from "../area";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { usableSize, type Box, type ImageSize } from "../cutout";
-import { describeError, type ScreenError } from "../errors";
+import { describeError, revealError, type ScreenError } from "../errors";
 import { adjustBack, cutArea } from "../flow";
 import { getDraft, useCreate } from "../store";
 import { useOriginal } from "../useOriginal";
@@ -63,6 +63,12 @@ function AreaFlow() {
   const initial = imageSize ? initialFrame(undefined, imageSize) : null;
   const box = edited ?? returning ?? initial;
 
+  // Nothing found in the frame (detect 422, review I2): focus and show the move-or-grow advice. The
+  // route is kept mounted, so this runs when the screen is shown again with the flag set.
+  const errorRef = useRef<HTMLDivElement>(null);
+  const notFound = !!draft.areaNotFound;
+  useEffect(() => { if (notFound) revealError(errorRef.current); }, [notFound]);
+
   function say(text: string) { setAnnounce((prev) => (prev === text ? `${text} ` : text)); }
   function commit(next: Box) {
     if (draft.areaNotFound) update({ areaNotFound: undefined });
@@ -98,7 +104,8 @@ function AreaFlow() {
       photoState={detail.state === "loading" ? "loading" : "missing"}
       announce={announce}
       canUse={!!box}
-      error={draft.areaNotFound ? { message: a.notFound, action: "none" } : null}
+      error={notFound ? { message: a.notFound, action: "none" } : null}
+      errorRef={errorRef}
       on={{ use, reset }}
     />
   );

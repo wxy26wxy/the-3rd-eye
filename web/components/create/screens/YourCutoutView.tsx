@@ -42,6 +42,8 @@ export type YourCutoutViewProps = {
   canApply: boolean;
   resultRef?: Ref<HTMLHeadingElement>;
   errorRef?: Ref<HTMLDivElement>;
+  /** The Add area / Remove area picker, focused when Fix the edges opens. */
+  toolsRef?: Ref<HTMLFieldSetElement>;
   on: {
     mode: (mode: TapMode) => void;
     addAround: () => void;
@@ -65,7 +67,7 @@ export type YourCutoutViewProps = {
  * Use this / Apply cutout / Start over in the bar. No "Draw a box": the frame from Adjust the area is
  * the box. While a request runs, Back and every control are locked and only Use this shows (dimmed).
  */
-export function YourCutoutView({ resultRef, errorRef, on, ...p }: YourCutoutViewProps) {
+export function YourCutoutView({ resultRef, errorRef, toolsRef, on, ...p }: YourCutoutViewProps) {
   const busy = p.work !== null;
   const showing = p.cut !== null;
   const footer = busy ? (
@@ -104,7 +106,7 @@ export function YourCutoutView({ resultRef, errorRef, on, ...p }: YourCutoutView
 
       {tools ? (
         <>
-          <fieldset className={styles.modes}>
+          <fieldset ref={toolsRef} className={styles.modes}>
             <legend className="visually-hidden">{t.modesLabel}</legend>
             {p.modes.map((x) => (
               <label key={x.id} className={styles.mode}>

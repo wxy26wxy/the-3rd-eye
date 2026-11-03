@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   STORY_REDO_RETURN, storyVideoDone, adjustBack, adjustWholePhoto, afterPhoto, applyMarks, areaRequest, busyWhile, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
-  cutoutVisit, leaveChanging, makingCutoutBack, pickPiece, runAreaCut, runChange, runChangeCut, skipChange, submitChange, takeChange, takeCutout, yourCutoutBack, type FlowDeps,
+  changeItCut, cutoutVisit, leaveChanging, makingCutoutBack, pickPiece, runAreaCut, runChange, runChangeCut, skipChange, submitChange, takeChange, takeCutout, yourCutoutBack, type FlowDeps,
 } from "@/components/create/flow";
 import { marksRequest } from "@/components/create/cutout";
 import { dragFrame, initialFrame, keyFrame, moveFrame, resizeFrame, frameSize } from "@/components/create/area";
@@ -417,6 +417,46 @@ describe("T118 / T130: Back from Change it", () => {
     expect(changeItBack(old)).toBe("/create/adjust");
     expect(changeItBack({ ...old, area: undefined, method: "upload" })).toBe("/create/photo?mode=upload");
     expect(changeItBack({ ...old, area: undefined })).toBe("/create/photo?mode=camera");
+  });
+});
+
+describe("T133: review minors", () => {
+  it("Change it's Back opens the cut of the art on screen: after Back to my original from a cut change, the piece's cut", async () => {
+    const h = harness({ ...piece, ...addChange(piece, change("k1", "p1")) }, { "/cutout": { artwork: artwork({ id: "k1", cleanedUrl: "/k1-cut.png" }), candidates: [{ ...candidates[0], id: "k1c" }], imageSize: { w: 200, h: 150 } } });
+    // piece → change k1 → Use this → Your cutout on k1
+    takeChange(h.deps, "k1");
+    await runChangeCut(h.deps, "k1");
+    expect(h.draft.cutoutArtworkId).toBe("k1");
+    // Back to Before and after → Back to my original → Change it shows the piece
+    h.deps.update(backToOriginal(h.draft));
+    expect(currentArtworkId(h.draft)).toBe("p1");
+    expect(changeItCut(h.draft)).toBe("p1");
+    expect(changeItBack(h.draft)).toBe("/create/cutout");
+    // Change it keeps cutoutArtworkId on that cut, so Back opens the piece's cut (whose Back is Adjust the area)
+    h.deps.update({ cutoutArtworkId: changeItCut(h.draft)! });
+    expect(cutoutVisit(h.draft)).toBe("cut");
+    expect(yourCutoutBack(h.draft, h.draft.cutoutArtworkId!)).toBe("/create/adjust");
+    // a change on screen that was cut opens its own cut; one never cut falls back to the piece's cut
+    expect(changeItCut({ ...h.draft, changedArtworkId: "k1" })).toBe("k1");
+    const k2 = { ...h.draft, ...addChange(h.draft, change("k2", "k1")) };
+    expect(changeItCut(k2)).toBe("p1");
+  });
+
+  it("a double tap on Use this area sends one cleanup", async () => {
+    const h = harness({ ...piece, area: { artworkId: "p1", candidateId: "c2" } }, { "/cleanup": artwork({ cleanedUrl: "/c2.png" }) });
+    cutArea(h.deps, [8, 9, 22, 21]);
+    const job = h.draft.pendingArea!;
+    cutArea(h.deps, [8, 9, 22, 21]);
+    expect(h.draft.pendingArea?.nonce).toBe(job.nonce);
+    expect(h.calls.filter((c) => c === "push /create/cutout")).toHaveLength(2);
+    // Making your cutout runs the job once per nonce (both visits share the in-flight call)
+    await Promise.all([once(`area:${job.nonce}:0`, () => runAreaCut(h.deps, job)), once(`area:${h.draft.pendingArea!.nonce}:0`, () => runAreaCut(h.deps, h.draft.pendingArea!))]);
+    expect(h.api).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks are sent as whole pixels", () => {
+    const req = marksRequest(["c1"], [0, 0, 400, 300], [{ x: 119.205, y: 118.894, label: "positive" }, { x: 279.5, y: 179.82, label: "negative" }]);
+    expect(req.points).toEqual([{ x: 119, y: 119, label: "positive" }, { x: 280, y: 180, label: "negative" }]);
   });
 });
 

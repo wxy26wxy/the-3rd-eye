@@ -108,12 +108,15 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
   const live = useRef(true);
   const resultRef = useRef<HTMLHeadingElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
-  const [focusTarget, setFocus] = useState<{ to: "result" | "error"; n: number } | null>(null);
-  const focusOn = (to: "result" | "error") => setFocus((f) => ({ to, n: (f?.n ?? 0) + 1 }));
+  const toolsRef = useRef<HTMLFieldSetElement>(null);
+  const [focusTarget, setFocus] = useState<{ to: "result" | "error" | "tools"; n: number } | null>(null);
+  const focusOn = (to: "result" | "error" | "tools") => setFocus((f) => ({ to, n: (f?.n ?? 0) + 1 }));
   useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
   useEffect(() => {
     if (focusTarget?.to === "result") resultRef.current?.focus();
     if (focusTarget?.to === "error") errorRef.current?.focus();
+    // Fix the edges (T133): the chosen tool, else the first control of the view (the picture is still loading).
+    if (focusTarget?.to === "tools") (toolsRef.current?.querySelector<HTMLInputElement>("input:checked") ?? document.querySelector<HTMLElement>("main button, main a"))?.focus();
   }, [focusTarget]);
 
   const imageSize = detail.state === "ok" && detail.imageSize ? detail.imageSize : usableSize(cutout.imageSize) ? cutout.imageSize : null;
@@ -147,7 +150,7 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
     setNotice(null);
     say(t.announceCleared);
   }
-  function onTap(p: XY) { addMark({ x: p.x, y: p.y, label: mode === "remove" ? "negative" : "positive" }); }
+  function onTap(p: XY) { addMark({ x: Math.round(p.x), y: Math.round(p.y), label: mode === "remove" ? "negative" : "positive" }); }
 
   /** Saves the marked cut on the server; null when the call failed (the error is shown). */
   async function save(kind: Work): Promise<CutoutState | null> {
@@ -229,13 +232,14 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
       canApply={!!request && !saved}
       resultRef={resultRef}
       errorRef={errorRef}
+      toolsRef={toolsRef}
       on={{
         mode: setMode,
         addAround: () => { const pt = centrePoint(piece?.bbox ?? box); if (pt) addMark(pt); },
         removeMark,
         clearMarks,
-        showCut: () => setShowCut(true),
-        fixEdges: () => setShowCut(false),
+        showCut: () => { setShowCut(true); focusOn("result"); },
+        fixEdges: () => { setShowCut(false); focusOn("tools"); },
         use: () => void goOn(),
         apply: () => void apply(),
         retry: () => void (failed === "use" ? goOn() : apply()),

@@ -533,7 +533,10 @@
       "nameRequired": "Please give it a name.",
       "priceInvalid": "Please enter a price like 5 or 5.50.",
       "traceNote": "note",
-      "draftingHint": "We'll show the name, price and description when it's ready."
+      "draftingHint": "We'll show the name, price and description when it's ready.",
+      "redo": "Redo",
+      "printWarnContrast": "the colors may look faint",
+      "printWarnResolution": "might print blurry"
     },
     "story": {
       "title": "Make your story video!",
@@ -576,7 +579,11 @@
       "noDrawing": "We could not find a drawing in that picture. Try a photo with the drawing on plain paper, in good light.",
       "timeout": "That took too long. Your work is saved, so you can try again.",
       "retry": "Try again",
-      "retake": "Retake the photo"
+      "retake": "Retake the photo",
+      "printContrast": "Some colors in your art are close together, so it may look faint when printed. You can use it anyway or re-do the cutout.",
+      "printResolution": "This picture is too small to print sharply. Re-do the cutout with more of the photo, or use a bigger photo.",
+      "useAnyway": "Use anyway",
+      "redoCutout": "Re-do the cutout"
     },
     "cutout": {
       "title": "Your cutout",

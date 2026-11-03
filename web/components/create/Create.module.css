@@ -287,6 +287,8 @@
 /* Listing (board 2030:3752) */
 .mockup { display: grid; place-items: center; padding: var(--space-l); border-radius: var(--radius-card); background: var(--surface-alt); }
 .mockup .mockupArt { width: auto; height: calc(var(--size-record) * 1.55); aspect-ratio: 1; background: transparent; }
+/* Listing drafting (round 3 ruling 5): the card stands in for the text fields only; the picture stays above it. */
+.draftingCard { display: grid; gap: var(--space-m); padding: var(--space-l); border-radius: var(--radius-card); border: var(--border-thin) solid var(--border); }
 .earn {
   display: flex; justify-content: space-between; align-items: center; gap: var(--space-m);
   padding: var(--space-l) var(--space-xl);

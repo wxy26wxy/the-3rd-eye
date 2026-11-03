@@ -5,7 +5,7 @@
  * kept out of the screens so they can be tested with a mocked `api` and router.
  */
 import { m } from "@/components/messages";
-import type { Artwork, Candidate, ChangeResult, CleanupResult, CutoutResult } from "./api";
+import { uuid, type Artwork, type Candidate, type ChangeResult, type CleanupResult, type CutoutResult, type Product } from "./api";
 import { sameBox } from "./area";
 import { productNotice, wholeImageBox, type Box, type CleanupRequest } from "./cutout";
 import { addChange, currentArtworkId, currentChange, cutoutOf, withCutout, type ChangeStep, type CutoutState, type Draft } from "./store";
@@ -189,10 +189,12 @@ export function takeCutout({ router, update, getDraft }: Pick<FlowDeps, "router"
 
 /**
  * On to Making your sticker / tote bag for `artworkId`. The draft product is kept: Making reuses
- * it for the same artwork and type (consistency item 6, `productToMake`).
+ * it for the same artwork and type (consistency item 6, `productToMake`). Each "Use this" mints the
+ * `clientRequestId` its `POST /products` carries (round 3 ruling 6); Try again reuses it, so a retry
+ * after a lost answer gets the same row back.
  */
 export function toMaking({ router, update }: Pick<FlowDeps, "router" | "update">, artworkId: string): void {
-  update({ artworkId });
+  update({ artworkId, productRequestId: uuid() });
   router.push("/create/making");
 }
 
@@ -207,8 +209,9 @@ export function submitChange({ router, update }: Pick<FlowDeps, "router" | "upda
   return true;
 }
 
+/** A new request id (a uuid): the `changeNonce` doubles as the change's `clientRequestId` (round 3 ruling 6). */
 function newNonce(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return uuid();
 }
 
 /**
@@ -285,16 +288,26 @@ export function changingEntry(d: Draft): "run" | "compare" | "missing" {
   return "missing";
 }
 
-/** The request Changing your art sends, captured on arrival. */
-export function changeRequest(d: Draft): { base: string; instruction: string; transcript?: string } | null {
+export type ChangeRequest = { base: string; instruction: string; transcript?: string; clientRequestId?: string };
+
+/** The request Changing your art sends, captured on arrival; its `clientRequestId` is the "Make the change" nonce. */
+export function changeRequest(d: Draft): ChangeRequest | null {
   const base = currentArtworkId(d);
-  return base && d.changeInstruction ? { base, instruction: d.changeInstruction, transcript: d.changeTranscript } : null;
+  if (!base || !d.changeInstruction) return null;
+  return { base, instruction: d.changeInstruction, transcript: d.changeTranscript, ...(d.changeNonce ? { clientRequestId: d.changeNonce } : {}) };
 }
 
-/** `POST /artworks/{base}/change`, then the child goes on screen and Before and after opens. */
-export async function runChange({ api, router, update, getDraft }: FlowDeps, req: { base: string; instruction: string; transcript?: string }): Promise<ChangeStep> {
+/**
+ * `POST /artworks/{base}/change`, then the child goes on screen and Before and after opens. Try again
+ * sends the same `clientRequestId`, so a change the server already made comes back instead of a second one.
+ */
+export async function runChange({ api, router, update, getDraft }: FlowDeps, req: ChangeRequest): Promise<ChangeStep> {
   const { artwork, description } = await api<ChangeResult>(`artworks/${req.base}/change`, {
-    json: req.transcript ? { instruction: req.instruction, transcript: req.transcript } : { instruction: req.instruction },
+    json: {
+      instruction: req.instruction,
+      ...(req.transcript ? { transcript: req.transcript } : {}),
+      ...(req.clientRequestId ? { clientRequestId: req.clientRequestId } : {}),
+    },
   });
   const step: ChangeStep = {
     artworkId: artwork.id, parentId: req.base, instruction: req.instruction, transcript: req.transcript,
@@ -318,6 +331,23 @@ export function artOnScreen(d: Draft): { src: string | null; alt: string | null;
   return step
     ? { src: step.previewUrl, alt: step.alt, shows: step.spoken ?? step.alt }
     : { src: d.pieceUrl ?? null, alt: d.pieceAlt ?? null, shows: d.pieceSpoken ?? d.pieceAlt ?? null };
+}
+
+// ---- Get it ready for the shop
+
+/**
+ * "Redo" while the listing drafts (round 3 ruling 5): the run is dropped by its nonce (the server
+ * finishes it and the answer is ignored; `listings/run` upserts), and Your cutout of the product's
+ * artwork opens. The draft product is kept, so Use this reuses it (no second `POST /products`).
+ */
+export function redoListing({ router, update }: Pick<FlowDeps, "router" | "update">, product: Pick<Product, "artworkId">): void {
+  update({ listingRun: undefined, listing: undefined, trace: undefined, cutoutArtworkId: product.artworkId });
+  router.push("/create/cutout");
+}
+
+/** Redo is offered only when the product's artwork has a cut in this draft (Your cutout can show it). */
+export function canRedoListing(d: Draft): boolean {
+  return !!d.productRecord && !!cutoutOf(d, d.productRecord.artworkId);
 }
 
 // ---- Story video (R6)

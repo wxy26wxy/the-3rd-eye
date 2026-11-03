@@ -89,6 +89,10 @@ export type Draft = {
   cutoutNotice?: string;
   /** The artwork the product was made from. */
   artworkId?: string;
+  /** `clientRequestId` of the `POST /products` for the current "Use this" (Try again reuses it). */
+  productRequestId?: string;
+  /** Nonce of the listing agent run on screen; a result for another one (Redo) is dropped. */
+  listingRun?: string;
   productRecord?: Product;
   /** The cut-out (`cleanedUrl`) `productRecord`'s files were made from; another one means the server rebuilt them. */
   productCut?: string | null;
@@ -187,9 +191,13 @@ export function once<T>(key: string, run: () => Promise<T>): Promise<T> {
   return p;
 }
 
-/** POST /products for the chosen artwork and remember it (`attempt` makes a retry a new request). */
-export async function makeProduct(artworkId: string, type: ProductType, attempt = 0, cut: string | null = null): Promise<Product> {
-  const product = await once(`product:${artworkId}:${type}:${attempt}`, () => api<Product>("products", { json: { artworkId, type } }));
+/**
+ * POST /products for the chosen artwork and remember it (`attempt` makes a retry a new request; the
+ * same `clientRequestId` on a retry returns the row the server already made).
+ */
+export async function makeProduct(artworkId: string, type: ProductType, attempt = 0, cut: string | null = null, clientRequestId?: string): Promise<Product> {
+  const json = clientRequestId ? { artworkId, type, clientRequestId } : { artworkId, type };
+  const product = await once(`product:${artworkId}:${type}:${attempt}`, () => api<Product>("products", { json }));
   updateDraft({ productRecord: product, productCut: cut, artworkId, listing: undefined, trace: undefined });
   return product;
 }

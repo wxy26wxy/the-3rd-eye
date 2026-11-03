@@ -2,10 +2,11 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
-import { api, type AgentStep, type ListingDraft, type Product } from "../api";
+import { api, uuid, type AgentStep, type ListingDraft, type Product } from "../api";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { describeError, type ScreenError } from "../errors";
-import { cutoutOf, once, pictureOf, updateDraft, useCreate, useCreator } from "../store";
+import { canRedoListing, redoListing } from "../flow";
+import { cutoutOf, getDraft, once, pictureOf, updateDraft, useCreate, useCreator } from "../store";
 import { ListingView } from "./ListingView";
 
 const toDollars = (cents: number) => (cents / 100).toFixed(2);
@@ -44,24 +45,35 @@ function ListingForm() {
     setDescription(l.description);
     setPrice(toDollars(l.price_cents));
   }
-  /** Calls the listing agent; state changes happen only after the request settles. */
-  function fetchAgent(key: string) {
+  /**
+   * Calls the listing agent for run `run` (the draft's `listingRun`); state changes happen only after
+   * the request settles, and only while that run is still the draft's (Redo drops it, ruling 5).
+   */
+  function fetchAgent(run: string) {
     if (!p) return Promise.resolve();
-    return once(key, () => api<{ listing: ListingDraft; trace: AgentStep[] }>(`listings/${p.id}/run`, { method: "POST", json: {} }))
-      .then((res) => { update({ listing: res.listing, trace: res.trace }); apply(res.listing); })
-      .catch((err) => { setFailedCall("agent"); setError(describeError(err)); })
-      .finally(() => setRunning(false));
+    const current = () => getDraft().listingRun === run;
+    return once(`listing:${p.id}:${run}`, () => api<{ listing: ListingDraft; trace: AgentStep[] }>(`listings/${p.id}/run`, { method: "POST", json: {} }))
+      .then((res) => { if (!current()) return; update({ listing: res.listing, trace: res.trace }); apply(res.listing); })
+      .catch((err) => { if (!current()) return; setFailedCall("agent"); setError(describeError(err)); })
+      .finally(() => { if (current()) setRunning(false); });
   }
+  /** A new run (Improve with AI, Try again): a new nonce. */
   function improve() {
+    const run = uuid();
+    updateDraft({ listingRun: run });
     setRunning(true);
     setError(null);
-    void fetchAgent(`listing:${p?.id}:${Date.now()}`);
+    void fetchAgent(run);
   }
   const productId = p?.id;
   const hasListing = !!draft.listing;
   useEffect(() => {
-    // First visit: prefill from the agent once per product.
-    if (ready && productId && !hasListing) void fetchAgent(`listing:${productId}:first`);
+    // First visit (and after Redo): prefill from the agent; a remount (Strict Mode, a kept-mounted
+    // route shown again) joins the run already on its way instead of sending another.
+    if (!ready || !productId || hasListing) return;
+    let run = getDraft().listingRun;
+    if (!run) { run = uuid(); updateDraft({ listingRun: run }); }
+    void fetchAgent(run);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchAgent is recreated each render; run once per product
   }, [ready, productId, hasListing]);
 
@@ -120,7 +132,8 @@ function ListingForm() {
       showTrace={showTrace}
       error={error}
       errorRef={errorRef}
-      on={{ title: setTitle, description: setDescription, price: setPrice, improve, retry: () => void (failedCall === "approve" ? submit() : improve()), toggleTrace: () => setShowTrace((v) => !v), submit }}
+      canRedo={canRedoListing(draft)}
+      on={{ redo: () => { if (p) { setError(null); redoListing({ router, update }, p); } }, title: setTitle, description: setDescription, price: setPrice, improve, retry: () => void (failedCall === "approve" ? submit() : improve()), toggleTrace: () => setShowTrace((v) => !v), submit }}
     />
   );
 }

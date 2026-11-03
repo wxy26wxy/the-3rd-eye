@@ -246,6 +246,7 @@ describe("My story video row (R6)", () => {
   });
 });
 
+const listingOn: ListingViewProps["on"] = { title: noop, description: noop, price: noop, improve: noop, retry: noop, toggleTrace: noop, submit: noop, redo: noop };
 function listing(over: Partial<ListingViewProps> = {}): string {
   const props: ListingViewProps = {
     uid: "l",
@@ -262,7 +263,7 @@ function listing(over: Partial<ListingViewProps> = {}): string {
     trace: [{ step: 1, tool: "check_print", text: "ok" }] as ListingViewProps["trace"],
     showTrace: false,
     error: null,
-    on: { title: noop, description: noop, price: noop, improve: noop, retry: noop, toggleTrace: noop, submit: noop },
+    on: listingOn,
     ...over,
   };
   return html(createElement(ListingView, props));
@@ -298,6 +299,18 @@ describe("Listing view (T105, board 2030:3752: element order follows the board)"
     expect(text(out)).toContain("We'll show the name, price and description when it's ready.");
     expect(m.create.listing.drafting).toBe("Writing your listing…");
     expect(out).toMatch(new RegExp(`<button[^>]*disabled[^>]*>(?:(?!</button>).)*${m.create.listing.submit}`));
+  });
+
+  it("round 3 ruling 5: drafting keeps the picture on top, the drafting card replaces only the fields, then a secondary Redo", () => {
+    const out = listing({ drafting: true, canRedo: true });
+    beforeRaw(out, 'alt="Your Sticker preview"', "draftingCard");
+    beforeRaw(out, "draftingCard", "<video");
+    beforeRaw(out, m.create.listing.drafting, `>${m.create.listing.redo}<`);
+    expect(out).not.toContain("<input");
+    expect(m.create.listing.redo).toBe("Redo");
+    // Redo is offered only while drafting, and only when it has somewhere to go
+    expect(listing({ drafting: false, canRedo: true })).not.toContain(`>${m.create.listing.redo}<`);
+    expect(listing({ drafting: true, canRedo: false })).not.toContain(`>${m.create.listing.redo}<`);
   });
 
   it("409 print check / moderation: the error card sits after the print check, above the bar", () => {

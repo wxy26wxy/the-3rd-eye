@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  STORY_REDO_RETURN, storyVideoDone, adjustBack, adjustWholePhoto, afterPhoto, applyMarks, areaRequest, busyWhile, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
+  STORY_REDO_RETURN, storyVideoDone, canRedoListing, redoListing, toMaking, adjustBack, adjustWholePhoto, afterPhoto, applyMarks, areaRequest, busyWhile, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
   changeItCut, cutoutVisit, leaveChanging, makingCutoutBack, pickPiece, runAreaCut, runChange, runChangeCut, skipChange, submitChange, takeChange, takeCutout, yourCutoutBack, type FlowDeps,
 } from "@/components/create/flow";
 import { marksRequest } from "@/components/create/cutout";
@@ -363,8 +363,8 @@ describe("T117: kept-mounted routes (cacheComponents) never re-send or come back
     const sent = () => h.calls.filter((c) => c.startsWith("api") && c.includes("/change"));
     await once(`change:${second}:0`, () => runChange(h.deps, changeRequest(h.draft)!));
     expect(sent()).toEqual([
-      'api artworks/p1/change {"instruction":"make it blue"}',
-      'api artworks/k1/change {"instruction":"make the stem red"}',
+      `api artworks/p1/change {"instruction":"make it blue","clientRequestId":"${first}"}`,
+      `api artworks/k1/change {"instruction":"make the stem red","clientRequestId":"${second}"}`,
     ]);
   });
 
@@ -465,5 +465,62 @@ describe("Story video return (R6)", () => {
     expect(storyVideoDone(false)).toBe("/create/live");
     expect(storyVideoDone(true)).toBe("/create/product");
     expect(STORY_REDO_RETURN).toBe("/create/product");
+  });
+});
+
+describe("Round 3 ruling 6: clientRequestId on change and products", () => {
+  it("the change carries its nonce as clientRequestId, and Try again sends the same one", async () => {
+    const h = harness({ ...piece }, { "/change": new ApiError(504, "deadline_exceeded", "late") });
+    submitChange(h.deps, "make it blue", "make it blue");
+    const nonce = h.draft.changeNonce as string;
+    expect(nonce).toMatch(/^[0-9a-f-]{36}$/);
+    const req = changeRequest(h.draft)!;
+    expect(req.clientRequestId).toBe(nonce);
+    await expect(runChange(h.deps, req)).rejects.toThrow();
+    await expect(runChange(h.deps, changeRequest(h.draft)!)).rejects.toThrow();
+    const bodies = h.calls.filter((c) => c.includes("/change")).map((c) => JSON.parse(c.slice(c.indexOf("{"))));
+    expect(bodies).toEqual([
+      { instruction: "make it blue", transcript: "make it blue", clientRequestId: nonce },
+      { instruction: "make it blue", transcript: "make it blue", clientRequestId: nonce },
+    ]);
+  });
+
+  it("each Use this mints a new products clientRequestId; the store sends it", async () => {
+    const h = harness({ ...piece });
+    toMaking(h.deps, "p1");
+    const first = h.draft.productRequestId;
+    expect(first).toMatch(/^[0-9a-f-]{36}$/);
+    toMaking(h.deps, "p1");
+    expect(h.draft.productRequestId).not.toBe(first);
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ id: "pr1", artworkId: "p1", type: "sticker" }), { status: 201 }));
+    vi.stubGlobal("fetch", fetch);
+    try {
+      const { makeProduct } = await import("@/components/create/store");
+      await makeProduct("p1", "sticker", 7, null, "req-1");
+      const init = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1];
+      expect(JSON.parse(init.body as string)).toEqual({ artworkId: "p1", type: "sticker", clientRequestId: "req-1" });
+    } finally { vi.unstubAllGlobals(); }
+  });
+});
+
+describe("Round 3 ruling 5: Redo while the listing drafts", () => {
+  const product = { id: "pr1", artworkId: "p1", creatorId: "me", type: "sticker" as const, mockupUrl: "/m.png", printPngUrl: null, printSvgUrl: null, priceCents: 500, status: "draft", previewUrl: "/pv.png" };
+  it("drops the run, opens Your cutout of the product's artwork and keeps the draft product (Use this reuses it, no second POST)", () => {
+    const h = harness({ ...piece, artworkId: "p1", productRecord: product, productCut: "/piece.png", listingRun: "run-1", productRequestId: "req-1" });
+    expect(canRedoListing(h.draft)).toBe(true);
+    redoListing(h.deps, product);
+    expect(h.draft.listingRun).toBeUndefined();
+    expect(h.draft.cutoutArtworkId).toBe("p1");
+    expect(h.draft.productRecord).toEqual(product);
+    expect(h.calls.at(-1)).toBe("push /create/cutout");
+    expect(cutoutVisit(h.draft)).toBe("cut");
+    // back on Your cutout of a change result: Use this → Making, which reuses the product
+    expect(productToMake(h.draft)).toBe("reuse");
+    expect(h.api).not.toHaveBeenCalled();
+  });
+
+  it("no Redo when the product's artwork has no cut in this draft", () => {
+    expect(canRedoListing({ productRecord: product })).toBe(false);
+    expect(canRedoListing({})).toBe(false);
   });
 });

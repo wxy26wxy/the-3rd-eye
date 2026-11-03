@@ -131,7 +131,8 @@ struct MakingCutoutView: View {
       if flow === app.flow, app.createPath.last == .makingCutout(job) { app.createPath.removeLast() }
       return
     }
-    self.error = CleanupResult.errorMessage(for: error) ?? error.localizedDescription
+    // A change's cutout shows the server's reason (T131); the frame's own 422 line is for `detect`.
+    self.error = isDetect ? (CleanupResult.errorMessage(for: error) ?? error.localizedDescription) : error.localizedDescription
   }
 
   /// The cut already made on the server (after a lost answer, or back in the app): applied once.

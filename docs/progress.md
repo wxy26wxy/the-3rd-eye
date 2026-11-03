@@ -340,3 +340,12 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - `docs/api.md`: "Creator flow (round 2b)" lists the calls per step for web and iOS; the Create summary follows the new order. `docs/handoffs/backend.md` T129 entry.
 - Verify: `pnpm test`, `pnpm lint`, `pnpm build`, `bash scripts/check_clean.sh`.
 
+
+## T136 ios · Feedback round 3 (2026-11-03)
+- Order: photo → "Getting your photo ready…" (`POST /artworks {detect: false}`) → Adjust the area on the whole photo → `detect {box}` (Making your cutout with the searching mascot; nothing found comes back to the frame with the "move or grow the frame" line) → Your cutout (a strip of drawings only for two or more; a pick is a `cleanup` with the frame) → Change it → … ; a re-framed area detects again, marks keep `cleanup`. Choose a pattern removed. Design detail › Re-do the cutout sends `detect` on a photo (`cleanup` on a changed picture).
+- Product picture: the AI product photo (`mockupUrl`) for stickers too, then the bordered preview, then the cut (Listing details, My designs, Design detail).
+- Listing details: the picture above the drafting card, which covers only the fields; "Redo" while drafting cancels the run and goes back to Your cutout with the draft product kept; the form's print check line; print refusals by `check` ("Use anyway" → `acceptPrintWarning` for contrast, "Re-do the cutout" for resolution; Edit listing sheet too).
+- Background-safe: `BackgroundWork` scope around the long calls and uploads; `clientRequestId` per attempt on `change` / `products`; `CreateFlow.reconcile` on a lost answer and on return to the app with a job in flight (change child, product, cut, listing draft, approval).
+- Mock: `ios/scripts/mock_api.py` from `feat/backend-T134` (copied; T134 not merged yet).
+- Verify: `xcodegen generate`, unit tests on the `The3rdEye` scheme, UI tests on `The3rdEyeUITests` against `python3 scripts/mock_api.py <port>` (see `docs/handoffs/ios.md`, "Round 3 (T136)").
+- Unfinished: recovery from the change list is unit-tested only (the mock's `GET /artworks` lists no `p1` / `ch<n>` rows); not run on a device; `MARKETING_VERSION` / build number untouched.

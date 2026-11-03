@@ -12,6 +12,10 @@ GET /__mock/count/<route> returns {"count": n}, the calls to that route since si
 run, products, ...); GET /__mock/last/cleanup-target returns {"artworkId": ...} of the last cleanup.
 Sign-in NOCUT... makes cleanup answer 422, DETAILS... gives cleanup non-empty details, SLOW... makes
 cleanup take 4 s (switching tabs meanwhile must not lose the cut).
+T146: sign-in REFRAME... gives the second and later crops their own row ids (p2, p3, ...); every
+DELETE /artworks/<id> is counted at /__mock/count/artworks-deletes (a crop row p<n> answers 200).
+REFRAME... supports the delete count only: p2's detail, cleanup and detect routes answer 404.
+My designs d7 is a no_drawing_found row with no cut (the app hides it).
 GET /__mock/last/<cleanup|select|artworks|products|approve|delete> returns the last body the app sent there
 (for delete: {"id": ...}). Cleanup accepts clipToBox (boolean, needs box; T126) and echoes it there.
 My designs (T083): GET /artworks lists four designs, d1 in the shop (photo, published sticker),
@@ -187,7 +191,7 @@ def count(name):
     COUNTS[name] = COUNTS.get(name, 0) + 1
 # A sign-in code starting with ONE makes photo answers carry a single, already cut-out candidate.
 # NOCUT… makes every cleanup answer 422; DETAILS… makes it carry non-empty details.
-MODE = {"nocutout": False, "single": False, "none": False, "fail": False, "details": False, "slow": False, "noprint": False, "nores": False, "novideo": False}
+MODE = {"reframe": False, "nocutout": False, "single": False, "none": False, "fail": False, "details": False, "slow": False, "noprint": False, "nores": False, "novideo": False}
 CUTS = {"n": 0}
 
 
@@ -310,7 +314,12 @@ def create_artwork(body):
         count("artworks-posts")
         if body.get("framed") is True:
             # Round 4 (T143): the upload is the creator's crop; detection on the whole crop, the largest cut.
-            return 201, detect("p1", {"box": [0, 0, IMAGE_SIZE["w"], IMAGE_SIZE["h"]]}, counted=False)
+            res = detect("p1", {"box": [0, 0, IMAGE_SIZE["w"], IMAGE_SIZE["h"]]}, counted=False)
+            n = COUNTS["artworks-posts"]
+            if MODE["reframe"] and n > 1:
+                # T146: REFRAME... gives every later crop its own row (p2, p3, ...) so a re-frame can be told from the first.
+                res["artwork"]["id"] = f"p{n}"
+            return 201, res
         if body.get("detect") is False:
             # Round 3 (T134): the photo is stored, no detection ran, so never 422.
             DETECT["candidates"] = []
@@ -481,6 +490,8 @@ def designs():
               "priceCents": 700, "description": "A second fish.", "mockupUrl": f"{BASE}/img.png?m=6b"},
              {"id": "pr-d6", "type": "sticker", "status": "published", "title": "Orange Fish Sticker",
               "priceCents": 900, "description": "An orange fish.", "mockupUrl": f"{BASE}/img.png?m=6"}]),
+        # T146: a crop row that answered 422 no_drawing_found; My designs does not list it.
+        row("d7", "photo", None, "Hidden sketch", [], last_error="no_drawing_found"),
     ]
 
 
@@ -504,8 +515,11 @@ def design_detail(artwork_id):
 
 
 def delete_design(artwork_id):
-    d = find_design(artwork_id)
+    count("artworks-deletes")  # T146: every DELETE /artworks/<id>, designs and crop rows alike
     LAST["delete"] = {"id": artwork_id}
+    if re.fullmatch(r"p\d+", artwork_id):
+        return {"id": artwork_id, "deleted": True, "archivedProductIds": []}
+    d = find_design(artwork_id)
     DESIGNS["list"] = [x for x in DESIGNS["list"] if x["id"] != artwork_id]
     return {"id": artwork_id, "deleted": True, "archivedProductIds": [p["id"] for p in d["products"]]}
 
@@ -692,6 +706,7 @@ def sign_in(body):
     code = str(body.get("code", "")).upper()
     MODE["single"] = code.startswith("ONE")
     MODE["none"] = code.startswith("NONE")
+    MODE["reframe"] = code.startswith("REFRAME")
     MODE["nocutout"] = code.startswith("NOCUTOUT")
     MODE["fail"] = code.startswith("NOCUT") and not MODE["nocutout"]
     MODE["details"] = code.startswith("DETAILS")

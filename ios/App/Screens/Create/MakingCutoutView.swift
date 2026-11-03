@@ -94,6 +94,7 @@ struct MakingCutoutView: View {
       }
       if await recover(flow) { return }
     }
+    flow.beginReframe()
     do {
       let url: String
       if let upload = flow.cropUpload, upload.box == box {
@@ -117,17 +118,27 @@ struct MakingCutoutView: View {
       }
       let api = app.api
       let res = try await flow.inFlight { try await api.artworkFromPhoto(imageUrl: url, product: product, framed: true) }
-      guard flow.finishJob(pending) else { return }
+      guard flow.finishJob(pending) else {
+        flow.dropIfStale(res.artwork.id, api: api)
+        return
+      }
       flow.recordPhoto(res, box: box)
       guard res.artwork.cleanedUrl != nil else {
+        flow.emptyRowId = res.artwork.id
         nothingFound(flow, message: nil)
         return
       }
+      // T146: the new row exists; only now is the row it replaces deleted.
+      flow.dropSuperseded(except: res.artwork.id, api: api)
       leave(to: res.artwork.id, flow: flow)
     } catch let none as NoDrawingFound {
-      // The row stays as an unused draft (no delete call); back to the frame with the advice.
-      flow.finishJob(pending)
-      _ = none
+      // T146: the row is deleted on the next "Use this area" or "Take a new photo"; a stale answer
+      // deletes its row now.
+      if flow.finishJob(pending) {
+        flow.emptyRowId = none.artworkId
+      } else {
+        flow.dropIfStale(none.artworkId, api: app.api)
+      }
       nothingFound(flow, message: nil)
     } catch {
       await failed(error, job: pending, flow: flow)
@@ -167,8 +178,10 @@ struct MakingCutoutView: View {
       error = nil
       flow.recordPhoto(PhotoArtworkResponse(artwork: detail.artwork, candidates: detail.candidates, imageSize: detail.imageSize), box: box)
       if detail.artwork.cleanedUrl != nil {
+        flow.dropSuperseded(except: detail.artwork.id, api: app.api)
         leave(to: detail.artwork.id, flow: flow)
       } else if detail.artwork.lastError == CreateFlow.noDrawingFound {
+        flow.emptyRowId = detail.artwork.id
         nothingFound(flow, message: nil)
       } else {
         error = detail.artwork.lastError ?? String(localized: "The photo is missing. Go back and take it again.")

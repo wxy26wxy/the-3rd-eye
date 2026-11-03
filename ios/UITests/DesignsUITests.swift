@@ -27,6 +27,13 @@ final class DesignsUITests: XCTestCase {
     XCTAssertEqual(bird.count, 1, "each tile is one accessibility element")
   }
 
+  /// T146: a crop row with no cut and `no_drawing_found` (mock d7) is not listed.
+  func testNoDrawingRowIsNotListed() {
+    let app = openDesigns()
+    XCTAssertTrue(app.buttons["Blue bird on a branch, In the shop"].waitForExistence(timeout: 10))
+    XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Hidden sketch")).firstMatch.exists)
+  }
+
   func testOpeningADesignShowsItsActions() {
     let app = openDesigns()
     open(app, "Blue bird on a branch, In the shop")

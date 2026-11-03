@@ -93,9 +93,14 @@ final class DesignsStore {
   func artwork(id: String) -> Artwork? { artworks.first { $0.id == id } }
 
   /// My designs leaves out changes that were never cut out (drafts made by "Change it" that the
-  /// creator went past, e.g. with "Back to my original"; docs/api.md T111 §3); everything else is shown.
+  /// creator went past, e.g. with "Back to my original"; docs/api.md T111 §3) and photo rows whose
+  /// crop had no drawing in it (`no_drawing_found`, T146); everything else is shown.
   static func shown(_ artworks: [Artwork]) -> [Artwork] {
-    artworks.filter { !($0.parentArtworkId != nil && $0.cleanedUrl == nil) }
+    artworks.filter { art in
+      if art.parentArtworkId != nil && art.cleanedUrl == nil { return false }
+      if art.cleanedUrl == nil && art.lastError == CreateFlow.noDrawingFound { return false }
+      return true
+    }
   }
 
   /// A list fetched less than this long ago is kept as it is (Ruling 3, T144).

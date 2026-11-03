@@ -1,5 +1,7 @@
 # Handoff · pm
 
+> Read `docs/context.md` first: the shared state for every lane and session (flow, rules, infra, open items).
+
 ## Owns
 `docs/brief.md`, `docs/progress.md` summaries, `docs/deployments.md`, `docs/handoffs/pm.md`, `scripts/vercel_env_sync.sh`, `scripts/check_clean.sh`.
 

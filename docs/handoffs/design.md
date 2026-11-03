@@ -1,5 +1,7 @@
 # Handoff · design
 
+> Read `docs/context.md` first: the shared state for every lane and session (flow, rules, infra, open items).
+
 ## Owns
 `design/tokens.json`, `design/assets/`, `scripts/gen_tokens.ts` / `scripts/sync_assets.ts` / `scripts/gen_app_icon.ts` output review, `docs/design/screens.md`, this file. The design agent reads the Figma file and writes to it only when a task says so (T120: feedback round 2 edited in place, logged in the Changelog of the file).
 

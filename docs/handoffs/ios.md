@@ -1,5 +1,7 @@
 # Handoff · ios
 
+> Read `docs/context.md` first: the shared state for every lane and session (flow, rules, infra, open items).
+
 ## Owns
 `ios/**` (except `ios/App/Theme/Tokens.swift`, generated from `design/tokens.json`).
 

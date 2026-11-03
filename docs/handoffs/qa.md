@@ -1,5 +1,7 @@
 # Handoff · qa
 
+> Read `docs/context.md` first: the shared state for every lane and session (flow, rules, infra, open items).
+
 ## Owns
 _(paths)_
 

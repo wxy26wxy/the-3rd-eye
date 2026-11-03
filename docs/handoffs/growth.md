@@ -1,5 +1,7 @@
 # Handoff · growth
 
+> Read `docs/context.md` first: the shared state for every lane and session (flow, rules, infra, open items).
+
 ## Owns
 `README.md`, `docs/demo_script.md`, `docs/submission.md`, the review of `docs/accessibility.md`, `docs/handoffs/growth.md`.
 

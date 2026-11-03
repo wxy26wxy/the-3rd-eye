@@ -6,7 +6,7 @@
 `web/lib/**` (extends but does not break `lib/ai/types.ts`, `lib/db/schema.ts`), `web/app/api/**`, `web/app/media/**`, `web/drizzle/**`, `web/test/**`, `web/vitest.config.ts`, `scripts/seed.ts`, `scripts/probe_meta.ts`, appends to `docs/architecture.md`, `docs/decisions.md`, `docs/progress.md`.
 
 ## Current task
-T143 · Feedback round 4 backend — on `feat/backend-T143` (from main 115429c, main 60d69fd merged), left for review. Contract: `docs/api.md` → "Creator flow (round 4)".
+None open. T143 · Feedback round 4 backend — **done**: merged at 084ac4f after one fix round (review `docs/reviews/2026-11-03-backend-T143.md`); docs closed by T142 (v0.9.1 in `docs/deployments.md`). Contract: `docs/api.md` → "Creator flow (round 4)".
 - `POST /artworks {source:"photo", imageUrl: <crop>, product, framed: true}`: the upload is the creator's crop; `createFromImage` stores it and runs `detectInBox(row, [0,0,w,h], "T143", png)` (frame rules, largest first, largest cut) → 201 with `details`; `framed` + `detect:false` → 400. The plain default is unchanged (round 2b build).
 - `cleanup` and `cutout` answer with `products: ArtworkProduct[]` (live products after the rebuild, `listArtworkProductSummaries` in `lib/db/queries.ts`, `toArtworkProduct` in `lib/api/dto.ts`); `GET /artworks` already carried `mockupUrl` + `previewUrl`.
 - `POST /products` on a change result works once its `cutout` ran (tests `test/round4-routes.test.ts`, `test/change-product.test.ts`).

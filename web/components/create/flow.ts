@@ -26,7 +26,7 @@ const NOTICE_COPY = { failed: m.create.select.failedProducts, unpublished: m.cre
 
 // ---- Take a photo / Upload a picture
 
-/** `POST /artworks {source:"photo", imageUrl, product}` (default detection, on the crop). */
+/** `POST /artworks {source:"photo", imageUrl, product, framed: true}` (T143: detection on the whole crop, the largest piece cut). */
 export type PhotoResult = { artwork: Artwork; candidates: Candidate[]; imageSize?: ImageSize | null; details?: CleanupResult["details"] };
 
 /**
@@ -114,7 +114,7 @@ export function cutArea({ router, update, getDraft }: Pick<FlowDeps, "router" | 
 /** Crops `file` to `box` and uploads the crop (Blob client upload); answers the uploaded URL. */
 export type CropUpload = (file: Blob, box: Box) => Promise<string>;
 
-/** Largest piece first (by bbox area), so the auto-cut piece is first in the strip. */
+/** Largest piece first by bbox area (only for the fallback cut when the server left the choice open). */
 export function largestFirst(candidates: readonly Candidate[]): Candidate[] {
   const size = (c: Candidate) => Math.max(0, c.bbox[2] - c.bbox[0]) * Math.max(0, c.bbox[3] - c.bbox[1]);
   return [...candidates].sort((a, b) => size(b) - size(a));
@@ -122,10 +122,12 @@ export function largestFirst(candidates: readonly Candidate[]): Candidate[] {
 
 /**
  * Making your cutout for "Use this area" (round 4): the local photo cropped to the frame and
- * uploaded (`upload`), then `POST /artworks {source:"photo", imageUrl: <crop>, product}` (default
- * detection: SAM on the crop). The new row is the piece; its original is the crop, so Your cutout
- * marks the crop with the box `[0, 0, w, h]`. When the server left the choice open (several pieces,
- * no `cleanedUrl`), the largest is cut here with `cleanup {candidateIds:[largest], box, clipToBox}`.
+ * uploaded (`upload`), then `POST /artworks {source:"photo", imageUrl: <crop>, product, framed:
+ * true}` (T143: SAM on the whole crop, candidates largest first, `candidates[0]` cut out). The new
+ * row is the piece; its original is the crop, so Your cutout marks the crop (the returned
+ * `imageSize`, which may be the crop ×2) with the box `[0, 0, w, h]`. Should the server leave the
+ * choice open (no `cleanedUrl`), the largest is cut here with `cleanup {candidateIds:[largest], box,
+ * clipToBox}`.
  * A result for a frame that was replaced meanwhile (Back, a new frame) is dropped. Throws
  * `PhotoGoneError` when the local photo is no longer in memory.
  */
@@ -137,14 +139,15 @@ export async function runAreaCut({ api, update, getDraft, upload }: Pick<FlowDep
   const stale = () => getDraft().pendingArea?.nonce !== job.nonce;
   const imageUrl = await upload(file, job.box);
   if (stale()) return;
-  const res = await api<PhotoResult>("artworks", { json: { source: "photo", imageUrl, product } });
+  const res = await api<PhotoResult>("artworks", { json: { source: "photo", imageUrl, product, framed: true } });
   if (stale()) return;
   const size = usableSize(res.imageSize) ? res.imageSize : null;
   const box = wholeImageBox(size);
-  const pieces = largestFirst(res.candidates);
-  const first = pieces[0]?.id;
   let art: Pick<Artwork, "cleanedUrl" | "altText" | "spokenDescription"> = res.artwork;
   let details = res.details;
+  // The server's order (largest first, `candidates[0]` cut); the fallback cut sorts by bbox itself.
+  const pieces = art.cleanedUrl ? [...res.candidates] : largestFirst(res.candidates);
+  const first = pieces[0]?.id;
   if (!art.cleanedUrl && first && box) {
     const cut = await api<CleanupResult>(`artworks/${res.artwork.id}/cleanup`, { json: pickRequest(first, box) });
     if (stale()) return;

@@ -50,7 +50,7 @@ const piece: Draft = {
 const change = (id: string, parentId: string): ChangeStep => ({ artworkId: id, parentId, instruction: `do ${id}`, previewUrl: `/${id}.png`, alt: `alt ${id}`, spoken: null, differences: "" });
 const changeAnswer = { artwork: { ...artwork({ id: "k2", parentArtworkId: "k1" }), previewUrl: "/k2.png" }, description: { alt: "A fern, bigger", spoken: "A big fern.", differences: "" } };
 
-/** `POST /artworks` on the crop (default detection): the single piece auto-cut, `imageSize` = the crop. */
+/** `POST /artworks {framed: true}` on the crop (T143): candidates largest first, `candidates[0]` cut, `imageSize` = the stored crop. */
 const createAnswer = (over: Record<string, unknown> = {}) => ({
   artwork: artwork({ id: "p2", cleanedUrl: "/p2-cut.png", altText: "A flower", status: "ready" }), candidates: [candidates[0]],
   imageSize: { w: 140, h: 120 }, ...over,
@@ -101,7 +101,7 @@ describe("Photo routing (round 4 ruling 1: the photo stays on the device)", () =
 });
 
 describe("Adjust the area → crop on the device → POST /artworks (round 4 ruling 1)", () => {
-  it("Use this area: no call on Adjust the area; Making your cutout crops the local photo to the frame, uploads it once and sends POST /artworks {source, imageUrl, product} (no detect)", async () => {
+  it("Use this area: no call on Adjust the area; Making your cutout crops the local photo to the frame, uploads it once and sends POST /artworks {source, imageUrl, product, framed: true} (no detect)", async () => {
     const h = harness({ product: "sticker", method: "photo", area, changes: [change("k1", "p1")], changedArtworkId: "k1" }, { artworks: createAnswer() });
     const u = uploader();
     expect(cutArea(h.deps, [8, 9, 222, 121])).toBe(true);
@@ -113,7 +113,7 @@ describe("Adjust the area → crop on the device → POST /artworks (round 4 rul
     expect(h.draft.area?.frame).toEqual([8, 9, 222, 121]);
     await runAreaCut({ ...h.deps, upload: u.upload }, h.draft.pendingArea!);
     expect(u.seen).toEqual([{ file: photoFile, box: [8, 9, 222, 121] }]);
-    expect(h.calls.filter((c) => c.startsWith("api"))).toEqual(['api artworks {"source":"photo","imageUrl":"https://blob/crop.jpg","product":"sticker"}']);
+    expect(h.calls.filter((c) => c.startsWith("api"))).toEqual(['api artworks {"source":"photo","imageUrl":"https://blob/crop.jpg","product":"sticker","framed":true}']);
     expect(h.calls.some((c) => c.includes("/detect"))).toBe(false);
     expect(h.draft).toMatchObject({ pieceArtworkId: "p2", piecePhotoKey: PHOTO, pieceBox: [8, 9, 222, 121], pieceUrl: "/p2-cut.png", pieceAlt: "A flower", cutoutArtworkId: "p2" });
     // Your cutout works on the crop: its size, the whole picture as the box, no frame
@@ -137,12 +137,21 @@ describe("Adjust the area → crop on the device → POST /artworks (round 4 rul
     cutArea(h.deps, [0, 0, 400, 300]);
     await runAreaCut({ ...h.deps, upload: uploader().upload }, h.draft.pendingArea!);
     expect(h.calls.filter((c) => c.startsWith("api"))).toEqual([
-      'api artworks {"source":"photo","imageUrl":"https://blob/crop.jpg","product":"tote"}',
+      'api artworks {"source":"photo","imageUrl":"https://blob/crop.jpg","product":"tote","framed":true}',
       'api artworks/p3/cleanup {"candidateIds":["big"],"box":[0,0,140,120],"clipToBox":true}',
     ]);
     expect(cutoutOf(h.draft, "p3")).toMatchObject({ selectedIds: ["big"], cleanedUrl: "/big-cut.png", box: [0, 0, 140, 120] });
     expect(cutoutOf(h.draft, "p3")?.candidates.map((c) => c.id)).toEqual(["big", "c1"]);
     expect(largestFirst([candidates[0], big]).map((c) => c.id)).toEqual(["big", "c1"]);
+  });
+
+  it("T143 framed: the server's order (largest first) and its cut of candidates[0] are kept; no second call", async () => {
+    const h = harness({ product: "sticker", area }, { artworks: createAnswer({ candidates: [candidates[0], candidates[1]] }) });
+    cutArea(h.deps, [0, 0, 400, 300]);
+    await runAreaCut({ ...h.deps, upload: uploader().upload }, h.draft.pendingArea!);
+    expect(h.api).toHaveBeenCalledTimes(1);
+    expect(cutoutOf(h.draft, "p2")).toMatchObject({ selectedIds: ["c1"], cleanedUrl: "/p2-cut.png" });
+    expect(cutoutOf(h.draft, "p2")?.candidates.map((c) => c.id)).toEqual(["c1", "c2"]);
   });
 
   it("a result for a frame that was replaced meanwhile (Back, a new frame) is dropped", async () => {

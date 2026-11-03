@@ -1,7 +1,8 @@
 import type { ReactNode, Ref } from "react";
-import { m } from "@/components/messages";
 import { Button } from "@/components/ui/Button";
-import { CloseIcon, MinusIcon, PlusIcon } from "@/components/ui/Icons";
+import { ArtImage } from "@/components/ui/ArtImage";
+import { CheckIcon, CloseIcon, MinusIcon, PlusIcon } from "@/components/ui/Icons";
+import { fmt, m } from "@/components/messages";
 import { Loading } from "@/components/ui/Loading";
 import { NoticeCard } from "../cards";
 import { CreateScreen } from "../CreateScreen";
@@ -19,8 +20,8 @@ export type YourCutoutViewProps = {
   lead: string;
   /** Back target (hidden while a request runs). */
   back: string;
-  /** The request in flight: Apply cutout ("apply") or Use this ("use"). */
-  work: "apply" | "use" | null;
+  /** The request in flight: Apply cutout ("apply"), Use this ("use") or a piece from the strip ("pick"). */
+  work: "apply" | "use" | "pick" | null;
   /** Text for the one permanent polite live region. */
   announce: string;
   /** The saved cut on the checkerboard, when it is on screen (null: "Fix the edges" is open). */
@@ -40,11 +41,19 @@ export type YourCutoutViewProps = {
   error: ScreenError | null;
   canUse: boolean;
   canApply: boolean;
+  /**
+   * The candidate strip (round 3): the pieces `detect` found inside the frame, only when there are
+   * two or more; `picked` is the one in the cut.
+   */
+  pieces?: { id: string; thumbUrl: string }[] | null;
+  picked?: string;
   resultRef?: Ref<HTMLHeadingElement>;
   errorRef?: Ref<HTMLDivElement>;
   /** The Add area / Remove area picker, focused when Fix the edges opens. */
   toolsRef?: Ref<HTMLFieldSetElement>;
   on: {
+    /** Picks another piece from the strip (re-cut with the frame). */
+    pick?: (id: string) => void;
     mode: (mode: TapMode) => void;
     addAround: () => void;
     removeMark: (index: number) => void;
@@ -99,6 +108,26 @@ export function YourCutoutView({ resultRef, errorRef, toolsRef, on, ...p }: Your
       ) : p.photoState === "loading" ? <Loading label={t.loadingPhoto} /> : <NoticeCard>{t.photoMissingNone}</NoticeCard>}
 
       {busy ? <Loading inline label={t.applying} /> : null}
+
+      {p.pieces && p.pieces.length >= 2 ? (
+        <div className={styles.fieldset} role="group" aria-labelledby={`${p.uid}-pieces`}>
+          <p className={styles.marksLabel} id={`${p.uid}-pieces`}>{t.groupLabel}</p>
+          {/* Buttons, not radios (review I1): a press re-cuts on the server, so arrow keys must not; kept mounted (dimmed) while a request runs. */}
+          <ul role="list" className={styles.pieces}>
+            {p.pieces.map((c, i) => (
+              <li key={c.id}>
+                <button type="button" className={styles.piece} aria-pressed={p.picked === c.id} disabled={busy} onClick={() => on.pick?.(c.id)}>
+                  <span className={styles.pieceThumb}>
+                    <ArtImage src={c.thumbUrl} alt="" placeholder={m.common.imageMissing} className={styles.pieceArt} />
+                    <span className={styles.pieceCheck} aria-hidden="true"><CheckIcon /></span>
+                  </span>
+                  <span className={styles.pieceName}>{fmt(t.candidate, { n: i + 1 })}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {!busy && !showing && p.canShowCut ? (
         <Button block variant="secondary" arrow={false} onClick={on.showCut}>{t.showCutout}</Button>

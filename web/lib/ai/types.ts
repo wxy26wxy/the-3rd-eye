@@ -34,13 +34,20 @@ export type SegmentPoint = { x: number; y: number; label?: "positive" | "negativ
 export type SegmentHint = { phrase?: string; points?: SegmentPoint[]; box?: [number, number, number, number] };
 /** `droppedContainer`: a paper/table-like result around another one was removed, so the caller should let the creator choose. */
 export type CandidateSearch = { segments: Segment[]; droppedContainer: boolean };
+/**
+ * `maxCoverage`: results covering more than this share of the frame are dropped as the background
+ * (default 0.95). `dropContainers`: drop a large result whose box holds a higher-scoring one as the
+ * paper/table (default true). `detect` on a frame passes 1 and false: inside a tight frame the piece
+ * itself may fill the frame (T134 fix round).
+ */
+export type FindCandidatesOpts = { trace: Trace; max?: number; maxCoverage?: number; dropContainers?: boolean };
 export interface Segmenter {
   findAll(image: ImageRef, phrase: string, opts: { trace: Trace }): Promise<Segment[]>;
   /**
    * Every drawing or physical object in a photo: several phrases, overlapping results merged,
    * frame-filling results (the paper, the table) dropped, best first, at most `max`.
    */
-  findCandidates(image: ImageRef, opts: { trace: Trace; max?: number }): Promise<CandidateSearch>;
+  findCandidates(image: ImageRef, opts: FindCandidatesOpts): Promise<CandidateSearch>;
   segment(image: ImageRef, hint: SegmentHint, opts: { trace: Trace }): Promise<Segment | null>;
 }
 
@@ -49,7 +56,12 @@ export interface Describer {
   describe(image: ImageRef, opts: { prompt?: string; trace: Trace }): Promise<Description>;
 }
 
-export type ListingDraft = { title: string; description: string; tags: string[]; price_cents: number; print_ok: boolean; notes: string };
+export type ListingDraft = {
+  title: string; description: string; tags: string[]; price_cents: number; print_ok: boolean;
+  /** T134: the flagged print check (resolution failed, or a contrast warning); null when both passed. Set by the server. */
+  print_check?: "resolution" | "contrast" | null;
+  notes: string;
+};
 export type AgentStep = { step: number; tool?: string; args?: unknown; result?: unknown; text?: string };
 export type Moderation = { ok: boolean; reason: string };
 export interface ListingAgent {

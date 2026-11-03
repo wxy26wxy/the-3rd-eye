@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { fmt, m } from "@/components/messages";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { describeError, type ScreenError } from "../errors";
-import type { Product } from "../api";
-import { cutoutOf, getDraft, makeProduct, once, productToMake, refreshProduct, useCreate } from "../store";
+import { uuid, type Product } from "../api";
+import { cutoutOf, getDraft, makeProduct, once, productToMake, refreshProduct, updateDraft, useCreate } from "../store";
 import { MakingProductView } from "./MakingProductView";
 
 /**
@@ -21,6 +21,14 @@ export function MakingProduct() {
   return <MakingFlow key={draft.artworkId} artworkId={draft.artworkId} tote={tote} />;
 }
 
+/** The "Use this" attempt's `clientRequestId` (minted by `toMaking`; an older draft gets one here). */
+function requestId(d: ReturnType<typeof getDraft>): string {
+  if (d.productRequestId) return d.productRequestId;
+  const id = uuid();
+  updateDraft({ productRequestId: id });
+  return id;
+}
+
 function MakingFlow({ artworkId, tote }: { artworkId: string; tote: boolean }) {
   const router = useRouter();
   const [error, setError] = useState<ScreenError | null>(null);
@@ -32,7 +40,7 @@ function MakingFlow({ artworkId, tote }: { artworkId: string; tote: boolean }) {
     const plan = productToMake(d);
     const work = plan === "reuse" ? Promise.resolve()
       : plan === "refresh" && d.productRecord ? once(`refresh:${d.productRecord.id}:${cut}`, () => refreshProduct(d.productRecord as Product, cut)).catch(() => {})
-      : makeProduct(artworkId, tote ? "tote" : "sticker", attempt, cut);
+      : makeProduct(artworkId, tote ? "tote" : "sticker", attempt, cut, requestId(d));
     work
       .then(() => { if (live) router.replace("/create/ready"); })
       .catch((err) => { if (live) setError(describeError(err)); });

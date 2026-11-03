@@ -16,7 +16,7 @@ describe("offline fixture registry (AI_FIXTURES=1)", () => {
     const d = await ai.describer.describe(pngRef(img.png), { prompt: shaped.prompt, trace });
     expect(d.alt_text.length).toBeLessThanOrEqual(125);
     const { listing, trace: steps } = await ai.listingAgent.run({
-      productId: "p", productType: "tote", altText: d.alt_text, imageUrl: "", width: 1024, height: 1024, creatorShareBps: 5000,
+      productId: "p", productType: "tote", altText: d.alt_text, imageUrl: "", width: 700, height: 700, creatorShareBps: 5000, // 700 × 2 < 1500: too small for a tote (T134)
     }, { trace });
     expect(listing.price_cents).toBeGreaterThanOrEqual(2200);
     expect(listing.print_ok).toBe(false);

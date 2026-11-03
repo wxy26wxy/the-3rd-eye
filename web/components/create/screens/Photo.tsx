@@ -10,9 +10,8 @@ import { Loading } from "@/components/ui/Loading";
 import { MascotPicture } from "../art";
 import { api, extFor, HANDLE_UPLOAD_URL, UPLOAD_ACCESS, uuid, type Artwork, type Candidate } from "../api";
 import { CreateScreen, MissingState } from "../CreateScreen";
-import { boxRescueArtworkId } from "../cutout";
 import { describeError, ErrorNotice, type ScreenError } from "../errors";
-import { adjustWholePhoto, afterPhoto } from "../flow";
+import { afterPhoto } from "../flow";
 import { useCreate, useCreator } from "../store";
 import styles from "../Create.module.css";
 
@@ -43,7 +42,10 @@ async function stripMetadata(file: File): Promise<Blob> {
   }
 }
 
-/** Take or upload a photo of a drawing → Blob → POST /artworks (SAM finds the drawings). */
+/**
+ * Take or upload a photo of a drawing → Blob → `POST /artworks {detect:false}` (round 3: the photo is
+ * stored, no detection yet; it never answers 422) → Adjust the area on the whole photo.
+ */
 export function Photo({ mode }: { mode: "camera" | "upload" }) {
   const router = useRouter();
   const { ready, draft, update } = useCreate();
@@ -52,8 +54,6 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<ScreenError | null>(null);
   const [lastFile, setLastFile] = useState<File | null>(null);
-  /** Artwork kept by a 422 no_drawing_found: the creator can box the drawing on that photo. */
-  const [rescueId, setRescueId] = useState<string | null>(null);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
   if (ready && !draft.product) return <MissingState />;
@@ -62,7 +62,6 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
   async function onFile(file: File | undefined) {
     if (!file || !draft.product) return;
     setError(null);
-    setRescueId(null);
     setLastFile(file);
     setPreview(URL.createObjectURL(file));
     setPhase("uploading");
@@ -74,19 +73,15 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
         access: UPLOAD_ACCESS, handleUploadUrl: HANDLE_UPLOAD_URL, contentType: clean.type || undefined,
       });
       setPhase("finding");
-      const res = await api<{ artwork: Artwork; candidates: Candidate[]; imageSize?: { w: number; h: number } | null }>("artworks", { json: { source: "photo", imageUrl: blob.url, product: draft.product } });
+      const res = await api<{ artwork: Artwork; candidates: Candidate[]; imageSize?: { w: number; h: number } | null }>("artworks", { json: { source: "photo", imageUrl: blob.url, product: draft.product, detect: false } });
       afterPhoto({ router, update }, res);
     } catch (err) {
       setError(describeError(err, m.create.photo.error));
-      setRescueId(boxRescueArtworkId(err));
     } finally {
       // Also after navigating: this route stays mounted, and coming back must not show "Finding…".
       setPhase("pick");
     }
   }
-
-  /** Zero pieces found: Adjust the area on this photo, framed on the whole photo (the cut becomes the picked piece). */
-  function drawBox(id: string) { adjustWholePhoto({ router, update }, id); }
 
   const busy = phase !== "pick";
   const busyLabel = phase === "uploading" ? m.create.photo.uploading : m.create.photo.finding;
@@ -94,11 +89,11 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
     <FilePicker label={label} variant={variant} icon={variant === "secondary" ? (camera ? <CameraIcon /> : <ImageIcon />) : undefined}
       accept="image/*" capture={camera ? "environment" : undefined} onFile={onFile} />
   );
-  // Bar per state: the picker (idle), Retake + Draw a box (no drawing found, board 2027:3226),
-  // Try again (time-out or other, board 2038:4419), nothing while working.
+  // Bar per state: the picker (idle, or Retake after an error that calls for it), Try again
+  // (time-out or other, board 2038:4419), nothing while working.
   let footer: ReactNode = null;
   if (!busy && error?.action === "retake") {
-    footer = <>{picker(m.create.errors.retake)}{rescueId ? <Button block variant="secondary" arrow={false} onClick={() => drawBox(rescueId)}>{m.create.photo.drawBox}</Button> : null}</>;
+    footer = picker(m.create.errors.retake);
   } else if (!busy && error?.action === "retry" && lastFile) {
     footer = <Button block onClick={() => void onFile(lastFile)}>{m.create.errors.retry}</Button>;
   } else if (!busy) {
@@ -108,7 +103,7 @@ export function Photo({ mode }: { mode: "camera" | "upload" }) {
   // Boards 2027:3184 (camera), 2027:3207 (finding), 2027:3226 / 2038:4419 (errors).
   return (
     <CreateScreen back="/create/method" step={3} title={camera ? m.create.photo.titleCamera : m.create.photo.titleUpload} lead={m.create.photo.copy} footer={footer}>
-      {busy ? <Loading variant="sky" label={busyLabel} />
+      {busy ? <Loading label={busyLabel} />
         : error ? <ErrorNotice error={error} />
         : preview ? <div className={styles.photoPreview}><ArtImage src={preview} alt={m.create.photo.preview} placeholder="" ratio="auto" /></div>
         : <MascotPicture kind="card" />}

@@ -241,6 +241,17 @@ export function clampBox([x0, y0, x1, y1]: BBox, width: number, height: number):
   return b[0] < b[2] && b[1] < b[3] ? b : null;
 }
 
+/** A mask of a crop placed back into a `width`×`height` frame with its top-left at (`x0`, `y0`); the rest is empty (T134 detect). */
+export function placeMask(mask: Mask, width: number, height: number, x0: number, y0: number): Mask {
+  const out = emptyMask(width, height);
+  const w = Math.min(mask.width, width - x0);
+  if (w <= 0) return out;
+  for (let y = 0; y < mask.height && y + y0 < height; y++) {
+    out.data.set(mask.data.subarray(y * mask.width, y * mask.width + w), (y + y0) * width + x0);
+  }
+  return out;
+}
+
 /** Pixel-wise AND of a mask with a box (pixels outside the box are cleared). Same size as the input. */
 export function clipToBox(mask: Mask, box: BBox): Mask {
   const out = emptyMask(mask.width, mask.height);
@@ -293,15 +304,23 @@ export function removePiecesAt(mask: Mask, points: { x: number; y: number }[]): 
   return out;
 }
 
-/** Nearest-neighbour resize of a binary mask. */
+/** Resize of a binary mask: linear kernel, thresholded at 127, so a diagonal edge does not turn into blocks (T134). */
 export async function resizeMask(mask: Mask, width: number, height: number): Promise<Mask> {
   if (mask.width === width && mask.height === height) return mask;
-  const g = await greyRaw(maskSharp(mask).resize(width, height, { kernel: "nearest", fit: "fill" }));
+  const g = await greyRaw(maskSharp(mask).resize(width, height, { kernel: "linear", fit: "fill" }));
   return fromGrey(g.data, g.width, g.height, 127);
+}
+
+/** The mask blurred by `sigma` as an 8-bit alpha (a soft edge centred on the mask's outline; used for the sticker border, T134). */
+export async function softEdge(mask: Mask, sigma = 1): Promise<Uint8Array> {
+  const g = await greyRaw(maskSharp(mask).blur(Math.max(0.3, sigma)));
+  return Uint8Array.from(g.data);
 }
 
 /** Longest side the finishing steps run at (the SAM request size, so the close radius is in request pixels). */
 export const FINISH_MAX_SIDE = 2048;
+/** Blur of the finished edge at the target size, in working-scale pixels (σ = this × target / working, T134). */
+export const EDGE_SIGMA = 0.8;
 /** Morphological close radius at the working scale (bridges hairline gaps between SAM pieces). */
 export const CLOSE_RADIUS_PX = 2;
 /** A piece is a speck (dropped) when under this fraction of its part's main blob… */
@@ -315,8 +334,10 @@ export const MIN_ISLAND_PX = 64;
  * Turns segmentation masks into a clean, anti-aliased alpha at `target` size.
  * Each part (one per chosen candidate or SAM object): fill holes, drop specks (under 0.5 % of its
  * main blob and under 0.02 % of the frame / 64 px). Then union the parts (so every combined piece is kept), close ≈ 2 px at request
- * scale, fill holes again, and resize with a linear kernel after a light blur so the edge is a
- * soft 0–255 ramp instead of a staircase. Swappable: the pipeline only depends on the signature.
+ * scale, fill holes again. Then (T134, ruling 4) the binary union is upscaled to `target` first
+ * (Lanczos3), blurred there with σ = EDGE_SIGMA × (target / working scale), and soft-thresholded
+ * around 128 (`4v − 384`, clamped): a 1–2 px anti-aliased band that follows the shape, not the
+ * working pixels' staircase. Swappable: the pipeline only depends on the signature.
  */
 export async function finishMask(parts: Mask | Mask[], target: { width: number; height: number }): Promise<AlphaMask> {
   const list = Array.isArray(parts) ? parts : [parts];
@@ -327,12 +348,12 @@ export async function finishMask(parts: Mask | Mask[], target: { width: number; 
   const cleaned = await Promise.all(list.map(async (p) => dropIslands(fillHoles(await resizeMask(p, w, h)))));
   let m = unionMasks(cleaned);
   m = fillHoles(await erode(await dilate(m, CLOSE_RADIUS_PX), CLOSE_RADIUS_PX));
-  const { data, info } = await maskSharp(m).blur(0.6)
-    .resize(target.width, target.height, { kernel: "linear", fit: "fill" })
-    .raw().toBuffer({ resolveWithObject: true });
-  const alpha = new Uint8Array(info.width * info.height);
-  for (let i = 0; i < alpha.length; i++) alpha[i] = data[i * info.channels];
-  return { width: info.width, height: info.height, alpha };
+  const up = await greyRaw(maskSharp(m).resize(target.width, target.height, { kernel: "lanczos3", fit: "fill" }));
+  const sigma = Math.max(0.5, EDGE_SIGMA * (target.width / w));
+  const blurred = await greyRaw(sharp(up.data, { raw: { width: up.width, height: up.height, channels: 1 } }).blur(sigma));
+  const alpha = new Uint8Array(blurred.width * blurred.height);
+  for (let i = 0; i < alpha.length; i++) alpha[i] = Math.max(0, Math.min(255, 4 * blurred.data[i] - 384));
+  return { width: blurred.width, height: blurred.height, alpha };
 }
 
 /** Binary view of an alpha (inside = alpha ≥ 128). */

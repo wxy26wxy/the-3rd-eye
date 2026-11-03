@@ -49,7 +49,12 @@ export interface Describer {
   describe(image: ImageRef, opts: { prompt?: string; trace: Trace }): Promise<Description>;
 }
 
-export type ListingDraft = { title: string; description: string; tags: string[]; price_cents: number; print_ok: boolean; notes: string };
+export type ListingDraft = {
+  title: string; description: string; tags: string[]; price_cents: number; print_ok: boolean;
+  /** T134: the flagged print check (resolution failed, or a contrast warning); null when both passed. Set by the server. */
+  print_check?: "resolution" | "contrast" | null;
+  notes: string;
+};
 export type AgentStep = { step: number; tool?: string; args?: unknown; result?: unknown; text?: string };
 export type Moderation = { ok: boolean; reason: string };
 export interface ListingAgent {

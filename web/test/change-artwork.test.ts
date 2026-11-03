@@ -11,6 +11,9 @@ const state = {
   describes: [] as { prompt?: string; stage: string }[],
   candidatesResult: [] as { mask: Mask; bbox: [number, number, number, number]; score: number; svgPath: string }[],
   inserted: [] as Record<string, unknown>[],
+  segmentCalls: [] as unknown[],
+  segmentResult: null as null | { mask: Mask; bbox: [number, number, number, number]; score: number; svgPath: string },
+  products: [] as { id: string }[], rebuilt: [] as string[],
 };
 let n = 0;
 vi.mock("@/lib/storage", () => ({
@@ -30,9 +33,11 @@ vi.mock("@/lib/db/queries", () => ({
     return row;
   },
   insertArtwork: async (v: { id: string }) => { state.inserted.push(v); rows.set(v.id, v); return v; },
-  listProductsForArtwork: async () => [],
+  listProductsForArtwork: async () => state.products,
 }));
-vi.mock("@/lib/pipeline/products", () => ({ rebuildProductFiles: async () => ({ unpublished: false }) }));
+vi.mock("@/lib/pipeline/products", () => ({
+  rebuildProductFiles: async (id: string) => { state.rebuilt.push(id); return { product: { id }, printOk: true, unpublished: false }; },
+}));
 vi.mock("@/lib/ai/registry", () => ({
   ai: async () => ({
     image: {
@@ -48,7 +53,7 @@ vi.mock("@/lib/ai/registry", () => ({
     },
     segmenter: {
       findCandidates: async () => ({ segments: state.candidatesResult, droppedContainer: false }),
-      segment: async () => null,
+      segment: async (_img: unknown, hint: unknown) => { state.segmentCalls.push(hint); return state.segmentResult; },
     },
     describer: {
       describe: async (_img: unknown, opts: { prompt?: string; trace: { stage: string } }) => {
@@ -59,7 +64,7 @@ vi.mock("@/lib/ai/registry", () => ({
   }),
 }));
 
-import { changeArtwork, changeInput, cutoutArtwork } from "@/lib/pipeline/artworks";
+import { changeArtwork, changeInput, cleanupArtwork, cutoutArtwork } from "@/lib/pipeline/artworks";
 
 type Row = Parameters<typeof changeArtwork>[0];
 const W = 400, H = 300;
@@ -80,6 +85,7 @@ const parent = (over: Partial<Row> = {}): Row => ({
 beforeEach(async () => {
   files.clear(); rows.clear(); n = 0;
   state.editError = null; state.edits = []; state.describes = []; state.inserted = []; state.candidatesResult = [];
+  state.segmentCalls = []; state.segmentResult = null; state.products = []; state.rebuilt = [];
   // The picked piece: a transparent 300x200 cut with an opaque centre.
   files.set("creators/c1/cleaned/p.png", await sharp({ create: { width: 300, height: 200, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite([{ input: await sharp({ create: { width: 100, height: 100, channels: 4, background: "#30a050" } }).png().toBuffer(), top: 50, left: 100 }]).png().toBuffer());
@@ -173,5 +179,61 @@ describe("cutoutArtwork (T111)", () => {
     state.candidatesResult = [];
     await expect(cutoutArtwork(child as Row)).rejects.toMatchObject({ status: 422, code: "no_drawing_found" });
     expect(rows.get(child.id)?.lastError).toBe("no_drawing_found");
+  });
+});
+
+describe("cleanupArtwork on a change result (T129, Your cutout after a change)", () => {
+  // The cutout's largest piece is two separate parts: a body (60..160) and a speck-free tail (220..260).
+  async function cutChild() {
+    const { artwork: child } = await changeArtwork(parent(), { instruction: "make it purple" });
+    const twoParts = rect(60, 60, 160, 160);
+    for (let y = 100; y < 140; y++) for (let x = 220; x < 260; x++) twoParts.data[y * W + x] = 1;
+    state.candidatesResult = [seg(twoParts, [60, 60, 260, 160], 0.9), seg(rect(10, 10, 40, 40), [10, 10, 40, 40], 0.8)];
+    const out = await cutoutArtwork(child as Row);
+    state.describes = []; state.segmentCalls = [];
+    return out;
+  }
+  const cutOf = async (row: { cleanedUrl?: string | null }) => sharp(await (await import("@/lib/storage")).storage().read(String(row.cleanedUrl))).metadata();
+
+  it("the cutout's piece + a negative point + the whole-picture box + clipToBox: the marked part goes, the rest stays", async () => {
+    const { artwork, candidates } = await cutChild();
+    expect(artwork.changeInstruction).toBe("make it purple");
+    expect(artwork.parentArtworkId).toBe("parent-1");
+    state.products = [{ id: "pr1" }];
+    const box: [number, number, number, number] = [0, 0, 400, 300];
+    const hint = { candidateIds: [candidates[0].id], points: [{ x: 240, y: 120, label: "negative" as const }], box, clipToBox: true };
+    const out = await cleanupArtwork(artwork as Row, hint);
+    expect(state.segmentCalls).toEqual([{ points: hint.points, box }]); // the box still asks SAM (nothing found here)
+    expect(out.artwork.id).toBe(artwork.id);
+    expect(out.artwork.status).toBe("ready");
+    const meta = await cutOf(out.artwork);
+    expect(meta.width! / meta.height!).toBeCloseTo(1, 1); // only the 100×100 body is left
+    expect(state.rebuilt).toEqual(["pr1"]); // its product files are rebuilt
+    expect(state.describes[0]?.prompt).toBe("make it purple"); // described against the change request
+  });
+
+  it("points + whole-picture box without candidateIds: one SAM object from the edited picture, clipped to the box", async () => {
+    const { artwork } = await cutChild();
+    state.segmentResult = seg(rect(50, 50, 250, 200), [50, 50, 250, 200], 0.9);
+    const hint = { points: [{ x: 100, y: 100, label: "positive" as const }, { x: 300, y: 250, label: "negative" as const }], box: [0, 0, 400, 300] as [number, number, number, number], clipToBox: true };
+    const out = await cleanupArtwork(artwork as Row, hint);
+    expect(state.segmentCalls).toEqual([{ points: hint.points, box: hint.box }]);
+    const meta = await cutOf(out.artwork);
+    expect(meta.width! / meta.height!).toBeCloseTo(200 / 150, 1);
+  });
+
+  it("the frame still clips on a change result", async () => {
+    const { artwork, candidates } = await cutChild();
+    const out = await cleanupArtwork(artwork as Row, { candidateIds: [candidates[0].id], box: [60, 60, 110, 160], clipToBox: true, points: [{ x: 80, y: 80, label: "positive" }] });
+    const meta = await cutOf(out.artwork);
+    expect(meta.width! / meta.height!).toBeCloseTo(50 / 100, 1); // only the left half of the body, nothing past the frame
+  });
+
+  it("before its cutout a change result has no candidates: candidateIds are 400, a box alone still cuts", async () => {
+    const { artwork: child } = await changeArtwork(parent(), { instruction: "make it purple" });
+    await expect(cleanupArtwork(child as Row, { candidateIds: ["x"] })).rejects.toMatchObject({ status: 400, code: "invalid_candidate" });
+    state.segmentResult = seg(rect(50, 50, 250, 200), [50, 50, 250, 200], 0.9);
+    const out = await cleanupArtwork(child as Row, { box: [0, 0, 400, 300], clipToBox: true });
+    expect(out.artwork.cleanedUrl).toBeTruthy();
   });
 });

@@ -5,7 +5,9 @@ vi.mock("@/lib/auth", () => ({ requireCreator: () => ({ creatorId: "c1" }) }));
 vi.mock("@/lib/db/queries", () => ({
   getArtworkForCreator: async (id: string, cid: string) => (id === "a1" && cid === "c1"
     ? { id: "a1", creatorId: "c1", originalUrl: "o", candidates: [{ id: "k1" }, { id: "k2" }], status: "ready", createdAt: new Date(0) }
-    : null),
+    : id === "ch1" && cid === "c1"
+      ? { id: "ch1", creatorId: "c1", originalUrl: "o2", parentArtworkId: "a1", changeInstruction: "make it purple", candidates: [{ id: "k9" }], status: "ready", createdAt: new Date(0) }
+      : null),
   markArtworksFailed: async () => undefined,
 }));
 vi.mock("@/lib/pipeline/artworks", () => ({
@@ -51,5 +53,18 @@ describe("POST /artworks/{id}/cleanup", () => {
     expect(bad.status).toBe(400);
     expect((await bad.json()).error.code).toBe("invalid_request");
     expect(calls.length).toBe(before);
+  });
+
+  it("accepts a change result (T129): points + the whole-picture box + clipToBox, with or without its cutout's piece", async () => {
+    const body = { candidateIds: ["k9"], points: [{ x: 10, y: 20, label: "negative" }], box: [0, 0, 400, 300], clipToBox: true };
+    const res = await post("ch1", body);
+    expect(res.status).toBe(200);
+    const out = await res.json();
+    expect(out.id).toBe("ch1");
+    expect(out.parentArtworkId).toBe("a1");
+    expect(out.changeInstruction).toBe("make it purple");
+    expect(calls.at(-1)).toEqual(body);
+    expect((await post("ch1", { points: body.points, box: body.box, clipToBox: true })).status).toBe(200);
+    expect((await post("ch1", { candidateIds: ["k1"], box: body.box, clipToBox: true })).status).toBe(400); // the original's pieces are not this row's
   });
 });

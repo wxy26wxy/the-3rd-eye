@@ -61,7 +61,9 @@ final class APIClient: @unchecked Sendable {
     return req
   }
 
-  func send<Response: Decodable>(_ request: URLRequest, as type: Response.Type = Response.self) async throws -> Response {
+  /// `refine` may turn a failed answer (status, body) into a route-specific error before the generic one.
+  func send<Response: Decodable>(_ request: URLRequest, as type: Response.Type = Response.self,
+                                 refine: ((Int, Data) -> Error?)? = nil) async throws -> Response {
     let data: Data
     let response: URLResponse
     do {
@@ -84,6 +86,7 @@ final class APIClient: @unchecked Sendable {
         }
         throw APIError.unauthorized
       }
+      if let refined = refine?(http.statusCode, data) { throw refined }
       if let envelope = try? Self.decoder.decode(APIErrorEnvelope.self, from: data) {
         throw APIError.server(status: http.statusCode, code: envelope.error.code, message: envelope.error.message)
       }
@@ -138,8 +141,16 @@ final class APIClient: @unchecked Sendable {
 
   // MARK: Create
 
+  /// A photo without a drawing answers `422 no_drawing_found` with the stored row's `artworkId`
+  /// (docs/api.md "Creator flow (round 2b)" step 1): thrown as `NoDrawingFound`, so the app can go on
+  /// to Adjust the area on the whole photo.
   func artworkFromPhoto(imageUrl: String, product: ProductType, source: String = "photo") async throws -> PhotoArtworkResponse {
-    try await post("artworks", PhotoArtworkRequest(source: source, imageUrl: imageUrl, product: product), timeout: Self.longTimeout)
+    let body = try Self.encoder.encode(PhotoArtworkRequest(source: source, imageUrl: imageUrl, product: product))
+    return try await send(request("POST", "artworks", body: body, timeout: Self.longTimeout)) { status, data in
+      guard status == 422, let envelope = try? Self.decoder.decode(NoDrawingEnvelope.self, from: data),
+            envelope.error.code == "no_drawing_found", let id = envelope.error.artworkId, !id.isEmpty else { return nil }
+      return NoDrawingFound(artworkId: id, message: envelope.error.message)
+    }
   }
 
   func selectCandidate(artworkId: String, candidateId: String) async throws -> Artwork {

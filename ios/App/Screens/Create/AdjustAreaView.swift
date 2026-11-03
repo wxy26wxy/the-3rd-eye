@@ -3,8 +3,9 @@ import SwiftUI
 /// "Adjust the area" (T122, after Choose a pattern; also "Re-do the cutout" on a saved design): the
 /// photo on the green card with a frame around the picked drawing (its `bbox` grown by 8 %, the whole
 /// photo when no drawing was found). The four corners (44 pt handles) and the four edges drag; a drag
-/// inside the frame moves it. "Use this area" cuts out what the frame holds
-/// (`cleanup {candidateIds: [piece], box}`) and goes on to Change it (a saved design: back to it);
+/// inside the frame moves it. "Use this area" goes on to Making your cutout, which cuts out what the
+/// frame holds (`cleanup {candidateIds: [piece], box, clipToBox: true}`), then Your cutout (T131; a
+/// saved design: the cut is made here and it goes back to the design);
 /// "Reset" puts the frame back where it started.
 ///
 /// Coordinates: the frame is kept in pixels of the stored original and drawn with the same
@@ -262,39 +263,30 @@ struct AdjustAreaView: View {
     }
   }
 
-  /// "Use this area": `cleanup` with the piece and the frame. The same piece and frame already cut
-  /// (Back from Change it, then Use this area again) go on without a call. The result is written to
-  /// the flow the request started with, even if the creator switched tabs meanwhile.
+  /// "Use this area": on to Making your cutout, which sends `cleanup` with the piece and the frame
+  /// (T131); the same piece and frame already cut (Back from Your cutout, then Use this area again)
+  /// go straight to Your cutout. On a saved design the cut is made here and the screen goes back to
+  /// it; the result is written to the flow the request started with, even if the tab changed.
   private func useThisArea() async {
     let flow = flow
-    guard let artwork, let area else { return }
-    let pieceId = piece?.id
-    if !isRedo, let cut = flow.pieceArtwork, cut.cleanedUrl != nil, flow.pieceCutFrom == pieceId, flow.pieceBox == area.box {
-      if app.createPath.last == .adjustArea { app.push(.changeIt) }
+    guard artwork != nil, let area else { return }
+    let request = CutoutRequest.make(piece: piece, area: area)
+    guard isRedo else {
+      if app.createPath.last == .adjustArea, let next = flow.routeAfterArea(request) { app.push(next) }
       return
     }
-    let request = CutoutRequest.make(piece: piece, area: area)
+    guard let artwork else { return }
     working = true
     error = nil
     defer { working = false }
     do {
       let result = try await app.api.cleanup(artworkId: artwork.id, request)
-      if isRedo {
-        if flow.cutoutArtwork == nil { flow.cutoutArtwork = artwork }
-        flow.recordCut(result)
-        if let cut = flow.cutoutArtwork { app.designs.replace(cut) }
-        guard app.designsPath.last == .adjustArea else { return }
-        app.designsPath.removeLast()
-        Task { await app.designs.load() }
-      } else {
-        var cut = result.artwork
-        if cut.altText?.isEmpty ?? true { cut.altText = artwork.altText }
-        flow.resetChange()
-        flow.pieceArtwork = cut
-        flow.pieceCutFrom = pieceId
-        flow.pieceBox = area.box
-        if app.createPath.last == .adjustArea { app.push(.changeIt) }
-      }
+      if flow.cutoutArtwork == nil { flow.cutoutArtwork = artwork }
+      flow.recordCut(result)
+      if let cut = flow.cutoutArtwork { app.designs.replace(cut) }
+      guard app.designsPath.last == .adjustArea else { return }
+      app.designsPath.removeLast()
+      Task { await app.designs.load() }
     } catch {
       if let message = CleanupResult.errorMessage(for: error) { self.error = message }
     }

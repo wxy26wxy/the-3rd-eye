@@ -162,12 +162,15 @@ struct Artwork: Codable, Identifiable, Equatable, Hashable {
     [previewUrl, cleanedUrl].compactMap { $0 }.first.flatMap(URL.init(string:))
   }
 
-  /// My designs tile and Design detail (T122 R1): the bordered sticker preview of its sticker (the
-  /// one in the shop first), else the art itself; never a product mockup.
+  /// My designs tile and Design detail: the bordered sticker preview of its sticker (the one in the
+  /// shop first, T122 R1), else its tote bag's mockup (the one in the shop first, T131), else the art.
   var creatorPictureURL: URL? {
-    let stickers = (products ?? []).filter { $0.type == .sticker && !$0.isArchived && !($0.previewUrl ?? "").isEmpty }
-    let preview = (stickers.first(where: \.isPublished) ?? stickers.first)?.previewUrl
-    return preview.flatMap(URL.init(string:)) ?? displayURL
+    let live = (products ?? []).filter { !$0.isArchived }
+    func pick(_ type: ProductType, _ url: (ArtworkProduct) -> String?) -> URL? {
+      let found = live.filter { $0.type == type && !(url($0) ?? "").isEmpty }
+      return ((found.first(where: \.isPublished) ?? found.first).flatMap(url)).flatMap(URL.init(string:))
+    }
+    return pick(.sticker, \.previewUrl) ?? pick(.tote, \.mockupUrl) ?? displayURL
   }
 
   /// What the picture shows, for the "WHAT THE IMAGE SHOWS" card: the spoken description when

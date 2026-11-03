@@ -11,11 +11,11 @@ final class FixRoundTests: XCTestCase {
     app.push(.changing)
     app.replaceTop(with: .beforeAfter)
     XCTAssertEqual(app.createPath, [.changeIt, .beforeAfter], "Back from Before and after skips Changing your art")
-    app.push(.makingCutout)
-    app.replaceTop(with: .yourCutout)
+    app.push(.makingCutout(.change("ch1")))
+    app.replaceTop(with: .yourCutout("ch1"))
     app.push(.makingProduct)
     app.replaceTop(with: .listingDetails)
-    XCTAssertEqual(app.createPath, [.changeIt, .beforeAfter, .yourCutout, .listingDetails], "no loading screen is left behind")
+    XCTAssertEqual(app.createPath, [.changeIt, .beforeAfter, .yourCutout("ch1"), .listingDetails], "no loading screen is left behind")
   }
 
   func testOrdersResetClearsPreviousAccount() {

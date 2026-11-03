@@ -4,9 +4,9 @@ import SwiftUI
 /// ("YOUR ART"), what it shows, then the change panel: a "What to change" field, the record button
 /// ("Say what to change"; the words land in the field), then "Make the change" and "Looks good as is"
 /// side by side at the bottom of the card (stacked at accessibility text sizes; no pinned bar, T122
-/// R4). "Looks good as is" keeps the art: the picked drawing goes straight to Making your sticker with its cut-out, a change
-/// is cut out first. The original is never overwritten: a change is a new
-/// artwork (`POST /artworks/{id}/change`).
+/// R4). "Looks good as is" keeps the art (T131): the piece's cut-out, already reviewed on Your
+/// cutout, goes straight to Making your sticker; a change shown here that was never cut out is cut
+/// out first. The original is never overwritten: a change is a new artwork (`POST /artworks/{id}/change`).
 struct ChangeItView: View {
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
@@ -129,16 +129,11 @@ struct ChangeItView: View {
     }
   }
 
-  /// The picked drawing already has its cut-out (`select`): straight to Making your sticker. A
-  /// change shown here ("Change it again", then kept) is cut out first (`cutout` works on changes only).
+  /// The route table decides (`CreateFlow.routeAfterLooksGood`): Making your sticker, or the
+  /// cut-out of a change first.
   private func looksGood() {
-    guard let art = flow.currentArt else { return }
-    if flow.changedArtwork == nil, art.cleanedUrl != nil {
-      flow.artwork = art
-      app.push(.makingProduct)
-    } else {
-      app.push(.makingCutout)
-    }
+    guard app.createPath.last == .changeIt, let next = flow.routeAfterLooksGood() else { return }
+    app.push(next)
   }
 
   private func makeTheChange() {

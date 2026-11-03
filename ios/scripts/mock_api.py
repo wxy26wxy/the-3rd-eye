@@ -6,7 +6,10 @@ Build the app against it: xcodebuild ... API_BASE_URL=http://localhost:3999
 Shapes follow docs/api.md. Images point at a 1x1 PNG served here.
 Photo flow: launch the app with UITEST_PHOTO=1 and MOCK_BLOB_API=<base>/blob/ (UI tests do);
 POST /artworks {source: photo} answers 2 candidates and imageSize 1200x1600 (sign-in code ONE...: 1,
-NONE...: no drawing found, 0 candidates; T114).
+already cut out; NONE...: no drawing found, 422 no_drawing_found with artworkId p1 as the server, and
+GET /artworks/p1 then has no candidates; T131).
+GET /__mock/count/<route> returns {"count": n}, the calls to that route since sign-in (cutout, cleanup,
+run, products, ...); GET /__mock/last/cleanup-target returns {"artworkId": ...} of the last cleanup.
 Sign-in NOCUT... makes cleanup answer 422, DETAILS... gives cleanup non-empty details, SLOW... makes
 cleanup take 4 s (switching tabs meanwhile must not lose the cut).
 GET /__mock/last/<cleanup|select|artworks|products|approve|delete> returns the last body the app sent there
@@ -153,6 +156,12 @@ CANDIDATES = [
 ]
 # Last request body per route, read back by UI tests through GET /__mock/last/<name>.
 LAST = {}
+# Calls per route since sign-in, read back through GET /__mock/count/<name> (T131: the cutout cache).
+COUNTS = {}
+
+
+def count(name):
+    COUNTS[name] = COUNTS.get(name, 0) + 1
 # A sign-in code starting with ONE makes photo answers carry a single, already cut-out candidate.
 # NOCUT… makes every cleanup answer 422; DETAILS… makes it carry non-empty details.
 MODE = {"nocutout": False, "single": False, "none": False, "fail": False, "details": False, "slow": False, "noprint": False, "novideo": False}
@@ -197,6 +206,7 @@ def change_artwork(artwork_id, body):
 
 def cutout_artwork(artwork_id, body):
     LAST["cutout"] = {**body, "artworkId": artwork_id}
+    count("cutout")
     if artwork_id not in CHANGES["rows"]:
         raise MockError(409, "not_a_change", "Only a changed picture needs a new cutout")
     if MODE["fail"] or MODE["nocutout"]:
@@ -226,7 +236,7 @@ def change_cleanup(artwork_id, body):
     base = CHANGES["rows"].get(artwork_id)
     if not base:
         raise MockError(404, "not_found", "no such artwork")
-    result = cleanup(body)
+    result = cleanup(body, artwork_id)
     row = {**base, "cleanedUrl": result["cleanedUrl"], "altText": result["altText"], "status": "ready",
            "cutPathSvg": "M10 10 L90 10 L90 90 L10 90 Z", "lastError": None}
     CHANGES["rows"][artwork_id] = row
@@ -237,7 +247,7 @@ def create_artwork(body):
     if body.get("source") in ("photo", "canvas"):
         LAST["artworks"] = body
         if MODE["none"]:
-            return {"artwork": photo_artwork(), "candidates": [], "imageSize": IMAGE_SIZE}
+            raise MockError(422, "no_drawing_found", "We could not find a drawing in this photo.", artworkId="p1")
         if MODE["single"]:
             return {"artwork": photo_artwork(f"{BASE}/img.png?cut=0", "Cut-out of piece 1"),
                     "candidates": CANDIDATES[:1], "imageSize": IMAGE_SIZE}
@@ -252,9 +262,9 @@ def select(body):
 
 
 class MockError(Exception):
-    def __init__(self, status, code, message):
+    def __init__(self, status, code, message, **extra):
         super().__init__(message)
-        self.status, self.code, self.message = status, code, message
+        self.status, self.code, self.message, self.extra = status, code, message, extra
 
 
 def check_cleanup(body):
@@ -286,8 +296,10 @@ def check_cleanup(body):
         raise bad
 
 
-def cleanup(body):
+def cleanup(body, artwork_id="p1"):
     LAST["cleanup"] = body
+    LAST["cleanup-target"] = {"artworkId": artwork_id}
+    count("cleanup")
     print(f"mock_api: cleanup {json.dumps(body)}", file=sys.stderr, flush=True)
     check_cleanup(body)
     if MODE["slow"]:
@@ -372,13 +384,14 @@ def delete_design(artwork_id):
 
 def design_cleanup(artwork_id, body):
     d = find_design(artwork_id)
-    result = cleanup(body)
+    result = cleanup(body, artwork_id)
     d["cleanedUrl"], d["status"], d["lastError"] = result["cleanedUrl"], "ready", None
     return {**result, "id": artwork_id, "altText": d["altText"]}
 
 
 def create_product(body):
     LAST["products"] = body
+    count("products")
     if body.get("artworkId") in {d["id"] for d in DESIGNS["list"]} and not find_design(body["artworkId"])["cleanedUrl"]:
         raise MockError(409, "artwork_not_ready", "Pick and clean up the artwork first")
     product_id = f"pr-new-{body.get('type')}"
@@ -421,6 +434,7 @@ def approve(product_id, body):
 def run_listing(product_id, _body):
     """POST /listings/<id>/run: the listing agent's draft after about 2 s (the app shows its drafting card meanwhile)."""
     LAST["run"] = {"productId": product_id}
+    count("run")
     time.sleep(2)
     kind, title, description = ("tote" if product_id.endswith("tote") else "sticker"), None, None
     for d in DESIGNS["list"]:
@@ -473,6 +487,7 @@ def sign_in(body):
     MODE["novideo"] = code.startswith("NOVIDEO")
     STORY["url"], STORY["vtt"] = (None, None) if MODE["novideo"] else (STORY_VIDEO_PATH, STORY_VTT)
     LAST.clear()
+    COUNTS.clear()
     DESIGNS["list"] = designs()
     CHANGES["n"], CHANGES["rows"], CHANGES["cut"] = 0, {}, set()
     creator = {**CREATOR, "accessPrefs": {**CREATOR["accessPrefs"], "simpleMode": not multi}}
@@ -555,6 +570,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, {"error": {"code": "not_found", "message": "no sample video"}})
         if method == "PUT" and path == "/blob/":
             return self._send(200, blob_put(None, query))
+        if method == "GET" and path.startswith("/__mock/count/"):
+            return self._send(200, {"count": COUNTS.get(path.rsplit("/", 1)[1], 0)})
         if method == "GET" and path.startswith("/__mock/last/"):
             return self._send(200, LAST.get(path.rsplit("/", 1)[1]) or {})
         fn = ROUTES.get((method, path))
@@ -576,7 +593,7 @@ class Handler(BaseHTTPRequestHandler):
             status, result = result if isinstance(result, tuple) else (200, result)
             self._send(status, result)
         except MockError as e:
-            self._send(e.status, {"error": {"code": e.code, "message": e.message}})
+            self._send(e.status, {"error": {"code": e.code, "message": e.message, **e.extra}})
 
     def do_GET(self):
         self._handle("GET")

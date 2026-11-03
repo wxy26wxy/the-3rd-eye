@@ -35,3 +35,18 @@ enum APIError: LocalizedError, Equatable {
     }
   }
 }
+
+/// `POST /artworks` (photo) found no drawing; the photo is stored as `artworkId` and can still be cut
+/// with a frame over the whole photo.
+struct NoDrawingFound: LocalizedError, Equatable {
+  let artworkId: String
+  let message: String
+
+  var errorDescription: String? { message }
+}
+
+/// `{ error: { code, message, artworkId? } }`.
+struct NoDrawingEnvelope: Decodable {
+  struct Body: Decodable { let code: String; let message: String; var artworkId: String? }
+  let error: Body
+}

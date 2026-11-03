@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Board "Change it · Before and after" (`2012:344`): "YOU ASKED", the art before and after side by
 /// side, what the new picture shows, then "Use this" (goes on to the cut-out), "Change it again"
-/// (another change, made to this result) and "Back to my original" (drops the changes; no call,
-/// the original was never touched).
+/// (another change, made to this result) and "Back to my original" (one change back, to the art this
+/// change was made from; the chain is kept, no call: the original was never touched).
 struct BeforeAfterView: View {
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
@@ -14,7 +14,7 @@ struct BeforeAfterView: View {
   var body: some View {
     FlowScreen(title: "Here's the change", step: (3, 3)) {
       VStack(spacing: Theme.Space.xxl) {
-        if !flow.changeInstruction.isEmpty { InfoCard(eyebrow: "YOU ASKED", text: flow.changeInstruction) }
+        if let asked = flow.changeAsked, !asked.isEmpty { InfoCard(eyebrow: "YOU ASKED", text: asked) }
         let layout = dynamicTypeSize.isAccessibilitySize
           ? AnyLayout(VStackLayout(spacing: Theme.Space.m))
           : AnyLayout(HStackLayout(spacing: Theme.Space.m))
@@ -32,7 +32,7 @@ struct BeforeAfterView: View {
       }
     } actions: {
       PillButton("Use this", hint: "Keeps the change and makes the cutout") {
-        app.push(.makingCutout)
+        if app.createPath.last == .beforeAfter, let next = flow.routeAfterKeepingChange() { app.push(next) }
       }
       .disabled(flow.changedArtwork == nil)
       PillButton("Change it again", hint: "Draws a new version with your change", kind: .secondary, showsArrow: false) {
@@ -47,7 +47,7 @@ struct BeforeAfterView: View {
           .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
-      .accessibilityHint(Text("Drops the changes and shows your art as it was"))
+      .accessibilityHint(Text("Goes back to the art before this change"))
     }
     .announces(flow.changedArtwork?.shownDescription)
   }
@@ -57,10 +57,12 @@ struct BeforeAfterView: View {
     if app.createPath.last == .beforeAfter { app.createPath.removeLast() }
   }
 
-  /// Back to my original: the art as it was picked; the changes stay on the server, unused.
+  /// Back to my original: one change back (the previous change, or the picked piece); the chain
+  /// stays, and the changes stay on the server.
   private func backToOriginal() {
-    flow.resetChange()
+    flow.stepBack()
     backToChangeIt()
-    UIAccessibility.post(notification: .announcement, argument: String(localized: "Back to your original art"))
+    UIAccessibility.post(notification: .announcement,
+                         argument: flow.changedArtwork == nil ? String(localized: "Back to your original art") : String(localized: "Back to your last change"))
   }
 }

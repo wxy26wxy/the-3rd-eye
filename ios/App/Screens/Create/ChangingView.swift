@@ -33,9 +33,8 @@ struct ChangingView: View {
       // The description may come only in `description` (docs/api.md): keep it on the artwork.
       if changed.altText?.isEmpty ?? true { changed.altText = res.description?.alt }
       if changed.spokenDescription?.isEmpty ?? true { changed.spokenDescription = res.description?.spoken }
-      flow.changeBase = base
-      flow.changedArtwork = changed
-      flow.changeDifferences = res.description?.differences ?? changed.differencesFromPrompt
+      flow.addChange(ChangeStep(artwork: changed, base: base, instruction: flow.changeInstruction,
+                                differences: res.description?.differences ?? changed.differencesFromPrompt))
       if app.createPath.last == .changing { app.replaceTop(with: .beforeAfter) }
     } catch is CancellationError {
       return

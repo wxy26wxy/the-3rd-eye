@@ -3,17 +3,17 @@ import SwiftUI
 
 enum HomeTab: Hashable { case create, designs, orders, messages }
 
-/// Pushed screens of the creator flow (root is PickProductView). Photo first (v3 boards):
-/// camera → Finding drawings → Choose a pattern → Adjust the area → Change it (→ Changing your art →
-/// Before and after → Making your cutout → Your cutout) → Making your sticker / tote bag → Listing
-/// details. "My story video" (T122) also opens from the root.
+/// Pushed screens of the creator flow (root is PickProductView). Photo first, canonical order (T131):
+/// camera → Finding drawings → Choose a pattern → Adjust the area → Making your cutout → Your cutout →
+/// Change it → [Changing your art → Before and after → Making your cutout → Your cutout] → Making your
+/// sticker / tote bag → Listing details. "My story video" (T122) also opens from the root.
 enum CreateRoute: Hashable {
   case chooseMethod
   case camera(PhotoSource)
   case findingDrawings
   /// Pick one of the drawings SAM found on the photo.
   case choosePattern
-  /// The frame around the picked drawing; "Use this area" cuts it out (`cleanup`).
+  /// The frame around the picked drawing; "Use this area" goes on to Making your cutout.
   case adjustArea
   /// Say or type what to change, or keep the art as it is.
   case changeIt
@@ -21,10 +21,10 @@ enum CreateRoute: Hashable {
   case changing
   /// The change next to the art it was made from.
   case beforeAfter
-  /// Loading screen while the changed art is cut out.
-  case makingCutout
-  /// The cut-out of a change, to use or start over.
-  case yourCutout
+  /// Loading screen while the art is cut out: the frame on the photo (`cleanup`), or a kept change (`cutout`).
+  case makingCutout(CutJob)
+  /// The cut-out of the artwork with this id (the photo's piece, or a change), with the edge tools.
+  case yourCutout(String)
   /// Loading screen while the sticker or tote bag is made.
   case makingProduct
   case listingDetails
@@ -35,6 +35,14 @@ enum CreateRoute: Hashable {
   case storyLibrary
   /// Story video recorded again from "My story video"; comes back there.
   case recordStoryAgain
+}
+
+/// What Making your cutout cuts.
+enum CutJob: Hashable {
+  /// Adjust the area's frame on the photo: `cleanup {candidateIds?, box, clipToBox: true}`.
+  case area(CleanupRequest)
+  /// A kept change (`cutout`, once per artwork; later visits use `CreateFlow.changeCuts`).
+  case change(String)
 }
 
 enum PhotoSource: Hashable { case camera, library }
@@ -218,15 +226,16 @@ final class CreateFlow {
   var pieceCutFrom: String?
   /// The frame (Adjust the area) `pieceArtwork` was cut with.
   var pieceBox: [Double]?
-  /// The latest change (a child artwork); nil while the art is as it was picked.
-  var changedArtwork: Artwork?
-  /// The art the latest change was made from ("Before").
-  var changeBase: Artwork?
-  /// What to change, as typed or heard, and the words heard when it was spoken.
+  /// Every change made in this creation, oldest first (T131: "Back to my original" steps back one
+  /// change and keeps the chain).
+  var changes: [ChangeStep] = []
+  /// The change on screen; nil while the art is the picked piece.
+  var changedArtworkId: String?
+  /// What to change next, as typed or heard, and the words heard when it was spoken.
   var changeInstruction = ""
   var changeTranscript: String?
-  /// How the change differs from the request (`description.differences`).
-  var changeDifferences: String?
+  /// Cut-outs of changes (`cutout`), per artwork id, so a change kept again is not cut twice.
+  var changeCuts: [String: Cut] = [:]
   /// The artwork "Your cutout" shows (or a saved design's Adjust the area cuts), with its pieces,
   /// the picture's size and the chosen piece.
   var cutoutArtwork: Artwork?
@@ -248,8 +257,120 @@ final class CreateFlow {
   /// The picked story video was longer than 30 s and only its start was kept.
   var storyVideoTrimmed = false
 
-  /// The art the creator sees now: the latest change, else the picked drawing.
+  /// The art the creator sees now: the change on screen, else the picked drawing.
   var currentArt: Artwork? { changedArtwork ?? pieceArtwork }
+
+  private var currentStep: ChangeStep? { changes.first { $0.artwork.id == changedArtworkId } }
+
+  /// The change on screen ("After").
+  var changedArtwork: Artwork? { currentStep?.artwork }
+  /// The art the change on screen was made from ("Before").
+  var changeBase: Artwork? { currentStep?.base }
+  /// What was asked for the change on screen ("YOU ASKED").
+  var changeAsked: String? { currentStep?.instruction }
+  /// How the change on screen differs from the request (`description.differences`).
+  var changeDifferences: String? { currentStep?.differences }
+
+  /// A change answer: kept in the chain and put on screen.
+  func addChange(_ step: ChangeStep) {
+    changes.removeAll { $0.artwork.id == step.artwork.id }
+    changes.append(step)
+    changedArtworkId = step.artwork.id
+  }
+
+  /// "Back to my original": one change back, to the art the change on screen was made from (the
+  /// previous change, or the picked piece). The chain stays; no call.
+  func stepBack() {
+    guard let step = currentStep else { return }
+    changedArtworkId = changes.contains { $0.artwork.id == step.base.id } ? step.base.id : nil
+  }
+
+  /// A newer version of an artwork in the chain (its cut-out): every step that shows it follows.
+  func updateChange(_ artwork: Artwork) {
+    for index in changes.indices {
+      if changes[index].artwork.id == artwork.id { changes[index].artwork = artwork }
+      if changes[index].base.id == artwork.id { changes[index].base = artwork }
+    }
+  }
+
+  // MARK: Cut-outs (Your cutout)
+
+  /// The cut Your cutout shows for `artworkId`: the photo's piece (cut on Adjust the area, the frame
+  /// is its box), or a change's cut-out (the whole picture is its box).
+  func cut(for artworkId: String) -> Cut? {
+    if artworkId == photoArtwork?.id {
+      guard let piece = pieceArtwork, piece.cleanedUrl != nil else { return nil }
+      return Cut(artwork: piece, candidates: photoCandidates, imageSize: photoPixelSize,
+                 selected: pieceCutFrom.map { [$0] } ?? [], box: pieceBox)
+    }
+    return changeCuts[artworkId]
+  }
+
+  /// The photo's size in pixels of the stored original; the local photo's pixels when the server sent none.
+  var photoPixelSize: ImageSize? {
+    if let size = photoImageSize, size.isUsable { return size }
+    guard let photo else { return nil }
+    let size = ImageSize(w: photo.size.width * photo.scale, h: photo.size.height * photo.scale)
+    return size.isUsable ? size : nil
+  }
+
+  /// A new cut of `artworkId` (Making your cutout, or Apply cutout): the flow follows it.
+  func recordCut(of artworkId: String, _ cut: Artwork, request: CleanupRequest? = nil) {
+    if artworkId == photoArtwork?.id {
+      if let request {
+        pieceCutFrom = request.candidateIds?.first
+        if let box = request.box { pieceBox = box }
+      }
+      pieceArtwork = cut
+      updateChange(cut)
+    } else {
+      changeCuts[artworkId]?.artwork = cut
+      updateChange(cut)
+    }
+  }
+
+  // MARK: Route table (T131)
+
+  /// Adjust the area › "Use this area": the same piece and frame already cut go straight to Your
+  /// cutout; otherwise Making your cutout runs the `cleanup` (always the first time, even for the
+  /// piece the server cut on its own).
+  func routeAfterArea(_ request: CleanupRequest) -> CreateRoute? {
+    guard let photoId = photoArtwork?.id else { return nil }
+    if let piece = pieceArtwork, piece.cleanedUrl != nil, pieceCutFrom == request.candidateIds?.first, pieceBox == request.box {
+      return .yourCutout(photoId)
+    }
+    return .makingCutout(.area(request))
+  }
+
+  /// Your cutout › "Use this": the piece goes on to Change it; a change's cut-out is the product's art.
+  func routeAfterCutout(of artworkId: String) -> CreateRoute? {
+    guard let cut = cut(for: artworkId) else { return nil }
+    if artworkId == photoArtwork?.id { return .changeIt }
+    artwork = cut.artwork
+    return .makingProduct
+  }
+
+  /// Change it › "Looks good as is": the piece's cut-out (reviewed on Your cutout) makes the product;
+  /// a change shown there (Change it again, or one change back) is cut out first unless it already was.
+  func routeAfterLooksGood() -> CreateRoute? {
+    guard let art = currentArt else { return nil }
+    if changedArtwork == nil {
+      guard art.cleanedUrl != nil else { return nil }
+      artwork = art
+      return .makingProduct
+    }
+    if let cut = changeCuts[art.id] {
+      artwork = cut.artwork
+      return .makingProduct
+    }
+    return .makingCutout(.change(art.id))
+  }
+
+  /// Before and after › "Use this": the change's cut-out (made once per artwork), then Your cutout.
+  func routeAfterKeepingChange() -> CreateRoute? {
+    guard let change = changedArtwork else { return nil }
+    return changeCuts[change.id] != nil ? .yourCutout(change.id) : .makingCutout(.change(change.id))
+  }
 
   /// A new photo answer: its drawings; a single one starts picked.
   func setPhoto(artwork: Artwork, candidates: [Candidate], imageSize: ImageSize?) {
@@ -265,26 +386,22 @@ final class CreateFlow {
 
   /// Where Finding drawings goes with the photo answer (ruling, T122): Adjust the area always comes
   /// before Change it. No drawing found, or one the server already cut out: straight to Adjust the
-  /// area (no choice to make); the auto-cut piece is kept with the frame it starts on, so "Use this
-  /// area" without a change sends nothing. Otherwise Choose a pattern first.
+  /// area (no choice to make). The auto-cut piece is still cut with the frame there (T131: the
+  /// server's cut is not clipped to it). Otherwise Choose a pattern first.
   func routeAfterFinding(artwork: Artwork) -> CreateRoute {
     if photoCandidates.isEmpty { return .adjustArea }
     guard photoCandidates.count == 1, artwork.cleanedUrl != nil, let only = photoCandidates.first else { return .choosePattern }
     pieceCandidateId = only.id
-    pieceArtwork = artwork
-    pieceCutFrom = only.id
-    let size = photoImageSize?.isUsable == true ? photoImageSize : photo.map { ImageSize(w: $0.size.width * $0.scale, h: $0.size.height * $0.scale) }
-    pieceBox = size.flatMap { $0.isUsable ? AreaFrame.initial(piece: only, image: $0).box : nil }
     return .adjustArea
   }
 
-  /// Back to the art as it was picked (no change yet).
+  /// No changes: the art is the picked piece again, and the changes' cut-outs go.
   func resetChange() {
-    changedArtwork = nil
-    changeBase = nil
+    changes = []
+    changedArtworkId = nil
+    changeCuts = [:]
     changeInstruction = ""
     changeTranscript = nil
-    changeDifferences = nil
   }
 
   /// Starts the cut-out state for `artwork` (Your cutout, or Adjust the area on a saved design): its
@@ -358,4 +475,24 @@ final class CreateFlow {
     cutoutNotice = result.productNotice
   }
 
+}
+
+/// One change in a creation's chain: the result, the art it was made from, what was asked and how
+/// the result differs from it.
+struct ChangeStep: Equatable {
+  var artwork: Artwork
+  var base: Artwork
+  var instruction: String
+  var differences: String?
+}
+
+/// A cut-out on Your cutout: the cut artwork, the pieces SAM found on its picture (in pixels of
+/// `imageSize`), the piece it was cut from and the box the edge tools send (the Adjust the area
+/// frame, or nil for the whole picture).
+struct Cut: Equatable {
+  var artwork: Artwork
+  var candidates: [Candidate]
+  var imageSize: ImageSize?
+  var selected: [String]
+  var box: [Double]?
 }

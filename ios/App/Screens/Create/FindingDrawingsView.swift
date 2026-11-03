@@ -33,9 +33,24 @@ struct FindingDrawingsView: View {
       app.flow.setPhoto(artwork: res.artwork, candidates: res.candidates, imageSize: res.imageSize)
       // Nothing to choose (no drawing, or one already cut out): straight to Adjust the area.
       app.replaceTop(with: app.flow.routeAfterFinding(artwork: res.artwork))
+    } catch let none as NoDrawingFound {
+      // No drawing found (T131): not a dead end. The photo is stored; Adjust the area opens on the
+      // whole photo, with the stored original's size so the frame is in its pixels.
+      await rescue(none)
     } catch is CancellationError {
       return
     } catch {
+      self.error = error.localizedDescription
+    }
+  }
+
+  private func rescue(_ none: NoDrawingFound) async {
+    do {
+      let detail = try await app.api.artworkDetail(id: none.artworkId)
+      app.flow.setPhoto(artwork: detail.artwork, candidates: [], imageSize: detail.imageSize)
+      if app.createPath.last == .findingDrawings { app.replaceTop(with: .adjustArea) }
+    } catch {
+      if APIError.isCancellation(error) { return }
       self.error = error.localizedDescription
     }
   }

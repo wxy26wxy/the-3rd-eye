@@ -11,6 +11,13 @@ enum ListingPhase: Equatable {
 
   var showsFields: Bool { self == .form }
 
+  /// The listing agent runs by itself on the first visit (T131, every mode): when the product has no
+  /// listing name yet, neither typed nor saved from an earlier run, and it did not run here already.
+  static func autoRuns(title: String, savedTitle: String?, alreadyRan: Bool) -> Bool {
+    !alreadyRan && title.trimmingCharacters(in: .whitespaces).isEmpty
+      && (savedTitle ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+  }
+
   /// "Approve and list it" works only on the form, with a name and a price, while nothing is sent.
   func canApprove(approving: Bool, title: String, priceCents: Int) -> Bool {
     self == .form && !approving && !title.trimmingCharacters(in: .whitespaces).isEmpty && priceCents > 0
@@ -18,8 +25,9 @@ enum ListingPhase: Equatable {
 }
 
 /// Board "Listing details" (`2014:678`): the product picture (`ProductPicture`: the bordered sticker
-/// preview, or the art for a tote bag; never the mockup), name, description, price, You earn per
-/// sale; "Improve with AI" writes the listing (the drafting card shows meanwhile); approve by tap.
+/// preview, or the tote bag mockup), name, description, price, You earn per sale. The listing agent
+/// writes the listing on the first visit (T131, every mode; the drafting card shows meanwhile);
+/// "Improve with AI" runs it again; approve by tap.
 struct ListingDetailsView: View {
   @Environment(AppState.self) private var app
   @Environment(\.themeColors) private var colors
@@ -96,7 +104,7 @@ struct ListingDetailsView: View {
   private var form: some View {
     VStack(alignment: .leading, spacing: Theme.Space.l) {
       if app.flow.product != nil {
-        // The bordered sticker, or the art for a tote bag, on a grey card at its own proportions.
+        // The bordered sticker, or the tote bag mockup, on a grey card at its own proportions.
         RemoteImage(url: ProductPicture.url(type: app.flow.product?.type ?? app.flow.productType, product: app.flow.product, artwork: app.flow.artwork),
                     altText: app.flow.artwork?.altText)
           .padding(Theme.Space.l)
@@ -139,7 +147,7 @@ struct ListingDetailsView: View {
       fill(from: product)
       if title.isEmpty, let saved = app.flow.productTitle { title = saved }
       if description.isEmpty, let saved = app.flow.productDescription { description = saved }
-      if title.isEmpty, app.flow.productTitle == nil, app.prefs.simpleMode, !autoRan {
+      if ListingPhase.autoRuns(title: title, savedTitle: app.flow.productTitle, alreadyRan: autoRan) {
         autoRan = true
         await improve()
       }
@@ -155,7 +163,7 @@ struct ListingDetailsView: View {
       let product = try await app.api.createProduct(artworkId: artwork.id, type: type)
       app.flow.product = product
       fill(from: product)
-      if app.prefs.simpleMode && !autoRan {
+      if ListingPhase.autoRuns(title: title, savedTitle: app.flow.productTitle, alreadyRan: autoRan) {
         autoRan = true
         creatingProduct = false
         await improve()
@@ -182,6 +190,12 @@ struct ListingDetailsView: View {
       title = res.listing.title
       description = res.listing.description ?? description
       if let cents = res.listing.priceCents { priceText = String(format: "%.2f", Double(cents) / 100) }
+      // Kept with the creation, so coming back here (Back, then Use this again) does not run it again.
+      if app.flow.product?.id == product.id {
+        app.flow.productTitle = title
+        app.flow.productDescription = description
+        if let cents = res.listing.priceCents { app.flow.product?.priceCents = cents }
+      }
       // The fields show all of this; VoiceOver hears the summary without visiting each one.
       UIAccessibility.post(notification: .announcement, argument: String(localized: "I wrote a listing called \(title), for \(Money.format(cents: priceCents)). You earn \(Money.format(cents: earnCents)) per sale. Check it, then tap Approve and list it."))
     } catch {

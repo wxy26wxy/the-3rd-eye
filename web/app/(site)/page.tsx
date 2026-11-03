@@ -21,7 +21,7 @@ async function FeaturedPreview() {
       name={c?.displayName ?? null}
       studio={c?.studioName ?? null}
       bio={c?.storyText ?? c?.bioShort ?? null}
-      product={first ? { title: first.title, imageUrl: (first.type === "sticker" ? first.previewUrl : null) ?? first.artworkUrl ?? first.mockupUrl, type: first.type } : null}
+      product={first ? { title: first.title, imageUrl: (first.type === "sticker" ? first.previewUrl ?? first.artworkUrl : first.mockupUrl ?? first.artworkUrl) ?? first.mockupUrl, type: first.type } : null}
     />
   );
 }

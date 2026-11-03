@@ -5,7 +5,7 @@ import { fmt, m } from "@/components/messages";
 import { api, type AgentStep, type ListingDraft, type Product } from "../api";
 import { HydratingScreen, MissingState } from "../CreateScreen";
 import { describeError, type ScreenError } from "../errors";
-import { once, productPicture, updateDraft, useCreate, useCreator } from "../store";
+import { cutoutOf, once, productPicture, updateDraft, useCreate, useCreator } from "../store";
 import { ListingView } from "./ListingView";
 
 const toDollars = (cents: number) => (cents / 100).toFixed(2);
@@ -101,7 +101,7 @@ function ListingForm() {
     }
   }
 
-  const art = draft.cutout?.artworkId === p?.artworkId ? draft.cutout : null;
+  const art = cutoutOf(draft, p?.artworkId);
   const tote = p?.type === "tote";
   return (
     <ListingView

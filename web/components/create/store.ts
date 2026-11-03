@@ -6,7 +6,7 @@
  * for hydration instead of flashing "missing" states.
  */
 import { useCallback, useEffect, useSyncExternalStore } from "react";
-import type { Box, ImageSize } from "./cutout";
+import type { Box, CutoutPoint, ImageSize } from "./cutout";
 import { CREATOR_SESSION_COOKIE } from "./constants";
 import { api, type AgentStep, type Candidate, type Creator, type ListingDraft, type Product, type ProductType } from "./api";
 
@@ -33,6 +33,13 @@ export type CutoutState = {
   selectedIds: string[];
   cleanedUrl: string | null;
   altText: string | null;
+  /**
+   * The box Apply cutout sends with the marks (T130): the frame from Adjust the area for the piece,
+   * the whole picture for a change result.
+   */
+  box: Box | null;
+  /** The Add area / Remove area marks the saved cut was made with (none for the first cut). */
+  points: CutoutPoint[];
 };
 
 export type Draft = {
@@ -69,14 +76,22 @@ export type Draft = {
    * keeps visited routes in a hidden Activity), so its state is keyed by this, never reused.
    */
   changeNonce?: string;
+  /**
+   * The cut "Use this area" asked for, run by Making your cutout (T130); `nonce` is new per "Use
+   * this area", so a kept-mounted /create/cutout never re-sends an older one.
+   */
+  pendingArea?: { artworkId: string; candidateId?: string; box: Box; nonce: string };
   /** The row that "Your cutout" works on (the piece, or the change result after `cutout`). */
   cutoutArtworkId?: string;
-  cutout?: CutoutState;
+  /** Every cut made in this draft, by artwork (a change result is cut once, T130). */
+  cutouts?: Record<string, CutoutState>;
   /** Product trouble reported by the last cleanup, shown on Ready. */
   cutoutNotice?: string;
   /** The artwork the product was made from. */
   artworkId?: string;
   productRecord?: Product;
+  /** The cut-out (`cleanedUrl`) `productRecord`'s files were made from; another one means the server rebuilt them. */
+  productCut?: string | null;
   listing?: ListingDraft;
   trace?: AgentStep[];
   listingTitle?: string;
@@ -173,10 +188,30 @@ export function once<T>(key: string, run: () => Promise<T>): Promise<T> {
 }
 
 /** POST /products for the chosen artwork and remember it (`attempt` makes a retry a new request). */
-export async function makeProduct(artworkId: string, type: ProductType, attempt = 0): Promise<Product> {
+export async function makeProduct(artworkId: string, type: ProductType, attempt = 0, cut: string | null = null): Promise<Product> {
   const product = await once(`product:${artworkId}:${type}:${attempt}`, () => api<Product>("products", { json: { artworkId, type } }));
-  updateDraft({ productRecord: product, artworkId, listing: undefined, trace: undefined });
+  updateDraft({ productRecord: product, productCut: cut, artworkId, listing: undefined, trace: undefined });
   return product;
+}
+
+/**
+ * Making your sticker / tote bag for `d.artworkId` (consistency item 6): "make" a new product, or
+ * "reuse" the draft product already made for the same artwork and type (browser back + Use this
+ * never posts a second product); "refresh" reuses it but its files were rebuilt by a later cut
+ * (Apply cutout), so its pictures are read again.
+ */
+export function productToMake(d: Draft): "make" | "reuse" | "refresh" {
+  const p = d.productRecord;
+  if (!d.artworkId || !d.product || !p || p.artworkId !== d.artworkId || p.type !== d.product) return "make";
+  const cut = d.cutouts?.[d.artworkId]?.cleanedUrl ?? null;
+  return cut && d.productCut !== undefined && d.productCut !== cut ? "refresh" : "reuse";
+}
+
+/** The product's pictures again after a rebuild (`GET /artworks` carries each product's `mockupUrl` / `previewUrl`). */
+export async function refreshProduct(p: Product, cut: string | null): Promise<void> {
+  const res = await api<{ artworks: { id: string; products: { id: string; mockupUrl: string | null; previewUrl: string | null }[] }[] }>("artworks");
+  const fresh = res.artworks.find((a) => a.id === p.artworkId)?.products.find((x) => x.id === p.id);
+  updateDraft({ productRecord: fresh ? { ...p, mockupUrl: fresh.mockupUrl, previewUrl: fresh.previewUrl } : p, productCut: cut });
 }
 
 /** The change on screen, when there is one. */
@@ -202,29 +237,22 @@ export function addChange(d: Draft, step: ChangeStep): Partial<Draft> {
   return { changes: [...(d.changes ?? []).filter((c) => c.artworkId !== step.artworkId), step], changedArtworkId: step.artworkId };
 }
 
-/**
- * "Looks good as is" / "Use this": the cut-out to show on Your cutout. For the picked piece it exists
- * already (from `select`, no call); for a change result it is made by `POST /artworks/{id}/cutout`
- * on the cutout screen (returns null here).
- */
-export function pieceCutout(d: Draft): CutoutState | null {
-  if (currentChange(d) || !d.pieceArtworkId) return null;
-  return {
-    artworkId: d.pieceArtworkId,
-    candidates: d.candidates ?? [],
-    imageSize: d.imageSize ?? null,
-    selectedIds: d.pieceCandidateId ? [d.pieceCandidateId] : [],
-    cleanedUrl: d.pieceUrl ?? null,
-    altText: d.pieceAlt ?? null,
-  };
+/** The saved cut of `artworkId`, when there is one. */
+export function cutoutOf(d: Draft, artworkId: string | undefined): CutoutState | null {
+  return artworkId ? d.cutouts?.[artworkId] ?? null : null;
 }
 
+/** Records a cut (the area cut, a change result's `cutout`, or Apply cutout). */
+export function withCutout(d: Draft, cut: CutoutState): Partial<Draft> {
+  return { cutouts: { ...(d.cutouts ?? {}), [cut.artworkId]: cut } };
+}
 
 /**
- * The product picture creator screens show (R1): the bordered sticker preview, else the cut-out art
- * (always for a tote). Never the AI mockup: it re-draws the art and changes its proportions.
+ * The product picture creator screens show: a sticker's bordered preview (R1), a tote's Muse Image
+ * mockup (T130 ruling: the AI tote photo again), else the cut-out art.
  */
-export function productPicture(p: Pick<Product, "type" | "previewUrl"> | null | undefined, cut: Pick<CutoutState, "cleanedUrl"> | null | undefined): string | null {
+export function productPicture(p: Pick<Product, "type" | "previewUrl" | "mockupUrl"> | null | undefined, cut: Pick<CutoutState, "cleanedUrl"> | null | undefined): string | null {
+  if (p?.type === "tote" && p.mockupUrl) return p.mockupUrl;
   if (p && p.type !== "tote" && p.previewUrl) return p.previewUrl;
   return cut?.cleanedUrl ?? null;
 }

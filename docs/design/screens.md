@@ -141,6 +141,14 @@ Made in place in the current file (newest key in the intake log), Changelog `204
 
 Not mirrored on the boards (the code follows the rulings): the card mascot replacing the Sky card on Camera · Sky `2012:445` and Photo · Web `2027:3184`; the pointing mascot on You're live (`21:4554`, `2030:3958`, `4038:4713`, iOS drops the tilted mockup card); the sticker preview on Listing details `2014:678`, Ready and You're live boards (they draw the sample mascot illustration); the stacked Change it row at accessibility sizes; the "No story video yet" row state.
 
+## Round 2b — to mirror in Figma (2026-11-03, T132)
+The apps changed after the round 2 boards were drawn (user rulings, 2026-11-03). Nothing below has been edited in the designer's file; these are the boards the designer needs to update. The code is the reference until then.
+
+1. **Order: Adjust the area → Making your cutout → Your cutout → Change it.** The cutout is made and shown before Change it; "Looks good as is" (on Change it) goes straight to Making your sticker or tote bag; after a change, Before and after › "Use this" → Making your cutout → Your cutout → Making product. Flow arrows and the step hints between these boards need to follow this order (Change it boards `2012:387` iOS, `2027:3138` web, Before and after `2027:3091` web; Making your cutout `4030:4482` iOS, `2038:4369` web).
+2. **Your cutout gets Add area / Remove area back** (the "Draw a box" mode stays removed; the frame from Adjust the area is the box). Boards: `2013:618` (iOS), `2038:4233` (web, the cut) and `2038:4092` (web, Fix the edges). Restore from the v3 versions of these boards: the Add area / Remove area picker, the instruction, "Fix the edges", the marks (iOS marks; web Marks list and "Add the area around your art"), Clear marks, "Apply cutout", plus "Use this" and "Start over". The lead is "Here's the cutout of your art. Fix the edges if you need to." (after a change: "...of your changed art..."). A second state for the changed art can reuse the same board.
+3. **Tote picture is the AI mockup again** (Muse Image, `mockupUrl`), not a composite. Boards showing a tote product picture: web Ready `4038:4644`, web Listing `4038:4662`, web Live `4038:4713`, iOS Listing details `4038:4517`, and the shop tote tile and first product-page picture on the shop boards (`2018:1789` shop and the product page board). Stickers keep the bordered die-cut preview.
+4. Smaller, from the flow check: iOS Story video has no Back after the listing is approved; Start over on Your cutout goes to Choose method (iOS hint "Starts again from the choice of photo").
+
 ## Public site
 
 Since T106 these screens follow the B3 / B5 Sky boards (node ids in the table above); the board names below are the old canvas names, kept for history.

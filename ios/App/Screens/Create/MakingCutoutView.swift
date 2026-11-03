@@ -90,7 +90,8 @@ struct MakingCutoutView: View {
       return
     }
     do {
-      let res = try await app.api.detect(artworkId: photo.id, box: box)
+      let api = app.api
+      let res = try await flow.inFlight { try await api.detect(artworkId: photo.id, box: box) }
       guard flow.finishJob(pending) else { return }
       flow.recordDetect(res, box: box)
       leave(to: photo.id, flow: flow)
@@ -111,7 +112,8 @@ struct MakingCutoutView: View {
       return
     }
     do {
-      let res = try await app.api.cutout(artworkId: id)
+      let api = app.api
+      let res = try await flow.inFlight { try await api.cutout(artworkId: id) }
       guard flow.finishJob(pending) else { return }
       var candidates = res.candidates
       var size = res.imageSize

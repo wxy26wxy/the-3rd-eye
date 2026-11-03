@@ -272,6 +272,8 @@ final class CreateFlow {
   /// The long call in flight (round 3 ruling 6) and how often the app came back while it ran.
   private(set) var pendingJob: PendingJob?
   private(set) var resumeCount = 0
+  /// Long calls still waiting for their answer (re-review N1): no recovery runs while one is.
+  private(set) var callsInFlight = 0
   /// Every change made in this creation, oldest first (T131: "Back to my original" steps back one
   /// change and keeps the chain).
   var changes: [ChangeStep] = []
@@ -554,8 +556,18 @@ final class CreateFlow {
     return true
   }
 
+  /// Back in the app: screens reconcile only a job whose call is no longer waiting for its answer
+  /// (it failed, or its answer was lost). A call still in flight is left alone, so a return during
+  /// a long build never sends it again (re-review N1).
   func appBecameActive() {
-    if pendingJob != nil { resumeCount += 1 }
+    if pendingJob != nil, callsInFlight == 0 { resumeCount += 1 }
+  }
+
+  /// Runs a job's call, counted as in flight until it answers or fails.
+  func inFlight<T>(_ call: () async throws -> T) async rethrows -> T {
+    callsInFlight += 1
+    defer { callsInFlight -= 1 }
+    return try await call()
   }
 
   /// A job's result found on the server.

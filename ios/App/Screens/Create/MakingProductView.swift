@@ -41,7 +41,10 @@ struct MakingProductView: View {
         // One `clientRequestId` per attempt (round 3): Try again after a lost answer sends it again.
         let pending = flow.startJob(.product(artworkId: artwork.id, type: type), knownProductIds: flow.knownProductIds(of: artwork))
         job = pending
-        let product = try await app.api.createProduct(artworkId: artwork.id, type: type, clientRequestId: pending.clientRequestId)
+        let api = app.api
+        let product = try await flow.inFlight {
+          try await api.createProduct(artworkId: artwork.id, type: type, clientRequestId: pending.clientRequestId)
+        }
         guard flow.finishJob(pending) else { return }
         flow.useProduct(product, madeFrom: artwork)
       case .reuse:

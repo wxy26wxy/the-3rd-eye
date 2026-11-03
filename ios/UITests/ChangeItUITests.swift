@@ -156,6 +156,7 @@ final class ChangeItUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["Here's the change"].waitForExistence(timeout: 20), "Before and after, recovered")
     XCTAssertFalse(app.buttons["Try again"].exists)
     XCTAssertEqual(try count("change"), 1, "made once")
+    XCTAssertEqual(try count("change-posts"), 1, "and sent once: recovered from the list, not sent again")
     XCTAssertNotNil(try lastBody("change")["clientRequestId"] as? String, "with its request id")
   }
 

@@ -54,6 +54,7 @@ check "contrast", and 200 with acceptPrintWarning: true. NORES...: check "resolu
 Recovery (T136): GET /artworks also lists the change rows ch<n> made since sign-in (as the server lists
 children); sign-in LOSTCHANGE... makes the first change store its row and then drop the connection without
 an answer (the app sees a transport error and recovers the row from GET /artworks).
+/__mock/count/change-posts counts every change POST, repeats with the same clientRequestId included.
 """
 import json
 import math
@@ -217,6 +218,8 @@ def repeat_of(kind, rid, target):
 
 def change_artwork(artwork_id, body):
     LAST["change"] = {**body, "artworkId": artwork_id}
+    # Every POST, repeats included (T136: the recovery test proves no second change was sent).
+    count("change-posts")
     instruction = str(body.get("instruction") or "").strip()
     if not instruction or len(instruction) > 1000:
         raise MockError(400, "invalid_request", "instruction must be 1-1000 characters")

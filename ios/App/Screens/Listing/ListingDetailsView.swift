@@ -223,7 +223,10 @@ struct ListingDetailsView: View {
     do {
       let product: Product
       do {
-        product = try await app.api.createProduct(artworkId: artwork.id, type: type, clientRequestId: job.clientRequestId)
+        let api = app.api
+        product = try await flow.inFlight {
+          try await api.createProduct(artworkId: artwork.id, type: type, clientRequestId: job.clientRequestId)
+        }
       } catch APIError.transport(let reason) {
         // A lost answer: the product may be made already (round 3 ruling 6).
         guard case .product(let made)? = await CreateFlow.reconcile(job, api: app.api) else { throw APIError.transport(reason) }
@@ -273,7 +276,8 @@ struct ListingDetailsView: View {
     let job = flow.startJob(.listing(productId: product.id),
                             shownListing: PendingJob.ShownListing(title: title, description: description))
     do {
-      let res = try await app.api.runListingAgent(productId: product.id)
+      let api = app.api
+      let res = try await flow.inFlight { try await api.runListingAgent(productId: product.id) }
       guard flow.finishJob(job) else { return }
       apply(res.listing, for: product)
     } catch {

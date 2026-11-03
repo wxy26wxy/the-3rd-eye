@@ -389,4 +389,60 @@ final class RoundThreeTests: XCTestCase {
     XCTAssertNil(art.shownDescription, "no WHAT THE IMAGE SHOWS card")
     XCTAssertEqual(ChangingView.withFallbackCopy(Artwork(id: "ch1", altText: "A bus")).altText, "A bus")
   }
+
+  // MARK: Re-review N1
+
+  /// A product call still waiting for its answer (the server is building the print file and
+  /// mockup) is never recovered on return to the app, so nothing sends it a second time; once the
+  /// call has failed, a return does ask the screens to recover.
+  func testNoRecoveryWhileTheCallIsInFlight() async throws {
+    BackgroundWork.host = RecordingBackgroundHost()
+    let gate = GateTransport()
+    let app = AppState(api: APIClient(baseURL: base, transport: gate, token: "t0k"))
+    let flow = app.flow
+    let job = flow.startJob(.product(artworkId: "p1", type: .sticker))
+    let api = app.api
+    let call = Task { @MainActor in
+      try await flow.inFlight { try await api.createProduct(artworkId: "p1", type: .sticker, clientRequestId: job.clientRequestId) }
+    }
+    while gate.requestCount == 0 { await Task.yield() }
+    XCTAssertEqual(flow.callsInFlight, 1)
+    app.scenePhaseChanged(.background)
+    app.scenePhaseChanged(.active)
+    XCTAssertEqual(flow.resumeCount, 0, "no recovery while the call is in flight")
+    XCTAssertEqual(gate.requestCount, 1, "no second POST")
+    gate.fail()
+    _ = try? await call.value
+    XCTAssertEqual(flow.callsInFlight, 0)
+    app.scenePhaseChanged(.active)
+    XCTAssertEqual(flow.resumeCount, 1, "after a lost answer the return recovers")
+  }
+}
+
+/// Holds every request until `fail()`, then answers each with a lost connection.
+final class GateTransport: HTTPTransport, @unchecked Sendable {
+  private let lock = NSLock()
+  private var waiting: [CheckedContinuation<Void, Never>] = []
+  private var open = false
+  private var count = 0
+
+  var requestCount: Int { lock.lock(); defer { lock.unlock() }; return count }
+
+  func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+    await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+      lock.lock()
+      count += 1
+      if open { lock.unlock(); c.resume() } else { waiting.append(c); lock.unlock() }
+    }
+    throw URLError(.networkConnectionLost)
+  }
+
+  func fail() {
+    lock.lock()
+    open = true
+    let all = waiting
+    waiting = []
+    lock.unlock()
+    all.forEach { $0.resume() }
+  }
 }

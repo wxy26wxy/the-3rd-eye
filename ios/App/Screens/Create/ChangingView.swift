@@ -36,8 +36,11 @@ struct ChangingView: View {
     let instruction = flow.changeInstruction
     let job = flow.startJob(.change(baseId: base.id, instruction: instruction))
     do {
-      let res = try await app.api.change(artworkId: base.id, instruction: instruction, transcript: flow.changeTranscript,
-                                         clientRequestId: job.clientRequestId)
+      let api = app.api
+      let transcript = flow.changeTranscript
+      let res = try await flow.inFlight {
+        try await api.change(artworkId: base.id, instruction: instruction, transcript: transcript, clientRequestId: job.clientRequestId)
+      }
       guard flow.finishJob(job) else { return }
       apply(res, base: base, instruction: instruction, flow: flow)
     } catch {

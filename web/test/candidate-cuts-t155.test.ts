@@ -249,8 +249,9 @@ describe("T155 review fixes", () => {
     expect(state.cutCalls).toHaveLength(out.candidates.length);
     const areaOf = (id: string) => { const b = out.candidates.find((c) => c.id === id)!.bbox; return (b[2] - b[0]) * (b[3] - b[1]); };
     const order = state.cutCalls.map((c) => areaOf(c.candidateId));
-    expect(order[0]).toBe(10000); // the largest starts first
-    expect(order.slice(0, 2)).toContain(2500);
+    // Two cuts run at a time, so the first pair may start in either order; the pair is the two largest.
+    expect(new Set(order.slice(0, 2))).toEqual(new Set([10000, 2500]));
+    expect(Math.max(...order.slice(2))).toBeLessThanOrEqual(2500);
   });
 
   it("a piece whose candidate was replaced meanwhile is skipped: nothing stored", async () => {

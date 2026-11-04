@@ -256,6 +256,8 @@ async function storeCandidates(creatorId: string, png: Buffer, imageSize: ImageS
   }));
 }
 
+const MIN_PIECE_COVERAGE = 0.01;
+
 /**
  * SAM inside the clamped frame `b` of `png` (W × H): the crop is searched (both phrases, or `phrases`),
  * the masks are placed back at the frame's offset, largest first. No storage, no database (T148 dry run).
@@ -279,10 +281,13 @@ export async function segmentInBox(png: Buffer, size: ImageSize, b: BBox, trace:
     trace, max: MAX_CANDIDATES, maxCoverage: 1, dropContainers: false, ...(searchPhrases?.length ? { phrases: searchPhrases } : {}),
   });
   const frameArea = (x1 - x0) * (y1 - y0);
-  return segments.map((s): Segment => {
+  const placed = segments.map((s): Segment => {
     const mask = placeMask(s.mask, size.w, size.h, x0, y0);
     return { ...s, mask, bbox: [s.bbox[0] + x0, s.bbox[1] + y0, s.bbox[2] + x0, s.bbox[3] + y0] };
-  }).filter((s) => area(s.mask) > 0).sort((p, q) => {
+  }).filter((s) => area(s.mask) > 0);
+  // T154: fragments under 1 % of the crop (bits of pencils) only clutter the strip, unless nothing else was found.
+  const big = placed.filter((s) => area(s.mask) >= frameArea * MIN_PIECE_COVERAGE);
+  return (big.length ? big : placed).sort((p, q) => {
     // T153: a mask filling the crop (the whole drawing) goes last, so the auto-cut is the largest subject.
     const pf = area(p.mask) > frameArea * MAX_FRAME_COVERAGE, qf = area(q.mask) > frameArea * MAX_FRAME_COVERAGE;
     return pf !== qf ? (pf ? 1 : -1) : area(q.mask) - area(p.mask);
@@ -506,7 +511,8 @@ export async function cleanupArtwork(artwork: ArtworkRow, hint: CleanupHint, tas
   if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
   trackArtwork(artwork.id);
   const negatives = (hint.points ?? []).filter((p) => p.label === "negative");
-  const askSam = Boolean(hint.box) || (hint.points ?? []).some((p) => p.label !== "negative");
+  // T154: SAM only for positive points. A box alone (the strip sends the whole picture) is a clip, never a prompt.
+  const askSam = (hint.points ?? []).some((p) => p.label !== "negative");
   const [original, fromCandidates] = await Promise.all([
     storage().read(artwork.originalUrl),
     hint.candidateIds?.length ? candidateMasks(artwork, [...new Set(hint.candidateIds)]) : Promise.resolve([] as Mask[]),

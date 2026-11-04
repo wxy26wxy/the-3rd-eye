@@ -74,13 +74,13 @@ Models used: sam-3.1 (find the drawing, cut it out, die-cut line), muse-image-1.
 
 ## Why are Meta's models important to your solution?
 
-Three things made this possible.
+We needed three things from the models, and all three are in this API.
 
-Muse Image edits the artist's own picture. It takes the drawing as the input image and applies the change while keeping the drawing recognisable, so an artist who cannot draw a second version still ends up with their own piece, not a new one.
+The edit has to start from the artist's own drawing. Muse Image takes the photo of the drawing as its input and makes the change on it. The result still looks like the artist's piece, which is the whole point: we are selling their art, not a picture a model made up.
 
-SAM 3.1 finds a hand-drawn piece in an ordinary phone photo, and finds a knitted toy or a clay figure just as well. The artist frames it with two fingers and the model does the rest; the cut it makes is accurate enough to print as the die-cut line.
+Finding the drawing in a phone photo has to be automatic. Nobody in our target group should have to trace an outline on a screen. SAM 3.1 picks the drawing out of the photo (it also found a knitted bear and a clay figure in our tests), and the mask it returns is clean enough that we use it as the sticker's cut line.
 
-Muse Spark returns its descriptions as structured text, not prose to parse. That is what lets a blind or low-vision artist hear what changed and decide, and what lets us show the same words on screen for everyone else.
+The artist has to be able to hear what changed. Muse Spark gives us the description of each result as a few fixed fields instead of a paragraph, so the app can show it on screen and VoiceOver can read it word for word. An artist who cannot see the screen still gets to decide.
 
 ---
 

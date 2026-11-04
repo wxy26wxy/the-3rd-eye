@@ -175,7 +175,7 @@ describe("cleanupArtwork", () => {
     const artwork = await setup();
     const box: [number, number, number, number] = [40.4, 40, 80, 99.6]; // fractional: floor the start, ceil the end
     const out = await cleanupArtwork(artwork, { candidateIds: ["k1"], box, clipToBox: true });
-    expect(state.segmentCalls).toEqual([{ points: undefined, box }]); // the SAM object is still asked for and unioned first
+    expect(state.segmentCalls).toHaveLength(0); // T154: a box without a positive point is only a clip, no SAM call
     const cleaned = files.get((out.artwork as unknown as { cleanedUrl: string }).cleanedUrl)!;
     const meta = await sharp(cleaned).metadata();
     // k1 is 20..120 square; the frame keeps 40..80 × 40..100 (40×60), upscaled 2×, nothing past the frame
@@ -207,6 +207,27 @@ describe("cleanupArtwork", () => {
     const at = (x: number, y: number) => alpha.data[Math.round((y - 20) * s) * alpha.width + Math.round((x - 20) * s)];
     expect(at(150, 60)).toBe(1); // the added area, inside the frame
     expect(at(140, 100)).toBe(0); // the removed blob
+  });
+
+  it("T154: candidateIds + box + clipToBox and no points → no SAM call, the cut is the stored mask clipped", async () => {
+    const artwork = await setup();
+    state.segmentResult = { mask: rect(0, 0, W, H), bbox: [0, 0, W, H], score: 0.9, svgPath: "" }; // would be the whole picture if asked
+    const out = await cleanupArtwork(artwork, { candidateIds: ["k2"], box: [0, 0, W, H], clipToBox: true });
+    expect(state.segmentCalls).toHaveLength(0);
+    const meta = await sharp(files.get((out.artwork as unknown as { cleanedUrl: string }).cleanedUrl)!).metadata();
+    expect(meta.width! / meta.height!).toBeCloseTo(1, 1); // only k2 (130×130)
+  });
+
+  it("T154: one positive point + box → SAM with the points and the box; only negative points → no SAM", async () => {
+    const artwork = await setup();
+    state.segmentResult = { mask: rect(150, 20, 220, 90), bbox: [150, 20, 220, 90], score: 0.9, svgPath: "" };
+    const box: [number, number, number, number] = [0, 0, W, H];
+    const points = [{ x: 180, y: 50, label: "positive" as const }];
+    await cleanupArtwork(artwork, { candidateIds: ["k1"], points, box, clipToBox: true });
+    expect(state.segmentCalls).toEqual([{ points, box }]);
+    state.segmentCalls = [];
+    await cleanupArtwork(artwork, { candidateIds: ["k1", "k2"], points: [{ x: 300, y: 200, label: "negative" }], box, clipToBox: true });
+    expect(state.segmentCalls).toHaveLength(0);
   });
 
   it("clipToBox unset or false: the box only adds, the piece is not trimmed", async () => {

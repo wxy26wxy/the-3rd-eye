@@ -173,7 +173,7 @@ describe("createFromImage framed (T143, round 4: the upload is the creator's cro
   it("detects on the whole picture with the frame rules, cuts the largest piece, answers details, reads the original once", async () => {
     files.set("upload.png", await sharp({ create: { width: 1200, height: 900, channels: 3, background: "#ffffff" } }).png().toBuffer());
     state.crop = [
-      seg(rect(1200, 900, 10, 10, 40, 40), [10, 10, 40, 40]),
+      seg(rect(1200, 900, 10, 10, 210, 210), [10, 10, 210, 210]),
       seg(rect(1200, 900, 0, 0, 1200, 900), [0, 0, 1200, 900]), // fills the crop edge to edge: kept
     ];
     const out = await createFromImage("c1", { source: "photo", imageUrl: "creators/c1/photo/u.jpg", product: "sticker", framed: true });
@@ -181,7 +181,7 @@ describe("createFromImage framed (T143, round 4: the upload is the creator's cro
     expect(state.findOpts[0]).toMatchObject({ maxCoverage: 1, dropContainers: false });
     expect(state.reads).toEqual([]); // the stored original is passed on, not read back
     expect(out.imageSize).toEqual({ w: 1200, h: 900 });
-    expect(out.candidates.map((c) => c.bbox)).toEqual([[10, 10, 40, 40], [0, 0, 1200, 900]]); // T153: the frame-filling mask goes last
+    expect(out.candidates.map((c) => c.bbox)).toEqual([[10, 10, 210, 210], [0, 0, 1200, 900]]); // T153: the frame-filling mask goes last
     const row = out.artwork as unknown as { cleanedUrl: string; status: string };
     expect(row.status).toBe("ready");
     expect(row.cleanedUrl).toBeTruthy();

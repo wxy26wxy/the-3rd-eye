@@ -57,6 +57,20 @@ describe("segmentInBox subjects (T153)", () => {
   });
 });
 
+describe("segmentInBox tiny fragments (T154)", () => {
+  // the crop is 40 x 40 = 1600 px: 1 % is 16 px, 2 % is 32 px, 3 % is 48 px
+  const blob = (n: number) => { const s = seg(W, H, 0.5); s.mask.data.fill(0); for (let i = 0; i < n; i++) s.mask.data[i] = 1; s.bbox = [0, 0, n, 1]; return s; };
+  it("drops a 1 % fragment and keeps a 2 % one and a 3 % one", async () => {
+    state.found = [blob(16), blob(32), blob(48), seg(20, 20, 0.95)];
+    const out = await run();
+    expect(out.map((s) => s.bbox[2])).toEqual([20, 48, 32]);
+  });
+  it("keeps a lone 1 % fragment", async () => {
+    state.found = [blob(16)];
+    expect(await run()).toHaveLength(1);
+  });
+});
+
 describe("MetaDescriber.subjects (T153)", () => {
   it("(f) a malformed answer throws (caught upstream as a warning) and a non-array gives no subjects", async () => {
     const bad = new MetaDescriber({ create: async () => ({ id: "r", output_text: "not json" }) });

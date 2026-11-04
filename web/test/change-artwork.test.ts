@@ -203,7 +203,7 @@ describe("cleanupArtwork on a change result (T129, Your cutout after a change)",
     const box: [number, number, number, number] = [0, 0, 400, 300];
     const hint = { candidateIds: [candidates[0].id], points: [{ x: 240, y: 120, label: "negative" as const }], box, clipToBox: true };
     const out = await cleanupArtwork(artwork as Row, hint);
-    expect(state.segmentCalls).toEqual([{ points: hint.points, box }]); // the box still asks SAM (nothing found here)
+    expect(state.segmentCalls).toHaveLength(0); // T154: only a positive point asks SAM
     expect(out.artwork.id).toBe(artwork.id);
     expect(out.artwork.status).toBe("ready");
     const meta = await cutOf(out.artwork);
@@ -235,5 +235,6 @@ describe("cleanupArtwork on a change result (T129, Your cutout after a change)",
     state.segmentResult = seg(rect(50, 50, 250, 200), [50, 50, 250, 200], 0.9);
     const out = await cleanupArtwork(child as Row, { box: [0, 0, 400, 300], clipToBox: true });
     expect(out.artwork.cleanedUrl).toBeTruthy();
+    expect(state.segmentCalls).toHaveLength(1); // T154: no piece named, so the box asks SAM
   });
 });

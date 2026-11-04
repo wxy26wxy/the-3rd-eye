@@ -244,12 +244,14 @@ describe("Artists, static pages, 404 (T106, 2024:2597 / 2025:2682 / 2025:2886)",
     expect(out).toContain(">RM<");
   });
 
-  it("static page: h1, intro, decorative sky, checked list with the story-tags anchor, closing note", () => {
+  it("static page: h1, intro, the described mascot picture, checked list with the story-tags anchor, closing note", () => {
     const out = html(createElement(StaticPage, { title: m.how.title, intro: m.how.intro, items: [m.how.draw, { text: m.how.tap, id: "story-tags" }], note: "Bye" }));
     expect(out).toMatch(new RegExp(`<h1[^>]*>${m.how.title}</h1>`));
     expect(out).toMatch(/<li id="story-tags"[^>]*><span[^>]*aria-hidden="true"><svg/);
     expect(out).toContain(m.how.tap);
-    expect(out).toMatch(/aria-hidden="true"[^>]*style="background-image|style="background-image[^"]*"[^>]*aria-hidden="true"/);
+    // The founder's pick (2026-11-04): the mascot-with-a-drawing photo, described, in place of the decorative sky card.
+    expect(out).toMatch(/<img[^>]*alt="Our green mascot holds up a drawing[^"]*"/);
+    expect(out).not.toMatch(/style="background-image/);
     expect(out.indexOf("</ul>")).toBeLessThan(out.indexOf("Bye"));
   });
 

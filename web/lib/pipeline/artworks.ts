@@ -10,6 +10,7 @@ import { ai } from "@/lib/ai/registry";
 import type { Description, GeneratedImage, Mask, Segment, SegmentPoint, Trace } from "@/lib/ai/types";
 import { cutUpscale, ensureDpi, previewCutPath, removeBackground } from "@/lib/image/sticker";
 import { pngRef } from "@/lib/image/ref";
+import { describeRef } from "@/lib/image/inline";
 import { alphaToMask, alphaToPng, area, bboxOf, clampBox, clipToBox, emptyMask, finishMask, maskFromPng, maskToPng, placeMask, removePiecesAt, unionMasks, type BBox } from "@/lib/image/mask";
 import { insertArtwork, listProductsForArtwork, updateArtwork, type ArtworkRow } from "@/lib/db/queries";
 import { rebuildProductFiles } from "@/lib/pipeline/products";
@@ -52,7 +53,8 @@ async function finishArtwork(
   const [cleanedFile, maskFile, description, cutPathSvg] = await Promise.all([
     storage().putPublic(creatorPath(artwork.creatorId, "cleaned", "png"), cleaned, "image/png"),
     storage().putPrivate(creatorPath(artwork.creatorId, "masks", "png"), await alphaToPng(alpha), "image/png"),
-    (await ai()).describer.describe(pngRef(await sharp(cleaned).flatten({ background: "#ffffff" }).png().toBuffer()), { prompt: opts.prompt, trace }),
+    // T150: the cut at a bounded size (JPEG on white), not the full-resolution PNG.
+    (await ai()).describer.describe(await describeRef(cleaned), { prompt: opts.prompt, trace }),
     previewCutPath(cleaned),
   ]);
   return updateArtwork(artwork.id, {
@@ -390,7 +392,7 @@ export async function changeArtwork(
   }), () => existingChange(parent.creatorId, key!, parent.id));
   if (inserted.repeated) return { ...(await changeRepeat(inserted.row, task)), repeated: true };
   trackArtwork(id);
-  const description = await registry.describer.describe(pngRef(png), { prompt: instruction, trace: traceFor(id, task, "describe") });
+  const description = await registry.describer.describe(await describeRef(png), { prompt: instruction, trace: traceFor(id, task, "describe") });
   const artwork = await updateArtwork(id, {
     altText: description.alt_text, spokenDescription: description.spoken, differencesFromPrompt: description.differences_from_prompt || null,
   });
@@ -407,7 +409,7 @@ export async function changeRepeat(row: ArtworkRow, task = "T134"): Promise<Chan
   if (row.altText != null || !row.originalUrl) return { artwork: row, description: descriptionOf(row) };
   try {
     const png = await storage().read(row.originalUrl);
-    const d = await (await ai()).describer.describe(pngRef(png), { prompt: row.changeInstruction ?? undefined, trace: traceFor(row.id, task, "describe") });
+    const d = await (await ai()).describer.describe(await describeRef(png), { prompt: row.changeInstruction ?? undefined, trace: traceFor(row.id, task, "describe") });
     const artwork = await updateArtwork(row.id, {
       altText: d.alt_text, spokenDescription: d.spoken, differencesFromPrompt: d.differences_from_prompt || null,
     });

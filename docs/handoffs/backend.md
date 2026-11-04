@@ -6,7 +6,9 @@
 `web/lib/**` (extends but does not break `lib/ai/types.ts`, `lib/db/schema.ts`), `web/app/api/**`, `web/app/media/**`, `web/drizzle/**`, `web/test/**`, `web/vitest.config.ts`, `scripts/seed.ts`, `scripts/probe_meta.ts`, appends to `docs/architecture.md`, `docs/decisions.md`, `docs/progress.md`.
 
 ## Current task
-None open. T143 · Feedback round 4 backend — **done**: merged at 084ac4f after one fix round (review `docs/reviews/2026-11-03-backend-T143.md`); docs closed by T142 (v0.9.1 in `docs/deployments.md`). Contract: `docs/api.md` → "Creator flow (round 4)".
+T150 · Image payload caps (hotfix) — on `feat/backend-T150` (from main 08d85d2), awaiting review. A 4096 px phone crop described as a full PNG data URL (~43 MB) got a 413 from the Meta API (store=true). Now `fitImage` / `inlineImage` (`web/lib/image/inline.ts`, `web/lib/ai/meta/responses.ts`) cap every inlined picture (describe 1536 px JPEG ≤ 2 MB; edit/compose 2048 px, PNG only with transparency, ≤ 6 MB) and describe/edit/compose send `store: false` ("Change it again" never uses `previous_response_id`; generate keeps the default for `refine()`). The pipeline describes the cut via `describeRef`. Tests `web/test/inline-payload-t150.test.ts`. Live describe on a 4096 px PNG → 200. Needs a deploy by the founder to reach production.
+
+Before: T143 · Feedback round 4 backend — **done**: merged at 084ac4f after one fix round (review `docs/reviews/2026-11-03-backend-T143.md`); docs closed by T142 (v0.9.1 in `docs/deployments.md`). Contract: `docs/api.md` → "Creator flow (round 4)".
 - `POST /artworks {source:"photo", imageUrl: <crop>, product, framed: true}`: the upload is the creator's crop; `createFromImage` stores it and runs `detectInBox(row, [0,0,w,h], "T143", png)` (frame rules, largest first, largest cut) → 201 with `details`; `framed` + `detect:false` → 400. The plain default is unchanged (round 2b build).
 - `cleanup` and `cutout` answer with `products: ArtworkProduct[]` (live products after the rebuild, `listArtworkProductSummaries` in `lib/db/queries.ts`, `toArtworkProduct` in `lib/api/dto.ts`); `GET /artworks` already carried `mockupUrl` + `previewUrl`.
 - `POST /products` on a change result works once its `cutout` ran (tests `test/round4-routes.test.ts`, `test/change-product.test.ts`).
@@ -137,3 +139,5 @@ Contract: `docs/api.md` → "Creator flow (round 2b)" (the calls per step on web
 
 ## Follow-ups (after feedback round 2)
 - **`storyVideoAt`:** `GET creators/me` returns `storyVideoUrl` and `storyVideoVtt` but no recording date. The iOS My story video row reads the date from the video file's metadata; the web row cannot, and says "Buyers see it when they tap your story tag." instead of "Recorded <date>". Add a `story_video_at` column set by `POST creators/me/story-video` (and a `storyVideoAt` field on `Creator`) so both clients show "Recorded {date}"; additive migration, no client change needed beyond reading the field. Not done before v0.8.
+
+- Follow-up (T150 review): `POST /artworks/{id}/refine` on a change child should answer 400 `not_refinable` (its edit response is no longer stored at the API); the route is unused by the apps.

@@ -24,9 +24,17 @@ Thread (3 posts):
 
 ## Project Description
 
-The 3rd Eye is for artists with disabilities and the studios that support them. A drawing made by hand is that person's own world, and today it earns them almost nothing: the studio sells the original once, locally, and buyers never meet the person who made it.
+The 3rd Eye helps artists with disabilities turn their art into products people want to buy. The artist snaps a photo of their drawing and Meta's SAM 3.1 cuts the artwork out. They say what to change, Muse Voice writes it down, and Muse Image changes their own drawing rather than painting a new one. Muse Spark reads a description of the result back to them, so an artist who cannot see the screen can still hear what changed and refine it. The art becomes stickers and tote bags, and each one ships with an NFC tag that plays a short video of the artist talking about their work, with captions.
 
-With The 3rd Eye the artist photographs their drawing. SAM 3.1 finds it in the photo, so nobody has to trace. The artist says what to change, Muse Voice writes it down, and Muse Image changes that drawing rather than painting a new one. Muse Spark describes the result in plain words, so an artist who cannot see the screen hears what changed and decides. The piece becomes a die-cut sticker or a tote bag with an NFC tag. A buyer taps the tag and the artist tells the story of the work in their own voice, with captions. Half of every sale goes to the artist.
+It solves four problems:
+
+1. Art that can't sell at scale. Most studios serving people with disabilities can only sell original pieces locally, and once a piece sells, it's gone. We turn one artwork into products that can be sold again and again, with no inventory.
+
+2. Talent without income or recognition. People with disabilities are employed at about half the rate of people without disabilities. We give them a way to earn money (half of every sale by default) and to be recognized as artists.
+
+3. No connection between buyers and creators. Buyers usually have no idea who made what they buy. Our NFC story tag lets them hear directly from the artist, which makes the product more meaningful and a better gift.
+
+4. Finishing the piece they imagine. Many artists can draw the first version but not the second: a different colour, a bird on the leaf, a bolder line. By saying the change out loud and hearing the result described, they finish the piece themselves, and the drawing stays theirs.
 
 Real: every model call, the creator flow on iOS and the web, the shop and the print files. Staged: payment (no charge is taken) and fulfilment (by hand). The example artists are fictional and labelled as such.
 

@@ -39,7 +39,12 @@ export type ListingDraftCopy = {
   title: string; description: string; tags: string[]; priceSuggestionCents: number;
   printCheck: unknown; moderation: unknown; agentTrace: unknown; createdAt: string;
 };
-export type SamCandidate = { id: string; bbox: [number, number, number, number]; score: number; thumbUrl: string; maskUrl: string };
+export type SamCandidate = {
+  id: string; bbox: [number, number, number, number]; score: number; thumbUrl: string; maskUrl: string;
+  /** T155: the piece's own cut (public PNG), its alpha mask (private) and cut path; absent until the background cut is done. */
+  cleanedUrl?: string; cutMaskUrl?: string; cutPathSvg?: string;
+};
+export type CandidateCut = Required<Pick<SamCandidate, "cleanedUrl" | "cutMaskUrl" | "cutPathSvg">>;
 
 export const creators = pgTable("creators", {
   id: uuid("id").primaryKey().defaultRandom(),

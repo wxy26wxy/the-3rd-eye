@@ -147,3 +147,10 @@ Contract: `docs/api.md` → "Creator flow (round 2b)" (the calls per step on web
 - **`storyVideoAt`:** `GET creators/me` returns `storyVideoUrl` and `storyVideoVtt` but no recording date. The iOS My story video row reads the date from the video file's metadata; the web row cannot, and says "Buyers see it when they tap your story tag." instead of "Recorded <date>". Add a `story_video_at` column set by `POST creators/me/story-video` (and a `storyVideoAt` field on `Creator`) so both clients show "Recorded {date}"; additive migration, no client change needed beyond reading the field. Not done before v0.8.
 
 - Follow-up (T150 review): `POST /artworks/{id}/refine` on a change child should answer 400 `not_refinable` (its edit response is no longer stored at the API); the route is unused by the apps.
+
+## T155 (2026-11-04): what the clients can rely on
+- `Candidate.cleanedUrl` is absent until the background cut is done; `candidates[0]` has it when the detection answers, the rest within about 10 s (re-read `GET /artworks/{id}`).
+- A pick (`cleanup {candidateIds:[id], box: whole picture, clipToBox:true}` without points, or `select`) answers at once with the **previous** `altText` / `spokenDescription`; the new description is on the next read. Marks, or a box smaller than the picture, re-cut as before.
+- The crop is not resized by the server; both clients cap it at 2048 px.
+- Follow-up: the background cuts are best effort (a failed piece is logged and stays without `cleanedUrl`; its pick re-cuts). A late describe after a quick second pick can overwrite the newer description; add a guard if it shows.
+- A pick replaces the row's cut with that piece's original cut: marks made on that piece before are not kept (the clients force the pick after marks on purpose). The deferred description is written only while the row still holds the adopted cut.

@@ -8,7 +8,7 @@ import { and, desc, eq, gt, isNull, like, ne, or, sql, inArray } from "drizzle-o
 import { generateLoginCode, slugLookupPrefix, slugify, uniqueSlug } from "@/lib/codes";
 import { getDb } from "./client";
 import {
-  aiCalls, artworks, creators, listings, messages, nfcTokens, orders, products, thankYous,
+  type CandidateCut, aiCalls, artworks, creators, listings, messages, nfcTokens, orders, products, thankYous,
 } from "./schema";
 
 export type CreatorRow = typeof creators.$inferSelect;
@@ -200,6 +200,24 @@ export async function listArtworksByCreator(creatorId: string): Promise<ArtworkR
 export async function updateArtwork(id: string, patch: Partial<typeof artworks.$inferInsert>): Promise<ArtworkRow> {
   const [row] = await db().update(artworks).set(patch).where(eq(artworks.id, id)).returning();
   return row;
+}
+
+/** T155: updates the row only while it still holds the cut `cleanedUrl` (a late description of a replaced cut is dropped). */
+export async function updateArtworkIfCleaned(id: string, cleanedUrl: string, patch: Partial<typeof artworks.$inferInsert>): Promise<ArtworkRow | null> {
+  const [row] = await db().update(artworks).set(patch).where(and(eq(artworks.id, id), eq(artworks.cleanedUrl, cleanedUrl))).returning();
+  return row ?? null;
+}
+
+/**
+ * T155: stores one candidate's own cut on the row, as a single jsonb update by candidate id (the other
+ * candidates and their order are untouched). A no-op when the candidates were replaced meanwhile (the
+ * guard matches no row), so a late background cut never lands on a newer detection.
+ */
+export async function setCandidateCut(artworkId: string, candidateId: string, fields: CandidateCut): Promise<void> {
+  const merged = sql`(select coalesce(jsonb_agg(case when e->>'id' = ${candidateId} then e || ${JSON.stringify(fields)}::jsonb else e end order by ord), '[]'::jsonb) from jsonb_array_elements(${artworks.candidates}) with ordinality as t(e, ord))`;
+  await db().update(artworks).set({ candidates: merged }).where(and(
+    eq(artworks.id, artworkId), sql`${artworks.candidates} @> ${JSON.stringify([{ id: candidateId }])}::jsonb`,
+  ));
 }
 
 /** Records why a pipeline run did not finish; the row stays (or remains) a draft until a run succeeds. */

@@ -316,3 +316,6 @@ Raised with the round 4 boards (2026-11-03; node ids in `docs/design/screens.md`
 
 ### Web: Your cutout candidate strip (T155)
 Tapping a piece is immediate (no request, no busy state): the stage swaps to that piece's cut and the piece reads as selected. The server hears only "Use this" (and Apply cutout), and the "Your cutout is ready" announcement follows those, not the tap.
+
+## T155 · Tapping a piece is immediate
+Tapping a piece in the strip swaps the picture on the stage at once, with no request and no "Cutting out your art..." state; the strip buttons stay enabled. "Piece 2" reads as pressed straight away. The "Your cutout is ready" announcement is made only after "Use this" or "Apply cutout" (a real cut), not after a piece tap. A piece whose cut is not ready yet falls back to the old behaviour (status line, buttons disabled while it works).

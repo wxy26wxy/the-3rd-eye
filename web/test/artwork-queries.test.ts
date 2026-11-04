@@ -48,3 +48,18 @@ describe("GET /artworks products", () => {
     expect(out[1].products).toEqual([]);
   });
 });
+
+describe("setCandidateCut (T155)", () => {
+  beforeEach(() => { sent.length = 0; respond = () => []; });
+  it("is one jsonb update by candidate id, guarded so an unknown id (candidates replaced meanwhile) changes no row", async () => {
+    const { setCandidateCut } = await import("@/lib/db/queries");
+    await setCandidateCut("a1", "k2", { cleanedUrl: "c.png", cutMaskUrl: "m", cutPathSvg: "p" });
+    expect(sent).toHaveLength(1);
+    expect(sent[0].sql).toMatch(/^update "artworks" set "candidates" = \(select/);
+    expect(sent[0].sql).toContain("jsonb_array_elements");
+    expect(sent[0].sql).toMatch(/"candidates" @> \$\d+::jsonb/);
+    expect(sent[0].params).toContain("a1");
+    expect(sent[0].params).toContain(JSON.stringify([{ id: "k2" }]));
+    expect(sent[0].params).toContain(JSON.stringify({ cleanedUrl: "c.png", cutMaskUrl: "m", cutPathSvg: "p" }));
+  });
+});

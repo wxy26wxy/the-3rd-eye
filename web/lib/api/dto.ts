@@ -47,7 +47,7 @@ export function toArtworkVariant(a: ArtworkRow) {
 }
 
 export function toCandidates(a: ArtworkRow) {
-  return (a.candidates ?? []).map(({ id, bbox, score, thumbUrl }) => ({ id, bbox, score, thumbUrl }));
+  return (a.candidates ?? []).map(({ id, bbox, score, thumbUrl, cleanedUrl }) => ({ id, bbox, score, thumbUrl, ...(cleanedUrl ? { cleanedUrl } : {}) }));
 }
 
 export function toProduct(p: ProductRow) {

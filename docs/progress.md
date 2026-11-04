@@ -482,3 +482,9 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Not done: the ~13 s of full-resolution mask work per cut (downscale `finishMask`'s blur stage) and a "Cutting out..." status on Your cutout. Needs a founder deploy; phone test: tap a piece, about 10-15 s, the picked piece is the cut.
 
 - T155 web (feat/web-T155): a strip tap on Your cutout is local (the piece's own `cleanedUrl`, preloaded; one re-read after 2 s, then today's pick when a cut is missing); "Use this" sends the pick only when the selected piece differs from `cutFrom`; marks keep `candidateIds`; crop cap 2048. Tests in `web/test/create-flow.test.ts`, `create-screens.test.ts`, `create-crop.test.ts`.
+
+## 2026-11-04 · T155 backend (`feat/backend-T155`): cut once, adopt on pick
+- `docs/api.md` "Cut once, tap locally (T155)" written first (commit `6029776`): working resolution 2048 (clients), `Candidate.cleanedUrl`, pick = adopt, describe deferred.
+- `lib/pipeline/after.ts` (`runAfterResponse`); `artworks.ts`: `cutPieces` (background cuts, concurrency 2), `withOwnCut` (the first candidate carries the row's own files), `adoptReadyCut` in `cleanupArtwork` (so `select` adopts too), `rebuildProducts` split out of `recut`; hooks in `detectInBox` (so `framed` and `detect`), the plain photo path and `cutoutArtwork`. `queries.setCandidateCut`; `SamCandidate` gains three optional fields; `toCandidates` exposes `cleanedUrl`.
+- Tests: `web/test/candidate-cuts-t155.test.ts`, `setCandidateCut` in `artwork-queries.test.ts`. Gates: `pnpm test` 648 passed, lint, build, `check_clean.sh`.
+- Needs a deploy; live check (PM): every candidate has `cleanedUrl` within about 10 s of a photo, a pick makes no `ai_calls` row before the answer and one `describe` row after it.

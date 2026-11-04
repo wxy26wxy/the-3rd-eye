@@ -13,7 +13,8 @@ import { cutUpscale, ensureDpi, previewCutPath, removeBackground } from "@/lib/i
 import { pngRef } from "@/lib/image/ref";
 import { describeRef } from "@/lib/image/inline";
 import { alphaToMask, alphaToPng, area, bboxOf, clampBox, clipToBox, emptyMask, finishMask, maskFromPng, maskToPng, placeMask, removePiecesAt, unionMasks, type BBox } from "@/lib/image/mask";
-import { insertArtwork, listProductsForArtwork, updateArtwork, type ArtworkRow } from "@/lib/db/queries";
+import { getArtwork, insertArtwork, listProductsForArtwork, setCandidateCut, updateArtwork, updateArtworkIfCleaned, type ArtworkRow } from "@/lib/db/queries";
+import { runAfterResponse } from "@/lib/pipeline/after";
 import { rebuildProductFiles } from "@/lib/pipeline/products";
 import { clientUploadPath, creatorPath, readClientUpload, storage } from "@/lib/storage";
 import { isSourceUpload } from "@/lib/storage/refs";
@@ -115,8 +116,13 @@ export type RecutResult = { artwork: ArtworkRow; failedProductIds: string[]; unp
  */
 async function recut(artwork: ArtworkRow, original: Buffer, parts: Mask[], opts: { prompt?: string; task: string; clip?: BBox }): Promise<RecutResult> {
   const row = await finishArtwork(artwork, original, parts, opts);
-  const products = await listProductsForArtwork(artwork.id);
-  const results = await Promise.allSettled(products.map((p) => rebuildProductFiles(p.id, opts.task)));
+  return { artwork: row, ...(await rebuildProducts(artwork.id, opts.task)) };
+}
+
+/** Rebuilds every live product of the artwork from its current cut (see `recut`). */
+async function rebuildProducts(artworkId: string, task: string): Promise<Omit<RecutResult, "artwork">> {
+  const products = await listProductsForArtwork(artworkId);
+  const results = await Promise.allSettled(products.map((p) => rebuildProductFiles(p.id, task)));
   const failedProductIds: string[] = [], unpublishedProductIds: string[] = [];
   results.forEach((r, i) => {
     if (r.status === "rejected") {
@@ -124,7 +130,7 @@ async function recut(artwork: ArtworkRow, original: Buffer, parts: Mask[], opts:
       console.warn(`[artworks] rebuilding product ${products[i].id} failed:`, r.reason instanceof Error ? r.reason.message : r.reason);
     } else if (r.value.unpublished) unpublishedProductIds.push(products[i].id);
   });
-  return { artwork: row, failedProductIds, unpublishedProductIds };
+  return { failedProductIds, unpublishedProductIds };
 }
 
 /** One generated (or refined) image → stored, segmented, cut out and described artwork row. */
@@ -236,7 +242,11 @@ export async function createFromImage(
   // surrounding result was dropped as the paper/table (the one left may be a sub-part): then show the picker.
   if (candidates.length === 1 && !droppedContainer && area(segs[0].mask) <= imageSize.w * imageSize.h * AUTO_SELECT_MAX_COVERAGE) {
     artwork = await selectCandidate(artwork, candidates[0].id, task);
+    const own = await withOwnCut(artwork, candidates);
+    return { artwork: own.artwork, candidates: own.candidates, imageSize };
   }
+  // T155: nothing is cut yet, so every piece gets its own cut in the background.
+  await cutPieces(artwork, png, candidates.map((c, i) => ({ id: c.id, mask: segs[i].mask })).sort((p, q) => area(q.mask) - area(p.mask)));
   return { artwork, candidates, imageSize };
 }
 
@@ -254,6 +264,53 @@ async function storeCandidates(creatorId: string, png: Buffer, imageSize: ImageS
     ]);
     return { id: randomUUID(), bbox: s.bbox, score: Math.round(s.score * 1000) / 1000, thumbUrl: thumbFile.url, maskUrl: maskFile.pathname };
   }));
+}
+
+/**
+ * T155: the candidate that was cut as the row's own cut carries the row's files (`cleanedUrl`, `cutMaskUrl`,
+ * `cutPathSvg`), stored on the row's candidates; returns the updated row and candidates.
+ */
+async function withOwnCut(row: ArtworkRow, candidates: SamCandidate[], index = 0): Promise<{ artwork: ArtworkRow; candidates: SamCandidate[] }> {
+  if (!row.cleanedUrl || !row.maskUrl || !row.cutPathSvg || !candidates[index]) return { artwork: row, candidates };
+  const next = candidates.map((c, i) => (i === index ? { ...c, cleanedUrl: row.cleanedUrl!, cutMaskUrl: row.maskUrl!, cutPathSvg: row.cutPathSvg! } : c));
+  return { artwork: await updateArtwork(row.id, { candidates: next }), candidates: next };
+}
+
+/** Pieces cut at the same time in the background (each is a full-size cut: memory, not speed, is the limit). */
+const CUT_CONCURRENCY = 2;
+
+/**
+ * T155: cuts each piece (its own mask, the optional `clip`) into its own public cleaned PNG, alpha mask
+ * and cut path and stores them on the candidate (`setCandidateCut`), in the order given (largest first), after the
+ * response (inline where there is no request scope). A piece that fails is logged and skipped; a candidate
+ * replaced meanwhile makes the store a no-op.
+ */
+async function cutPieces(artwork: Pick<ArtworkRow, "id" | "creatorId">, original: Buffer, pieces: { id: string; mask: Mask }[], clip?: BBox): Promise<void> {
+  const queue = pieces.slice(0, MAX_CANDIDATES);
+  if (!queue.length) return;
+  await runAfterResponse(async () => {
+    let next = 0;
+    const worker = async () => {
+      while (next < queue.length) {
+        const piece = queue[next++];
+        try {
+          // Skip a piece whose candidate was replaced meanwhile (no orphaned blobs).
+          const current = await getArtwork(artwork.id);
+          if (!current?.candidates?.some((c) => c.id === piece.id)) continue;
+          const { cleaned, alpha } = await cutParts(original, [piece.mask], clip, { artworkId: artwork.id });
+          const [cleanedFile, maskFile, cutPathSvg] = await Promise.all([
+            storage().putPublic(creatorPath(artwork.creatorId, "cleaned", "png"), cleaned, "image/png"),
+            storage().putPrivate(creatorPath(artwork.creatorId, "masks", "png"), await alphaToPng(alpha), "image/png"),
+            previewCutPath(cleaned),
+          ]);
+          await setCandidateCut(artwork.id, piece.id, { cleanedUrl: cleanedFile.url, cutMaskUrl: maskFile.pathname, cutPathSvg });
+        } catch (err) {
+          console.warn(`[artworks] cutting candidate ${piece.id} of ${artwork.id} failed:`, err instanceof Error ? err.message : err);
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(CUT_CONCURRENCY, queue.length) }, worker));
+  });
 }
 
 const MIN_PIECE_COVERAGE = 0.02;
@@ -338,8 +395,11 @@ export async function detectInBox(
   const candidates = await storeCandidates(artwork.creatorId, png, imageSize, placed);
   const st = (artwork.shapingTrace as Record<string, unknown> | null) ?? {};
   const row = await updateArtwork(artwork.id, { candidates, shapingTrace: { ...st, imageSize } });
-  const out = await recut(row, png, [placed[0].mask], { prompt: artwork.shapedPrompt ?? undefined, task, clip: b });
-  return { ...out, candidates, imageSize };
+  const cut = await recut(row, png, [placed[0].mask], { prompt: artwork.shapedPrompt ?? undefined, task, clip: b });
+  const own = await withOwnCut(cut.artwork, candidates);
+  // T155: the other pieces are cut in the background; the first is the row's own cut.
+  await cutPieces(artwork, png, candidates.slice(1).map((c, i) => ({ id: c.id, mask: placed[i + 1].mask })), b);
+  return { ...cut, artwork: own.artwork, candidates: own.candidates, imageSize };
 }
 
 /** `detect` works on the photo row only: a change result is re-cut with `cutout`, a generated row has no photo. */
@@ -475,7 +535,9 @@ export async function cutoutArtwork(artwork: ArtworkRow, task = "T111"): Promise
     throw new ApiError(422, "no_drawing_found", "We could not find the art in the changed picture. Try another change, or go back to your original.", { artworkId: artwork.id });
   }
   const cut = await cleanupArtwork(row, { candidateIds: [candidates[0].id] }, task);
-  return { ...cut, candidates, imageSize };
+  const own = await withOwnCut(cut.artwork, candidates);
+  await cutPieces(artwork, png, largestFirst.slice(1, candidates.length).map((s, i) => ({ id: candidates[i + 1].id, mask: s.mask })));
+  return { ...cut, artwork: own.artwork, candidates: own.candidates, imageSize };
 }
 
 /** Pixel size of the stored original: recorded at upload (`shapingTrace.imageSize`), else read from the file. */
@@ -510,6 +572,8 @@ export type CleanupHint = { candidateIds?: string[]; points?: SegmentPoint[]; bo
 export async function cleanupArtwork(artwork: ArtworkRow, hint: CleanupHint, task = "T080"): Promise<RecutResult> {
   if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
   trackArtwork(artwork.id);
+  const adopted = await adoptReadyCut(artwork, hint, task);
+  if (adopted) return adopted;
   const negatives = (hint.points ?? []).filter((p) => p.label === "negative");
   // T154: SAM for positive points, or for a box when no piece was named. With candidateIds the box (the strip sends the whole picture) only clips.
   const askSam = (hint.points ?? []).some((p) => p.label !== "negative") || (Boolean(hint.box) && !hint.candidateIds?.length);
@@ -532,6 +596,38 @@ export async function cleanupArtwork(artwork: ArtworkRow, hint: CleanupHint, tas
     throw new ApiError(422, "no_drawing_found", "We could not find anything there. Try a box around the whole thing, or tap on it.", { artworkId: artwork.id });
   }
   return recut(artwork, original, kept, { prompt: artwork.shapedPrompt ?? artwork.changeInstruction ?? undefined, task, clip });
+}
+
+/**
+ * T155: a pure pick (one candidate, no points, no box or a box that is the whole picture) whose own cut is
+ * ready copies that cut onto the row: no cut, no model call before the answer, products rebuilt, the previous
+ * description kept. `describe` runs after the response and updates the row. Null when it does not apply.
+ */
+async function adoptReadyCut(artwork: ArtworkRow, hint: CleanupHint, task: string): Promise<RecutResult | null> {
+  const ids = [...new Set(hint.candidateIds ?? [])];
+  if (ids.length !== 1 || hint.points?.length) return null;
+  const picked = artwork.candidates?.find((c) => c.id === ids[0]);
+  if (!picked?.cleanedUrl || !picked.cutMaskUrl || !picked.cutPathSvg) return null;
+  if (hint.box) {
+    const size = await originalSize(artwork);
+    const whole = size && hint.clipToBox ? clampBox(hint.box, size.w, size.h) : null;
+    if (!size || !whole || whole[0] !== 0 || whole[1] !== 0 || whole[2] !== size.w || whole[3] !== size.h) return null;
+  }
+  const row = await updateArtwork(artwork.id, {
+    cleanedUrl: picked.cleanedUrl, maskUrl: picked.cutMaskUrl, cutPathSvg: picked.cutPathSvg, status: "ready", lastError: null,
+  });
+  const rebuilt = await rebuildProducts(artwork.id, task);
+  const cleanedUrl = picked.cleanedUrl;
+  await runAfterResponse(async () => {
+    const d = await (await ai()).describer.describe(await describeRef(await storage().read(cleanedUrl)), {
+      prompt: artwork.shapedPrompt ?? artwork.changeInstruction ?? undefined, trace: traceFor(artwork.id, task, "describe"),
+    });
+    // Only while the row still shows the cut that was described (a later pick or re-cut keeps its own description).
+    await updateArtworkIfCleaned(artwork.id, cleanedUrl, {
+      altText: d.alt_text, spokenDescription: d.spoken, differencesFromPrompt: d.differences_from_prompt || null,
+    });
+  });
+  return { artwork: row, ...rebuilt };
 }
 
 /** Stored masks are at the original's size; guard against older rows that are not (linear + threshold, T134). */

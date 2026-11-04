@@ -36,7 +36,7 @@ Real: every model call, the creator flow on iOS and the web, the shop and the pr
 
 https://github.com/wxy26wxy/the-3rd-eye
 
-Start with the README section "Try it in 3 minutes". docs/architecture.md has the model ids and request shapes; docs/reviews/ has the written review of every merged change.
+Start with the README section "Try it in 3 minutes". docs/architecture.md has the model ids and request shapes; docs/reviews/ has the written review of every merged change, and a review of the whole repository by Muse Spark 1.3 with our triage (docs/reviews/2026-11-04-muse-spark-review.md).
 
 ---
 

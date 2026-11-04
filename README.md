@@ -57,7 +57,7 @@ Staged or limited:
 | Find the drawing inside the **Adjust the area** frame (the device uploads only the framed part, and detection runs on it); cut out the changed piece; die-cut outline | SAM 3.1 | `sam-3.1` |
 | Draft the artist's story from their own words (open weights) | Muse Glimmer 30B via Ollama | `muse-glimmer` |
 
-Muse Code is not used in this project so far. Every model call is recorded in the `ai_calls` table and can be read at `/admin/trace`.
+Muse Code is not exposed to our API key, so it is not used; Muse Spark 1.3 reviewed the repository instead (`docs/reviews/2026-11-04-muse-spark-review.md`). Every model call is recorded in the `ai_calls` table and can be read at `/admin/trace`.
 
 ## Accessibility
 

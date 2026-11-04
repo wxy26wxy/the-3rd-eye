@@ -1,5 +1,6 @@
-/* Story video (Sky): 24 px radius frame on ink, the video contained (story videos are often portrait;
-   the boards' landscape still would crop them), white 64 px play circle in the middle until it plays. */
+/* Story video (Sky): 24 px radius frame on ink, the video filling the frame (centre crop: the founder's
+   recordings are 16:9 talking heads, so the 7:5 frame trims the sides and top evenly instead of
+   letterboxing; 2026-11-04), white 64 px play circle in the middle until it plays. */
 .frame {
   position: relative;
   display: grid;
@@ -9,7 +10,7 @@
   overflow: hidden;
   background: var(--primary);
 }
-.video { width: 100%; height: 100%; object-fit: contain; }
+.video { width: 100%; height: 100%; object-fit: cover; }
 .play {
   position: absolute;
   top: 50%;

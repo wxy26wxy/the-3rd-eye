@@ -7,15 +7,15 @@ describe("cropPlan (round 4 ruling 1: the frame is cropped on the device)", () =
 
   it("the frame's own pixels, drawn 1:1 when it is small enough", () => {
     expect(cropPlan([100, 200, 1100, 900], photo)).toEqual({ sx: 100, sy: 200, sw: 1000, sh: 700, dw: 1000, dh: 700 });
-    expect(cropPlan([0, 0, 4000, 3000], photo)).toEqual({ sx: 0, sy: 0, sw: 4000, sh: 3000, dw: 4000, dh: 3000 });
+    expect(cropPlan([0, 0, 2000, 1500], photo)).toEqual({ sx: 0, sy: 0, sw: 2000, sh: 1500, dw: 2000, dh: 1500 });
   });
 
-  it("the longest side is capped at 4096 (scaled down, never up), the aspect kept", () => {
+  it("the longest side is capped at 2048 (scaled down, never up), the aspect kept", () => {
     const big = { w: 8000, h: 6000 };
-    expect(cropPlan([0, 0, 8000, 6000], big)).toEqual({ sx: 0, sy: 0, sw: 8000, sh: 6000, dw: 4096, dh: 3072 });
-    expect(cropPlan([0, 0, 6000, 8000], { w: 6000, h: 8000 })).toMatchObject({ dw: 3072, dh: 4096 });
+    expect(cropPlan([0, 0, 8000, 6000], big)).toEqual({ sx: 0, sy: 0, sw: 8000, sh: 6000, dw: 2048, dh: 1536 });
+    expect(cropPlan([0, 0, 6000, 8000], { w: 6000, h: 8000 })).toMatchObject({ dw: 1536, dh: 2048 });
     expect(cropPlan([0, 0, 10, 10], photo, 100)).toMatchObject({ dw: 10, dh: 10 });
-    expect(CROP_MAX_SIDE).toBe(4096);
+    expect(CROP_MAX_SIDE).toBe(2048);
     expect(CROP_QUALITY).toBe(0.92);
   });
 
@@ -51,9 +51,9 @@ describe("cropToFrame / imageSizeOf (the canvas path, guarded)", () => {
     vi.stubGlobal("document", { createElement: (tag: string) => (tag === "canvas" ? canvas : null) });
     const out = await cropToFrame(new Blob(["x"]), [0, 0, 8000, 4000]);
     expect(bitmapCalls).toEqual([{ imageOrientation: "from-image" }]);
-    expect(drawn).toEqual([[0, 0, 8000, 4000, 0, 0, 4096, 2048]]);
-    expect([canvas.width, canvas.height]).toEqual([4096, 2048]);
-    expect(out.size).toEqual({ w: 4096, h: 2048 });
+    expect(drawn).toEqual([[0, 0, 8000, 4000, 0, 0, 2048, 1024]]);
+    expect([canvas.width, canvas.height]).toEqual([2048, 1024]);
+    expect(out.size).toEqual({ w: 2048, h: 1024 });
     expect(out.blob.type).toBe("image/jpeg");
     expect(await out.blob.text()).toBe("image/jpeg 0.92");
     expect(bmp.close).toHaveBeenCalled();

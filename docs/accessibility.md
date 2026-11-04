@@ -313,3 +313,6 @@ Raised with the round 4 boards (2026-11-03; node ids in `docs/design/screens.md`
 3. **Product photo labels.** The chip over the picture says what it is: "Your sticker" / "Your tote bag" (web follow-up, it still reads "Your art"); on Before and after "Before" / "After". The photo's alt text says it is the product with the creator's art; the description card carries what changed.
 4. **"Take a new photo" on iOS Adjust the area** becomes a text link under the pinned bar (PM ruling), so the bar keeps two pills and more of the photo shows at large text sizes; the link keeps a 44 pt target.
 5. **The making animation** is decorative (no alt, hidden from VoiceOver, first frame under reduced motion); the status line carries the meaning. It is a GIF fill on the boards and does not render in exported board screenshots.
+
+### Web: Your cutout candidate strip (T155)
+Tapping a piece is immediate (no request, no busy state): the stage swaps to that piece's cut and the piece reads as selected. The server hears only "Use this" (and Apply cutout), and the "Your cutout is ready" announcement follows those, not the tap.

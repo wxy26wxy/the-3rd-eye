@@ -22,7 +22,7 @@ export type Artwork = {
 export type ArtworkVariant = Artwork & { previewUrl: string | null };
 /** `POST /artworks/{id}/change` (T111): the new child row and what the edited picture shows. */
 export type ChangeResult = { artwork: ArtworkVariant; description: { alt: string; spoken: string; differences: string } };
-export type Candidate = { id: string; bbox: [number, number, number, number]; score: number; thumbUrl: string };
+export type Candidate = { id: string; bbox: [number, number, number, number]; score: number; thumbUrl: string; /** This piece's own cut (T155: built at detection); absent until the server has it. */ cleanedUrl?: string | null };
 /** `GET /artworks/{id}`: `originalUrl` is presigned for 10 minutes (fetch directly, do not store). */
 export type ArtworkDetail = { artwork: Artwork; candidates: Candidate[]; imageSize: { w: number; h: number } | null; originalUrl: string | null };
 /**

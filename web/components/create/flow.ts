@@ -199,7 +199,7 @@ export async function runAreaCut({ api, update, getDraft, upload }: Pick<FlowDep
   if (job.replaces && job.replaces !== id) void dropRow({ api, getDraft }, job.replaces);
   const cut: CutoutState = {
     artworkId: id, candidates: pieces, imageSize: size,
-    selectedIds: first ? [first] : [], cleanedUrl: art.cleanedUrl, altText: art.altText, box, points: [],
+    selectedIds: first ? [first] : [], cleanedUrl: art.cleanedUrl, altText: art.altText, box, points: [], ...(first ? { cutFrom: first } : {}),
   };
   update({
     pendingArea: undefined,
@@ -237,6 +237,42 @@ export function pickRequest(candidateId: string, box: Box): { candidateIds: stri
   return { candidateIds: [candidateId], box: [...box] as Box, clipToBox: true };
 }
 
+/**
+ * A strip tap (T155) is local: the piece is selected and its own cut (`candidate.cleanedUrl`, built
+ * at detection) is shown, with no request; marks start over. Null when that cut is not known yet.
+ */
+export function pickLocal(cut: CutoutState, id: string): CutoutState | null {
+  const url = cut.candidates.find((x) => x.id === id)?.cleanedUrl;
+  return url ? { ...cut, selectedIds: [id], cleanedUrl: url, points: [] } : null;
+}
+
+/** "Use this" sends the pick only when the selected piece is not the one the row was last cut from. */
+export function needsPick(cut: Pick<CutoutState, "selectedIds" | "cutFrom">): boolean {
+  return !!cut.selectedIds[0] && cut.selectedIds[0] !== cut.cutFrom;
+}
+
+/** Waits before the one re-read of a piece whose cut is missing. */
+export const CUT_REREAD_MS = 2000;
+
+/**
+ * A strip tap: local when the piece has its cut; else one `GET artworks/{id}` re-read after 2 s
+ * (the server builds the cuts in the background), then local if it arrived, else the pick request
+ * as before (`cleanup {candidateIds:[id], box, clipToBox}`; the row now is cut from that piece).
+ */
+export async function pickPiece(
+  deps: Pick<FlowDeps, "api" | "update" | "getDraft">, cut: CutoutState, id: string, wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+): Promise<{ cut: CutoutState; notice: string | null }> {
+  const local = pickLocal(cut, id);
+  if (local) { deps.update(withCutout(deps.getDraft(), local)); return { cut: local, notice: null }; }
+  await wait(CUT_REREAD_MS);
+  const detail = await deps.api<{ candidates: Candidate[] }>(`artworks/${cut.artworkId}`).catch(() => null);
+  const fresh = detail?.candidates?.length ? { ...cut, candidates: detail.candidates } : cut;
+  const again = pickLocal(fresh, id);
+  if (again) { deps.update(withCutout(deps.getDraft(), again)); return { cut: again, notice: null }; }
+  if (!cut.box) return { cut, notice: null };
+  return applyMarks(deps, { ...fresh, selectedIds: [id] }, pickRequest(id, cut.box));
+}
+
 /** The candidate strip shows only when several pieces were found. */
 export function showsPieces(cut: Pick<CutoutState, "candidates">): boolean {
   return cut.candidates.length >= 2;
@@ -264,7 +300,7 @@ export async function runChangeCut({ api, update, getDraft }: Pick<FlowDeps, "ap
   const first = res.candidates[0]?.id;
   const cut: CutoutState = {
     artworkId, candidates: res.candidates, imageSize: res.imageSize, selectedIds: first ? [first] : [],
-    cleanedUrl: res.artwork.cleanedUrl, altText: res.artwork.altText, box: wholeImageBox(res.imageSize), points: [],
+    cleanedUrl: res.artwork.cleanedUrl, altText: res.artwork.altText, box: wholeImageBox(res.imageSize), points: [], ...(first ? { cutFrom: first } : {}),
   };
   const d = getDraft();
   update({ ...withCutout(d, cut), ...withProducts(d, artworkId, res.products, res.artwork.cleanedUrl), cutoutNotice: undefined });
@@ -318,7 +354,8 @@ export function cutoutNewPhoto(d: Draft, artworkId: string): string | null {
 export async function applyMarks({ api, update, getDraft }: Pick<FlowDeps, "api" | "update" | "getDraft">, cut: CutoutState, req: CleanupRequest): Promise<{ cut: CutoutState; notice: string | null }> {
   const art = await api<CleanupResult>(`artworks/${cut.artworkId}/cleanup`, { json: req });
   const d = getDraft();
-  const next: CutoutState = { ...cut, cleanedUrl: art.cleanedUrl, altText: art.altText, points: (req.points ?? []).map((p) => ({ ...p })) };
+  const from = req.candidateIds?.[0] ?? cut.cutFrom;
+  const next: CutoutState = { ...cut, cleanedUrl: art.cleanedUrl, altText: art.altText, points: (req.points ?? []).map((p) => ({ ...p })), ...(from ? { cutFrom: from } : {}) };
   const notice = productNotice(art.details, NOTICE_COPY);
   const piece = cut.artworkId === d.pieceArtworkId ? { pieceUrl: art.cleanedUrl, pieceAlt: art.altText, pieceSpoken: art.spokenDescription } : {};
   update({ ...withCutout(d, next), ...withProducts(d, cut.artworkId, art.products, art.cleanedUrl), ...piece, cutoutNotice: notice ?? undefined });

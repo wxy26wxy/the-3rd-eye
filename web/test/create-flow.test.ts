@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   STORY_REDO_RETURN, storyVideoDone, canRedoListing, canRedoCutout, redoCutout, redoListing, redoTarget, adjustBack, takeNewPhoto, afterPhoto, applyMarks, areaNotFound, busyWhile, pickRequest, showsPieces, changeItBack, changeRequest, changingEntry, changingVisit, cutArea,
   changeItCut, cutoutVisit, leaveChanging, makingCutoutBack, runAreaCut, runChange, runChangeCut, skipChange, submitChange, takeChange, takeCutout, yourCutoutBack, type FlowDeps,
-  areaFrame, cutoutNewPhoto, hasLocalPhoto, largestFirst, photoGone, PhotoGoneError, sameNotFound,
+  areaFrame, needsPick, pickLocal, pickPiece, cutoutNewPhoto, hasLocalPhoto, largestFirst, photoGone, PhotoGoneError, sameNotFound,
   changeItProduct, fixCutout, productPicture, runProduct, discardNotFoundRow, dropRow, hasPublishedProduct,
 } from "@/components/create/flow";
 import { stageLine } from "@/components/create/screens/Changing";
@@ -240,6 +240,63 @@ describe("Your cutout candidate strip (round 3)", () => {
     expect(h.calls.find((c) => c.startsWith("api"))).toBe('api artworks/p1/cleanup {"candidateIds":["c2"],"box":[0,0,100,100],"clipToBox":true}');
     expect(out.cut).toMatchObject({ selectedIds: ["c2"], cleanedUrl: "/c2.png", points: [] });
     expect(h.draft.pieceUrl).toBe("/c2.png");
+  });
+});
+
+describe("T155: a strip tap is local; Use this sends the pick once", () => {
+  const withCuts = (over: Partial<CutoutState> = {}): CutoutState => ({
+    ...pieceCut, cutFrom: "c1", candidates: candidates.map((c) => ({ ...c, cleanedUrl: `/${c.id}-cut.png` })), ...over,
+  });
+  const done = { ...artwork({ cleanedUrl: "/c2-row.png" }), details: { failedProductIds: [], unpublishedProductIds: [] } };
+
+  it("tap: selects the piece and shows its cut with no request", async () => {
+    const h = harness({ ...piece });
+    const out = await pickPiece(h.deps, withCuts(), "c2");
+    expect(h.api).not.toHaveBeenCalled();
+    expect(out.cut).toMatchObject({ selectedIds: ["c2"], cleanedUrl: "/c2-cut.png", points: [], cutFrom: "c1" });
+  });
+
+  it("Use this after a tap: one cleanup with the picked id; the row is then cut from it (a second Use this sends none)", async () => {
+    const h = harness({ ...piece }, { "/cleanup": done });
+    const tapped = (await pickPiece(h.deps, withCuts(), "c2")).cut;
+    expect(needsPick(tapped)).toBe(true);
+    const out = await applyMarks(h.deps, tapped, pickRequest("c2", tapped.box!));
+    expect(h.calls.filter((c) => c.startsWith("api"))).toEqual(['api artworks/p1/cleanup {"candidateIds":["c2"],"box":[0,0,100,100],"clipToBox":true}']);
+    expect(out.cut.cutFrom).toBe("c2");
+    expect(needsPick(out.cut)).toBe(false);
+  });
+
+  it("the same piece as the row's last cut: no pick", () => {
+    expect(needsPick(withCuts())).toBe(false);
+    expect(needsPick(withCuts({ selectedIds: ["c2"] }))).toBe(true);
+  });
+
+  it("marks after a tap carry the picked id", async () => {
+    const h = harness({ ...piece }, { "/cleanup": done });
+    const tapped = (await pickPiece(h.deps, withCuts(), "c2")).cut;
+    const pts = [{ x: 5, y: 6, label: "positive" as const }];
+    const out = await applyMarks(h.deps, tapped, marksRequest(tapped.selectedIds, tapped.box!, pts));
+    expect(h.calls.find((c) => c.startsWith("api"))).toContain('"candidateIds":["c2"]');
+    expect(out.cut).toMatchObject({ cutFrom: "c2", points: pts });
+  });
+
+  it("a missing cut: one re-read after the wait, then local when it arrived", async () => {
+    const h = harness({ ...piece }, { "artworks/p1": { candidates: withCuts().candidates } });
+    const cut = withCuts({ candidates: candidates.map((c) => ({ ...c })) });
+    expect(pickLocal(cut, "c2")).toBeNull();
+    const wait = vi.fn(async () => {});
+    const out = await pickPiece(h.deps, cut, "c2", wait);
+    expect(wait).toHaveBeenCalledWith(2000);
+    expect(h.calls.filter((c) => c.startsWith("api"))).toEqual(["api artworks/p1 null"]);
+    expect(out.cut).toMatchObject({ selectedIds: ["c2"], cleanedUrl: "/c2-cut.png" });
+  });
+
+  it("still missing after the re-read: today's pick request", async () => {
+    const bare = candidates.map((c) => ({ ...c }));
+    const h = harness({ ...piece }, { "artworks/p1": { candidates: bare }, "/cleanup": done });
+    const out = await pickPiece(h.deps, withCuts({ candidates: bare }), "c2", async () => {});
+    expect(h.calls.filter((c) => c.startsWith("api"))).toEqual(["api artworks/p1 null", 'api artworks/p1/cleanup {"candidateIds":["c2"],"box":[0,0,100,100],"clipToBox":true}']);
+    expect(out.cut).toMatchObject({ cleanedUrl: "/c2-row.png", cutFrom: "c2" });
   });
 });
 

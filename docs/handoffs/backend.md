@@ -153,3 +153,4 @@ Contract: `docs/api.md` → "Creator flow (round 2b)" (the calls per step on web
 - A pick (`cleanup {candidateIds:[id], box: whole picture, clipToBox:true}` without points, or `select`) answers at once with the **previous** `altText` / `spokenDescription`; the new description is on the next read. Marks, or a box smaller than the picture, re-cut as before.
 - The crop is not resized by the server; both clients cap it at 2048 px.
 - Follow-up: the background cuts are best effort (a failed piece is logged and stays without `cleanedUrl`; its pick re-cuts). A late describe after a quick second pick can overwrite the newer description; add a guard if it shows.
+- A pick replaces the row's cut with that piece's original cut: marks made on that piece before are not kept (the clients force the pick after marks on purpose). The deferred description is written only while the row still holds the adopted cut.

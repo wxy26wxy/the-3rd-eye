@@ -41,6 +41,14 @@ vi.mock("@/lib/db/queries", () => ({
     if (!row?.candidates?.some((c: { id: string }) => c.id === candidateId)) return;
     row.candidates = row.candidates.map((c: { id: string }) => (c.id === candidateId ? { ...c, ...fields } : c));
   },
+  getArtwork: async (id: string) => rows.get(id) ?? null,
+  updateArtworkIfCleaned: async (id: string, cleanedUrl: string, patch: Record<string, unknown>) => {
+    const row = rows.get(id);
+    if (!row || row.cleanedUrl !== cleanedUrl) return null;
+    const next = { ...row, ...patch };
+    rows.set(id, next);
+    return next;
+  },
   insertArtwork: async (v: { id: string }) => { rows.set(v.id, v); return v; },
   listProductsForArtwork: async () => state.products,
 }));
@@ -202,6 +210,60 @@ describe("a pure pick adopts the ready cut", () => {
     const small = await cleanupArtwork(artwork, { candidateIds: ["k2"], box: [0, 0, 100, 100], clipToBox: true });
     expect(String(small.artwork.cleanedUrl)).toMatch(/cleaned/);
     expect(state.describeCalls).toBe(1);
+  });
+});
+
+describe("T155 review fixes", () => {
+  const cand = (id: string, extra: Record<string, unknown> = {}) => ({ id, bbox: [0, 0, 5, 5], score: 1, thumbUrl: "t", maskUrl: "m", ...extra });
+  const cutOf = (n: number) => ({ cleanedUrl: `cut${n}.png`, cutMaskUrl: `mask${n}.png`, cutPathSvg: `P${n}` });
+
+  it("a late describe is not written once a second adopt changed the cut", async () => {
+    state.deferAfter = true;
+    const artwork = await photoRow({ cleanedUrl: "cut1.png", altText: "Old", candidates: [cand("k1", cutOf(1)), cand("k2", cutOf(2)), cand("k3", cutOf(3))] });
+    files.set("cut2.png", await sharp({ create: { width: 8, height: 8, channels: 3, background: "#00ff00" } }).png().toBuffer());
+    files.set("cut3.png", await sharp({ create: { width: 8, height: 8, channels: 3, background: "#0000ff" } }).png().toBuffer());
+    await cleanupArtwork(artwork, { candidateIds: ["k2"], box: [0, 0, W, H], clipToBox: true });
+    await cleanupArtwork(rows.get("a1") as never, { candidateIds: ["k3"], box: [0, 0, W, H], clipToBox: true });
+    expect(rows.get("a1")!.cleanedUrl).toBe("cut3.png");
+    await state.afterQueue[0](); // the first describe resolves late
+    expect(rows.get("a1")!.altText).toBe("Old");
+    await state.afterQueue[1]();
+    expect(rows.get("a1")!.altText).toBe("New alt");
+  });
+
+  it("points force a re-cut even for a ready candidate", async () => {
+    const artwork = await photoRow({ candidates: [cand("k2", cutOf(2))] });
+    files.set("m", await (await import("@/lib/image/mask")).maskToPng(rect(10, 10, 100, 100)));
+    const out = await cleanupArtwork(artwork, { candidateIds: ["k2"], box: [0, 0, W, H], clipToBox: true, points: [{ x: 500, y: 500, label: "negative" }] });
+    expect(String(out.artwork.cleanedUrl)).toMatch(/cleaned/);
+  });
+
+  it("the plain photo path cuts largest first and at most 6", async () => {
+    files.set("upload.png", await sharp({ create: { width: W, height: H, channels: 3, background: "#ffffff" } }).png().toBuffer());
+    state.crop = [
+      seg(rect(0, 0, 20, 20), [0, 0, 20, 20]), seg(rect(30, 0, 80, 50), [30, 0, 80, 50]), seg(rect(100, 0, 200, 100), [100, 0, 200, 100]),
+      seg(rect(210, 0, 230, 30), [210, 0, 230, 30]), seg(rect(240, 0, 270, 40), [240, 0, 270, 40]), seg(rect(280, 0, 300, 25), [280, 0, 300, 25]), seg(rect(310, 0, 320, 10), [310, 0, 320, 10]),
+    ];
+    const out = await createFromImage("c1", { source: "photo", imageUrl: "creators/c1/photo/u.jpg", product: "sticker" });
+    expect(out.candidates.length).toBeLessThanOrEqual(6);
+    expect(state.cutCalls).toHaveLength(out.candidates.length);
+    const areaOf = (id: string) => { const b = out.candidates.find((c) => c.id === id)!.bbox; return (b[2] - b[0]) * (b[3] - b[1]); };
+    const order = state.cutCalls.map((c) => areaOf(c.candidateId));
+    expect(order[0]).toBe(10000); // the largest starts first
+    expect(order.slice(0, 2)).toContain(2500);
+  });
+
+  it("a piece whose candidate was replaced meanwhile is skipped: nothing stored", async () => {
+    const artwork = await photoRow();
+    state.crop = three();
+    state.deferAfter = true;
+    const out = await detectInBox(artwork, [0, 0, W, H]);
+    rows.set("a1", { ...rows.get("a1")!, candidates: [cand("new1")] }); // a newer detection replaced them
+    const before = files.size;
+    for (const f of state.afterQueue) await f();
+    expect(state.cutCalls).toHaveLength(0);
+    expect(files.size).toBe(before);
+    expect(out.candidates).toHaveLength(3);
   });
 });
 

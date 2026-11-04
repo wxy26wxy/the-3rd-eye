@@ -13,7 +13,7 @@ import { cutUpscale, ensureDpi, previewCutPath, removeBackground } from "@/lib/i
 import { pngRef } from "@/lib/image/ref";
 import { describeRef } from "@/lib/image/inline";
 import { alphaToMask, alphaToPng, area, bboxOf, clampBox, clipToBox, emptyMask, finishMask, maskFromPng, maskToPng, placeMask, removePiecesAt, unionMasks, type BBox } from "@/lib/image/mask";
-import { insertArtwork, listProductsForArtwork, setCandidateCut, updateArtwork, type ArtworkRow } from "@/lib/db/queries";
+import { getArtwork, insertArtwork, listProductsForArtwork, setCandidateCut, updateArtwork, updateArtworkIfCleaned, type ArtworkRow } from "@/lib/db/queries";
 import { runAfterResponse } from "@/lib/pipeline/after";
 import { rebuildProductFiles } from "@/lib/pipeline/products";
 import { clientUploadPath, creatorPath, readClientUpload, storage } from "@/lib/storage";
@@ -246,7 +246,7 @@ export async function createFromImage(
     return { artwork: own.artwork, candidates: own.candidates, imageSize };
   }
   // T155: nothing is cut yet, so every piece gets its own cut in the background.
-  await cutPieces(artwork, png, candidates.map((c, i) => ({ id: c.id, mask: segs[i].mask })));
+  await cutPieces(artwork, png, candidates.map((c, i) => ({ id: c.id, mask: segs[i].mask })).sort((p, q) => area(q.mask) - area(p.mask)));
   return { artwork, candidates, imageSize };
 }
 
@@ -294,6 +294,9 @@ async function cutPieces(artwork: Pick<ArtworkRow, "id" | "creatorId">, original
       while (next < queue.length) {
         const piece = queue[next++];
         try {
+          // Skip a piece whose candidate was replaced meanwhile (no orphaned blobs).
+          const current = await getArtwork(artwork.id);
+          if (!current?.candidates?.some((c) => c.id === piece.id)) continue;
           const { cleaned, alpha } = await cutParts(original, [piece.mask], clip, { artworkId: artwork.id });
           const [cleanedFile, maskFile, cutPathSvg] = await Promise.all([
             storage().putPublic(creatorPath(artwork.creatorId, "cleaned", "png"), cleaned, "image/png"),
@@ -619,7 +622,8 @@ async function adoptReadyCut(artwork: ArtworkRow, hint: CleanupHint, task: strin
     const d = await (await ai()).describer.describe(await describeRef(await storage().read(cleanedUrl)), {
       prompt: artwork.shapedPrompt ?? artwork.changeInstruction ?? undefined, trace: traceFor(artwork.id, task, "describe"),
     });
-    await updateArtwork(artwork.id, {
+    // Only while the row still shows the cut that was described (a later pick or re-cut keeps its own description).
+    await updateArtworkIfCleaned(artwork.id, cleanedUrl, {
       altText: d.alt_text, spokenDescription: d.spoken, differencesFromPrompt: d.differences_from_prompt || null,
     });
   });

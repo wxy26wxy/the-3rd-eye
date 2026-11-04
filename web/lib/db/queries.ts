@@ -202,6 +202,12 @@ export async function updateArtwork(id: string, patch: Partial<typeof artworks.$
   return row;
 }
 
+/** T155: updates the row only while it still holds the cut `cleanedUrl` (a late description of a replaced cut is dropped). */
+export async function updateArtworkIfCleaned(id: string, cleanedUrl: string, patch: Partial<typeof artworks.$inferInsert>): Promise<ArtworkRow | null> {
+  const [row] = await db().update(artworks).set(patch).where(and(eq(artworks.id, id), eq(artworks.cleanedUrl, cleanedUrl))).returning();
+  return row ?? null;
+}
+
 /**
  * T155: stores one candidate's own cut on the row, as a single jsonb update by candidate id (the other
  * candidates and their order are untouched). A no-op when the candidates were replaced meanwhile (the

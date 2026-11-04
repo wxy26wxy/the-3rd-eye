@@ -74,6 +74,25 @@ export function thankYouInstructions(ctx: { buyerName: string; productTitle: str
   ].join("\n");
 }
 
+/**
+ * The local model sometimes answers the instructions instead of the task (seen live, T152:
+ * `{"headline":"At most 8 words.", …}`). Throws when any field, trimmed and case-insensitive, is
+ * a piece of the prompt (instructions plus appended JSON Schema), equals its own field name, or
+ * when `story_text` is under 20 words; `draft()` then falls back to Spark.
+ */
+export const ECHO_MIN_CHARS = 12;
+
+export function rejectEcho(value: Record<string, string>, systemPrompt: string): void {
+  const prompt = systemPrompt.toLowerCase();
+  for (const [name, raw] of Object.entries(value)) {
+    const text = raw.trim().toLowerCase();
+    const tooShort = name === "story_text" && text.split(/\s+/).filter(Boolean).length < 20;
+    // The substring rule needs 12+ characters so a genuine one-word field ("Art", "Voice") is not mistaken for an echo.
+    const echoed = text.length >= ECHO_MIN_CHARS && prompt.includes(text);
+    if (!text || text === name.toLowerCase() || echoed || tooShort) throw new Error("ollama answered the instructions, not a story");
+  }
+}
+
 export class GlimmerStoryWriter implements StoryWriter {
   constructor(
     private mode: "ollama" | "meta" = "ollama",
@@ -85,8 +104,14 @@ export class GlimmerStoryWriter implements StoryWriter {
   }
 
   private async viaOllama<T>(stage: string, system: string, user: string, schema: JsonSchema, validator: z.ZodType<T>, trace: Trace): Promise<T> {
+    const systemPrompt = `${system}\nReply with only a JSON object matching this JSON Schema:\n${JSON.stringify(schema)}`;
+    const parse = (content: string): T => {
+      const value = validator.parse(parseGlimmerJson(content));
+      rejectEcho(value as Record<string, string>, systemPrompt);
+      return value;
+    };
     const messages = [
-      { role: "system" as const, content: `${system}\nReply with only a JSON object matching this JSON Schema:\n${JSON.stringify(schema)}` },
+      { role: "system" as const, content: systemPrompt },
       { role: "user" as const, content: user },
     ];
     // `format` as the JSON Schema (Ollama structured outputs): with plain "json" Glimmer often answered `{}` (live, 2026-10-29).
@@ -94,7 +119,7 @@ export class GlimmerStoryWriter implements StoryWriter {
     try {
       return await traced(stage, "ollama", MODELS.glimmer, native, async () => {
         const res = await hardTimeout((this.deps.native ?? defaultNative)(native), OLLAMA_MS + 2_000, "ollama native");
-        return validator.parse(parseGlimmerJson(res.message?.content ?? ""));
+        return parse(res.message?.content ?? "");
       }, trace);
     } catch (err) {
       console.warn("[story] Ollama native endpoint failed, retrying via /v1:", err instanceof Error ? err.message : err);
@@ -102,7 +127,7 @@ export class GlimmerStoryWriter implements StoryWriter {
     const compat = { model: MODELS.glimmer, messages, response_format: { type: "json_object" as const }, max_tokens: 1500, reasoning_effort: "low" as const };
     return traced(stage, "ollama", MODELS.glimmer, compat, async () => {
       const res = await hardTimeout(this.chat().create(compat, { timeout: OLLAMA_MS, signal: callSignal(OLLAMA_MS) }), OLLAMA_MS + 2_000, "ollama /v1");
-      return validator.parse(parseGlimmerJson(res.choices?.[0]?.message?.content ?? ""));
+      return parse(res.choices?.[0]?.message?.content ?? "");
     }, trace);
   }
 

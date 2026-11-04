@@ -461,3 +461,7 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Tests: `test/story-video-t151.test.ts` (12: arguments, ffprobe parsing and every refusal, the WAV arguments, the public `story-video` kind, the cues, the run with the pipeline mocked, the update fields, the flag-only `mentionDisability`, no old captions on failure or silence, draft failure warning, dry run writes nothing, bad file or unknown slug stops before any write).
 - Not done here: the real run (founder; this session does not write to the shared database or storage).
 
+## T152 backend · Reject an echoed story draft from the local model (2026-11-03)
+- What happened: `pnpm story-video june-park … --mention-disability` ran with `AI_STORY=ollama`. Muse Glimmer answered a JSON object whose values were the instruction sentences ("At most 8 words." and so on); the zod schema accepted three non-empty strings and the creator's `story_draft` held placeholder text.
+- Rule: `rejectEcho` (`web/lib/ai/meta/story.ts`) runs after `validator.parse` in both Ollama attempts (native and `/v1`). It throws when any field, trimmed and case-insensitive, is a substring of the system prompt (instructions plus the appended JSON Schema), equals its own field name, or (`story_text`) has fewer than 20 words. The throw reaches the existing catch in `draft()`, which falls back to Spark. Same check for `draftThankYou`. Spark path and schemas unchanged.
+- Tests: `web/test/story.test.ts` (echoed answer, 12-word story, genuine answer, helper cases).

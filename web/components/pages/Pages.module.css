@@ -34,7 +34,7 @@
 /* Static pages: intro + sky on the left (520), checked point cards on the right. */
 .static { display: grid; gap: var(--space-block-l); padding-block: calc(var(--space-xxl) * 2) var(--space-band-l); }
 .staticIntro { display: grid; gap: var(--space-xxl); align-content: start; }
-.staticSky.staticSky { aspect-ratio: 520 / 300; }
+.staticPicture { display: block; width: 100%; height: auto; border-radius: var(--radius-card); }
 .points { display: grid; gap: var(--space-l); align-content: start; }
 .pointList { display: grid; gap: var(--space-l); list-style: none; }
 .point {

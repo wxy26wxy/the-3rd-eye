@@ -101,10 +101,34 @@ final class LocalPickTests: XCTestCase {
   func testANewPhotoForgetsThePick() {
     let flow = photoFlow()
     flow.pickPiece("cand-2", for: "p1")
+    XCTAssertEqual(flow.cut(for: "p1")?.selected, ["cand-2"])
     flow.discardPhoto()
-    let again = photoFlow()
     XCTAssertTrue(flow.pickedPieces.isEmpty)
-    XCTAssertEqual(again.cut(for: "p1")?.selected, ["cand-1"])
+    flow.recordPhoto(PhotoArtworkResponse(artwork: Artwork(id: "p1", cleanedUrl: "https://x/row.png"),
+                                          candidates: [one, two], imageSize: size), box: [0, 0, 600, 800])
+    XCTAssertEqual(flow.cut(for: "p1")?.selected, ["cand-1"], "the same row id again: the old pick is gone")
+    // A new crop without a discard (setPhoto) forgets it too.
+    flow.pickPiece("cand-2", for: "p1")
+    flow.recordPhoto(PhotoArtworkResponse(artwork: Artwork(id: "p1", cleanedUrl: "https://x/row.png"),
+                                          candidates: [one, two], imageSize: size), box: [0, 0, 600, 800])
+    XCTAssertEqual(flow.cut(for: "p1")?.selected, ["cand-1"])
+  }
+
+  func testBackForgetsAnUnsentPick() {
+    let flow = photoFlow()
+    flow.pickPiece("cand-2", for: "p1")
+    flow.forgetPick(for: "p1")
+    XCTAssertEqual(flow.cut(for: "p1")?.selected, ["cand-1"], "the piece the row was cut from")
+    XCTAssertNil(flow.cut(for: "p1")?.pendingPick)
+  }
+
+  func testPickWithoutASizeIsNotPossible() {
+    let cut = Cut(artwork: Artwork(id: "p1", cleanedUrl: "a"), candidates: [one, two], imageSize: nil, selected: ["cand-2"], box: nil, cutFrom: "cand-1")
+    XCTAssertTrue(cut.pickIsPending)
+    XCTAssertNil(cut.pendingPick, "no box: the view refuses the tap, or fills the size first")
+    var sized = cut
+    sized.imageSize = size
+    XCTAssertEqual(sized.pendingPick?.box, [0, 0, 1200, 1600])
   }
 
   func testAMissingCutIsReadAgainOnce() async throws {

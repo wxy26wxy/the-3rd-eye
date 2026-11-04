@@ -95,11 +95,14 @@ struct YourCutoutView: View {
         if let cut {
           if showingCutout && hasCut {
             cutoutImage(cut)
-            Text("Your cutout is ready. Here it is.")
-              .themeFont(.body)
-              .foregroundStyle(colors.text)
-              .multilineTextAlignment(.center)
-              .frame(maxWidth: .infinity)
+            // T155: not while a tapped piece's cut is still being made (the stage shows a spinner).
+            if cut.stageUrl != nil {
+              Text("Your cutout is ready. Here it is.")
+                .themeFont(.body)
+                .foregroundStyle(colors.text)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+            }
           } else if let size = imageSize {
             photoArea(size: size, cut: cut)
           } else if error == nil {
@@ -144,6 +147,11 @@ struct YourCutoutView: View {
     }
     .task { await loadPictureIfNeeded() }
     .task(id: pieceCutURLs) { preloadPieceCuts() }
+    // T155 review: Back drops a pick that was never sent (a tab switch keeps the path, and the pick).
+    .onDisappear {
+      let open = isRedo ? app.designsPath.contains(.yourCutout(artworkId)) : app.createPath.contains(.yourCutout(artworkId))
+      if !open { flow.forgetPick(for: artworkId) }
+    }
     // A running request is not cancelled when the screen disappears (another tab, for instance):
     // the server saves the cut anyway, so the flow must still receive it. Back is hidden meanwhile.
   }
@@ -162,9 +170,16 @@ struct YourCutoutView: View {
   }
 
   private var currentRequest: CleanupRequest? {
+    guard let cut = sizedCut else { return nil }
+    return CutoutRequest.marks(points, on: cut)
+  }
+
+  /// The cut with the stored picture's size filled in from `GET /artworks/{id}` when the flow has
+  /// none, so the marks and the pick (T155) are built on the same box.
+  private var sizedCut: Cut? {
     guard var cut else { return nil }
     if cut.imageSize?.isUsable != true { cut.imageSize = loadedSize }
-    return CutoutRequest.marks(points, on: cut)
+    return cut
   }
 
   private var piece: Candidate? {
@@ -488,7 +503,7 @@ struct YourCutoutView: View {
   /// A strip tap: the piece is selected and its own cut is on the stage, with no request. The marks
   /// were on the old piece and go. A cut not ready yet is read again once, then picked the old way.
   private func pick(_ candidate: Candidate) {
-    guard work == nil else { return }
+    guard work == nil, let sized = sizedCut, CutoutRequest.pick(candidate, on: sized) != nil else { return }
     flow.pickPiece(candidate.id, for: artworkId)
     focusedPiece = candidate.id
     points = []
@@ -496,7 +511,7 @@ struct YourCutoutView: View {
     notice = nil
     error = nil
     showingCutout = true
-    guard let cut, cut.pickIsPending, cut.stageUrl == nil else { return }
+    guard let cut = sizedCut, cut.pickIsPending, cut.stageUrl == nil else { return }
     let flow = flow
     let api = app.api
     let artworkId = artworkId
@@ -585,7 +600,7 @@ struct YourCutoutView: View {
     if points != appliedPoints, currentRequest != nil {
       await apply()
       guard error == nil else { return }
-    } else if let pick = cut?.pendingPick {
+    } else if let pick = sizedCut?.pendingPick {
       await apply(pick, picked: true)
       guard error == nil else { return }
     }

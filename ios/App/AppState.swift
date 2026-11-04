@@ -428,6 +428,11 @@ final class CreateFlow {
     pickedPieces[artworkId] = pieceId == cutFrom && !markedCuts.contains(artworkId) ? nil : pieceId
   }
 
+  /// Back left Your cutout without "Use this": the selection returns to the piece the row was cut from.
+  func forgetPick(for artworkId: String) {
+    pickedPieces[artworkId] = nil
+  }
+
   /// The tapped piece's cut was not ready: `GET /artworks/{id}` once after `delay` (its candidates
   /// replace the known ones). Answers today's pick request when the cut is still missing, nil when it
   /// came (or another piece was tapped meanwhile).

@@ -169,7 +169,7 @@ describe("pnpm story-video: the run (pipeline mocked)", () => {
 
   it("stops with a clear error when the creator update returns nothing", async () => {
     const t = deps();
-    t.d.update = async () => null;
+    t.d.update = (async () => null) as unknown as typeof t.d.update;
     await expect(storyVideo(t.d, { slug: "june-park", file: "v.mp4", dryRun: false })).rejects.toThrow(/Could not update creator "june-park"/);
     expect(t.calls).not.toContain("draft c1 false");
   });

@@ -6,7 +6,9 @@
 `ios/**` (except `ios/App/Theme/Tokens.swift`, generated from `design/tokens.json`).
 
 ## Current task
-T145 · UI test speed (branch `feat/ios-T145`, no product change): fast mock, polled waits, parallel clones; see "Fast and parallel UI tests (T145)" under "Build and run". Waiting for review.
+T155 (iOS) · Pieces are cut once; a strip tap is local (branch `feat/ios-T155`): see "Local strip pick (T155)" at the end of Round 4. Waiting for review.
+
+Before: T145 · UI test speed (branch `feat/ios-T145`, no product change): fast mock, polled waits, parallel clones; see "Fast and parallel UI tests (T145)" under "Build and run". Waiting for review.
 
 Before: T146 (iOS) · Superseded and failed crop rows (merged to main at f267892): see "Superseded and failed crop rows (T146)" at the end of Round 4.
 
@@ -74,7 +76,7 @@ Mock additions (T121): every sticker product (`GET /artworks` `products[]`, `POS
 Soundtrack extraction from a real camera `.mov` (unit test uses a generated 1 s PCM asset), camera-permission flow, interruption handling, the story-draft sheet against the live backend, 401 from the live backend's token expiry.
 
 ## Last updated
-2026-11-03 (T145)
+2026-11-04 (T155)
 
 ## TestFlight (T060)
 - Icon: `pnpm icon` renders `ios/App/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` from `design/tokens.json` (no alpha, as App Store Connect requires). To use a designer-made icon, replace that PNG.
@@ -240,6 +242,15 @@ Contract: `docs/api.md` "Creator flow (round 4)" (T143). Mock: `scripts/mock_api
 - The earlier piece row (`supersedes`) is deleted on a retake ("Take a new photo", or a new camera photo via Back) only together with a 422 row. Mock design `d7` is a hidden `no_drawing_found` row (`DesignsUITests.testNoDrawingRowIsNotListed`); `REFRAME…` supports the delete count only (p2's detail, cleanup and detect answer 404).
 - Follow-up (pre-existing): the stale 422 branch in `MakingCutoutView` still sets `emptyBox` / `areaError` after Take a new photo.
 - Tests: `Tests/ReframeCleanupTests.swift` (12); UI `CutoutUITests` `testReframeDeletesTheEarlierRow`, `testNothingFoundRowIsDeletedOnTheNextUseThisArea`, `testNothingFoundRowIsDeletedOnTakeANewPhoto`.
+
+### Local strip pick (T155)
+Contract: `docs/api.md` "Creator flow (round 4)" T155 rows (backend lane). Working resolution: `CameraView.use` normalises the camera or library photo to 2048 px on the long side (was 4096); the crop is cut from it, so the upload is ≤ 2048.
+- `Candidate.cleanedUrl` (optional): the piece's own cut. `Cut.cutFrom` (the piece the row's cut was made from), `selectedPiece`, `pickIsPending`, `stageUrl` (row's cut, or the selected piece's own cut after a tap), `pendingPick` (`CutoutRequest.pick`, moved out of the view; `YourCutoutView.pick` delegates).
+- `CreateFlow.pickedPieces` (per artwork id, the tapped piece; cleared by a cut sent with `candidateIds`, `setPhoto`, `discardPhoto`), `pickPiece(_:for:)`, `markedCuts` (ids whose current cut was made with marks: a tap on any piece, the selected one included, shows its raw cut and forces the pick on Use this; web review rule), `awaitPieceCut` (missing `cleanedUrl`: `GET /artworks/{id}` once after 2 s, its candidates replace the known ones; still missing → today's pick request, sent without the announcement).
+- `YourCutoutView`: a tap selects locally (marks dropped, VoiceOver focus kept on the chip, no announcement); the stage (`cutout-applied`, value "Piece n" when there is a strip) shows `stageUrl`; the strip's cuts are preloaded through `ImageLoader` when the screen shows them. "Use this": pending marks are applied with the selected piece, else `pendingPick` is sent once, then on as before. Marks always record their request, so the cut-from follows the selected piece; the changes of the old piece go when the photo's piece changes.
+- Mock: every candidate carries `cleanedUrl = <mock>/img.png?piece=<id>`; the `cleanup` counter is asserted (tap → 0, Use this → 1).
+- Review fix round 1: Back from Your cutout forgets an unsent pick (`CreateFlow.forgetPick`, `.onDisappear` when `.yourCutout(id)` left the path; a tab switch keeps it); the pick and the marks are built on the same size (`sizedCut`, the `loadedSize` fallback), and a tap that could not be sent is refused; "Your cutout is ready. Here it is." is hidden while a tapped piece's cut is still being made.
+- Tests: `Tests/LocalPickTests.swift` (decode, tap is local, Use this only when different, sent pick becomes cut-from, marks with the selected piece, marks then tap 2 then tap 1 → pick, change cut, new photo forgets, missing cut re-read once / falls back / not picked after another tap). UI: `CutoutUITests.testStripTapIsLocalAndUseThisSendsThePick`; `testPhotoThenFrameThenCropUpload` now asserts no cleanup on the tap.
 
 ## Xcode Cloud (added 2026-10-31)
 The project file is generated and git-ignored, so an Xcode Cloud workflow fails with "Project The3rdEye.xcodeproj does not exist" unless `ios/ci_scripts/ci_post_clone.sh` runs first: it installs XcodeGen with Homebrew and runs `xcodegen generate`. With that script committed, a workflow on `main` with the action "Archive · iOS" and the post-action "TestFlight Internal Testing" uploads a build on every push without the Organizer. The build number still comes from `project.yml` (`ios/scripts/bump_build.sh`), so bump and commit before a push that should produce a new TestFlight build.

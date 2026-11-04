@@ -51,13 +51,8 @@ final class CutoutUITests: XCTestCase {
     XCTAssertTrue(first.waitToAppear(timeout: 5), "two drawings in the crop: the strip")
     XCTAssertTrue(first.isSelected, "the largest was cut")
     tap(app, "Piece 2")
-    XCTAssertTrue(app.buttons["Piece 2"].waitToAppear(timeout: 10))
-    XCTAssertTrue(poll(timeout: 15) { app.buttons["Piece 2"].isSelected }, "Piece 2 is picked")
-    let body = try lastBody("cleanup")
-    XCTAssertEqual(body["candidateIds"] as? [String], ["cand-2"])
-    XCTAssertEqual(body["box"] as? [Double], [0, 0, 1200, 1600], "the whole stored crop")
-    XCTAssertEqual(body["clipToBox"] as? Bool, true)
-    XCTAssertNil(body["points"])
+    XCTAssertTrue(poll(timeout: 5) { app.buttons["Piece 2"].isSelected }, "Piece 2 is picked")
+    XCTAssertEqual(try count("cleanup"), 0, "T155: a tap is local")
     // Back to the frame and Use this area unchanged: no second upload or create.
     app.buttons["Back"].firstMatch.tap()
     XCTAssertTrue(app.otherElements["adjust-area"].waitToAppear(timeout: 5))
@@ -65,6 +60,28 @@ final class CutoutUITests: XCTestCase {
     XCTAssertTrue(yourCutout(app).waitToAppear(timeout: 10))
     XCTAssertEqual(try count("blob-put"), 1, "the same frame is not uploaded again")
     XCTAssertEqual(try count("artworks-posts"), 1)
+  }
+
+  /// T155: a strip tap swaps the stage to the piece's own cut with no request; "Use this" then
+  /// sends exactly one pick cleanup (piece 2, the whole crop, no points) and goes on to Change it.
+  func testStripTapIsLocalAndUseThisSendsThePick() throws {
+    let app = openPieceCutout(code: "TEST-CODE")
+    let stage = app.descendants(matching: .any)["cutout-applied"]
+    XCTAssertTrue(stage.waitToAppear(timeout: 5))
+    XCTAssertEqual(stage.value as? String, "Piece 1", "the row's cut, of the largest piece")
+    tap(app, "Piece 2")
+    XCTAssertTrue(poll(timeout: 5) { stage.value as? String == "Piece 2" }, "the stage swaps to piece 2")
+    XCTAssertTrue(app.buttons["Piece 2"].isSelected)
+    XCTAssertEqual(try count("cleanup"), 0, "a tap sends nothing")
+    attachScreenshot(app, "your-cutout-piece-2")
+    tap(app, "Use this")
+    XCTAssertTrue(app.buttons["Looks good as is"].waitToAppear(timeout: 15), "Change it")
+    XCTAssertEqual(try count("cleanup"), 1, "Use this sends the pick once")
+    let body = try lastBody("cleanup")
+    XCTAssertEqual(body["candidateIds"] as? [String], ["cand-2"])
+    XCTAssertEqual(body["box"] as? [Double], [0, 0, 1200, 1600], "the whole stored crop")
+    XCTAssertEqual(body["clipToBox"] as? Bool, true)
+    XCTAssertNil(body["points"])
   }
 
   // MARK: Adjust the area

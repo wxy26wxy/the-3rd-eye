@@ -18,6 +18,7 @@ Photo flow: launch the app with UITEST_PHOTO=1 and MOCK_BLOB_API=<base>/blob/ (U
 POST /artworks {source: photo} answers 2 candidates and imageSize 1200x1600 (sign-in code ONE...: 1,
 already cut out; NONE...: no drawing found, 422 no_drawing_found with artworkId p1 as the server, and
 GET /artworks/p1 then has no candidates; T131).
+T155: every candidate (all modes, photo, detect, cutout, detail) carries cleanedUrl = <mock>/img.png?piece=<id>.
 GET /__mock/count/<route> returns {"count": n}, the calls to that route since sign-in (cutout, cleanup,
 run, products, ...); GET /__mock/last/cleanup-target returns {"artworkId": ...} of the last cleanup.
 Sign-in NOCUT... makes cleanup answer 422, DETAILS... gives cleanup non-empty details, SLOW... makes
@@ -259,9 +260,14 @@ def thank_you(body):
 # Photo flow (T082). The app's UI-test photo is 600 x 800; the stored original is "upscaled" x2.
 IMAGE_SIZE = {"w": 1200, "h": 1600}
 CANDIDATES = [
-    {"id": "cand-1", "bbox": [100, 160, 500, 693], "score": 0.92, "thumbUrl": f"{BASE}/img.png"},
-    {"id": "cand-2", "bbox": [660, 896, 1060, 1429], "score": 0.88, "thumbUrl": f"{BASE}/img.png"},
+    {"id": "cand-1", "bbox": [100, 160, 500, 693], "score": 0.92, "thumbUrl": f"{BASE}/img.png",
+     "cleanedUrl": f"{BASE}/img.png?piece=cand-1"},
+    {"id": "cand-2", "bbox": [660, 896, 1060, 1429], "score": 0.88, "thumbUrl": f"{BASE}/img.png",
+     "cleanedUrl": f"{BASE}/img.png?piece=cand-2"},
 ]
+# T155: every candidate carries its own cut (cleanedUrl, the mock's cut image) in every mode, so a
+# strip tap shows it with no request; only "Use this" on another piece sends the pick cleanup
+# (counted at /__mock/count/cleanup).
 # Last request body per route, read back by UI tests through GET /__mock/last/<name>.
 LAST = SessionDict("LAST", dict)
 # Calls per route since sign-in, read back through GET /__mock/count/<name> (T131: the cutout cache).

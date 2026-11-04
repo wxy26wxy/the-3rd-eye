@@ -105,6 +105,10 @@ export type StoryVideoDeps = {
   findCreator(slug: string): Promise<Pick<CreatorRow, "id"> | null>;
   /** Stores the mp4 in the private store; returns the logical pathname. */
   putVideo(creatorId: string, mp4: Buffer): Promise<string>;
+  /** The creator's current story video pathname (read before the update), or null. */
+  previousVideo(creatorId: string): Promise<string | null>;
+  /** Removes a replaced video's blob from the store. */
+  deleteVideo(pathname: string): Promise<void>;
   caption(wav: Buffer, jobId: string): Promise<Captions>;
   update(creatorId: string, patch: CreatorPatch): Promise<Pick<CreatorRow, "mentionDisability"> | null>;
   draft(creatorId: string, transcript: string, opts: { mentionDisability: boolean }): Promise<unknown>;
@@ -132,6 +136,7 @@ export async function storyVideo(deps: StoryVideoDeps, args: StoryVideoArgs): Pr
 
   const creator = await deps.findCreator(args.slug);
   if (!creator) throw new Error(`No creator with slug "${args.slug}"`);
+  const previous = await deps.previousVideo(creator.id);
   const pathname = await deps.putVideo(creator.id, await deps.readFile(args.file));
   deps.log(`stored: ${pathname}`);
 
@@ -145,6 +150,15 @@ export async function storyVideo(deps: StoryVideoDeps, args: StoryVideoArgs): Pr
   // A new video never keeps the previous video's captions: null when captioning failed.
   const row = await deps.update(creator.id, storyVideoPatch(pathname, captions, args.mentionDisability));
   if (!row) throw new Error(`Could not update creator "${args.slug}"`);
+  // T160: the replaced video's blob goes only after the row points at the new one (never the same file).
+  if (previous && previous !== pathname && previous.startsWith(`creators/${creator.id}/`)) { // never a pathname outside this creator
+    try {
+      await deps.deleteVideo(previous);
+      deps.log(`removed previous video: ${previous}`);
+    } catch (err) {
+      deps.warn(`[story-video] could not delete the previous video: ${err instanceof Error ? err.message : err}`);
+    }
+  }
 
   let drafted = false;
   if (captions) {

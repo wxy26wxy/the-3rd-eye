@@ -45,3 +45,5 @@ A review written by Meta's Muse Spark 1.3 (`muse-spark-1.3`, Responses API, reas
 8. Focus after "Turn sound on" and the muted state under reduced motion: **partly wrong.** The `muted` state follows the element's `volumechange` event, so it does update; focus moving to the player after the button disappears was a deliberate choice in the autoplay review. Keeping focus on a visible control would need the button to stay; noted as a possible refinement.
 
 Accessibility gaps 1, 2 and 4 are real and already listed in `docs/accessibility.md` and `docs/risks.md` (the VoiceOver pass on a device, keyboard-free frame adjustment, captions spread evenly over the audio because Voice Transcribe returns no timestamps). Gap 3 is recorded as a design exception. Gap 5 (polling, no haptics) is a limitation of the hackathon build.
+
+Items 1, 2 and 6 were fixed in T160 (`feat/backend-T160`): the replaced story video is deleted, scoped media redirects are `no-store`, the public-upload delete is retried once.

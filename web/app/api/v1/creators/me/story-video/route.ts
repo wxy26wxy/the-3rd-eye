@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { requireCreator } from "@/lib/auth";
 import { json, parseJson, route } from "@/lib/http";
-import { updateCreator } from "@/lib/db/queries";
+import { getCreatorById, updateCreator } from "@/lib/db/queries";
 import { draftStoryFor } from "@/lib/pipeline/story";
 import { toCreator } from "@/lib/api/dto";
-import { clientUploadPath, readClientUpload } from "@/lib/storage";
+import { clientUploadPath, readClientUpload, storage } from "@/lib/storage";
 import { ai } from "@/lib/ai/registry";
 
 export const maxDuration = 300;
@@ -18,6 +18,7 @@ export const POST = route(async (req) => {
   const body = await parseJson(req, Body);
   const pathname = clientUploadPath(body.videoUrl, creatorId);
   if (body.audioUrl) clientUploadPath(body.audioUrl, creatorId);
+  const previous = (await getCreatorById(creatorId))?.storyVideoUrl ?? null; // read before the row changes
   let captions: { vtt: string; transcript: string } | null = null;
   try {
     const source = body.audioUrl ?? body.videoUrl;
@@ -34,6 +35,11 @@ export const POST = route(async (req) => {
     storyVideoTranscript: captions?.transcript ?? null,
     ...(body.mentionDisability !== undefined ? { mentionDisability: body.mentionDisability } : {}),
   });
+  // T160: a replaced video's blob is removed once the row points at the new one (never before, never the same file).
+  // Only a pathname under this creator is ever deleted (defence in depth: the row is the only writer).
+  if (previous && previous !== pathname && previous.startsWith(`creators/${creatorId}/`)) {
+    await storage().delete(previous).catch((err) => console.warn("[story-video] could not delete the previous video:", err instanceof Error ? err.message : err));
+  }
   // Glimmer stage: draft a story from the creator's own words; shown for Use / Edit / Skip, never auto-published.
   if (captions) {
     const mention = creator?.mentionDisability ?? false; // already updated from the body above

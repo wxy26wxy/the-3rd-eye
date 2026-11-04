@@ -52,13 +52,25 @@ describe("GET /media with ?tag=", () => {
 });
 
 describe("GET /media cache headers (T143)", () => {
-  it("the redirect may be reused per browser just under the 600 s presign, varying by sign-in", async () => {
-    process.env.ADMIN_PASSWORD = "pw-for-tests";
-    const auth = `Basic ${Buffer.from("admin:pw-for-tests").toString("base64")}`;
-    const res = await get(print, "", { authorization: auth });
+  it("a public kind's redirect may be reused per browser just under the 600 s presign, varying by sign-in", async () => {
+    delete process.env.ADMIN_PASSWORD;
+    const mockup = `creators/${A}/mockups/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee.png`;
+    const res = await get(mockup);
     expect(res.status).toBe(302);
     expect(res.headers.get("cache-control")).toBe("private, max-age=540");
     expect(res.headers.get("vary")).toBe("Authorization, Cookie");
+  });
+
+  it("T160: access through a tag token, a creator session or admin is never cached", async () => {
+    const viaTag = await get(thankYouVideo, `?tag=${TOKEN}`);
+    expect(viaTag.status).toBe(302);
+    expect(viaTag.headers.get("cache-control")).toBe("private, no-store");
+    process.env.ADMIN_PASSWORD = "pw-for-tests";
+    const auth = `Basic ${Buffer.from("admin:pw-for-tests").toString("base64")}`;
+    const viaAdmin = await get(print, "", { authorization: auth });
+    expect(viaAdmin.status).toBe(302);
+    expect(viaAdmin.headers.get("cache-control")).toBe("private, no-store");
+    expect(viaAdmin.headers.get("vary")).toBe("Authorization, Cookie");
   });
 
   it("a refusal is not given a cache lifetime", async () => {
@@ -66,5 +78,13 @@ describe("GET /media cache headers (T143)", () => {
     const res = await get(print);
     expect(res.status).toBe(401);
     expect(res.headers.get("cache-control") ?? "").not.toMatch(/max-age/);
+  });
+});
+
+describe("T160 fix round: redirect caching by kind", () => {
+  it("the story-video kind is public, so its redirect keeps the 9-minute cache", async () => {
+    const { isPublicKind } = await import("@/lib/media-access");
+    expect(isPublicKind("creators/c1/story-video/v.mp4")).toBe(true);
+    expect(isPublicKind("creators/c1/originals/o.png")).toBe(false);
   });
 });

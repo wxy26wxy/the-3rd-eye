@@ -2,8 +2,8 @@
  * Uploads a creator's story video recorded outside the app (T151, round 7) and captions it the way
  * `POST /creators/me/story-video` does; see lib/pipeline/story-video.ts. Needs `ffprobe` and `ffmpeg`
  * on the PATH. Prints the slug, the duration, the stored pathname, the first two caption cues and
- * whether a story draft was made (never env values or creator codes). The previous video stays in
- * storage (write-once).
+ * whether a story draft was made (never env values or creator codes). A replaced video's file is
+ * deleted from storage after the creator row is updated (T160); a dry run deletes nothing.
  *   pnpm story-video <slug> <file.mp4> [--mention-disability]   # uploads, captions, writes, drafts
  *   pnpm story-video <slug> <file.mp4> --dry-run                # checks, WAV, captions only; prints the transcript
  */
@@ -52,6 +52,8 @@ async function main() {
       const { storage, creatorPath } = await import("@/lib/storage");
       return (await storage().putPrivate(creatorPath(creatorId, STORY_VIDEO_KIND, "mp4"), mp4, "video/mp4")).pathname;
     },
+    previousVideo: async (creatorId) => (await (await import("@/lib/db/queries")).getCreatorById(creatorId))?.storyVideoUrl ?? null,
+    deleteVideo: async (pathname) => (await import("@/lib/storage")).storage().delete(pathname),
     caption: async (wav, jobId) => {
       const { ai } = await import("@/lib/ai/registry");
       return (await ai()).captioner.caption(wav, { filename: "story.wav", trace: { stage: "captions", task: "T151", jobId } });

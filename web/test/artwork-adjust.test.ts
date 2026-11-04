@@ -11,7 +11,7 @@ const state = {
   products: [] as { id: string }[], droppedContainer: false, failRebuild: new Set<string>(), unpublish: new Set<string>(), described: 0,
   candidatesResult: [] as { mask: Mask; bbox: [number, number, number, number]; score: number; svgPath: string }[],
   segmentResult: null as null | { mask: Mask; bbox: [number, number, number, number]; score: number; svgPath: string },
-  uploadPath: "creators/c1/photo/u.jpg", deleted: [] as string[],
+  uploadPath: "creators/c1/photo/u.jpg", deleted: [] as string[], deleteFailures: 0,
 };
 let n = 0;
 vi.mock("@/lib/storage", () => ({
@@ -19,7 +19,7 @@ vi.mock("@/lib/storage", () => ({
     read: async (p: string) => { const b = files.get(p); if (!b) throw new Error(`missing ${p}`); return b; },
     putPublic: async (p: string, data: Buffer) => { files.set(p, data); return { pathname: p, url: p }; },
     putPrivate: async (p: string, data: Buffer) => { files.set(p, data); return { pathname: p, url: p }; },
-    delete: async (p: string) => { state.deleted.push(p); },
+    delete: async (p: string) => { if (state.deleteFailures > 0) { state.deleteFailures--; throw new Error("blob 500"); } state.deleted.push(p); },
   }),
   creatorPath: (_c: string, kind: string, ext: string) => `creators/c1/${kind}/${++n}.${ext}`,
   clientUploadPath: () => state.uploadPath, readClientUpload: async () => files.get("orig.png")!,
@@ -169,6 +169,23 @@ describe("cleanupArtwork", () => {
       await createFromImage("c1", { source: "photo", imageUrl: p, product: "sticker" }).catch(() => undefined);
     }
     expect(state.deleted).toEqual([]);
+  });
+
+  it("T160: retries a failed public-upload delete once, without a warning when the retry works", async () => {
+    await setup();
+    state.candidatesResult = [];
+    state.uploadPath = "creators/c1/photo/u.jpg";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    state.deleted = [];
+    state.deleteFailures = 1;
+    await createFromImage("c1", { source: "photo", imageUrl: "u.jpg", product: "sticker" }).catch(() => undefined);
+    expect(state.deleted).toEqual(["creators/c1/photo/u.jpg"]);
+    expect(warn).not.toHaveBeenCalled();
+    state.deleteFailures = 2; // both attempts fail: one warning, no throw
+    await createFromImage("c1", { source: "photo", imageUrl: "u.jpg", product: "sticker" }).catch(() => undefined);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toMatch(/could not delete the public upload/);
+    warn.mockRestore();
   });
 
   it("clipToBox: a frame inside the piece trims it to the frame (T126)", async () => {

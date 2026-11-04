@@ -42,35 +42,6 @@
   .heroCard { min-height: 35rem; }
 }
 
-/* Tap the tag chip (4006:4383): white pill on the photo, 44 px ink play circle. */
-.chip {
-  position: absolute;
-  left: var(--space-xxl);
-  bottom: var(--space-xxl);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-s);
-  padding: var(--space-s) calc(var(--space-l) + var(--border-thin) * 2) var(--space-s) var(--space-s);
-  border-radius: var(--radius-pill);
-  background: var(--surface);
-  box-shadow: var(--shadow-soft);
-  color: var(--text);
-  text-decoration: none;
-}
-.chip:hover .chipTitle { text-decoration: underline; }
-.chipPlay {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: var(--size-min-target);
-  height: var(--size-min-target);
-  border-radius: 50%;
-  background: var(--primary);
-  color: var(--primary-text);
-}
-.chipText { display: grid; }
-.chipTitle { font-size: var(--type-title-m-size); font-weight: var(--type-title-m-weight); line-height: 1.2; }
-.chipSub { font-size: var(--type-caption-size); font-weight: var(--type-caption-weight); line-height: var(--type-caption-lh); color: var(--text-muted); }
 
 /* Collection (2018:1821) */
 .collection { display: grid; gap: var(--space-card-pad); }

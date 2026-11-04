@@ -2,16 +2,12 @@ import { Suspense } from "react";
 import { loadCreatorProfile, loadDemoStoryTagHref, loadFeaturedCreator } from "@/components/data";
 import { m } from "@/components/messages";
 import { Collection, CollectionFallback } from "@/components/shop/Collection";
-import { Hero, HeroChip } from "@/components/shop/Hero";
+import { Hero } from "@/components/shop/Hero";
 import { HowSteps, PhonePreview, STORY_TAG_FALLBACK, StoryTagCta } from "@/components/shop/HowSteps";
 import { MakersHeader, MeetMakers } from "@/components/shop/MeetArtist";
 import { tilePicture } from "@/components/site/ProductCard";
 import { Container } from "@/components/ui/Layout";
 import styles from "@/components/shop/Shop.module.css";
-
-async function FeaturedChip() {
-  return <HeroChip creator={await loadFeaturedCreator()} />;
-}
 
 /** The phone preview shows the featured creator and their newest piece. */
 async function FeaturedPreview() {
@@ -39,7 +35,7 @@ async function DemoTagCta() {
 export default function ShopPage({ searchParams }: PageProps<"/">) {
   return (
     <Container className={styles.shop}>
-      <Hero chip={<Suspense fallback={<HeroChip creator={null} />}><FeaturedChip /></Suspense>} />
+      <Hero />
       <section id="collection" aria-labelledby="collection-title" className={styles.collection} tabIndex={-1}>
         <Suspense fallback={<CollectionFallback />}>
           <Collection searchParams={searchParams} />

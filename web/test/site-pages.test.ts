@@ -8,7 +8,7 @@ import { ASSETS } from "@/lib/assets";
 import type { ShopProduct } from "@/lib/db/queries.contract";
 import { ProductCard, tilePicture, toneAt } from "@/components/site/ProductCard";
 import { FILTERS, FilterTabs } from "@/components/site/FilterTabs";
-import { Hero, HeroChip } from "@/components/shop/Hero";
+import { Hero } from "@/components/shop/Hero";
 import { HowSteps, PhonePreview } from "@/components/shop/HowSteps";
 import { MakerCard } from "@/components/shop/MeetArtist";
 import { parseFilter } from "@/components/shop/Collection";
@@ -49,17 +49,6 @@ describe("Shop v3 (board 2018:1789)", () => {
     // Text sits on the page, never on the photo: the copy comes before the photo card and has no scrim panel.
     expect(out.indexOf(m.shop.heroCopy)).toBeLessThan(out.indexOf("<img"));
     expect(out).not.toMatch(/heroPanel|scrim/);
-  });
-
-  it("hero chip: the featured creator's page, or how story tags work without one", () => {
-    const withCreator = html(createElement(HeroChip, { creator: { slug: "rosa", displayName: "Rosa M." } }));
-    expect(withCreator).toMatch(/<a[^>]*href="\/c\/rosa"/);
-    expect(withCreator).toContain(m.shop.heroChipTitle);
-    expect(withCreator).toContain(fmt(m.shop.heroChipMeet, { name: "Rosa M." }));
-    expect(withCreator).toMatch(/aria-hidden="true"><svg/);
-    const none = html(createElement(HeroChip, { creator: null }));
-    expect(none).toContain('href="/how-it-works#story-tags"');
-    expect(none).toContain(m.shop.heroChipFallback);
   });
 
   it("product tile (Size=Tile 4006:4357): title link is the name, price on the title row, caption, decorative STORY TAG pill, no voice chip", () => {

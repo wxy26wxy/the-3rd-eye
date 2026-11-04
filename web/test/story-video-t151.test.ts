@@ -225,3 +225,14 @@ describe("pnpm story-video: the replaced video's blob (T160)", () => {
     expect(t.calls.some((c) => c.startsWith("delete ") || c.startsWith("previous "))).toBe(false);
   });
 });
+
+describe("T160 fix round: the previous video is deleted only inside the creator's own folder", () => {
+  it("skips a pathname that does not belong to the creator", async () => {
+    const t = deps();
+    const calls = t.calls;
+    t.d.previousVideo = async () => "creators/other/story-video/x.mp4";
+    t.d.deleteVideo = async (p: string) => { calls.push(`delete ${p}`); };
+    await storyVideo(t.d, { slug: "june-park", file: "v.mp4", dryRun: false });
+    expect(calls.some((c) => c.startsWith("delete "))).toBe(false);
+  });
+});

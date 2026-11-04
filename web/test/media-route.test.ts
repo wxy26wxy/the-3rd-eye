@@ -80,3 +80,11 @@ describe("GET /media cache headers (T143)", () => {
     expect(res.headers.get("cache-control") ?? "").not.toMatch(/max-age/);
   });
 });
+
+describe("T160 fix round: redirect caching by kind", () => {
+  it("the story-video kind is public, so its redirect keeps the 9-minute cache", async () => {
+    const { isPublicKind } = await import("@/lib/media-access");
+    expect(isPublicKind("creators/c1/story-video/v.mp4")).toBe(true);
+    expect(isPublicKind("creators/c1/originals/o.png")).toBe(false);
+  });
+});

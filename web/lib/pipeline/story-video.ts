@@ -151,7 +151,7 @@ export async function storyVideo(deps: StoryVideoDeps, args: StoryVideoArgs): Pr
   const row = await deps.update(creator.id, storyVideoPatch(pathname, captions, args.mentionDisability));
   if (!row) throw new Error(`Could not update creator "${args.slug}"`);
   // T160: the replaced video's blob goes only after the row points at the new one (never the same file).
-  if (previous && previous !== pathname) {
+  if (previous && previous !== pathname && previous.startsWith(`creators/${creator.id}/`)) { // never a pathname outside this creator
     try {
       await deps.deleteVideo(previous);
       deps.log(`removed previous video: ${previous}`);

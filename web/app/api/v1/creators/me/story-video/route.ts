@@ -36,7 +36,8 @@ export const POST = route(async (req) => {
     ...(body.mentionDisability !== undefined ? { mentionDisability: body.mentionDisability } : {}),
   });
   // T160: a replaced video's blob is removed once the row points at the new one (never before, never the same file).
-  if (previous && previous !== pathname) {
+  // Only a pathname under this creator is ever deleted (defence in depth: the row is the only writer).
+  if (previous && previous !== pathname && previous.startsWith(`creators/${creatorId}/`)) {
     await storage().delete(previous).catch((err) => console.warn("[story-video] could not delete the previous video:", err instanceof Error ? err.message : err));
   }
   // Glimmer stage: draft a story from the creator's own words; shown for Use / Edit / Skip, never auto-published.

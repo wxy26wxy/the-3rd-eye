@@ -481,3 +481,10 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Tests: `web/test/artwork-adjust.test.ts` (no SAM with candidateIds + box + clipToBox; positive point calls SAM with points + box; negative only does not), `web/test/subjects-t153.test.ts` (0.5 % dropped, 2 % kept, lone 0.5 % kept); `change-artwork.test.ts` and `detect.test.ts` adjusted to the rule. Gate: `pnpm test` 635 passed, lint, build, `check_clean.sh`.
 - Not done: the ~13 s of full-resolution mask work per cut (downscale `finishMask`'s blur stage) and a "Cutting out..." status on Your cutout. Needs a founder deploy; phone test: tap a piece, about 10-15 s, the picked piece is the cut.
 
+
+## T155 ios · A strip tap is local; the server hears only "Use this" (2026-11-04)
+- Working resolution 2048: `CameraView.use` normalises the camera or library photo to 2048 px on the long side (was 4096), so the crop upload is ≤ 2048.
+- `Candidate.cleanedUrl` (optional). A strip tap selects the piece in `CreateFlow.pickedPieces` with no request; the stage shows `Cut.stageUrl` (the piece's own cut), preloaded through `ImageLoader`; VoiceOver focus stays on the chip and nothing is announced. A missing cut: `GET /artworks/{id}` once after 2 s, then today's pick `cleanup` (no announcement).
+- "Use this" sends the pick `cleanup` only when the selected piece differs from the one the row was cut from (`Cut.pendingPick`), or after marks (web review rule: once the row's cut has marks, `CreateFlow.markedCuts`, a tap on any piece, the same one included, shows its raw cut and forces the pick). Marks go with the selected piece and update the cut-from.
+- Mock: every candidate carries `cleanedUrl` (`img.png?piece=<id>`).
+- Tests: `Tests/LocalPickTests.swift` (12); 229 unit tests green. UI: `CutoutUITests.testStripTapIsLocalAndUseThisSendsThePick` (tap → stage "Piece 2", `cleanup` 0; Use this → 1 with `candidateIds: [cand-2]`); `CutoutUITests` 16/16 green in 322 s on a prepared iPhone 17 Pro simulator, mock on port 4155. Full UI suite not run (PM / reviewer on main).

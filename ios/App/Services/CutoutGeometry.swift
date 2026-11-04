@@ -65,6 +65,14 @@ enum CutoutRequest {
                           points: Array(points.prefix(maxPoints)), box: box, clipToBox: true)
   }
 
+  /// The pick of another drawing (round 3; T155: sent by "Use this" only): the same frame (the
+  /// whole picture since round 4), no marks. Nil without a usable box.
+  static func pick(_ candidate: Candidate, on cut: Cut) -> CleanupRequest? {
+    let box = cut.box ?? cut.imageSize.flatMap { $0.isUsable ? [0, 0, $0.w, $0.h] : nil }
+    guard let box else { return nil }
+    return CleanupRequest(candidateIds: [candidate.id], box: box, clipToBox: true)
+  }
+
   /// "Add the area around your art" (VoiceOver): a positive mark at the centre of the piece the
   /// cut was made from, or of the whole picture when there is none.
   static func accessPoint(piece: Candidate?, image: ImageSize?) -> CutoutPoint? {

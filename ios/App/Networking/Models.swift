@@ -217,6 +217,9 @@ struct Candidate: Codable, Identifiable, Equatable, Hashable {
   var bbox: [Double]
   var score: Double?
   var thumbUrl: String?
+  /// T155: the piece's own cut (public cleaned PNG), built by the server after detection; nil
+  /// until it is ready (and on older servers). A strip tap shows it with no request.
+  var cleanedUrl: String?
 }
 
 /// Pixel size of the stored original: the coordinate space of `bbox`, cleanup `points` and `box`.

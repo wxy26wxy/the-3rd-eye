@@ -88,8 +88,8 @@ struct CameraView: View {
     // T146: Back → a new photo deletes the 422 row and the superseded piece row, as "Take a new photo" does.
     app.flow.dropRowsOnRetake(api: app.api)
     app.flow.discardPhoto()
-    // Up to 4096 px (web parity): the crop of a small frame keeps enough pixels to print.
-    app.flow.photo = ImageTools.normalized(image, maxPixels: 4096)
+    // T155: up to 2048 px, the working resolution (web `CROP_MAX_SIDE`); the print check is on the cleaned PNG after the server x2 upscale.
+    app.flow.photo = ImageTools.normalized(image, maxPixels: 2048)
     app.flow.photoSource = source
     // Round 4: the frame is set on the local photo; nothing is uploaded yet.
     app.replaceTop(with: .adjustArea)

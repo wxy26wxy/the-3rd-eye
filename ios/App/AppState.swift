@@ -394,12 +394,55 @@ final class CreateFlow {
   /// The cut Your cutout shows for `artworkId`: the crop's piece, or a change's cut-out. Round 4:
   /// the box is the whole picture for both (the server only has the crop).
   func cut(for artworkId: String) -> Cut? {
+    var cut: Cut
     if artworkId == photoArtwork?.id {
       guard let piece = pieceArtwork, piece.cleanedUrl != nil else { return nil }
-      return Cut(artwork: piece, candidates: photoCandidates, imageSize: photoImageSize.flatMap { $0.isUsable ? $0 : nil },
-                 selected: pieceCutFrom.map { [$0] } ?? [], box: nil)
+      cut = Cut(artwork: piece, candidates: photoCandidates, imageSize: photoImageSize.flatMap { $0.isUsable ? $0 : nil },
+                selected: pieceCutFrom.map { [$0] } ?? [], box: nil)
+    } else {
+      guard let stored = changeCuts[artworkId] else { return nil }
+      cut = stored
     }
-    return changeCuts[artworkId]
+    cut.cutFrom = cut.selected.first
+    if let picked = pickedPieces[artworkId], cut.candidates.contains(where: { $0.id == picked }) {
+      cut.selected = [picked]
+      // The row's cut has marks: the tapped piece's raw cut is shown, so even the same piece must be
+      // picked again for the saved cut to match it.
+      if markedCuts.contains(artworkId) { cut.cutFrom = nil }
+    }
+    return cut
+  }
+
+  // MARK: Local pick (T155)
+
+  /// The piece tapped on the strip, per artwork id: a local choice, sent by "Use this" (or with the
+  /// marks) only. Absent = the piece the row was cut from.
+  private(set) var pickedPieces: [String: String] = [:]
+  /// Artwork ids whose current cut was made with marks (Apply cutout): a tap on any piece, the same
+  /// one included, shows that piece's raw cut and makes "Use this" send the pick.
+  private(set) var markedCuts: Set<String> = []
+
+  /// A strip tap: selects `pieceId` with no request (the stage shows its own cut).
+  func pickPiece(_ pieceId: String, for artworkId: String) {
+    let cutFrom = artworkId == photoArtwork?.id ? pieceCutFrom : changeCuts[artworkId]?.selected.first
+    pickedPieces[artworkId] = pieceId == cutFrom && !markedCuts.contains(artworkId) ? nil : pieceId
+  }
+
+  /// The tapped piece's cut was not ready: `GET /artworks/{id}` once after `delay` (its candidates
+  /// replace the known ones). Answers today's pick request when the cut is still missing, nil when it
+  /// came (or another piece was tapped meanwhile).
+  func awaitPieceCut(_ pieceId: String, for artworkId: String, api: APIClient,
+                     delay: Duration = .seconds(2)) async -> CleanupRequest? {
+    if delay > .zero { try? await Task.sleep(for: delay) }
+    if let detail = try? await api.artworkDetail(id: artworkId), !detail.candidates.isEmpty {
+      if artworkId == photoArtwork?.id {
+        photoCandidates = detail.candidates
+      } else if changeCuts[artworkId] != nil {
+        changeCuts[artworkId]?.candidates = detail.candidates
+      }
+    }
+    guard let cut = cut(for: artworkId), cut.selected.first == pieceId, cut.pickIsPending else { return nil }
+    return cut.stageUrl == nil ? cut.pendingPick : nil
   }
 
   /// The local photo's size in pixels (the frame's coordinate space on Adjust the area).
@@ -411,6 +454,8 @@ final class CreateFlow {
 
   /// A new cut of `artworkId` (Making your cutout, or Apply cutout): the flow follows it.
   func recordCut(of artworkId: String, _ cut: Artwork, request: CleanupRequest? = nil) {
+    if let ids = request?.candidateIds, !ids.isEmpty { pickedPieces[artworkId] = nil }
+    if request?.points?.isEmpty == false { markedCuts.insert(artworkId) } else { markedCuts.remove(artworkId) }
     if artworkId == photoArtwork?.id {
       if let ids = request?.candidateIds, let first = ids.first { pieceCutFrom = first }
       pieceArtwork = cut
@@ -548,6 +593,8 @@ final class CreateFlow {
     areaError = nil
     pieceArtwork = nil
     pieceCutFrom = nil
+    pickedPieces = [:]
+    markedCuts = []
     cropBox = nil
     resetChange()
   }
@@ -583,6 +630,8 @@ final class CreateFlow {
     pendingJob = nil
     pieceArtwork = nil
     pieceCutFrom = nil
+    pickedPieces = [:]
+    markedCuts = []
     cropBox = nil
     areaBox = nil
     emptyBox = nil
@@ -937,6 +986,28 @@ struct Cut: Equatable {
   var imageSize: ImageSize?
   var selected: [String]
   var box: [Double]?
+  /// T155: the piece the row's cut (`artwork.cleanedUrl`) was made from; `selected` differs from it
+  /// after a strip tap that "Use this" has not sent yet. Set by `CreateFlow.cut(for:)`.
+  var cutFrom: String?
+
+  /// The piece selected on the strip.
+  var selectedPiece: Candidate? { candidates.first { $0.id == selected.first } }
+
+  /// A piece other than the one cut is selected (a local tap, not sent yet).
+  var pickIsPending: Bool {
+    guard let piece = selectedPiece else { return false }
+    return piece.id != cutFrom
+  }
+
+  /// What the stage shows: the row's cut, or the selected piece's own cut after a tap (nil while
+  /// the server is still making it).
+  var stageUrl: String? { pickIsPending ? selectedPiece?.cleanedUrl : artwork.cleanedUrl }
+
+  /// The pick "Use this" sends first (nil when the row is already cut from the selected piece).
+  var pendingPick: CleanupRequest? {
+    guard pickIsPending, let piece = selectedPiece else { return nil }
+    return CutoutRequest.pick(piece, on: self)
+  }
 }
 
 /// The crop uploaded for a frame (pixels of the local photo) and its Blob URL.

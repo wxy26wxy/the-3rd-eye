@@ -15,8 +15,11 @@ import SwiftUI
 /// dot it deletes that mark, anywhere else it adds one.
 ///
 /// Round 3: when the crop (or a change's `cutout`) has several drawings, a strip of them sits under
-/// the picture; picking another sends `cleanup {candidateIds: [it], box, clipToBox: true}`. One
-/// drawing: no strip.
+/// the picture. One drawing: no strip. T155: a tap is local: the piece is selected and the stage
+/// shows its own cut (`Candidate.cleanedUrl`, preloaded through the image cache) with no request; a
+/// piece whose cut is not ready is read again once after 2 s, then picked the old way. "Use this"
+/// sends `cleanup {candidateIds: [it], box, clipToBox: true}` only when the selected piece is not
+/// the one the row was cut from (`Cut.pendingPick`); marks go with the selected piece.
 ///
 /// "Re-do the cutout" on a saved design opens it in My designs (`origin: .designs`, the design
 /// flow): marks on the stored crop, "Use this" goes back to the design, "Take a new photo" starts a
@@ -73,6 +76,8 @@ struct YourCutoutView: View {
   @State private var showingCutout = true
   @State private var originalURL: URL?
   @State private var loadedSize: ImageSize?
+  /// T155: VoiceOver stays on the tapped chip (a tap is local; nothing is announced).
+  @AccessibilityFocusState private var focusedPiece: String?
 
   private var isRedo: Bool { origin == .designs }
   private var flow: CreateFlow { isRedo ? app.designFlow : app.flow }
@@ -89,7 +94,7 @@ struct YourCutoutView: View {
       VStack(spacing: Theme.Space.l) {
         if let cut {
           if showingCutout && hasCut {
-            cutoutImage(cut.artwork)
+            cutoutImage(cut)
             Text("Your cutout is ready. Here it is.")
               .themeFont(.body)
               .foregroundStyle(colors.text)
@@ -138,6 +143,7 @@ struct YourCutoutView: View {
       SlowWorkHint(active: work != nil)
     }
     .task { await loadPictureIfNeeded() }
+    .task(id: pieceCutURLs) { preloadPieceCuts() }
     // A running request is not cancelled when the screen disappears (another tab, for instance):
     // the server saves the cut anyway, so the flow must still receive it. Back is hidden meanwhile.
   }
@@ -171,9 +177,19 @@ struct YourCutoutView: View {
 
   /// Picking another drawing on the strip: the same frame (the whole picture after a change), no marks.
   static func pick(_ candidate: Candidate, on cut: Cut) -> CleanupRequest? {
-    let box = cut.box ?? cut.imageSize.flatMap { $0.isUsable ? [0, 0, $0.w, $0.h] : nil }
-    guard let box else { return nil }
-    return CleanupRequest(candidateIds: [candidate.id], box: box, clipToBox: true)
+    CutoutRequest.pick(candidate, on: cut)
+  }
+
+  /// The strip's own cuts (T155), loaded ahead so a tap shows the piece at once.
+  private var pieceCutURLs: [URL] {
+    guard let cut, Self.showsStrip(cut) else { return [] }
+    return cut.candidates.compactMap { $0.cleanedUrl.flatMap(URL.init(string:)) }
+  }
+
+  private func preloadPieceCuts() {
+    for url in pieceCutURLs where ImageLoader.shared.cachedImage(for: url) == nil {
+      Task { _ = try? await ImageLoader.shared.image(for: url) }
+    }
   }
 
   // MARK: Strip
@@ -203,8 +219,9 @@ struct YourCutoutView: View {
   private func pieceChip(_ candidate: Candidate, index: Int, on: Bool) -> some View {
     let shape = RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous)
     return Button {
-      guard !on, let cut, let request = Self.pick(candidate, on: cut) else { return }
-      start(.pick) { await apply(request, picked: true) }
+      // The picked chip again does nothing, except on a cut with marks: it shows the piece's raw cut.
+      guard !on || (flow.markedCuts.contains(artworkId) && cut?.pickIsPending == false) else { return }
+      pick(candidate)
     } label: {
       VStack(spacing: Theme.Space.xs) {
         RemoteImage(url: candidate.thumbUrl.flatMap(URL.init(string:)), altText: nil)
@@ -229,6 +246,7 @@ struct YourCutoutView: View {
     .accessibilityHint(on ? Text(verbatim: "") : Text("Picks this drawing"))
     .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
     .accessibilityIdentifier("piece-\(index + 1)")
+    .accessibilityFocused($focusedPiece, equals: candidate.id)
   }
 
   // MARK: Tools
@@ -306,11 +324,18 @@ struct YourCutoutView: View {
 
   // MARK: Pictures
 
-  private func cutoutImage(_ artwork: Artwork) -> some View {
-    ZStack {
+  private func cutoutImage(_ cut: Cut) -> some View {
+    let artwork = cut.artwork
+    let index = cut.candidates.firstIndex { $0.id == cut.selected.first }
+    return ZStack {
       Checkerboard()
-      RemoteImage(url: artwork.cleanedUrl.flatMap(URL.init(string:)), altText: nil)
-        .padding(Theme.Space.xl)
+      if let url = cut.stageUrl.flatMap(URL.init(string:)) {
+        RemoteImage(url: url, altText: nil)
+          .padding(Theme.Space.xl)
+      } else {
+        // T155: the tapped piece's cut is still being made (read again after 2 s).
+        ProgressView().tint(colors.text)
+      }
     }
     .aspectRatio(aspect, contentMode: .fit)
     .frame(maxHeight: Theme.photoMaxHeight)
@@ -319,7 +344,9 @@ struct YourCutoutView: View {
     .contentShape(Rectangle())
     .onTapGesture { if work == nil { showingCutout = false } }
     .accessibilityElement(children: .ignore)
-    .accessibilityLabel(Text("Your cutout") + Text(verbatim: ": ") + Text(artwork.altText ?? ""))
+    .accessibilityLabel(cut.pickIsPending ? Text("Your cutout")
+                        : Text("Your cutout") + Text(verbatim: ": ") + Text(artwork.altText ?? ""))
+    .accessibilityValue(Self.showsStrip(cut) && index != nil ? Text("Piece \((index ?? 0) + 1)") : Text(verbatim: ""))
     .accessibilityAddTraits(.isImage)
     .accessibilityIdentifier("cutout-applied")
     .frame(maxWidth: .infinity)
@@ -456,6 +483,29 @@ struct YourCutoutView: View {
     notice = nil
   }
 
+  // MARK: Strip pick (T155)
+
+  /// A strip tap: the piece is selected and its own cut is on the stage, with no request. The marks
+  /// were on the old piece and go. A cut not ready yet is read again once, then picked the old way.
+  private func pick(_ candidate: Candidate) {
+    guard work == nil else { return }
+    flow.pickPiece(candidate.id, for: artworkId)
+    focusedPiece = candidate.id
+    points = []
+    appliedPoints = []
+    notice = nil
+    error = nil
+    showingCutout = true
+    guard let cut, cut.pickIsPending, cut.stageUrl == nil else { return }
+    let flow = flow
+    let api = app.api
+    let artworkId = artworkId
+    start(.pick) {
+      guard let request = await flow.awaitPieceCut(candidate.id, for: artworkId, api: api) else { return }
+      await apply(request, picked: true, announces: false)
+    }
+  }
+
   // MARK: Requests
 
   /// Runs one request at a time. It keeps running if the screen goes away (see `body`).
@@ -497,7 +547,9 @@ struct YourCutoutView: View {
 
   /// Sends `request` (the marks, or another drawing picked on the strip, which drops the marks and,
   /// on the photo, the changes made from the old piece).
-  private func apply(_ request: CleanupRequest, picked: Bool) async {
+  /// The "Your cutout is ready" announcement is made after Apply cutout and Use this only (T155:
+  /// not for a strip tap, even when its cut had to be asked for).
+  private func apply(_ request: CleanupRequest, picked: Bool, announces: Bool = true) async {
     let flow = flow
     let sent = picked ? [] : points
     do {
@@ -505,8 +557,9 @@ struct YourCutoutView: View {
       var cut = result.artwork
       if cut.altText?.isEmpty ?? true { cut.altText = flow.cut(for: artworkId)?.artwork.altText }
       if cut.spokenDescription?.isEmpty ?? true { cut.spokenDescription = flow.cut(for: artworkId)?.artwork.spokenDescription }
-      if picked, isPhoto { flow.resetChange() }
-      flow.recordCut(of: artworkId, cut, request: picked ? request : nil)
+      // Another piece (a pick, or marks on a newly selected piece) drops the changes of the old one.
+      if isPhoto, let id = request.candidateIds?.first, id != flow.pieceCutFrom { flow.resetChange() }
+      flow.recordCut(of: artworkId, cut, request: request)
       // Ruling 2 (T143): the products rebuilt from the new cut come with the answer.
       flow.applyRebuilt(result.products, for: cut)
       if flow.artwork?.id == artworkId { flow.artwork = cut }
@@ -519,17 +572,21 @@ struct YourCutoutView: View {
       appliedPoints = sent
       showingCutout = true
       notice = result.productNotice
-      UIAccessibility.post(notification: .announcement, argument: String(localized: "Your cutout is ready. Here it is."))
+      if announces { UIAccessibility.post(notification: .announcement, argument: String(localized: "Your cutout is ready. Here it is.")) }
     } catch {
       if let message = CleanupResult.errorMessage(for: error, request: request) { self.error = message }
     }
   }
 
-  /// "Use this": marks not applied yet are applied first; then on (only while this screen is on
-  /// top). A saved design goes back to its detail, which shows the new cut.
+  /// "Use this": marks not applied yet are applied first (with the selected piece); else, when the
+  /// selected piece is not the one the row was cut from, the pick is sent (T155); then on (only
+  /// while this screen is on top). A saved design goes back to its detail, which shows the new cut.
   private func useThis() async {
     if points != appliedPoints, currentRequest != nil {
       await apply()
+      guard error == nil else { return }
+    } else if let pick = cut?.pendingPick {
+      await apply(pick, picked: true)
       guard error == nil else { return }
     }
     if isRedo {

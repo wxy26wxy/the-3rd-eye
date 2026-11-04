@@ -31,7 +31,9 @@ describe("Muse Image edit (T111)", () => {
     expect(body.input[0].role).toBe("user");
     expect(body.input[0].content.map((c) => c.type)).toEqual(["input_text", "input_image"]);
     expect(body.input[0].content[0].text).toBe(`Make the circle blue.\n${KEEP_GUARD}`);
-    expect(body.input[0].content[1].image_url?.startsWith("data:image/png;base64,")).toBe(true);
+    // T150: an opaque picture is inlined as a capped JPEG and the response is not stored.
+    expect(body.input[0].content[1].image_url?.startsWith("data:image/jpeg;base64,")).toBe(true);
+    expect((body as { store?: boolean }).store).toBe(false);
     expect(body.tools).toEqual([{ type: "image_generation", output_format: "png", size: "1024x1024" }]);
     // The recorded request had the same content order and guard.
     expect(fx.request.input[0].content.map((c) => c.type)).toEqual(["input_text", "input_image"]);

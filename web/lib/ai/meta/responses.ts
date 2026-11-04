@@ -1,8 +1,10 @@
 /**
  * Helpers for Responses API payloads: strict JSON schemas, output extraction,
- * function calls, image results, image inputs. Pure functions (no network).
+ * function calls, image results, image inputs. No network (`inlineImage` re-encodes with sharp).
  */
 import type { ImageRef } from "../types";
+import { fitImage, MAX_INLINE_BYTES, type InlinePreset } from "@/lib/image/inline";
+import { loadImageRef } from "@/lib/image/ref";
 
 export type JsonSchema = Record<string, unknown>;
 
@@ -74,8 +76,26 @@ export function imageUrlOf(ref: ImageRef): string {
   throw new Error("ImageRef needs url or base64");
 }
 
+/** An input_image part as is: for remote URLs, which the API fetches itself. Bytes go through `inlineImage`. */
 export function inputImage(ref: ImageRef) {
   return { type: "input_image", image_url: imageUrlOf(ref), detail: "auto" };
+}
+
+/**
+ * An input_image part with a bounded inlined payload (T150): base64 and data-URL refs are re-encoded
+ * by `fitImage` with `preset` (lib/image/inline.ts); remote URLs pass through unchanged.
+ */
+export async function inlineImage(ref: ImageRef, preset: InlinePreset) {
+  if (!ref.base64 && !ref.url?.startsWith("data:")) return inputImage(ref);
+  const bytes = await loadImageRef(ref);
+  const fitted = await fitImage(bytes, preset).catch((err: unknown) => {
+    // Bytes sharp cannot decode go as they are (the API answers for them) unless they are too large to inline.
+    if (bytes.length * 4 / 3 > MAX_INLINE_BYTES) throw err;
+    return null;
+  });
+  if (!fitted) return inputImage(ref);
+  if (!process.env.VITEST) console.debug(`[inline] ${fitted.mime} ${fitted.width}x${fitted.height} ${fitted.base64Bytes} bytes`);
+  return { type: "input_image", image_url: `data:${fitted.mime};base64,${fitted.data.toString("base64")}`, detail: "auto" };
 }
 
 export function userMessage(content: unknown[]) {

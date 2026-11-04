@@ -6,7 +6,8 @@ import "server-only";
 import type { Describer, Description, ImageRef, Trace } from "../types";
 import { traced } from "../trace";
 import { MODELS, metaResponses, type ResponsesLike } from "./client";
-import { arr, inputImage, obj, parseJsonOutput, str, strictFormat, userMessage } from "./responses";
+import { VISION_INLINE } from "@/lib/image/inline";
+import { arr, inlineImage, obj, parseJsonOutput, str, strictFormat, userMessage } from "./responses";
 
 export const DESCRIPTION_SCHEMA = obj({
   alt_text: str("Alt text, at most 125 characters, no 'image of'"),
@@ -32,8 +33,10 @@ export class MetaDescriber implements Describer {
       instructions: INSTRUCTIONS,
       input: [userMessage([
         { type: "input_text", text: opts.prompt ? `The prompt was: "${opts.prompt}"` : "No prompt: this is a photo of a drawing." },
-        inputImage(image),
+        await inlineImage(image, VISION_INLINE),
       ])],
+      // T150: the inlined picture is not stored (a 413 on large payloads with store=true); describe needs no follow-up.
+      store: false,
       reasoning: { effort: "low" },
       text: strictFormat("description", DESCRIPTION_SCHEMA),
     };

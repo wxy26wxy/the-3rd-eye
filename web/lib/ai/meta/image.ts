@@ -1,6 +1,7 @@
 /**
  * Muse Image 1.0 via the Responses API. generate() runs n calls in parallel;
- * refine() continues with previous_response_id; compose() sends several input_image parts;
+ * refine() continues with previous_response_id (its parent generate() keeps the default store);
+ * compose() sends several input_image parts; edit() and compose() inline capped pictures with store:false (T150);
  * edit() sends one input_image (the picked piece) with the change instruction (T111, "Change it").
  * The PNG is the base64 `result` of the `image_generation_call` output item.
  * verified: 2026-10-28 — the `image_generation` tool entry (output_format png) is accepted;
@@ -11,7 +12,8 @@ import sharp from "sharp";
 import type { GeneratedImage, ImageProvider, ImageRef, Trace } from "../types";
 import { traced } from "../trace";
 import { MODELS, metaResponses, type ResponsesLike } from "./client";
-import { imageResults, inputImage, responseId, userMessage } from "./responses";
+import { IMAGE_INLINE } from "@/lib/image/inline";
+import { imageResults, inlineImage, responseId, userMessage } from "./responses";
 import { KEEP_GUARD } from "../guard";
 
 export const IMAGE_TOOL = { type: "image_generation", output_format: "png", size: "1024x1024" } as const;
@@ -26,12 +28,17 @@ export async function toGeneratedImage(resp: unknown): Promise<GeneratedImage> {
 
 export { KEEP_GUARD };
 
-/** The edit request body: instruction (with the guard) and the picture as one user message. */
-export function editBody(image: ImageRef, instruction: string) {
+/**
+ * The edit request body: instruction (with the guard) and the picture as one user message. The picture is
+ * capped (IMAGE_INLINE) and the response not stored (T150): "Change it again" edits the stored picture,
+ * it never continues with previous_response_id.
+ */
+export async function editBody(image: ImageRef, instruction: string) {
   return {
     model: MODELS.image,
-    input: [userMessage([{ type: "input_text", text: `${instruction.trim()}\n${KEEP_GUARD}` }, inputImage(image)])],
+    input: [userMessage([{ type: "input_text", text: `${instruction.trim()}\n${KEEP_GUARD}` }, await inlineImage(image, IMAGE_INLINE)])],
     tools: [IMAGE_TOOL],
+    store: false,
   };
 }
 
@@ -58,16 +65,18 @@ export class MetaImageProvider implements ImageProvider {
     return this.call("refine", body, opts.trace);
   }
 
-  compose(prompt: string, refs: ImageRef[], opts: { trace: Trace }): Promise<GeneratedImage> {
+  async compose(prompt: string, refs: ImageRef[], opts: { trace: Trace }): Promise<GeneratedImage> {
+    const images = await Promise.all(refs.map((r) => inlineImage(r, IMAGE_INLINE)));
     const body = {
       model: MODELS.image,
-      input: [userMessage([{ type: "input_text", text: prompt }, ...refs.map(inputImage)])],
+      input: [userMessage([{ type: "input_text", text: prompt }, ...images])],
       tools: [IMAGE_TOOL],
+      store: false, // T150: inlined pictures; mockups are never continued
     };
     return this.call("mockup", body, opts.trace);
   }
 
-  edit(image: ImageRef, instruction: string, opts: { trace: Trace }): Promise<GeneratedImage> {
-    return this.call("edit", editBody(image, instruction), opts.trace);
+  async edit(image: ImageRef, instruction: string, opts: { trace: Trace }): Promise<GeneratedImage> {
+    return this.call("edit", await editBody(image, instruction), opts.trace);
   }
 }

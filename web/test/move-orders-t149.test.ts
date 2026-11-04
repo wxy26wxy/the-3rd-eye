@@ -117,7 +117,7 @@ describe("pnpm move-orders: runs", () => {
   it("moves every non-deleted order of the source and prints the ids and the target title", async () => {
     const { d, lines } = deps(plan());
     expect(await moveOrders(d, args())).toEqual({ ok: true, dryRun: false, planned: [O1, O2], moved: [O1, O2] });
-    expect(d.move).toHaveBeenCalledWith(FROM, TO, undefined, { allowTypeChange: false });
+    expect(d.move).toHaveBeenCalledWith(FROM, TO, [O1, O2], { allowTypeChange: false });
     const out = lines.join("\n");
     expect(out).toContain(`moved 2 order(s) to "Grumpy Ivy Pot Tote by June"`);
     expect(out).toContain(O1);
@@ -152,7 +152,13 @@ describe("pnpm move-orders: runs", () => {
 
   it("reports planned orders the guarded update did not move", async () => {
     const { d } = deps(plan(), [O1]);
-    expect(await moveOrders(d, args())).toEqual({ ok: false, reason: expect.stringMatching(new RegExp(`1 planned order\\(s\\) did not move.*${O2}`)) });
+    expect(await moveOrders(d, args())).toEqual({ ok: false, reason: expect.stringMatching(new RegExp(`moved 1 of 2 planned.*not moved: ${O2}`)) });
+  });
+
+  it("warns (does not refuse) when the source product is soft-deleted", async () => {
+    const { d, lines } = deps(plan({ from: product({ id: FROM, status: "archived", deleted: true }) }));
+    expect(await moveOrders(d, args())).toMatchObject({ ok: true, moved: [O1, O2] });
+    expect(lines.join("\n")).toMatch(/warning: the source product is soft-deleted/);
   });
 
   it("refuses a tote → sticker move unless --allow-type-change, which then warns and passes the flag on", async () => {
@@ -163,7 +169,7 @@ describe("pnpm move-orders: runs", () => {
     const allowed = deps(mismatched);
     expect(await moveOrders(allowed.d, args({ allowTypeChange: true }))).toMatchObject({ ok: true, moved: [O1, O2] });
     expect(allowed.lines.join("\n")).toMatch(/warning: --allow-type-change: the source is a tote and the target a sticker/);
-    expect(allowed.d.move).toHaveBeenCalledWith(FROM, TO, undefined, { allowTypeChange: true });
+    expect(allowed.d.move).toHaveBeenCalledWith(FROM, TO, [O1, O2], { allowTypeChange: true });
   });
 
   it("June's case: the two tote orders go to the new tote, the sticker order to the new sticker", async () => {
@@ -184,14 +190,15 @@ describe("pnpm move-orders: runs", () => {
 describe("moveOrdersToProduct (SQL)", () => {
   const updates = () => calls.filter((c) => c.sql.startsWith("update"));
 
-  it("is one UPDATE that sets product_id only, with the guards in the statement", async () => {
+  it("is one UPDATE that sets product_id and bumps statusUpdatedAt, with the guards in the statement", async () => {
     respond = (c) => (c.sql.startsWith("update") ? { rows: [[O1], [O2]] } : { rows: [] });
     expect(await moveOrdersToProduct(FROM, TO)).toEqual([O1, O2]);
     expect(calls).toHaveLength(1);
     const [u] = updates();
     const setClause = u.sql.slice(u.sql.indexOf(" set ") + 5, u.sql.indexOf(" where "));
-    expect(setClause).toBe(`"product_id" = $1`);
+    expect(setClause).toBe(`"product_id" = $1, "status_updated_at" = $2`);
     expect(u.params[0]).toBe(TO);
+    expect(u.params[1]).toEqual(expect.any(String)); // the bump, serialised by the driver
     const where = u.sql.slice(u.sql.indexOf(" where "));
     expect(where).toMatch(/"product_id" = \$\d/);
     expect(where).toMatch(/"deleted_at" is null/);
@@ -200,8 +207,8 @@ describe("moveOrdersToProduct (SQL)", () => {
     expect(where).toMatch(/src\.status in \('archived', 'published'\) and src\.type = dst\.type\)/);
     expect(where).not.toMatch(/"id" in/);
     expect(u.sql).toMatch(/returning "id"$/);
-    expect(u.params).toEqual([TO, FROM, FROM, TO]);
-    for (const col of ["amount_cents", "creator_share_cents", "org_share_cents", "status_updated_at", "buyer_name", "\"status\" ="]) expect(setClause).not.toContain(col);
+    expect(u.params.slice(2)).toEqual([FROM, FROM, TO]);
+    for (const col of ["amount_cents", "creator_share_cents", "org_share_cents", "buyer_name", "\"status\" ="]) expect(setClause).not.toContain(col);
   });
 
   it("allowTypeChange drops only the type check", async () => {
@@ -214,8 +221,8 @@ describe("moveOrdersToProduct (SQL)", () => {
   it("--order narrows the UPDATE to those ids; an empty subset issues no statement", async () => {
     await moveOrdersToProduct(FROM, TO, [O2]);
     const [u] = updates();
-    expect(u.sql).toMatch(/"orders"\."id" in \(\$5\)|"id" in \(\$5\)/);
-    expect(u.params[4]).toBe(O2);
+    expect(u.sql).toMatch(/"orders"\."id" in \(\$6\)/);
+    expect(u.params[5]).toBe(O2);
     calls.length = 0;
     expect(await moveOrdersToProduct(FROM, TO, [])).toEqual([]);
     expect(calls).toHaveLength(0);

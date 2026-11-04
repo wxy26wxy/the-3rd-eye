@@ -1,6 +1,6 @@
 /**
  * Re-points a creator's orders from an archived product to its replacement (T149, round 6); see
- * lib/pipeline/move-orders.ts. Changes `orders.product_id` only. Prints the product ids and titles and
+ * lib/pipeline/move-orders.ts. Changes `orders.product_id` (+ a `statusUpdatedAt` bump). Prints the product ids and titles and
  * the order ids (a dry run adds buyer initials, status and date); never env values, codes or emails.
  *   pnpm move-orders <from-product-id> <to-product-id> [--order <order-id>]... [--allow-type-change]
  *   pnpm move-orders … --dry-run   # reads and lists only; writes nothing

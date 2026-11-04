@@ -1,8 +1,8 @@
 /**
  * Re-points a creator's orders from an archived (or still published) product to its replacement (T149,
  * round 6): June Park's orders on her archived seeded tote and sticker must show the new tote and sticker
- * in the iOS Orders inbox, the admin orders table and the story-tag page without deleting history. Only
- * `orders.product_id` changes (see `moveOrdersToProduct`); sticker orders go to a sticker and tote orders
+ * in the iOS Orders inbox, the admin orders table and the story-tag page without deleting history.
+ * `orders.product_id` changes, plus a `statusUpdatedAt` bump (see `moveOrdersToProduct`); sticker orders go to a sticker and tote orders
  * to a tote unless `--allow-type-change`. Used by `scripts/move_orders.ts` (`pnpm move-orders`); the
  * database calls are injected so the logic is testable without one. `--dry-run` reads and lists only;
  * buyer names are shown as initials, emails never.
@@ -95,6 +95,7 @@ export async function moveOrders(deps: MoveOrdersDeps, args: MoveOrdersArgs): Pr
   const planned = plan.orders.map((o) => o.id);
   deps.log(`from ${from.id} ${label(from)}`);
   deps.log(`to   ${to.id} ${label(to)}`);
+  if (from.deleted) deps.log("warning: the source product is soft-deleted; its orders still move");
   if (from.type !== to.type) deps.log(`warning: --allow-type-change: the source is a ${from.type} and the target a ${to.type}; sizes on the orders stay as they are`);
   if (!planned.length) {
     deps.log("no non-deleted orders on the source product; nothing to move");
@@ -106,10 +107,13 @@ export async function moveOrders(deps: MoveOrdersDeps, args: MoveOrdersArgs): Pr
     deps.log("nothing written");
     return { ok: true, dryRun: true, planned, moved: [] };
   }
-  const moved = await deps.move(args.fromProductId, args.toProductId, args.orderIds, { allowTypeChange: args.allowTypeChange });
+  // Bounded to the orders just listed, so an order placed after the check is not moved unseen.
+  const moved = await deps.move(args.fromProductId, args.toProductId, args.orderIds ?? planned, { allowTypeChange: args.allowTypeChange });
   deps.log(`moved ${moved.length} order(s) to "${to.title ?? "(no listing title)"}":`);
   for (const id of moved) deps.log(`  ${id}`);
-  const left = planned.filter((id) => !moved.includes(id));
-  if (left.length) return { ok: false, reason: `${left.length} planned order(s) did not move (a product or order changed since the check): ${left.join(", ")}` };
+  if (moved.length !== planned.length) {
+    const left = planned.filter((id) => !moved.includes(id));
+    return { ok: false, reason: `moved ${moved.length} of ${planned.length} planned order(s) (a product or order changed since the check); not moved: ${left.join(", ") || "none"}` };
+  }
   return { ok: true, dryRun: false, planned, moved };
 }

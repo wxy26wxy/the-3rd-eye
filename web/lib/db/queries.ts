@@ -540,8 +540,9 @@ export async function getMoveOrdersPlan(fromProductId: string, toProductId: stri
 
 /**
  * Re-points orders from one product to another of the same creator (T149, `pnpm move-orders`): one
- * UPDATE that sets `product_id` and nothing else (amounts, shares, status, statusUpdatedAt, buyer, story
- * tag, thank-you and messages hang off the order id and stay). The guards live in the statement, so a
+ * UPDATE that sets `product_id` and bumps `statusUpdatedAt` (so `GET /orders?since=` pollers, the iOS
+ * inbox, pick the move up, as `touchOrder` does for thank-yous and messages); amounts, shares, status,
+ * buyer, story tag, thank-you and messages hang off the order id and stay. The guards live in the statement, so a
  * product changed since the plan was read moves nothing: the target is published and not deleted, the
  * source is archived or published, both products and the order belong to the same creator, both products
  * are the same type (sticker → sticker, tote → tote) unless `allowTypeChange`, and only non-deleted
@@ -564,7 +565,7 @@ export async function moveOrdersToProduct(
         and src.status in ('archived', 'published')${sameType})`,
   ];
   if (orderIds) conds.push(inArray(orders.id, orderIds));
-  const rows = await db().update(orders).set({ productId: toProductId }).where(and(...conds)).returning({ id: orders.id });
+  const rows = await db().update(orders).set({ productId: toProductId, statusUpdatedAt: new Date() }).where(and(...conds)).returning({ id: orders.id });
   return rows.map((r) => r.id);
 }
 

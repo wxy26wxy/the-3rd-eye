@@ -1,4 +1,4 @@
-# The 3rd Eye — context for every agent and session (state at main f088595: v0.9.1 + rounds 5–7 + hotfixes T150–T153, 2026-11-03 night)
+# The 3rd Eye — context for every agent and session (state at the submission, 2026-11-04: rounds 5–7, hotfixes T150–T155, the story-video player)
 
 Read this before any task. It is the shared memory across lanes and sessions; the plan of the current round lives with the PM, the history in `docs/plan.md`, `docs/decisions.md`, `docs/progress.md` and `docs/reviews/`.
 

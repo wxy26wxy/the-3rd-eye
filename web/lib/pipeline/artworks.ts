@@ -256,7 +256,7 @@ async function storeCandidates(creatorId: string, png: Buffer, imageSize: ImageS
   }));
 }
 
-const MIN_PIECE_COVERAGE = 0.01;
+const MIN_PIECE_COVERAGE = 0.02;
 
 /**
  * SAM inside the clamped frame `b` of `png` (W × H): the crop is searched (both phrases, or `phrases`),
@@ -285,7 +285,7 @@ export async function segmentInBox(png: Buffer, size: ImageSize, b: BBox, trace:
     const mask = placeMask(s.mask, size.w, size.h, x0, y0);
     return { ...s, mask, bbox: [s.bbox[0] + x0, s.bbox[1] + y0, s.bbox[2] + x0, s.bbox[3] + y0] };
   }).filter((s) => area(s.mask) > 0);
-  // T154: fragments under 1 % of the crop (bits of pencils) only clutter the strip, unless nothing else was found.
+  // T154: fragments under 2 % of the crop (bits of pencils) only clutter the strip, unless nothing else was found.
   const big = placed.filter((s) => area(s.mask) >= frameArea * MIN_PIECE_COVERAGE);
   return (big.length ? big : placed).sort((p, q) => {
     // T153: a mask filling the crop (the whole drawing) goes last, so the auto-cut is the largest subject.

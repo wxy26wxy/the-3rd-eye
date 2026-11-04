@@ -9,7 +9,7 @@
 import type { Box, ImageSize } from "./cutout";
 
 /** The crop's longest side is capped at this many pixels (as the photo upload was before). */
-export const CROP_MAX_SIDE = 4096;
+export const CROP_MAX_SIDE = 2048;
 /** JPEG quality of the uploaded crop. */
 export const CROP_QUALITY = 0.92;
 

@@ -4,6 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { fmt, m } from "@/components/messages";
 import { YourCutoutView, type YourCutoutViewProps } from "@/components/create/screens/YourCutoutView";
+import { pickPiece, pickToSend, type FlowDeps } from "@/components/create/flow";
+import type { CutoutState, Draft } from "@/components/create/store";
 import { retryOf } from "@/components/create/screens/YourCutout";
 import { revealError } from "@/components/create/errors";
 import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
@@ -66,6 +68,43 @@ function cutoutProps(): YourCutoutViewProps {
 }
 /** Fix the edges open: the picture, no saved cut on screen. */
 const fixing = (over: Partial<YourCutoutViewProps> = {}) => cutoutView({ cut: null, lead: m.create.cutout.adjustCopy, photo: createElement("div", null, "PHOTO"), ...over });
+
+describe("T155: the strip on Your cutout (view props wired as the screen does)", () => {
+  it("a press on piece 2 makes no request and shows its cut; Use this then sends one pick with candidateIds [c2]", async () => {
+    const calls: string[] = [];
+    const deps = {
+      api: (async (path: string, init?: { json?: unknown }) => { calls.push(`${path} ${JSON.stringify(init?.json ?? null)}`); return {}; }) as unknown as FlowDeps["api"],
+      getDraft: () => ({}) as Draft, update: () => {}, router: { push: noop, replace: noop },
+    };
+    const cands = [
+      { id: "c1", bbox: [0, 0, 10, 10] as [number, number, number, number], score: 1, thumbUrl: "/t1.png", cleanedUrl: "/c1-cut.png" },
+      { id: "c2", bbox: [10, 10, 20, 20] as [number, number, number, number], score: 1, thumbUrl: "/t2.png", cleanedUrl: "/c2-cut.png" },
+    ];
+    let cut: CutoutState = { artworkId: "p1", candidates: cands, imageSize: { w: 100, h: 100 }, selectedIds: ["c1"], cleanedUrl: "/c1-cut.png", altText: "A fern", box: [0, 0, 100, 100], points: [], cutFrom: "c1" };
+    const props = () => ({
+      ...cutoutProps(), cut: { src: cut.cleanedUrl as string, alt: "x" },
+      pieces: cut.candidates.map((x) => ({ id: x.id, thumbUrl: x.thumbUrl })), picked: cut.selectedIds[0],
+      on: { ...cutOn, pick: (id: string) => { void pickPiece(deps, cut, id).then((o) => { cut = o.cut; }); } },
+    });
+    const press = YourCutoutView({ ...props() });
+    const buttons: ReactElement<Record<string, unknown>>[] = [];
+    const walk = (n: ReactNode) => {
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      if (!isValidElement(n)) return;
+      const pr = n.props as Record<string, unknown>;
+      if (n.type === "button" && "aria-pressed" in pr) buttons.push(n as ReactElement<Record<string, unknown>>);
+      walk(pr.children as ReactNode);
+    };
+    walk(press);
+    (buttons[1].props.onClick as () => void)();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls).toEqual([]);
+    expect(html(createElement(YourCutoutView, props()))).toContain('src="/c2-cut.png"');
+    expect(pickToSend({ selectedIds: ["c1"], cutFrom: "c1" }, cut.box)).toBeNull();
+    const req = pickToSend(cut, cut.box);
+    expect(req).toEqual({ candidateIds: ["c2"], box: [0, 0, 100, 100], clipToBox: true });
+  });
+});
 
 describe("Your cutout view (T130: the cut, then Fix the edges with Add area / Remove area)", () => {
   it("the cut-out on the checkerboard, the status line, Fix the edges, then Use this / Start over; no tools or Apply yet", () => {

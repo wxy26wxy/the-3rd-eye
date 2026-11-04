@@ -49,6 +49,8 @@ export type CutoutState = {
   box: Box | null;
   /** The Add area / Remove area marks the saved cut was made with (none for the first cut). */
   points: CutoutPoint[];
+  /** The piece the row's own cut was made from (T155); "Use this" sends a pick only when `selectedIds[0]` differs. */
+  cutFrom?: string;
 };
 
 export type Draft = {

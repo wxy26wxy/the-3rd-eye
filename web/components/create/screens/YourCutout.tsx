@@ -12,7 +12,7 @@ import {
 } from "../cutout";
 import { describeError, type ScreenError } from "../errors";
 import {
-  applyMarks, areaNotFound, cutIsChange, cutoutNewPhoto, cutoutVisit, makingCutoutBack, photoGone, PhotoGoneError, pickRequest, runAreaCut,
+  applyMarks, areaNotFound, pickToSend, cutIsChange, cutoutNewPhoto, cutoutVisit, makingCutoutBack, photoGone, PhotoGoneError, pickPiece, runAreaCut,
   showsPieces, takeCutout, yourCutoutBack, type CropUpload,
 } from "../flow";
 import { cutoutOf, getCreator, getDraft, once, resetDraft, updateDraft, useCreate, useCreator, type CutoutState, type Draft } from "../store";
@@ -137,6 +137,9 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
     if (focusTarget?.to === "tools") (toolsRef.current?.querySelector<HTMLInputElement>("input:checked") ?? document.querySelector<HTMLElement>("main button, main a"))?.focus();
   }, [focusTarget]);
 
+  // The strip's cuts are fetched ahead so a tap shows at once.
+  useEffect(() => { for (const x of cutout.candidates) if (x.cleanedUrl) new Image().src = x.cleanedUrl; }, [cutout.candidates]);
+
   const imageSize = detail.state === "ok" && detail.imageSize ? detail.imageSize : usableSize(cutout.imageSize) ? cutout.imageSize : null;
   const originalUrl = detail.state === "ok" ? detail.originalUrl : null;
   // The whole working picture (round 4: the piece's picture is the crop of the frame).
@@ -171,9 +174,9 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
   function onTap(p: XY) { addMark({ x: Math.round(p.x), y: Math.round(p.y), label: mode === "remove" ? "negative" : "positive" }); }
 
   /** Saves the marked cut on the server; null when the call failed (the error is shown). */
-  async function save(kind: Work): Promise<CutoutState | null> {
-    if (!request) return null;
-    const sent = request;
+  async function save(kind: Work, req?: CleanupRequest): Promise<CutoutState | null> {
+    const sent = req ?? request;
+    if (!sent) return null;
     try {
       const out = await applyMarks(flowDeps, cutout, sent);
       if (!live.current) return null;
@@ -202,21 +205,23 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
     if (cut) { setShowCut(true); focusOn("result"); }
   }
 
-  /** The candidate strip: another piece, cut with the frame (`cleanup {candidateIds:[id], box, clipToBox}`); marks start over. */
+  /** The candidate strip (T155): a tap is local (the piece's own cut, no request); only a missing cut waits and asks. */
   async function pick(id: string) {
     if (!box || inFlight.current || cutout.selectedIds[0] === id) return;
     inFlight.current = true;
     failedPick.current = null;
-    setWork("pick");
+    const waiting = !cutout.candidates.find((x) => x.id === id)?.cleanedUrl;
+    if (waiting) setWork("pick");
     setError(null);
     setNotice(null);
     try {
-      const out = await applyMarks(flowDeps, { ...cutout, selectedIds: [id] }, pickRequest(id, box));
+      const out = await pickPiece(flowDeps, cutout, id);
       if (!live.current) return;
       setPoints([]);
       tell(out.notice);
       setShowCut(true);
-      focusOn("result");
+      // A local tap keeps focus on the pressed piece; a server re-cut moves it to the result.
+      if (waiting) focusOn("result");
     } catch (err) {
       if (!live.current) return;
       setError(describeError(err));
@@ -233,14 +238,16 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
   /** "Use this": the saved cut goes on (no second call); marks that were not applied yet are saved first. */
   async function goOn() {
     if (inFlight.current) return;
-    if (saved) {
+    const pickReq = saved ? pickToSend(cutout, box) : null;
+    if (saved && !pickReq) {
       if (cutout.cleanedUrl) takeCutout({ router, update: updateDraft, getDraft }, artworkId);
       return;
     }
     inFlight.current = true;
     setWork("use");
     setError(null);
-    const cut = await save("use");
+    // The piece tapped on the strip is sent now (a pure pick); marks not applied yet carry it themselves.
+    const cut = await save("use", pickReq ?? undefined);
     inFlight.current = false;
     if (!live.current) return;
     setWork(null);

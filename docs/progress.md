@@ -461,3 +461,10 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Tests: `test/story-video-t151.test.ts` (12: arguments, ffprobe parsing and every refusal, the WAV arguments, the public `story-video` kind, the cues, the run with the pipeline mocked, the update fields, the flag-only `mentionDisability`, no old captions on failure or silence, draft failure warning, dry run writes nothing, bad file or unknown slug stops before any write).
 - Not done here: the real run (founder; this session does not write to the shared database or storage).
 
+
+## T153 backend · Several drawings in one frame came back as one candidate (2026-11-03)
+- Verified cause: SAM "drawing" answered one mask covering the whole crop (the sheet with all the drawings) and "handmade object" answered nothing. Before round 3 `MAX_FRAME_COVERAGE` dropped that mask, SAM had nothing, and the threshold fallback separated the drawings. Since round 3 the frame path (`segmentInBox`) passes `maxCoverage: 1, dropContainers: false`, so the frame-filling mask is kept and the fallback never ran.
+- Rule (`web/lib/ai/meta/sam.ts`): `preferFallbackOverFill(found, fallbackSegs, opts)`. When every kept segment covers more than 0.95 of the frame (mask area), `findCandidates` runs the fallback and uses it if it gives at least 2 segments each at most 0.95 (largest first, capped at `max`, `droppedContainer: true`); otherwise SAM's result stays. `segmentInBox`, the routes, the clients and the mock are unchanged.
+- Tests: `web/test/sam-fill-t153.test.ts` (7: helper with 3 pieces, cap and order, 1 or 0 or frame-filling fallback pieces keep SAM, real pieces untouched; `findCandidates` with stubbed SAM and fallback: whole sheet plus 3 pieces gives 3, plus 1 piece keeps the mask, two real pieces never call the fallback). The T148 phrases path is covered by the unchanged `replace-art-t148.test.ts`.
+- Gate: `pnpm test` 615 passed, `pnpm lint`, `pnpm build`, `scripts/check_clean.sh` ok.
+- Not done here: the live check (a photo of a sheet with three drawings shows "We found 3 drawings in the frame") and the production deploy (founder).

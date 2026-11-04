@@ -198,6 +198,9 @@ const AUTO_SELECT_MAX_COVERAGE = 0.5;
 /** Longest side of the image candidate thumbnails are cut from (thumbs are 320 px). */
 const THUMB_SOURCE_SIDE = 1024;
 
+/** Wait before the one retry of the public-upload delete (T160). */
+const DELETE_RETRY_MS = 250;
+
 /**
  * Photo or canvas upload → original stored privately, SAM finds every drawing or object as a candidate.
  * With `detect: false` (T134, round 3) only the original is stored (`candidates: []`, no SAM call, never
@@ -219,7 +222,11 @@ export async function createFromImage(
   // The private copy (EXIF dropped by the re-encode) is the original from now on; remove the public upload,
   // but only when it is the creator's source-picture upload (never a thumb, mockup, video or other own file).
   if (isSourceUpload(uploadPath, creatorId)) {
-    await storage().delete(uploadPath).catch((err) => console.warn("[artworks] could not delete the public upload:", err instanceof Error ? err.message : err));
+    // T160: one retry after a short wait before giving up with a warning.
+    const remove = () => storage().delete(uploadPath);
+    await remove()
+      .catch(async () => { await new Promise((r) => setTimeout(r, DELETE_RETRY_MS)); await remove(); })
+      .catch((err) => console.warn("[artworks] could not delete the public upload:", err instanceof Error ? err.message : err));
   }
   let artwork = await insertArtwork({
     id, creatorId, source: input.source, originalUrl: original.pathname, shapingTrace: { product: input.product, imageSize }, status: "draft", createdByTask: task,

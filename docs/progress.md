@@ -499,3 +499,10 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 
 ## Web · Story video autoplay and real play buttons (2026-11-04)
 - `components/site/VideoPoster.tsx`: `autoPlay` prop (muted autoplay with `preload="auto"`, the `muted` property set before `play()`, reduced motion respected, refusal handled), the play circle is a `<button>` that unmutes and plays, a "Turn sound on" pill while muted; `StoryVideo` passes `autoPlay` from the story tag and creator pages. Strings `common.playVideo`, `common.turnSoundOn`. Tests `test/video-poster.test.ts` (+ the site-pages assertion). Cause and the iOS simulator evidence in `docs/decisions.md`.
+
+## T160 backend · Three small fixes from the Muse Spark review (2026-11-04)
+- Story video: route and `storyVideo()` (`StoryVideoDeps.previousVideo/deleteVideo`, wired in `scripts/story_video.ts`) delete the replaced blob after the creator update; warn on error; skip when none or same; dry run deletes nothing.
+- `/media`: the 302 is cached (`private, max-age=540`) only for public kinds; tag, creator and admin access is `private, no-store`.
+- `createFromImage`: one retry (250 ms) of the public-upload delete before the warning.
+- Tests: `story-video-t151.test.ts`, new `story-video-route-t160.test.ts`, `media-route.test.ts`, `artwork-adjust.test.ts`. Needs a deploy by the founder; live check (read-only): a tag page's media request answers `no-store`, June's page still plays the current video, a public mockup still answers `max-age=540`.
+

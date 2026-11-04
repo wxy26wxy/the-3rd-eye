@@ -20,7 +20,7 @@ function probeJson(over: { duration?: string; size?: string; format?: string; vi
 const VTT = "WEBVTT\n\n1\n00:00:00.000 --> 00:00:01.880\nMy name is June.\n\n2\n00:00:01.880 --> 00:00:04.000\nI paint on Tuesdays.\n\n3\n00:00:04.000 --> 00:00:05.000\nThank you.\n";
 const CAPTIONS: Captions = { vtt: VTT, transcript: "My name is June. I paint on Tuesdays. Thank you." };
 
-function deps(opts: { caption?: () => Promise<Captions>; draft?: () => Promise<unknown>; mention?: boolean; creator?: boolean } = {}) {
+function deps(opts: { caption?: () => Promise<Captions>; draft?: () => Promise<unknown>; mention?: boolean; creator?: boolean; previous?: string | null; deleteFails?: boolean } = {}) {
   const calls: string[] = [];
   const updates: CreatorPatch[] = [];
   const lines: string[] = [];
@@ -33,6 +33,8 @@ function deps(opts: { caption?: () => Promise<Captions>; draft?: () => Promise<u
       readFile: async (f: string) => { calls.push(`read ${f}`); return Buffer.from("mp4"); },
       findCreator: async (slug: string) => { calls.push(`find ${slug}`); return opts.creator === false ? null : { id: "c1" }; },
       putVideo: async (id: string) => { calls.push(`put ${id}`); return `creators/${id}/story-video/u1.mp4`; },
+      previousVideo: async (id: string) => { calls.push(`previous ${id}`); return opts.previous ?? null; },
+      deleteVideo: async (p: string) => { calls.push(`delete ${p}`); if (opts.deleteFails) throw new Error("blob 500"); },
       caption: async (_wav: Buffer, jobId: string) => { calls.push(`caption ${jobId}`); return (opts.caption ?? (async () => CAPTIONS))(); },
       update: async (id: string, patch: CreatorPatch) => { calls.push(`update ${id}`); updates.push(patch); return { mentionDisability: patch.mentionDisability ?? opts.mention ?? false }; },
       draft: async (id: string, _t: string, o: { mentionDisability: boolean }) => { calls.push(`draft ${id} ${o.mentionDisability}`); return (opts.draft ?? (async () => ({})))(); },
@@ -92,7 +94,7 @@ describe("pnpm story-video: the run (pipeline mocked)", () => {
   it("uploads, captions, writes the route's fields and drafts a story", async () => {
     const t = deps();
     const out = await storyVideo(t.d, { slug: "june-park", file: "v.mp4", dryRun: false });
-    expect(t.calls).toEqual(["probe v.mp4", "wav v.mp4", "find june-park", "read v.mp4", "put c1", "caption c1", "update c1", "draft c1 false"]);
+    expect(t.calls).toEqual(["probe v.mp4", "wav v.mp4", "find june-park", "previous c1", "read v.mp4", "put c1", "caption c1", "update c1", "draft c1 false"]);
     expect(t.updates).toEqual([{ storyVideoUrl: "creators/c1/story-video/u1.mp4", storyVideoVtt: VTT, storyVideoTranscript: CAPTIONS.transcript }]);
     expect(out).toMatchObject({ pathname: "creators/c1/story-video/u1.mp4", drafted: true, durationSec: 30 });
     expect(t.lines).toEqual([
@@ -179,5 +181,47 @@ describe("pnpm story-video: the run (pipeline mocked)", () => {
     t.d.update = async () => ({ mentionDisability: null as unknown as boolean });
     await storyVideo(t.d, { slug: "june-park", file: "v.mp4", dryRun: false });
     expect(t.calls).toContain("draft c1 false");
+  });
+});
+
+describe("pnpm story-video: the replaced video's blob (T160)", () => {
+  const OLD = "creators/c1/story-video/old.mp4";
+  const NEW = "creators/c1/story-video/u1.mp4";
+  const run = (t: ReturnType<typeof deps>) => storyVideo(t.d, { slug: "june-park", file: "v.mp4", dryRun: false });
+
+  it("deletes the previous pathname only after the update succeeded", async () => {
+    const t = deps({ previous: OLD });
+    await run(t);
+    expect(t.calls.indexOf(`delete ${OLD}`)).toBeGreaterThan(t.calls.indexOf("update c1"));
+    expect(t.calls.filter((c) => c.startsWith("delete "))).toEqual([`delete ${OLD}`]);
+    expect(t.lines).toContain(`removed previous video: ${OLD}`);
+  });
+
+  it("deletes nothing when there was no previous video or it is the same pathname", async () => {
+    for (const previous of [null, NEW]) {
+      const t = deps({ previous });
+      await run(t);
+      expect(t.calls.some((c) => c.startsWith("delete "))).toBe(false);
+    }
+  });
+
+  it("deletes nothing when the update fails", async () => {
+    const t = deps({ previous: OLD });
+    t.d.update = (async () => null) as unknown as typeof t.d.update;
+    await expect(run(t)).rejects.toThrow(/Could not update/);
+    expect(t.calls.some((c) => c.startsWith("delete "))).toBe(false);
+  });
+
+  it("warns and carries on when the delete fails", async () => {
+    const t = deps({ previous: OLD, deleteFails: true });
+    const out = await run(t);
+    expect(t.warnings).toEqual(["[story-video] could not delete the previous video: blob 500"]);
+    expect(out).toMatchObject({ pathname: NEW, drafted: true });
+  });
+
+  it("a dry run reads and deletes nothing", async () => {
+    const t = deps({ previous: OLD });
+    await storyVideo(t.d, { slug: "june-park", file: "v.mp4", dryRun: true });
+    expect(t.calls.some((c) => c.startsWith("delete ") || c.startsWith("previous "))).toBe(false);
   });
 });

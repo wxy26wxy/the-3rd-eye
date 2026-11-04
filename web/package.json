@@ -16,7 +16,8 @@
     "backfill:previews": "dotenv -e .env.local -- tsx --conditions=react-server scripts/backfill_previews.ts",
     "avatar": "dotenv -e .env.local -- tsx --conditions=react-server scripts/set_avatar.ts",
     "replace-art": "dotenv -e .env.local -- tsx --conditions=react-server scripts/replace_art.ts",
-    "move-orders": "dotenv -e .env.local -- tsx --conditions=react-server scripts/move_orders.ts"
+    "move-orders": "dotenv -e .env.local -- tsx --conditions=react-server scripts/move_orders.ts",
+    "story-video": "dotenv -e .env.local -- tsx --conditions=react-server scripts/story_video.ts"
   },
   "dependencies": {
     "@meta-sam/parser": "^0.1.0",

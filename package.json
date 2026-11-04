@@ -12,6 +12,7 @@
     "assets": "pnpm --filter web exec tsx ../scripts/sync_assets.ts",
     "avatar": "pnpm --filter web avatar",
     "replace-art": "pnpm --filter web replace-art",
-    "move-orders": "pnpm --filter web move-orders"
+    "move-orders": "pnpm --filter web move-orders",
+    "story-video": "pnpm --filter web story-video"
   }
 }

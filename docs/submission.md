@@ -1,6 +1,6 @@
 # Submission materials
 
-One section per field of the submission form, in form order, ready to paste. `[FOUNDER: …]` marks the four things only the founder can fill: the video link, the X post link and the two scale values.
+One section per field of the submission form, in form order. The form takes plain text only, so every answer below is plain text with no markdown: paste it as it is. `[FOUNDER: …]` marks the four things only the founder can fill: the video link, the X post link and the two scale values.
 
 Due: 2026-11-04, 9 PM ET. Track: Startups. Problem statement: "Build for Your World".
 
@@ -8,17 +8,17 @@ Due: 2026-11-04, 9 PM ET. Track: Startups. Problem statement: "Build for Your Wo
 
 ## Most Viral Track — X post
 
-**Single post** (under 280 characters as X counts them):
+Single post (under 280 characters as X counts them):
 
-> An artist with a disability draws something. They photograph it, say "make the sky purple", and get a sticker with a tag that plays their own story. The drawing stays theirs the whole way. Built on Meta's SAM 3.1, Muse Image, Muse Spark and Muse Voice. https://the-3rd-eye.vercel.app
+An artist with a disability draws something. They photograph it, say "make the sky purple", and get a sticker with a tag that plays their own story. The drawing stays theirs the whole way. Built on Meta's SAM 3.1, Muse Image, Muse Spark and Muse Voice. https://the-3rd-eye.vercel.app
 
-**Thread (3 posts):**
+Thread (3 posts):
 
-> 1/ Studios that support artists with disabilities sell an original once, locally, and then it is gone. The 3rd Eye turns one drawing into stickers and totes that sell again and again, and half of every sale goes to the artist. https://the-3rd-eye.vercel.app
+1/ Studios that support artists with disabilities sell an original once, locally, and then it is gone. The 3rd Eye turns one drawing into stickers and totes that sell again and again, and half of every sale goes to the artist. https://the-3rd-eye.vercel.app
 
-> 2/ The artist photographs their drawing and SAM 3.1 finds it, no tracing. They say what to change and Muse Image edits that drawing, not a new one. Muse Spark writes down what changed, so a screen reader can read it. Nothing is redrawn behind their back.
+2/ The artist photographs their drawing and SAM 3.1 finds it, no tracing. They say what to change and Muse Image edits that drawing, not a new one. Muse Spark writes down what changed, so a screen reader can read it. Nothing is redrawn behind their back.
 
-> 3/ Every sticker carries an NFC tag. Tap it and the artist tells you about the piece in their own voice, with captions, and you can write back. Our entry for the Meta Global AI Developer Hackathon; the demo: [FOUNDER: video link]
+3/ Every sticker carries an NFC tag. Tap it and the artist tells you about the piece in their own voice, with captions, and you can write back. Our entry for the Meta Global AI Developer Hackathon; the demo: [FOUNDER: video link]
 
 ---
 
@@ -36,7 +36,7 @@ Real: every model call, the creator flow on iOS and the web, the shop and the pr
 
 https://github.com/wxy26wxy/the-3rd-eye
 
-Start with the README section "Try it in 3 minutes". `docs/architecture.md` has the model ids and request shapes; `docs/reviews/` has the written review of every merged change.
+Start with the README section "Try it in 3 minutes". docs/architecture.md has the model ids and request shapes; docs/reviews/ has the written review of every merged change.
 
 ---
 
@@ -52,22 +52,15 @@ What it shows: June, a fictional example artist, photographs a drawing; SAM 3.1 
 
 Each model covers one thing a disabled artist may not be able to do alone.
 
-**See.** SAM 3.1 finds the drawing in a phone photo, so the artist never has to trace or select pixels. Its mask also becomes the sticker's die-cut line. Muse Image 1.0 receives that drawing as its input image and applies the artist's change to it, so the result is still their drawing. The same model renders the product photo.
+See. SAM 3.1 finds the drawing in a phone photo, so the artist never has to trace or select pixels. Its mask also becomes the sticker's die-cut line. Muse Image 1.0 receives that drawing as its input image and applies the artist's change to it, so the result is still their drawing. The same model renders the product photo.
 
-**Speak.** Muse Voice Transcribe 1.0 turns the spoken change ("make the sky purple") into the instruction, and turns the artist's story video into captions.
+Speak. Muse Voice Transcribe 1.0 turns the spoken change ("make the sky purple") into the instruction, and turns the artist's story video into captions.
 
-**Hear.** Muse Spark 1.3 writes what the image shows and what changed as structured text, so VoiceOver reads every result aloud. It also names the things in a photo so SAM can find the subject, and runs the listing agent that drafts the shop listing.
+Hear. Muse Spark 1.3 writes what the image shows and what changed as structured text, so VoiceOver reads every result aloud. It also names the things in a photo so SAM can find the subject, and runs the listing agent that drafts the shop listing.
 
-**Their own words.** Muse Glimmer (open weights, via Ollama) drafts the artist's shop story from the video transcript; the artist uses, edits or skips it. On the deployed site Muse Spark covers this stage.
+Their own words. Muse Glimmer (open weights, through Ollama) drafts the artist's shop story from the video transcript; the artist uses, edits or skips it. On the deployed site Muse Spark covers this stage.
 
-| Model | What it does | Where |
-|---|---|---|
-| `sam-3.1` | Finds the drawing in the uploaded crop; cuts it out; the mask becomes the die-cut line | `web/lib/ai/meta/sam.ts`, `web/lib/image/sticker.ts` |
-| `muse-image-1.0` | Edits the artist's drawing as the input image; renders the product photo | `web/lib/ai/meta/image.ts`, `web/lib/ai/meta/mockup.ts` |
-| `muse-voice-transcribe-1.0` | The spoken change; captions for story and thank-you videos | `web/lib/ai/meta/transcribe.ts`, `web/lib/ai/meta/captions.ts` |
-| `muse-spark-1.3` | Describes each result as text for VoiceOver; names the subject for SAM; the listing agent (tools, moderation) | `web/lib/ai/meta/describe.ts`, `web/lib/ai/meta/listing-agent.ts` |
-| `muse-glimmer` | Drafts the artist's story from their own words (open weights, on our Mac) | `web/lib/ai/meta/story.ts` |
-| all | One `ai_calls` row per model call, readable per artwork at `/admin/trace` | `web/lib/ai/trace.ts` |
+Models used: sam-3.1 (find the drawing, cut it out, die-cut line), muse-image-1.0 (edit the artist's drawing as the input image, product photo), muse-voice-transcribe-1.0 (spoken changes, video captions), muse-spark-1.3 (descriptions for VoiceOver, naming the subject for SAM, the listing agent with tools and moderation), muse-glimmer (story drafts). Every call is logged and readable per artwork at /admin/trace. Code: web/lib/ai/meta/ in https://github.com/wxy26wxy/the-3rd-eye
 
 ---
 
@@ -85,20 +78,20 @@ Muse Spark returns its descriptions as structured text, not prose to parse. That
 
 ## Feedback from your experience using partner technologies
 
-**What worked**
+What worked
 - One Responses-API client covered Spark, Image and SAM; strict JSON schemas, function tools and reasoning effort behaved as documented.
 - SAM's streaming parser gave us masks with little code, and box prompts used the same request shape as phrases.
 - Strict JSON for descriptions and listings: the fields come back the way we validate and show them, which keeps screen-reader text predictable.
 - Muse Image editing with an input image kept the artist's drawing recognisable through several changes.
 - Muse Glimmer through Ollama drafted usable stories from a 30-second transcript.
 
-**What cost time**
+What cost time
 - Voice Transcribe accepts WAV only, and our host has no ffmpeg, so the phone and the browser encode WAV themselves, including the soundtrack of every story video.
 - There is no Meta text-to-speech model; the phone's own voice reads Spark's descriptions.
 - We found no documented edit request for Muse Image and had to verify one live; the output is always 1600×1600 with no transparency, so SAM does the cut-out afterwards.
 - SAM takes one phrase per request, so each photo costs two or more calls plus our own merge.
 
-**Three wishes**
+Three wishes
 - Voice Transcribe: accept M4A or WebM and return word timestamps.
 - Muse Image: a documented edit mode with a mask or a transparent result.
 - SAM 3.1: several phrases in one request.

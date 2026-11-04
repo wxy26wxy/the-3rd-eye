@@ -496,3 +496,6 @@ Smoke data in the shared database from tonight: an order by "T050 Smoke Buyer" (
 - Mock: every candidate carries `cleanedUrl` (`img.png?piece=<id>`).
 - Tests: `Tests/LocalPickTests.swift` (12); 229 unit tests green. UI: `CutoutUITests.testStripTapIsLocalAndUseThisSendsThePick` (tap → stage "Piece 2", `cleanup` 0; Use this → 1 with `candidateIds: [cand-2]`); `CutoutUITests` 16/16 green in 322 s on a prepared iPhone 17 Pro simulator, mock on port 4155. Full UI suite not run (PM / reviewer on main).
 - Review fix round 1 (four Minor): Back forgets an unsent pick; the pick uses the `loadedSize` fallback like the marks; no "ready" line under the spinner of a missing cut; the reset test sets a pick first. 14 `LocalPickTests`, 231 unit tests green.
+
+## Web · Story video autoplay and real play buttons (2026-11-04)
+- `components/site/VideoPoster.tsx`: `autoPlay` prop (muted autoplay with `preload="auto"`, the `muted` property set before `play()`, reduced motion respected, refusal handled), the play circle is a `<button>` that unmutes and plays, a "Tap for sound" pill while muted; `StoryVideo` passes `autoPlay` from the story tag and creator pages. Strings `common.playVideo`, `common.tapForSound`. Tests `test/video-poster.test.ts` (+ the site-pages assertion). Cause and the iOS simulator evidence in `docs/decisions.md`.

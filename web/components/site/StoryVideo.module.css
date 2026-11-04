@@ -23,9 +23,27 @@
   background: var(--surface);
   color: var(--text);
   transform: translate(-50%, -50%);
-  pointer-events: none;
+  border: 0;
+  cursor: pointer;
 }
+.play:focus-visible { outline: var(--focus-width) solid var(--surface); outline-offset: var(--focus-width); }
 .play svg { margin-left: 0.15em; }
+/* "Tap for sound" while the muted autoplay runs: a white pill at the top right, clear of the captions. */
+.sound {
+  position: absolute;
+  top: var(--space-m);
+  right: var(--space-m);
+  padding: var(--space-xs) var(--space-l);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--type-caption-size);
+  font-weight: var(--type-title-m-weight);
+  line-height: var(--type-caption-lh);
+  cursor: pointer;
+}
+.sound:focus-visible { outline: var(--focus-width) solid var(--surface); outline-offset: var(--focus-width); }
 .empty {
   place-content: center;
   justify-items: center;

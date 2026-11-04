@@ -30,7 +30,7 @@ export function CreatorProfile({ creator: c }: { creator: CreatorProfileData }) 
           {story ? <div><ReadAloud text={story} label={m.common.readAloud} stopLabel={m.common.stopReading} unsupportedLabel={m.common.speechUnsupported} /></div> : null}
           {c.isExample ? <p className={styles.note}>{m.common.exampleNote}</p> : null}
         </section>
-        <StoryVideo creator={c} className={styles.profileVideo} />
+        <StoryVideo creator={c} className={styles.profileVideo} autoPlay />
       </div>
       <section aria-labelledby="work-title" className={styles.work}>
         <Display id="work-title" size="l">{fmt(m.creator.productsTitle, { name: c.displayName })}</Display>

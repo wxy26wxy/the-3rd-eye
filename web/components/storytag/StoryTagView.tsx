@@ -38,7 +38,7 @@ export function StoryTagView({ view }: { view: StoryTagData }) {
           </div>
         ) : <Display as="h1" size="xl">{fmt(m.tag.hi, { name: c.displayName })}</Display>}
         {c.isExample ? <div><Chip tone="cream">{m.common.example}</Chip></div> : null}
-        <StoryVideo creator={c} tagToken={view.token} className={styles.video} />
+        <StoryVideo creator={c} tagToken={view.token} className={styles.video} autoPlay />
         <ReadAloud block text={fmt(m.tag.readAloudText, { name: c.displayName, bio })} label={m.common.readAloud} stopLabel={m.common.stopReading} unsupportedLabel={m.common.speechUnsupported} />
         <div className={styles.actions}>
           <FollowButton creatorId={c.id} label={m.tag.follow} followingLabel={m.tag.following} note={m.tag.followNote} />

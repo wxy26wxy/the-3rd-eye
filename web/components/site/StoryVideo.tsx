@@ -7,10 +7,10 @@ import styles from "./StoryVideo.module.css";
 /**
  * Creator story video with an English captions track (board: "StoryVideo poster with play button").
  * Private pathnames are served by the backend through /media/{pathname}; `tagToken` scopes access from
- * a story-tag page. The video keeps its native controls; the round play button over the poster is
- * decorative and lets clicks through to the video.
+ * a story-tag page. The video keeps its native controls; the page's own play button starts it, and with
+ * `autoPlay` (story tag and creator pages) it starts muted by itself with a "Tap for sound" button.
  */
-export function StoryVideo({ creator, tagToken, className }: { creator: Pick<PublicCreator, "id" | "displayName" | "storyVideoUrl" | "storyVideoVtt">; tagToken?: string; className?: string }) {
+export function StoryVideo({ creator, tagToken, className, autoPlay }: { creator: Pick<PublicCreator, "id" | "displayName" | "storyVideoUrl" | "storyVideoVtt">; tagToken?: string; className?: string; autoPlay?: boolean }) {
   if (!creator.storyVideoUrl) {
     return (
       <div className={[styles.frame, styles.empty, className].filter(Boolean).join(" ")}>
@@ -22,7 +22,7 @@ export function StoryVideo({ creator, tagToken, className }: { creator: Pick<Pub
   const q = tagToken ? `?tag=${encodeURIComponent(tagToken)}` : "";
   const src = `/media/${creator.storyVideoUrl.split("/").map(encodeURIComponent).join("/")}${q}`;
   return (
-    <VideoPoster className={[styles.frame, className].filter(Boolean).join(" ")} videoClassName={styles.video} label={creator.displayName}>
+    <VideoPoster className={[styles.frame, className].filter(Boolean).join(" ")} videoClassName={styles.video} label={creator.displayName} autoPlay={autoPlay}>
       <source src={src} />
       {creator.storyVideoVtt ? <track kind="captions" src={`/captions/${creator.id}`} srcLang="en" label={m.common.videoCaptions} default /> : null}
     </VideoPoster>

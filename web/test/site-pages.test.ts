@@ -141,12 +141,12 @@ describe("Shop v3 (board 2018:1789)", () => {
     expect(out).not.toMatch(/voice/i);
   });
 
-  it("story video: captions track, native controls, decorative play circle", () => {
+  it("story video: captions track, native controls, a real play button", () => {
     const out = html(createElement(StoryVideo, { creator: { id: "c1", displayName: "Rosa M.", storyVideoUrl: "creators/c1/story-video/a.mp4", storyVideoVtt: "WEBVTT" }, tagToken: "tok" }));
     expect(out).toContain('src="/media/creators/c1/story-video/a.mp4?tag=tok"');
     expect(out).toContain('<track kind="captions" src="/captions/c1"');
     expect(out).toMatch(/<video[^>]*controls/);
-    expect(out).toMatch(/<span class="[^"]*play[^"]*" aria-hidden="true">/);
+    expect(out).toMatch(/<button type="button" class="[^"]*play[^"]*" aria-label="Play Rosa M."/); // a real button: iOS drew no native control (2026-11-04)
     const none = html(createElement(StoryVideo, { creator: { id: "c1", displayName: "Rosa M.", storyVideoUrl: null, storyVideoVtt: null } }));
     expect(none).toContain(m.common.noVideo);
   });

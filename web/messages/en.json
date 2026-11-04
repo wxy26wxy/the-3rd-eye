@@ -24,6 +24,8 @@
     "share": "Share",
     "linkCopied": "Link copied",
     "videoCaptions": "English captions",
+    "playVideo": "Play {name}",
+    "tapForSound": "Tap for sound",
     "noVideo": "This artist has not recorded a story video yet.",
     "imageMissing": "Artwork image coming soon"
   },

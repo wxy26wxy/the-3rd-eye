@@ -1,6 +1,6 @@
 /**
  * Re-points a creator's orders from an archived (or still published) product to its replacement (T149,
- * round 6): June Park's orders on her archived seeded tote and sticker must show the new tote and sticker
+ * round 6): June Park's orders on his archived seeded tote and sticker must show the new tote and sticker
  * in the iOS Orders inbox, the admin orders table and the story-tag page without deleting history.
  * `orders.product_id` changes, plus a `statusUpdatedAt` bump (see `moveOrdersToProduct`); sticker orders go to a sticker and tote orders
  * to a tote unless `--allow-type-change`. Used by `scripts/move_orders.ts` (`pnpm move-orders`); the

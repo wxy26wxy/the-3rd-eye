@@ -57,7 +57,7 @@ Start with the README section "Try it in 3 minutes", then `docs/architecture.md`
 
 What the video shows (beats from `docs/demo_script.md`):
 1. 0:00 The four problems, one card each.
-2. 0:20 June, a fictional example artist, photographs a sketch; SAM 3.1 finds it; she says what to change; Muse Voice Transcribe writes it down and Muse Image 1.0 edits her own drawing.
+2. 0:20 June, a fictional example artist, photographs a sketch; SAM 3.1 finds it; he says what to change; Muse Voice Transcribe writes it down and Muse Image 1.0 edits his own drawing.
 3. 0:55 Before and after: VoiceOver reads Muse Spark 1.3's description; SAM 3.1 cuts it out and it becomes a sticker.
 4. 1:15 A buyer finds June's sticker in the shop and places a staged order (no payment taken).
 5. 1:40 June records a thank-you with captions; Muse Glimmer on our own Mac drafts the artist's story.

@@ -218,7 +218,8 @@
     "point1": "No inventory. We print when someone orders.",
     "point2": "Artists approve every listing themselves.",
     "point3": "Every sale shows the artist's share. The default split is 50% artist, 30% studio, 20% production.",
-    "contact": "Want to bring your studio? Get in touch with the team, we would love to hear from you."
+    "contact": "Want to bring your studio? Get in touch with the team, we would love to hear from you.",
+    "contactEmail": "hi@esprel.com"
   },
   "a11y": {
     "metaTitle": "Accessibility",
@@ -358,7 +359,7 @@
     },
     "code": {
       "title": "Hi there!",
-      "copy": "Enter the creator code your studio gave you.",
+      "copy": "Enter the creator code your studio gave you. No code yet? Email hi@esprel.com and we will send one.",
       "label": "Creator code",
       "submit": "Sign in",
       "error": "That code did not work. Check it and try again.",

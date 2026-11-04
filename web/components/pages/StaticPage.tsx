@@ -13,7 +13,7 @@ export type StaticItem = string | { text: string; id: string };
  * (the founder's pick, 2026-11-04; the same picture as Upload a picture, described) on the left; the points as a checked list of cards on the right; the closing note on a grey card.
  * An item can carry an id so other pages can link to it (`/how-it-works#story-tags`).
  */
-export function StaticPage({ title, intro, items, note }: { title: string; intro: string; items: StaticItem[]; note?: string }) {
+export function StaticPage({ title, intro, items, note, noteLink }: { title: string; intro: string; items: StaticItem[]; note?: string; noteLink?: { href: string; label: string } }) {
   return (
     <Container className={styles.static}>
       <div className={styles.staticIntro}>
@@ -33,7 +33,7 @@ export function StaticPage({ title, intro, items, note }: { title: string; intro
             );
           })}
         </ul>
-        {note ? <p className={styles.closing}>{note}</p> : null}
+        {note ? <p className={styles.closing}>{note}{noteLink ? <> <a href={noteLink.href}>{noteLink.label}</a></> : null}</p> : null}
       </div>
     </Container>
   );

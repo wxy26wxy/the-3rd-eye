@@ -80,12 +80,16 @@ export function thankYouInstructions(ctx: { buyerName: string; productTitle: str
  * a piece of the prompt (instructions plus appended JSON Schema), equals its own field name, or
  * when `story_text` is under 20 words; `draft()` then falls back to Spark.
  */
+export const ECHO_MIN_CHARS = 12;
+
 export function rejectEcho(value: Record<string, string>, systemPrompt: string): void {
   const prompt = systemPrompt.toLowerCase();
   for (const [name, raw] of Object.entries(value)) {
     const text = raw.trim().toLowerCase();
     const tooShort = name === "story_text" && text.split(/\s+/).filter(Boolean).length < 20;
-    if (!text || text === name.toLowerCase() || prompt.includes(text) || tooShort) throw new Error("ollama answered the instructions, not a story");
+    // The substring rule needs 12+ characters so a genuine one-word field ("Art", "Voice") is not mistaken for an echo.
+    const echoed = text.length >= ECHO_MIN_CHARS && prompt.includes(text);
+    if (!text || text === name.toLowerCase() || echoed || tooShort) throw new Error("ollama answered the instructions, not a story");
   }
 }
 

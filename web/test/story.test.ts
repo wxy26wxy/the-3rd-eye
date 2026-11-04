@@ -90,6 +90,23 @@ describe("echoed instructions (T152)", () => {
     expect(() => rejectEcho({ text: "Thank you so much, Sam. I am glad River found a home with you." }, system)).not.toThrow();
   });
 
+  it("rejectEcho: a short genuine field inside the prompt is kept", () => {
+    const system = storyInstructions(false);
+    expect(() => rejectEcho({ ...genuine, headline: "Art" }, system)).not.toThrow();
+    expect(() => rejectEcho({ ...genuine, headline: "Plain language" }, system)).toThrow(/instructions/);
+  });
+
+  it("falls back to Spark when only the /v1 attempt answers with an echo", async () => {
+    const calls: unknown[] = [];
+    const w = new GlimmerStoryWriter("ollama", {
+      native: async () => { throw new Error("native down"); },
+      chat: () => ({ create: (async () => ({ choices: [{ message: { content: JSON.stringify(echo) } }] })) as never }),
+      responses: spark(calls),
+    });
+    expect((await w.draftStory("t", { mentionDisability: false, trace })).provider).toBe("meta-fallback");
+    expect(calls).toHaveLength(1);
+  });
+
   it("rejectEcho: the schema text counts as prompt text", () => {
     expect(() => rejectEcho({ ...genuine, headline: "additionalProperties" }, 'x\n{"additionalProperties":false}')).toThrow(/instructions/);
   });

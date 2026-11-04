@@ -58,6 +58,20 @@ describe("segmentInBox subjects (T153)", () => {
 });
 
 describe("MetaDescriber.subjects (T153)", () => {
+  it("(f) a malformed answer throws (caught upstream as a warning) and a non-array gives no subjects", async () => {
+    const bad = new MetaDescriber({ create: async () => ({ id: "r", output_text: "not json" }) });
+    await expect(bad.subjects(pngRef(await png()), { trace: { stage: "subjects" } })).rejects.toThrow();
+    const notArray = new MetaDescriber({ create: async () => ({ id: "r", output_text: JSON.stringify({ subjects: "plant" }) }) });
+    expect(await notArray.subjects(pngRef(await png()), { trace: { stage: "subjects" } })).toEqual([]);
+  });
+
+  it("(g) the subjects call carries its own short abort signal", async () => {
+    const opts: unknown[] = [];
+    const d = new MetaDescriber({ create: async (_b, o) => { opts.push(o); return { id: "r", output_text: JSON.stringify({ subjects: [] }) }; } });
+    await d.subjects(pngRef(await png()), { trace: { stage: "subjects" } });
+    expect((opts[0] as { signal?: AbortSignal }).signal).toBeInstanceOf(AbortSignal);
+  });
+
   it("(e) strict schema, store:false, one image; answer trimmed, lower-cased, capped at 3", async () => {
     const sent: Record<string, unknown>[] = [];
     const d = new MetaDescriber({ create: async (b) => { sent.push(b as Record<string, unknown>); return { id: "r", output_text: JSON.stringify({ subjects: [" Potted Plant ", "Mug", "mug", "Book", "Lamp"] }) }; } });

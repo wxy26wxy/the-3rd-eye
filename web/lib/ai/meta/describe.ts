@@ -3,6 +3,7 @@
  * and for alt text. Strict JSON per the `Description` type. verified: 2026-10-28 (live probe and seed).
  */
 import "server-only";
+import { callSignal } from "@/lib/deadline";
 import type { Describer, Description, ImageRef, Trace } from "../types";
 import { traced } from "../trace";
 import { MODELS, metaResponses, type ResponsesLike } from "./client";
@@ -24,6 +25,7 @@ const INSTRUCTIONS = [
   "differences_from_prompt: if a prompt is given, honestly name anything missing or different, in one sentence; otherwise an empty string.",
 ].join("\n");
 
+export const SUBJECTS_TIMEOUT_MS = 15_000;
 export const SUBJECTS_SCHEMA = obj({ subjects: arr(str("A short noun phrase, 2 to 4 words, singular")) });
 export const MAX_SUBJECTS = 3;
 
@@ -73,7 +75,8 @@ export class MetaDescriber implements Describer {
       reasoning: { effort: "low" },
       text: strictFormat("subjects", SUBJECTS_SCHEMA),
     };
-    const resp = await traced("subjects", "meta", MODELS.spark, body, () => this.responses.create(body), opts.trace);
+    // Optional step on the upload path: a short limit, so a slow Spark answer never delays the SAM phrases much.
+    const resp = await traced("subjects", "meta", MODELS.spark, body, () => this.responses.create(body, { signal: callSignal(SUBJECTS_TIMEOUT_MS) }), opts.trace);
     return cleanSubjects(parseJsonOutput<{ subjects?: unknown }>(resp).subjects);
   }
 }

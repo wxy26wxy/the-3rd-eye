@@ -47,7 +47,7 @@ vi.mock("@/lib/ai/registry", () => ({
         return { segments: state.crop, droppedContainer: false };
       },
     },
-    describer: { describe: async () => ({ alt_text: "Art", spoken: "Art", dominant_colors: [], subject: "art", differences_from_prompt: "" }) },
+    describer: { describe: async () => ({ alt_text: "Art", spoken: "Art", dominant_colors: [], subject: "art", differences_from_prompt: "" }), subjects: async () => [] },
   }),
 }));
 vi.mock("@/lib/image/ref", () => ({ pngRef: (b: Buffer) => ({ data: b }) }));

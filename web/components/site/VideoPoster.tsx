@@ -7,8 +7,10 @@ import styles from "./StoryVideo.module.css";
 /**
  * A <video> with native controls and a real play button (64 px white circle) over it until it plays.
  * With `autoPlay` the video starts by itself muted (what phones allow without a tap; the captions stay
- * on) and a "Tap for sound" button unmutes it; under prefers-reduced-motion, or when the browser
- * refuses (Low Power Mode, data saver), nothing starts and the play button stays. The buttons call
+ * on) and a "Turn sound on" button unmutes it; under prefers-reduced-motion, or when the browser
+ * refuses (Low Power Mode, data saver), nothing starts and the play button stays. Playback is started
+ * from the effect, never by the `autoplay` attribute, so nothing runs before hydration and the
+ * reduced-motion check comes first (review, 2026-11-04). The buttons call
  * play() themselves: on iOS Safari the native inline controls were not drawn and a tap on the video
  * did nothing (2026-11-04), so the page's own buttons are the one reliable way to start it.
  */
@@ -32,11 +34,12 @@ export function VideoPoster({ label, children, className, videoClassName, autoPl
     v.muted = false;
     setMuted(false);
     void v.play().catch(() => { /* the native controls remain */ });
+    v.focus(); // the button that had focus disappears; keep focus on the player
   };
   return (
     <div className={className}>
       <video
-        ref={ref} className={videoClassName} controls playsInline preload={autoPlay ? "auto" : "metadata"} autoPlay={autoPlay} muted={muted}
+        ref={ref} className={videoClassName} controls playsInline preload={autoPlay ? "auto" : "metadata"} muted={muted} tabIndex={-1}
         aria-label={label} onPlay={() => setStarted(true)} onVolumeChange={() => setMuted(ref.current?.muted ?? false)}
       >
         {children}
@@ -46,7 +49,7 @@ export function VideoPoster({ label, children, className, videoClassName, autoPl
           <PlayIcon size="1.75rem" />
         </button>
       )}
-      {started && muted ? <button type="button" className={styles.sound} onClick={playWithSound}>{m.common.tapForSound}</button> : null}
+      {started && muted ? <button type="button" className={styles.sound} onClick={playWithSound}>{m.common.turnSoundOn}</button> : null}
     </div>
   );
 }

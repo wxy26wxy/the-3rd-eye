@@ -28,11 +28,14 @@
 }
 .play:focus-visible { outline: var(--focus-width) solid var(--surface); outline-offset: var(--focus-width); }
 .play svg { margin-left: 0.15em; }
-/* "Tap for sound" while the muted autoplay runs: a white pill at the top right, clear of the captions. */
+/* "Turn sound on" while the muted autoplay runs: a white pill at the top right, clear of the captions, 44 px tall. */
 .sound {
   position: absolute;
   top: var(--space-m);
   right: var(--space-m);
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   padding: var(--space-xs) var(--space-l);
   border: 0;
   border-radius: var(--radius-pill);
@@ -43,7 +46,7 @@
   line-height: var(--type-caption-lh);
   cursor: pointer;
 }
-.sound:focus-visible { outline: var(--focus-width) solid var(--surface); outline-offset: var(--focus-width); }
+.sound:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--text), 0 0 0 4px var(--surface); } /* two-tone: visible over any frame */
 .empty {
   place-content: center;
   justify-items: center;

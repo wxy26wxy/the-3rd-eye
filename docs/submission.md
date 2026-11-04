@@ -74,13 +74,13 @@ Models used: sam-3.1 (find the drawing, cut it out, die-cut line), muse-image-1.
 
 ## Why are Meta's models important to your solution?
 
-Three things made this possible, and we did not find them elsewhere in one API.
+Three things made this possible.
 
-Muse Image edits the artist's own picture. It takes the drawing as the input image and changes only what was asked, so an artist who cannot draw a second version still ends up with their drawing, not a machine's.
+Muse Image edits the artist's own picture. It takes the drawing as the input image and applies the change while keeping the drawing recognisable, so an artist who cannot draw a second version still ends up with their own piece, not a new one.
 
 SAM 3.1 finds a hand-drawn piece in an ordinary phone photo, and finds a knitted toy or a clay figure just as well. The artist frames it with two fingers and the model does the rest; the cut it makes is accurate enough to print as the die-cut line.
 
-Muse Spark returns its descriptions as structured text, not prose to parse. That is what lets a blind or low-vision artist hear exactly what changed and decide, and what lets us show the same words on screen for everyone else.
+Muse Spark returns its descriptions as structured text, not prose to parse. That is what lets a blind or low-vision artist hear what changed and decide, and what lets us show the same words on screen for everyone else.
 
 ---
 

@@ -511,8 +511,8 @@ export async function cleanupArtwork(artwork: ArtworkRow, hint: CleanupHint, tas
   if (!artwork.originalUrl) throw new ApiError(400, "no_original", "This artwork has no original image");
   trackArtwork(artwork.id);
   const negatives = (hint.points ?? []).filter((p) => p.label === "negative");
-  // T154: SAM only for positive points. A box alone (the strip sends the whole picture) is a clip, never a prompt.
-  const askSam = (hint.points ?? []).some((p) => p.label !== "negative");
+  // T154: SAM for positive points, or for a box when no piece was named. With candidateIds the box (the strip sends the whole picture) only clips.
+  const askSam = (hint.points ?? []).some((p) => p.label !== "negative") || (Boolean(hint.box) && !hint.candidateIds?.length);
   const [original, fromCandidates] = await Promise.all([
     storage().read(artwork.originalUrl),
     hint.candidateIds?.length ? candidateMasks(artwork, [...new Set(hint.candidateIds)]) : Promise.resolve([] as Mask[]),

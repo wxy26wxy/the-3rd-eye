@@ -229,11 +229,12 @@ describe("cleanupArtwork on a change result (T129, Your cutout after a change)",
     expect(meta.width! / meta.height!).toBeCloseTo(50 / 100, 1); // only the left half of the body, nothing past the frame
   });
 
-  it("before its cutout a change result has no candidates: candidateIds are 400, a box alone is no SAM prompt (T154)", async () => {
+  it("before its cutout a change result has no candidates: candidateIds are 400, a box alone still cuts", async () => {
     const { artwork: child } = await changeArtwork(parent(), { instruction: "make it purple" });
     await expect(cleanupArtwork(child as Row, { candidateIds: ["x"] })).rejects.toMatchObject({ status: 400, code: "invalid_candidate" });
     state.segmentResult = seg(rect(50, 50, 250, 200), [50, 50, 250, 200], 0.9);
-    await expect(cleanupArtwork(child as Row, { box: [0, 0, 400, 300], clipToBox: true })).rejects.toMatchObject({ status: 422, code: "no_drawing_found" });
-    expect(state.segmentCalls).toHaveLength(0);
+    const out = await cleanupArtwork(child as Row, { box: [0, 0, 400, 300], clipToBox: true });
+    expect(out.artwork.cleanedUrl).toBeTruthy();
+    expect(state.segmentCalls).toHaveLength(1); // T154: no piece named, so the box asks SAM
   });
 });

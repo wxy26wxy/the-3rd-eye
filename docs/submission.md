@@ -24,7 +24,7 @@ Thread (3 posts):
 
 ## Project Description
 
-The 3rd Eye helps artists with disabilities turn their art into products people want to buy. The artist snaps a photo of their drawing and Meta's SAM 3.1 cuts the artwork out. They say what to change, Muse Voice writes it down, and Muse Image changes their own drawing rather than painting a new one. Muse Spark reads a description of the result back to them, so an artist who cannot see the screen can still hear what changed and refine it. The art becomes stickers and tote bags, and each one ships with an NFC tag that plays a short video of the artist talking about their work, with captions.
+This project aims to help artists with disabilities generate income by turning their artwork into merchandise like stickers and tote bags. The artist snaps a photo of their drawing and Meta's SAM 3.1 cuts the artwork out. They say what to change, Muse Voice writes it down, and Muse Image changes their own drawing rather than painting a new one. Muse Spark reads a description of the result back to them, so an artist who cannot see the screen can still hear what changed and refine it. The art becomes stickers and tote bags, and each one ships with an NFC tag that plays a short video of the artist talking about their work, with captions.
 
 It solves four problems:
 

@@ -76,6 +76,30 @@ export function dedupeSegmentsInfo(segs: Segment[], opts: { max?: number; iouMax
   return { segments: rest.slice(0, max).map((k) => k.s), droppedContainer: rest.length < kept.length };
 }
 
+/**
+ * T153: when every kept SAM segment fills the frame (mask area > `maxCoverage`), SAM answered "the whole
+ * sheet" and could not tell the drawings apart. If the threshold fallback separates >= 2 pieces that
+ * each cover <= `maxCoverage`, answer with those (largest first, capped at `max`); else keep SAM's result.
+ */
+export function preferFallbackOverFill(found: CandidateSearch, fallbackSegs: Segment[], opts: { maxCoverage?: number; max?: number } = {}): CandidateSearch {
+  const maxCoverage = opts.maxCoverage ?? MAX_FRAME_COVERAGE, max = opts.max ?? MAX_CANDIDATES;
+  const over = (s: Segment) => area(s.mask) > s.mask.width * s.mask.height * maxCoverage;
+  if (!found.segments.length || !found.segments.every(over)) return found;
+  const pieces = fallbackSegs.filter((s) => !over(s)).sort((a, b) => area(b.mask) - area(a.mask));
+  if (pieces.length < 2) return found;
+  return { segments: pieces.slice(0, max), droppedContainer: true };
+}
+
+/** T153: the default phrases plus the subjects Spark named, lower-cased, de-duplicated, at most `cap`. */
+export function withSubjectPhrases(subjects: readonly string[], defaults: readonly string[] = SAM_PHRASES, cap = 5): string[] {
+  const out: string[] = [];
+  for (const p of [...defaults, ...subjects]) {
+    const t = p.trim().toLowerCase();
+    if (t && !out.includes(t)) out.push(t);
+  }
+  return out.slice(0, cap);
+}
+
 export function dedupeSegments(segs: Segment[], opts: { max?: number; iouMax?: number; maxCoverage?: number } = {}): Segment[] {
   return dedupeSegmentsInfo(segs, opts).segments;
 }
@@ -241,7 +265,9 @@ export class MetaSegmenter implements Segmenter {
     const confident = all.filter((s) => s.score >= MIN_CANDIDATE_SCORE);
     const rules = { max: opts.max, maxCoverage: opts.maxCoverage, dropContainers: opts.dropContainers };
     const found = dedupeSegmentsInfo(confident.length ? confident : all, rules);
-    return found.segments.length ? found : dedupeSegmentsInfo(await this.fallback(prep), rules);
+    if (!found.segments.length) return dedupeSegmentsInfo(await this.fallback(prep), rules);
+    const fills = found.segments.every((s) => area(s.mask) > s.mask.width * s.mask.height * MAX_FRAME_COVERAGE);
+    return fills ? preferFallbackOverFill(found, await this.fallback(prep), { max: opts.max }) : found;
   }
 
   async segment(image: ImageRef, hint: SegmentHint, opts: { trace: Trace }): Promise<Segment | null> {

@@ -3,6 +3,7 @@
  * and for alt text. Strict JSON per the `Description` type. verified: 2026-10-28 (live probe and seed).
  */
 import "server-only";
+import { callSignal } from "@/lib/deadline";
 import type { Describer, Description, ImageRef, Trace } from "../types";
 import { traced } from "../trace";
 import { MODELS, metaResponses, type ResponsesLike } from "./client";
@@ -24,6 +25,27 @@ const INSTRUCTIONS = [
   "differences_from_prompt: if a prompt is given, honestly name anything missing or different, in one sentence; otherwise an empty string.",
 ].join("\n");
 
+export const SUBJECTS_TIMEOUT_MS = 15_000;
+export const SUBJECTS_SCHEMA = obj({ subjects: arr(str("A short noun phrase, 2 to 4 words, singular")) });
+export const MAX_SUBJECTS = 3;
+
+const SUBJECTS_INSTRUCTIONS = [
+  `Name up to ${MAX_SUBJECTS} distinct things or characters drawn or made in this picture, as short singular noun phrases of 2 to 4 words (for example "potted plant with a face", "coffee mug", "bookshelf").`,
+  "Name the main subject first. Skip the paper, the table, the background and decoration.",
+  "Answer with an empty list when the picture is one plain drawing with no distinct parts.",
+].join("\n");
+
+/** Trims, lower-cases, drops empties and repeats, keeps at most MAX_SUBJECTS. */
+export function cleanSubjects(list: unknown): string[] {
+  if (!Array.isArray(list)) return [];
+  const out: string[] = [];
+  for (const x of list) {
+    const t = typeof x === "string" ? x.trim().toLowerCase() : "";
+    if (t && !out.includes(t)) out.push(t);
+  }
+  return out.slice(0, MAX_SUBJECTS);
+}
+
 export class MetaDescriber implements Describer {
   constructor(private responses: ResponsesLike = metaResponses()) {}
 
@@ -42,5 +64,19 @@ export class MetaDescriber implements Describer {
     };
     const resp = await traced("describe", "meta", MODELS.spark, body, () => this.responses.create(body), opts.trace);
     return parseJsonOutput<Description>(resp);
+  }
+
+  async subjects(image: ImageRef, opts: { trace: Trace }): Promise<string[]> {
+    const body = {
+      model: MODELS.spark,
+      instructions: SUBJECTS_INSTRUCTIONS,
+      input: [userMessage([{ type: "input_text", text: "What is drawn or made in this picture?" }, await inlineImage(image, VISION_INLINE)])],
+      store: false,
+      reasoning: { effort: "low" },
+      text: strictFormat("subjects", SUBJECTS_SCHEMA),
+    };
+    // Optional step on the upload path: a short limit, so a slow Spark answer never delays the SAM phrases much.
+    const resp = await traced("subjects", "meta", MODELS.spark, body, () => this.responses.create(body, { signal: callSignal(SUBJECTS_TIMEOUT_MS) }), opts.trace);
+    return cleanSubjects(parseJsonOutput<{ subjects?: unknown }>(resp).subjects);
   }
 }

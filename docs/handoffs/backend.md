@@ -139,3 +139,5 @@ Contract: `docs/api.md` → "Creator flow (round 2b)" (the calls per step on web
 
 ## Follow-ups (after feedback round 2)
 - **`storyVideoAt`:** `GET creators/me` returns `storyVideoUrl` and `storyVideoVtt` but no recording date. The iOS My story video row reads the date from the video file's metadata; the web row cannot, and says "Buyers see it when they tap your story tag." instead of "Recorded <date>". Add a `story_video_at` column set by `POST creators/me/story-video` (and a `storyVideoAt` field on `Creator`) so both clients show "Recorded {date}"; additive migration, no client change needed beyond reading the field. Not done before v0.8.
+
+- Follow-up (T150 review): `POST /artworks/{id}/refine` on a change child should answer 400 `not_refinable` (its edit response is no longer stored at the API); the route is unused by the apps.

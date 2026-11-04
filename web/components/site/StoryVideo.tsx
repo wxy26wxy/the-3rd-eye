@@ -8,7 +8,7 @@ import styles from "./StoryVideo.module.css";
  * Creator story video with an English captions track (board: "StoryVideo poster with play button").
  * Private pathnames are served by the backend through /media/{pathname}; `tagToken` scopes access from
  * a story-tag page. The video keeps its native controls; the page's own play button starts it, and with
- * `autoPlay` (story tag and creator pages) it starts muted by itself with a "Tap for sound" button.
+ * `autoPlay` (story tag and creator pages) it starts muted by itself with a "Turn sound on" button.
  */
 export function StoryVideo({ creator, tagToken, className, autoPlay }: { creator: Pick<PublicCreator, "id" | "displayName" | "storyVideoUrl" | "storyVideoVtt">; tagToken?: string; className?: string; autoPlay?: boolean }) {
   if (!creator.storyVideoUrl) {

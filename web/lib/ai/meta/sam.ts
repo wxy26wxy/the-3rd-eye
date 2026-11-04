@@ -90,6 +90,16 @@ export function preferFallbackOverFill(found: CandidateSearch, fallbackSegs: Seg
   return { segments: pieces.slice(0, max), droppedContainer: true };
 }
 
+/** T153: the default phrases plus the subjects Spark named, lower-cased, de-duplicated, at most `cap`. */
+export function withSubjectPhrases(subjects: readonly string[], defaults: readonly string[] = SAM_PHRASES, cap = 5): string[] {
+  const out: string[] = [];
+  for (const p of [...defaults, ...subjects]) {
+    const t = p.trim().toLowerCase();
+    if (t && !out.includes(t)) out.push(t);
+  }
+  return out.slice(0, cap);
+}
+
 export function dedupeSegments(segs: Segment[], opts: { max?: number; iouMax?: number; maxCoverage?: number } = {}): Segment[] {
   return dedupeSegmentsInfo(segs, opts).segments;
 }

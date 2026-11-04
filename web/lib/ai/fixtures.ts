@@ -75,6 +75,7 @@ export function fixtureRegistry(): Registry {
         pickByHint((await thresholdSegments(await loadImageRef(image))).map((s): Segment => ({ ...s, svgPath: "" })), hint), opts.trace),
     },
     describer: {
+      subjects: (image, opts) => traced("subjects", "fixture", "fixture", {}, async () => { void image; return ["potted plant with a face"]; }, opts.trace),
       describe: (image, opts) => fx<Description>("describe", { prompt: opts.prompt ?? null }, async () => {
         const stats = await sharp(await loadImageRef(image)).stats();
         const d = stats.dominant;

@@ -7,6 +7,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { ai } from "@/lib/ai/registry";
+import { MAX_FRAME_COVERAGE, withSubjectPhrases } from "@/lib/ai/meta/sam";
 import type { Description, GeneratedImage, Mask, Segment, SegmentPoint, Trace } from "@/lib/ai/types";
 import { cutUpscale, ensureDpi, previewCutPath, removeBackground } from "@/lib/image/sticker";
 import { pngRef } from "@/lib/image/ref";
@@ -262,14 +263,30 @@ async function storeCandidates(creatorId: string, png: Buffer, imageSize: ImageS
 export async function segmentInBox(png: Buffer, size: ImageSize, b: BBox, trace: Trace, phrases?: readonly string[]): Promise<Segment[]> {
   const [x0, y0, x1, y1] = b;
   const crop = await sharp(png).extract({ left: x0, top: y0, width: x1 - x0, height: y1 - y0 }).png().toBuffer();
+  const registry = await ai();
+  let searchPhrases = phrases;
+  if (!phrases?.length) {
+    // T153: Spark names what is in the picture; SAM then searches the two defaults plus those names (an explicit --phrase skips this).
+    try {
+      const subjects = await registry.describer.subjects(await describeRef(crop), { trace: { ...trace, stage: "subjects" } });
+      searchPhrases = withSubjectPhrases(subjects);
+    } catch (err) {
+      console.warn("[subjects] naming the pieces failed, using the default phrases:", err instanceof Error ? err.message : err);
+    }
+  }
   // Inside a tight frame the piece may fill the crop and contain its own parts: keep both (no background or container drop).
-  const { segments } = await (await ai()).segmenter.findCandidates(pngRef(crop), {
-    trace, max: MAX_CANDIDATES, maxCoverage: 1, dropContainers: false, ...(phrases?.length ? { phrases } : {}),
+  const { segments } = await registry.segmenter.findCandidates(pngRef(crop), {
+    trace, max: MAX_CANDIDATES, maxCoverage: 1, dropContainers: false, ...(searchPhrases?.length ? { phrases: searchPhrases } : {}),
   });
+  const frameArea = (x1 - x0) * (y1 - y0);
   return segments.map((s): Segment => {
     const mask = placeMask(s.mask, size.w, size.h, x0, y0);
     return { ...s, mask, bbox: [s.bbox[0] + x0, s.bbox[1] + y0, s.bbox[2] + x0, s.bbox[3] + y0] };
-  }).filter((s) => area(s.mask) > 0).sort((p, q) => area(q.mask) - area(p.mask));
+  }).filter((s) => area(s.mask) > 0).sort((p, q) => {
+    // T153: a mask filling the crop (the whole drawing) goes last, so the auto-cut is the largest subject.
+    const pf = area(p.mask) > frameArea * MAX_FRAME_COVERAGE, qf = area(q.mask) > frameArea * MAX_FRAME_COVERAGE;
+    return pf !== qf ? (pf ? 1 : -1) : area(q.mask) - area(p.mask);
+  });
 }
 
 /**

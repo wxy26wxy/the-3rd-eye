@@ -181,7 +181,7 @@ describe("createFromImage framed (T143, round 4: the upload is the creator's cro
     expect(state.findOpts[0]).toMatchObject({ maxCoverage: 1, dropContainers: false });
     expect(state.reads).toEqual([]); // the stored original is passed on, not read back
     expect(out.imageSize).toEqual({ w: 1200, h: 900 });
-    expect(out.candidates.map((c) => c.bbox)).toEqual([[0, 0, 1200, 900], [10, 10, 40, 40]]); // largest first
+    expect(out.candidates.map((c) => c.bbox)).toEqual([[10, 10, 40, 40], [0, 0, 1200, 900]]); // T153: the frame-filling mask goes last
     const row = out.artwork as unknown as { cleanedUrl: string; status: string };
     expect(row.status).toBe("ready");
     expect(row.cleanedUrl).toBeTruthy();

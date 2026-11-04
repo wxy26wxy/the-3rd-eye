@@ -55,6 +55,8 @@ export interface Segmenter {
 export type Description = { alt_text: string; spoken: string; dominant_colors: string[]; subject: string; differences_from_prompt: string };
 export interface Describer {
   describe(image: ImageRef, opts: { prompt?: string; trace: Trace }): Promise<Description>;
+  /** T153: up to 3 distinct things drawn or made in the picture, main subject first, as short noun phrases; [] for one plain drawing. */
+  subjects(image: ImageRef, opts: { trace: Trace }): Promise<string[]>;
 }
 
 export type ListingDraft = {

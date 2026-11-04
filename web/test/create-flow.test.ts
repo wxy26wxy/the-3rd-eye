@@ -280,6 +280,15 @@ describe("T155: a strip tap is local; Use this sends the pick once", () => {
     expect(out.cut).toMatchObject({ cutFrom: "c2", points: pts });
   });
 
+  it("marks on c1, tap c2, tap c1: the row holds the marked cut, so Use this sends the pick", async () => {
+    const h = harness({ ...piece });
+    const marked = withCuts({ points: [{ x: 5, y: 6, label: "positive" }] });
+    const c2 = (await pickPiece(h.deps, marked, "c2")).cut;
+    const c1 = (await pickPiece(h.deps, c2, "c1")).cut;
+    expect(c1.selectedIds).toEqual(["c1"]);
+    expect(needsPick(c1)).toBe(true);
+  });
+
   it("a missing cut: one re-read after the wait, then local when it arrived", async () => {
     const h = harness({ ...piece }, { "artworks/p1": { candidates: withCuts().candidates } });
     const cut = withCuts({ candidates: candidates.map((c) => ({ ...c })) });

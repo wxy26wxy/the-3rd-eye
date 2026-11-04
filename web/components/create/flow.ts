@@ -243,12 +243,19 @@ export function pickRequest(candidateId: string, box: Box): { candidateIds: stri
  */
 export function pickLocal(cut: CutoutState, id: string): CutoutState | null {
   const url = cut.candidates.find((x) => x.id === id)?.cleanedUrl;
-  return url ? { ...cut, selectedIds: [id], cleanedUrl: url, points: [] } : null;
+  // A row cut made with marks is no longer any piece's raw cut: the next "Use this" must send the pick.
+  return url ? { ...cut, selectedIds: [id], cleanedUrl: url, points: [], ...(cut.points.length > 0 ? { cutFrom: undefined } : {}) } : null;
 }
 
 /** "Use this" sends the pick only when the selected piece is not the one the row was last cut from. */
 export function needsPick(cut: Pick<CutoutState, "selectedIds" | "cutFrom">): boolean {
   return !!cut.selectedIds[0] && cut.selectedIds[0] !== cut.cutFrom;
+}
+
+/** What "Use this" sends when the cut on screen is saved: the pick for a piece the row was not cut from, else nothing. */
+export function pickToSend(cut: Pick<CutoutState, "selectedIds" | "cutFrom">, box: Box | null): ReturnType<typeof pickRequest> | null {
+  const id = cut.selectedIds[0];
+  return box && id && needsPick(cut) ? pickRequest(id, box) : null;
 }
 
 /** Waits before the one re-read of a piece whose cut is missing. */

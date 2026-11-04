@@ -12,7 +12,7 @@ import {
 } from "../cutout";
 import { describeError, type ScreenError } from "../errors";
 import {
-  applyMarks, areaNotFound, needsPick, cutIsChange, cutoutNewPhoto, cutoutVisit, makingCutoutBack, photoGone, PhotoGoneError, pickPiece, pickRequest, runAreaCut,
+  applyMarks, areaNotFound, pickToSend, cutIsChange, cutoutNewPhoto, cutoutVisit, makingCutoutBack, photoGone, PhotoGoneError, pickPiece, runAreaCut,
   showsPieces, takeCutout, yourCutoutBack, type CropUpload,
 } from "../flow";
 import { cutoutOf, getCreator, getDraft, once, resetDraft, updateDraft, useCreate, useCreator, type CutoutState, type Draft } from "../store";
@@ -220,7 +220,8 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
       setPoints([]);
       tell(out.notice);
       setShowCut(true);
-      focusOn("result");
+      // A local tap keeps focus on the pressed piece; a server re-cut moves it to the result.
+      if (waiting) focusOn("result");
     } catch (err) {
       if (!live.current) return;
       setError(describeError(err));
@@ -237,7 +238,8 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
   /** "Use this": the saved cut goes on (no second call); marks that were not applied yet are saved first. */
   async function goOn() {
     if (inFlight.current) return;
-    if (saved && (!needsPick(cutout) || !box)) {
+    const pickReq = saved ? pickToSend(cutout, box) : null;
+    if (saved && !pickReq) {
       if (cutout.cleanedUrl) takeCutout({ router, update: updateDraft, getDraft }, artworkId);
       return;
     }
@@ -245,7 +247,7 @@ function YourCutoutFlow({ cutout }: { cutout: CutoutState }) {
     setWork("use");
     setError(null);
     // The piece tapped on the strip is sent now (a pure pick); marks not applied yet carry it themselves.
-    const cut = await save("use", saved ? pickRequest(cutout.selectedIds[0], box as NonNullable<typeof box>) : undefined);
+    const cut = await save("use", pickReq ?? undefined);
     inFlight.current = false;
     if (!live.current) return;
     setWork(null);

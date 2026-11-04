@@ -159,4 +159,25 @@ describe("pnpm story-video: the run (pipeline mocked)", () => {
     expect(none.calls).not.toContain("put c1");
     expect(none.updates).toEqual([]);
   });
+
+  it("dry run on a silent track says that no captions would be stored", async () => {
+    const t = deps({ caption: async () => ({ vtt: "WEBVTT\n", transcript: " " }) });
+    await storyVideo(t.d, { slug: "june-park", file: "v.mp4", dryRun: true });
+    expect(t.lines).toContain("transcript: (silence: no captions would be stored)");
+    expect(t.updates).toEqual([]);
+  });
+
+  it("stops with a clear error when the creator update returns nothing", async () => {
+    const t = deps();
+    t.d.update = async () => null;
+    await expect(storyVideo(t.d, { slug: "june-park", file: "v.mp4", dryRun: false })).rejects.toThrow(/Could not update creator "june-park"/);
+    expect(t.calls).not.toContain("draft c1 false");
+  });
+
+  it("drafts without the disability mention when the stored choice is unset", async () => {
+    const t = deps();
+    t.d.update = async () => ({ mentionDisability: null as unknown as boolean });
+    await storyVideo(t.d, { slug: "june-park", file: "v.mp4", dryRun: false });
+    expect(t.calls).toContain("draft c1 false");
+  });
 });
